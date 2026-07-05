@@ -1,0 +1,26 @@
+.
+├── docs
+│   ├── adr
+│   │   └── INDICE_ADR.md
+│   ├── backlog.md
+│   ├── contratos
+│   │   └── contrato_processo_desenvolvimento.md
+│   ├── handoff
+│   │   └── README.md
+│   ├── INDICE.md
+│   ├── issues.md
+│   ├── relatorios
+│   │   ├── engenharia
+│   │   ├── qa
+│   │   └── README.md
+│   └── templates
+│       ├── TEMPLATE_ADR.md
+│       ├── TEMPLATE_BUG.md
+│       ├── TEMPLATE_HANDOFF_IMPLEMENTACAO.md
+│       ├── TEMPLATE_HANDOFF_QA.md
+│       ├── TEMPLATE_RELATORIO_IMPL.md
+│       ├── TEMPLATE_RELATORIO_QA.md
+│       └── TEMPLATE_RFC.md
+└── tree.txt
+
+9 directories, 15 files
