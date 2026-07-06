@@ -1,30 +1,74 @@
 {
   "_meta": {
     "nome": "lancador",
-    "descricao": "Parametros concretos de layout e verificacao do lancador (antigo corpo tipo menu)",
+    "descricao": "Parametros concretos de layout, verificacao e navegacao do lancador",
     "status": "ativo",
-    "observacao": "Este arquivo nao substitui config/layout_menu.json ainda — a migracao dos artefatos que ainda referenciam o tipo menu fica para DOC-0009"
+    "arquivo_canonico": true,
+    "substitui": "config/layout_menu.json",
+    "observacao": "Parametros uteis de config/layout_menu.json foram migrados para este arquivo no DOC-0009. O arquivo antigo permanece apenas como artefato obsoleto/transicional."
   },
   "verificacao": {
     "texto": {
       "max_caracteres": 15
     }
   },
+  "eixos": {
+    "distribuicao_lancador": {
+      "valores_possiveis": ["fila", "matriz"],
+      "origem": "calculado_automaticamente_pelo_renderer",
+      "declarado_pela_classe": false,
+      "ajustavel_por_chip": false
+    }
+  },
   "layout": {
     "vaos": {
       "chip_texto": {
         "minimo": 1,
-        "maximo": 3
+        "maximo": 3,
+        "descricao": "espaco entre o chip e o texto, dentro de um mesmo item"
+      },
+      "entre_itens_colunas_margem": {
+        "minimo": 2,
+        "maximo": 5,
+        "descricao": "espaco entre itens na mesma linha, entre colunas em modo matriz, e entre a borda e o primeiro/ultimo elemento"
       }
+    },
+    "distribuicao_de_sobra": {
+      "prioridade": ["vaos_entre_itens", "margem_borda_elemento"],
+      "descricao": "espaco sobrando estica primeiro os vaos entre itens ate o maximo; depois o restante vai para a margem borda-elemento ate seu teto"
+    },
+    "alinhamento": {
+      "horizontal_sobra_excedente": "direita",
+      "descricao_horizontal": "sobra alem de todos os tetos fica a direita do bloco",
+      "vertical_maximo_linhas_brancas_entre_itens": 2,
+      "descricao_vertical": "distribuicao uniforme entre itens; espaco restante apos aplicar o limite de linhas em branco vai para topo/base do bloco"
     },
     "colunas": {
       "alinhamento_interno": "esquerda",
       "uma_coluna": {
-        "alinhamento_bloco": "centralizado"
+        "alinhamento_bloco": "esquerda"
       },
       "multiplas_colunas": {
-        "distribuicao_horizontal": "uniforme"
+        "distribuicao_horizontal": "vaos_elasticos_com_sobra_direita"
       }
+    },
+    "calculo_de_colunas": {
+      "etapa_1": "tenta caber todos os itens numa linha so (n_col = numero de itens), usando vaos no minimo",
+      "etapa_2": "se nao couber em uma linha, distribui em matriz; maximiza colunas usando vaos no minimo; so aumenta uma linha (reduz uma coluna) se a distribuicao anterior nao coube na largura disponivel mesmo no vao minimo",
+      "teto_absoluto_de_colunas": null,
+      "nota": "sem teto absoluto; o unico limite e a largura disponivel"
+    },
+    "matriz": {
+      "ordem_preenchimento": "coluna_a_coluna",
+      "largura_coluna": "maior_item_da_propria_coluna",
+      "alinhamento_item_na_coluna": "esquerda",
+      "sub_colunas": {
+        "descricao": "chip e texto alinham como duas sub-colunas independentes dentro de cada coluna da grade",
+        "chip": "alinhado a esquerda pela largura do maior chip daquela coluna",
+        "texto": "alinhado a esquerda pela largura do maior texto daquela coluna, apos o vao layout.vaos.chip_texto",
+        "efeito": "todos os textos de uma coluna comecam na mesma posicao horizontal, mesmo com chips de tamanhos diferentes"
+      },
+      "coluna_incompleta": "celula vazia, sem preenchimento visual especial"
     },
     "vertical": {
       "margem_borda_superior": 1,
@@ -34,5 +78,9 @@
         "maximo": 2
       }
     }
+  },
+  "navegacao": {
+    "wrap": "toroidal; cada eixo (linha e coluna) fecha de forma independente",
+    "celula_vazia": "linha ou coluna incompleta forma seu proprio toroide local, contando so as posicoes preenchidas; o cursor nunca entra em celula vazia e o movimento nunca muda de eixo para evitar o vazio"
   }
 }

@@ -4,7 +4,7 @@ description: Indice da documentacao padrao para desenvolvimento de scripts
 metadata:
   type: indice
   scope: scripts
-  atualizado_em: 2026-07-05
+  atualizado_em: 2026-07-06
 ---
 
 # Indice — Documentacao de Scripts
@@ -47,11 +47,11 @@ Antes de mover este padrao para outro projeto, verificar:
 scripts/
   config/
     estilo.json
-    layout_menu.json
+    lancador.json
     layout_dado.json
     barra_de_menus.json
     cabecalho.json
-    lancador.json
+    layout_menu.json  # obsoleto/transicional; nao canonico
   docs/
     INDICE.md
     NOMENCLATURA.md

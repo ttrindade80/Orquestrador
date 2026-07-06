@@ -127,13 +127,17 @@ que ainda usam `menu` como nome do tipo fica para DOC-0009.
 
 ### DOC-0009 — Migrar artefatos de `menu` para `lancador`
 **Tipo:** documentacao
-**Status:** pronto_para_execucao
-**Arquivo(s) envolvido(s):** `docs/NOMENCLATURA.md` (seções 2–10), `docs/contratos/contrato_composicao_corpo.md`, `config/layout_menu.json`
+**Status:** concluido
+**Concluido_em:** 2026-07-06
+**Arquivo(s) envolvido(s):** `docs/NOMENCLATURA.md` (seções 2–10), `docs/contratos/contrato_composicao_corpo.md`, `config/lancador.json`, `config/layout_menu.json`, `docs/INDICE.md`
 **Origem:** `docs/NOMENCLATURA.md` seção 13; DOC-0008
 **Descrição:** revisar e atualizar os artefatos existentes que ainda referenciam
 o tipo de objeto do corpo como `menu`, substituindo pelo termo canônico
-`lancador`. Executar somente após conclusão de DOC-0008.
-**Próxima ação:** executar após DOC-0008 concluído; revisar cada artefato listado.
+`lancador`. Executado após conclusão de DOC-0008. `config/lancador.json`
+passa a ser o arquivo canônico, com parâmetros úteis migrados de
+`config/layout_menu.json`; `config/layout_menu.json` permanece apenas como
+artefato obsoleto/transicional de rastreabilidade.
+**Próxima ação:** — (concluído)
 
 ## Itens bloqueados (precisam de sessão de decisão antes de virar tarefa)
 
@@ -149,7 +153,7 @@ outra estratégia. Ainda não descrito pelo usuário.
 **Origem:** `docs/NOMENCLATURA.md` seção 11
 **Descrição:** janela temporária de saída de execução de script — não é
 corpo, Info, nem barra_de_menus. Usuário mencionou já ter ideias, mas
-decidiu tratar depois de fechar o `menu`. Precisa de: tamanho, posição,
+decidiu tratar depois de fechar o `lancador`. Precisa de: tamanho, posição,
 critério de fechamento, se bloqueia a tela por trás, borda própria do
 schema de estilo.
 
@@ -164,7 +168,7 @@ trata. Precisa perguntar antes de qualquer coisa.
 **Status:** bloqueado_decisao
 **Origem:** `docs/NOMENCLATURA.md` seção 9, seção 11
 **Descrição:** duas coisas amarradas — (a) se `Info` acompanha a mudança
-se o `Info` acompanha a regra de sobra à direita do `menu` ou mantém centralização como o `dado`;
+se o `Info` acompanha a regra de sobra à direita do `lancador` ou mantém centralização como o `dado`;
 (b) a reorganização maior de telas só-visualização usarem `Info` como
 conteúdo principal e telas de processo usarem `corpo`. Explicitamente
 remarcado para um chat/sessão dedicado a `Info` — escopo grande demais

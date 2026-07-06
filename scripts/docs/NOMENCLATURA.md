@@ -6,7 +6,7 @@ metadata:
   scope: sistema_novo
   status: parcial
   origem_especificacao: usuario_sessao_2026-07-05
-  atualizado_em: 2026-07-05
+  atualizado_em: 2026-07-06
   reaproveitado_de_legado: false
 ---
 
@@ -26,7 +26,7 @@ como origem da decisão — a decisão em si continua vindo do usuário.
 
 ## 0. Política — NOMENCLATURA.md vs arquivos JSON de dados (decidida nesta sessão)
 
-Cada domínio de renderização (`estilo`, corpo tipo `menu`, corpo tipo `dado`,
+Cada domínio de renderização (`estilo`, corpo tipo `lancador`, corpo tipo `dado`,
 `Info`, `barra_de_menus` e `cabecalho`) tem exatamente **dois**
 artefatos, com responsabilidades separadas e não sobrepostas:
 
@@ -42,8 +42,8 @@ deste documento — inconsistência corrigida quando `estilo.json` foi gerado
 
 **Nomenclatura de arquivo**: nunca usar abreviação que misture dois termos
 já distinguidos neste glossário (ex.: nunca `barra_menu.json` — usar
-`barra_de_menus.json`; nunca `menu.json` sozinho se puder ser confundido com
-`barra_de_menus` — usar `layout_menu.json`, já em uso).
+`barra_de_menus.json`). Para o corpo tipo `lancador`, o arquivo canônico é
+`config/lancador.json`; não criar `config/layout_lancador.json`.
 
 **Localização**: todos os JSON de configuração ficam em `config/`, dentro de
 `scripts/`, irmã de `docs/` — nunca dentro de `docs/` (que é documentação
@@ -54,7 +54,7 @@ neutra, sem dado de produção, ver `docs/INDICE.md`).
 | Domínio | JSON | Status |
 |---|---|---|
 | Estilo | `config/estilo.json` | feito (seção 1) |
-| Corpo tipo `menu` | `config/layout_menu.json` | feito (seção 8.4) |
+| Corpo tipo `lancador` | `config/lancador.json` | feito (seção 8.4) |
 | Corpo tipo `dado` | `config/layout_dado.json` | feito (seção 4) |
 | `Info` | *(a definir)* | não iniciado — vai ser tratado em outro chat |
 | `barra_de_menus` | `config/barra_de_menus.json` | feito (seção 5.1) |
@@ -123,7 +123,7 @@ Escolha manual do usuário, não decisão automática por largura de
 terminal. Não existe largura mínima de segurança que force sobreposto —
 a preferência do usuário sempre vale quando aplicada.
 
-**Escopo**: aplica-se apenas a arranjo de 2+ corpos tipo `dado`/`menu`.
+**Escopo**: aplica-se apenas a arranjo de 2+ corpos tipo `dado`/`lancador`.
 Nunca decide posição do objeto `Info` (esse é eixo próprio, ver seção 3).
 
 **É default, não obrigatório**: a classe de tela pode fixar seu próprio
@@ -173,9 +173,8 @@ Toda tela do sistema tem exatamente estas tres regioes:
 ### 2.1 Tipos de objeto do corpo
 
 - **dado**: dados propriamente ditos, incluindo saida de script/log.
-- **menu** *(nome descontinuado — ver seção 13)*: passa a ser chamado de
-  **`lancador`** daqui em diante. Objeto do corpo que é uma composição de
-  navegação (não confundir com `barra_de_menus`, que é a região fixa da tela).
+- **lancador**: objeto do corpo que é uma composição de navegação para outras
+  telas (não confundir com `barra_de_menus`, que é a região fixa da tela).
 - **Info**: objeto opcional do corpo — resumo/legenda dos dados exibidos.
 
 Extensibilidade: um novo tipo de conteudo pode ser adicionado no futuro
@@ -192,27 +191,27 @@ barra_de_menus.
 
 | Eixo | Valores |
 |---|---|
-| Tipo de conteudo | `menu`, `dado` |
+| Tipo de conteudo | `lancador`, `dado` |
 | Tipo de exibicao | `normal` (lista simples) / `verboso` (detalhes) — depende dos dados |
 | Info | presente / ausente |
 | Quantidade de corpos | 1 corpo / múltiplos corpos |
 | Arranjo de múltiplos corpos (opcional) | `sobreposto` / `lado_a_lado` — a classe PODE fixar isso; se não fixar, usa o `tiling` global do estilo (seção 1.4) como default |
-| Posição do Info | `horizontal` (lado) / `vertical` (inferior) — declarada por classe, sempre. Eixo próprio, **não** afetado pelo `tiling` do estilo — tiling só rege corpos tipo dado/menu, nunca a posição do Info |
+| Posição do Info | `horizontal` (lado) / `vertical` (inferior) — declarada por classe, sempre. Eixo próprio, **não** afetado pelo `tiling` do estilo — tiling só rege corpos tipo dado/lancador, nunca a posição do Info |
 | Paginacao | com / sem |
 | Colunas ajustavel (tipo `dado`) | com / sem — eixo proprio, distinto de paginacao. Aplica-se apenas a corpos tipo `dado`, ajustável manualmente via chip `[-][+]` |
 | `filtro_de_grupo` | `com` / `sem` — eixo próprio; condiciona a existência estrutural do chip `[#]`; não decide ainda a relação entre filtro de grupo e seleção |
 | `formacao_de_selecao` | `com` / `sem` — eixo próprio; condiciona a existência estrutural do chip `[␣]` e participa da semântica do rótulo dinâmico de `[⏎]` |
 | Espacamento interno | universal (renderer): linha em branco entre borda e conteudo, sempre |
-| Organizacao horizontal | regra minima por tipo de conteudo (menu vs dado) — ver secao 6 |
+| Organizacao horizontal | regra minima por tipo de conteudo (lancador vs dado) — ver secao 6 |
 
-**Nota — corpo tipo `menu` também pode ter múltiplas colunas** (decisão
+**Nota — corpo tipo `lancador` também pode ter múltiplas colunas** (decisão
 desta sessão, formalizada em ADR-0001 — `docs/adr/ADR-0001-menu-suporta-matriz.md`): diferente
 do eixo `colunas_ajustavel` do `dado` (declarado com/sem pela classe,
-ajustável manualmente via chip), o número de colunas do `menu` é regido
-pelo eixo **`distribuicao_menu`** (valores `fila` | `matriz`), calculado
+ajustável manualmente via chip), o número de colunas do `lancador` é regido
+pelo eixo **`distribuicao_lancador`** (valores `fila` | `matriz`), calculado
 **automaticamente** a partir da largura real do terminal — não é declarado
 pela classe nem ajustável manualmente via chip. Algoritmo completo na
-seção 8.3; valores em `config/layout_menu.json`.
+seção 8.3; valores em `config/lancador.json`.
 
 ---
 
@@ -242,7 +241,7 @@ aparecer. Nao ha decisao de coexistencia/exclusividade travada agora.
 `[✥]` é a dica visual de "use as setas do teclado" — a navegação em si é
 feita pelas quatro setas, não por uma tecla própria.
 
-- **Corpo em formato de matriz/grade** (ex.: `menu` em matriz, `dado` em
+- **Corpo em formato de matriz/grade** (ex.: `lancador` em matriz, `dado` em
   colunas): as setas seguem a geometria real da grade — cima/baixo move
   dentro da coluna, esquerda/direita move entre colunas. Não é uma ordem
   abstrata de "próximo/anterior", é navegação 2D pela posição visual.
@@ -310,7 +309,7 @@ seu próprio lugar fixo.)
 
 ### 4.3 Espaçamento e layout do corpo tipo `dado` (decidido nesta sessão)
 
-Regras próprias, distintas das do corpo tipo `menu` (seção 8) — **não
+Regras próprias, distintas das do corpo tipo `lancador` (seção 8) — **não
 compartilham arquivo de configuração** (ver seção 4.4).
 
 **Vãos** (valores iniciais, todos configuráveis):
@@ -323,12 +322,12 @@ compartilham arquivo de configuração** (ver seção 4.4).
 
 **Alinhamento**: `ec`, `tg` e `tx` sempre alinhados verticalmente entre
 todas as linhas de uma coluna (uniformidade de coluna). **Sobra de espaço
-fica centralizada** (esquerda e direita) — diferente do corpo tipo `menu`,
+fica centralizada** (esquerda e direita) — diferente do corpo tipo `lancador`,
 que fechou em bloco à esquerda com sobra à direita (seção 8.1, ADR-0002); são regras independentes
 por tipo de corpo, não uma regra geral do sistema.
 
 **Tamanho de coluna**: definido pelo maior item daquela coluna específica
-(mesma lógica já usada no `menu` em matriz, seção 8.2).
+(mesma lógica já usada no `lancador` em matriz, seção 8.2).
 
 **Número de colunas**:
 - Inicial: o máximo possível, aplicando a distribuição de vãos acima
@@ -375,7 +374,7 @@ Campos cobertos pelo arquivo:
 | `[-][+]` | Colunas | condicional | classe declara `colunas_ajustavel: com` (tipo `dado`) | `[-]` inativo em `n_col` mínimo (1); `[+]` inativo em `n_col` máximo que a largura atual comporta |
 | `[#]` | Grupos | condicional | classe declara filtro por grupo — abre entrada para digitar número do grupo, filtra exibição | — |
 | `[⇆]` | Alternar | condicional | `quantidade_corpos: multiplos` — alterna foco de interação entre corpos | — |
-| `[✥]` | Navegar | condicional | tela possui ao menos um corpo navegável (tipo `dado` ou `menu`) — move o cursor via setas do teclado quando o corpo em foco é navegável (ver 4.1) | inativo via `cor_inativo` quando o corpo em foco não é navegável |
+| `[✥]` | Navegar | condicional | tela possui ao menos um corpo navegável (tipo `dado` ou `lancador`) — move o cursor via setas do teclado quando o corpo em foco é navegável (ver 4.1) | inativo via `cor_inativo` quando o corpo em foco não é navegável |
 | `[␣]` | Selecionar | condicional | classe declara formação de seleção (ver seção 4) — toggle nomeado, indicador `●`/`○` | — |
 | `[⏎]` | **Todos** / **Executar** / **Visualizar** (ver 5.1.2) | sempre | executa a ação vinculada ao item sob o cursor ou sobre a seleção, conforme o tipo de tela | inativo quando não há alvo válido sob o cursor |
 | específicos | (por classe) | condicional | chips próprios da classe — ver seção 5.2 | — |
@@ -449,7 +448,7 @@ mas ainda não tem estrutura definida:
 | **Toggle** | texto, tecla, `ativo` (booleano), papel | filtro de exibição, liga/desliga |
 | **Múltiplo** | texto, teclas (plural), cores (por tecla), papel | filtro de exibição, conjunto de opções (`set`), tipicamente mutuamente exclusivas entre si |
 | **Aciona processo** | *(estrutura a definir)* | executa lógica sobre seleção/lote — sem precedente formal em `teste_classe_c.py`. Lógica real de execução existe em `orquestrador.py` (não `teste_orquestrador_v2.py`), mas está misturada com `print()` direto no meio do código — na extração, separar o que é *processo* (mantém) do que é *exibição* (descarta, substituído pelo renderer novo) |
-| **Aciona tela** | texto, tecla, `tela_destino`, papel | abre outra tela (navegação) — ex.: `[\|] Estilo` abre a tela/shadow menu de seleção de estilo. Diferente de "aciona processo": não executa lógica de fundo, só troca de tela |
+| **Aciona tela** | texto, tecla, `tela_destino`, papel | abre outra tela (navegação) — ex.: `[\|] Estilo` abre a tela de seleção de estilo. Diferente de "aciona processo": não executa lógica de fundo, só troca de tela |
 
 `[|] Estilo` é um exemplo de específico do tipo **aciona tela**, presente
 na barra_de_menus do Orquestrador; provavelmente recorrente em várias
@@ -469,17 +468,17 @@ telas, mas classificado como específico, não como canônico da ordem fixa
   terminal em tempo real — não lê a largura uma vez na inicialização e
   guarda; a tela se ajusta enquanto está aberta, sem precisar reiniciar.
 - **Organização horizontal por tipo de conteúdo do corpo** (revisado):
-  - `menu`: **pode ser linha única horizontal (fila) ou matriz de múltiplas
+  - `lancador`: **pode ser linha única horizontal (fila) ou matriz de múltiplas
     colunas**, calculado automaticamente pela largura real do terminal
     (ADR-0001 — supera a regra anterior de "sempre coluna única, sem colunas";
     ver `docs/adr/ADR-0001-menu-suporta-matriz.md` e seção 12). Continua **sem paginação** mesmo em modo matriz —
-    overflow em `menu` não pagina (regra mantida). Regras completas de
+    overflow em `lancador` não pagina (regra mantida). Regras completas de
     layout na seção 8.
   - `dado`: colunar (modo normal, `n_col` ajustável) ou tabular (modo
     verboso, largura de coluna calculada por conteúdo, texto longo quebra
     dentro da coluna).
 - **Overflow**: nunca existe scroll. Conteúdo que excede o espaço
-  disponível sempre pagina (exceto `menu`, ver acima). Espaço sobrando é
+  disponível sempre pagina (exceto `lancador`, ver acima). Espaço sobrando é
   preenchido (padding), nunca deixado vazio de forma desorganizada.
 
 ### 6.1 Indicador de paginação
@@ -529,7 +528,7 @@ layout lado a lado com objeto Info presente ao mesmo tempo.
 Região fixa superior de toda tela do sistema (ver seção 2). Sempre existe;
 nunca ausente, condicional ou opcional.
 
-O `cabecalho` não é corpo, não é `Info`, não é `menu` e não é
+O `cabecalho` não é corpo, não é `Info`, não é `lancador` e não é
 `barra_de_menus`. Não herda regras de layout de nenhuma dessas regiões.
 
 ### 7.1 Campos textuais
@@ -590,14 +589,9 @@ O arquivo não contém textos concretos de telas (valores de `titulo` e
 
 ---
 
-## 8. Corpo tipo `menu` — regras de layout (revisado nesta sessão)
+## 8. Corpo tipo `lancador`
 
-> **Nota terminológica (2026-07-06):** o tipo de objeto do corpo documentado
-> nesta seção passa a ser chamado formalmente de `lancador` (decisão registrada
-> na seção 13). O nome `menu` permanece nesta seção por rastreabilidade; os
-> artefatos serão atualizados em etapa posterior.
-
-Aplica-se a qualquer corpo cujo tipo de conteúdo seja `menu` (ver seção
+Aplica-se a qualquer corpo cujo tipo de conteúdo seja `lancador` (ver seção
 2.1), não apenas à tela Orquestrador. Cobre os dois modos: **fila** (linha única horizontal) e **matriz** (múltiplas colunas) — ver seção 6.
 
 ### 8.1 Vãos (espaçamento) — mínimo e máximo, nunca fixo
@@ -622,7 +616,7 @@ bloco. Vale tanto para o modo fila quanto para o modo matriz.
 ### 8.2 Modo matriz
 
 - Largura de cada coluna = largura do maior item **daquela coluna**
-  específica (não do maior item de todo o menu).
+  específica (não do maior item de todo o `lancador`).
 - Itens alinhados à esquerda dentro da coluna.
 - **Chip e rótulo alinham como duas sub-colunas independentes** (fechado
   nesta sessão): dentro de cada coluna da grade, o chip (`[R]`) alinha à
@@ -650,24 +644,23 @@ Duas etapas, nesta ordem:
    coluna) se a distribuição anterior não coube na largura disponível
    mesmo com os vãos no mínimo. A largura de cada coluna já usa a largura
    do maior item **daquela coluna específica** (seção 8.2), não uma
-   aproximação pelo maior item do menu inteiro.
+   aproximação pelo maior item do `lancador` inteiro.
 
 Em ambas as etapas, depois de achar a distribuição que cabe, os vãos
 esticam até o máximo pra preencher a sobra (ver 8.1). **Sem teto absoluto
 de colunas** — o único limite é a largura disponível.
 
-**Número mínimo de linhas**: 1 (configurável via `layout_menu.json`, ver
+**Número mínimo de linhas**: 1 (configurável via `config/lancador.json`, ver
 8.4).
 
-### 8.4 Parametrização externa — `config/layout_menu.json`
+### 8.4 Parametrização externa — `config/lancador.json`
 
 Decisão desta sessão: as regras de vão, alinhamento e linhas mínimas do
-corpo tipo `menu` vivem num arquivo de configuração próprio, não
+corpo tipo `lancador` vivem num arquivo de configuração próprio, não
 hardcoded — mesmo espírito da "proibição de hardcoding" já usada no schema
 de estilo (seção 1, `contrato_estilo.md`). Caminho do arquivo:
-`config/layout_menu.json` (ver política da seção 0) — **não usar
-"barra_menu"**, pois mistura os termos `menu` (tipo de objeto do corpo) e
-`barra_de_menus` (região fixa da tela), que a seção 2 proíbe confundir.
+`config/lancador.json` (ver política da seção 0). Não criar
+`config/layout_lancador.json`.
 
 Campos identificados até agora (schema ainda não fechado como contrato
 formal — ver seção 11):
@@ -697,13 +690,13 @@ Estrutura: lista de pares rótulo/valor, uma linha separadora, uma linha de
 Total, uma linha em branco obrigatória, e uma segunda lista de marcadores
 (símbolo + rótulo + valor).
 
-**Alinhamento horizontal:** mesma regra do corpo tipo `menu` (seção 8) —
+**Alinhamento horizontal:** mesma regra do corpo tipo `lancador` (seção 8) —
 coluna dimensionada pelo maior rótulo, alinhamento à esquerda dentro do
-bloco. **Pendente de confirmação** (ver seção 11): o `menu` adotou bloco
+bloco. **Pendente de confirmação** (ver seção 11): o `lancador` adotou bloco
 à esquerda com sobra à direita (ADR-0002) — falta decidir se o `Info`
 acompanha essa mudança ou mantém centralização.
 
-**Alinhamento vertical:** mesma regra do corpo tipo `menu` (seção 8), com
+**Alinhamento vertical:** mesma regra do corpo tipo `lancador` (seção 8), com
 uma exceção obrigatória: sempre existe exatamente 1 linha em branco entre
 a linha de "Total" e o início da lista de marcadores — essa linha não é
 opcional nem sujeita à distribuição uniforme geral.
@@ -739,7 +732,7 @@ incompleto, não um estado real do sistema.
 
 ---
 
-## 10. Tiling (2+ corpos tipo dado/menu — não se aplica ao Info)
+## 10. Tiling (2+ corpos tipo dado/lancador — não se aplica ao Info)
 
 - Quantidade de corpos (1 / múltiplos) é declarada pela classe de tela
   (seção 3).
@@ -773,15 +766,15 @@ Itens que ainda não têm decisão do usuário:
   fechamento, bloqueio de tela por trás, borda própria do schema de
   estilo).
 - **Impacto no alinhamento do objeto `Info`**: ver seção 9 — falta
-  confirmar se acompanha a mudança do `menu` (centralizado → bloco à esquerda com sobra à direita) ou
+  confirmar se acompanha a mudança do `lancador` (centralizado → bloco à esquerda com sobra à direita) ou
   segue centralizado como o `dado` (seção 4.3). Tratar junto do chat
   dedicado a `Info`.
 - **Segunda pauta de "estilos de exibição de dados no corpo"**:
   mencionada pelo usuário nesta sessão, ainda não descrita.
-- **`layout_menu.json` — campos de navegação**: vãos, alinhamento e número
+- **`config/lancador.json` — campos de navegação**: vãos, alinhamento e número
   mínimo de linhas já formalizados via ADR-0003 e `contrato_composicao_corpo.md`
   (seção 5.2). Pendente apenas a formalização dos campos de `navegacao` em
-  `config/layout_menu.json`, que deve aguardar o contrato de mecanismos de
+  `config/lancador.json`, que deve aguardar o contrato de mecanismos de
   seleção/navegação.
 - **Reorganização corpo × Info** (relatórios só-visualização usando `Info`
   como conteúdo principal, telas de processo usando `corpo`): mencionada
@@ -794,7 +787,7 @@ Resumo do levantamento neutro já recebido, mantido aqui como evidência de
 apoio (não substitui decisão do usuário):
 
 - Preenchimento de matriz: coluna-a-coluna (`_grade_coluna_continua`,
-  `_colunar_ajustado`), com exceção especial pro menu de 2 linhas.
+  `_colunar_ajustado`), com exceção especial para o antigo menu de 2 linhas.
 - Colunas: legado usa perfis fixos de largura (67/101/135) via `Tab`, não
   largura real do terminal — **não aplicável** ao sistema novo (regra de
   largura dinâmica já fechada, seção 6).
@@ -883,8 +876,12 @@ Fechado:
 Fechado nesta etapa:
 - O nome do arquivo de configuração é **`config/lancador.json`** (decisão fechada em 2026-07-06).
 
-Não fechado — DOC-0008:
-- Criar o contrato próprio do `lancador` e o arquivo inicial `config/lancador.json`.
+Concluído — DOC-0008:
+- Contrato próprio do `lancador` criado em
+  `docs/contratos/contrato_lancador.md`; arquivo canônico inicial criado em
+  `config/lancador.json`.
 
-Não fechado — DOC-0009:
-- Migrar os artefatos existentes que ainda usam `menu` como nome do tipo: `NOMENCLATURA.md` seções 2–10, `contrato_composicao_corpo.md`, `config/layout_menu.json`.
+Concluído — DOC-0009:
+- Artefatos vigentes migrados para `lancador`; `config/lancador.json` é o
+  arquivo canônico. `config/layout_menu.json` permanece apenas como artefato
+  obsoleto/transicional de rastreabilidade.
