@@ -173,9 +173,9 @@ Toda tela do sistema tem exatamente estas tres regioes:
 ### 2.1 Tipos de objeto do corpo
 
 - **dado**: dados propriamente ditos, incluindo saida de script/log.
-- **menu**: um objeto do corpo que e, ele proprio, uma composicao de
-  navegacao (nao confundir com `barra_de_menus`, que e a regiao fixa da
-  tela).
+- **menu** *(nome descontinuado — ver seção 13)*: passa a ser chamado de
+  **`lancador`** daqui em diante. Objeto do corpo que é uma composição de
+  navegação (não confundir com `barra_de_menus`, que é a região fixa da tela).
 - **Info**: objeto opcional do corpo — resumo/legenda dos dados exibidos.
 
 Extensibilidade: um novo tipo de conteudo pode ser adicionado no futuro
@@ -592,6 +592,11 @@ O arquivo não contém textos concretos de telas (valores de `titulo` e
 
 ## 8. Corpo tipo `menu` — regras de layout (revisado nesta sessão)
 
+> **Nota terminológica (2026-07-06):** o tipo de objeto do corpo documentado
+> nesta seção passa a ser chamado formalmente de `lancador` (decisão registrada
+> na seção 13). O nome `menu` permanece nesta seção por rastreabilidade; os
+> artefatos serão atualizados em etapa posterior.
+
 Aplica-se a qualquer corpo cujo tipo de conteúdo seja `menu` (ver seção
 2.1), não apenas à tela Orquestrador. Cobre os dois modos: **fila** (linha única horizontal) e **matriz** (múltiplas colunas) — ver seção 6.
 
@@ -822,3 +827,64 @@ formalizadas em 2026-07-05. A implementação pode incorporá-las.
 | ADR-0002 | `contrato_composicao_corpo.md` | Bloco do `menu` à esquerda com sobra acumulada à direita do bloco (substituí centralização) | Seção 8.1 |
 | ADR-0003 | `contrato_composicao_corpo.md` | Vãos do `menu` (chip↔rótulo, entre itens) deixam de ser valores fixos e passam a ter mínimo/máximo elástico | Seção 8.1 |
 | ADR-0004 | `contrato_estilo.md` | Novos campos genéricos `cor_inativo` e `cor_alerta` | Seção 1.5 |
+
+---
+
+## 13. Decisão terminológica — `lancador` (antigo corpo tipo `menu`)
+
+**Data da decisão:** 2026-07-06
+
+O tipo de objeto do corpo até aqui chamado de `menu` passa a ser chamado
+formalmente de **`lancador`**. Em texto humano, pode aparecer como "lançador".
+
+### Motivação
+
+O termo `menu` criava contaminação terminológica com `barra_de_menus`:
+- `barra_de_menus` é a região fixa da tela (contrato: `contrato_barra_de_menus.md`, `ativo`).
+- O antigo `menu` era um **membro do corpo** — não uma região da tela.
+
+Com `barra_de_menus` já formalizada e fechada, manter `menu` como nome do
+tipo de objeto tornava ambígua qualquer referência genérica a "menu" no
+sistema. `lancador` é um nome sem colisão.
+
+### Desambiguação de termos
+
+| Termo | O que é | Status |
+|---|---|---|
+| `lancador` | membro do corpo; caixa com título e itens `chip + texto + tela_destino` | **ativo** — termo canônico a partir desta decisão |
+| `menu` (corpo) | nome antigo do tipo `lancador` | **descontinuado** — presente nos artefatos existentes por rastreabilidade; não usar em novas decisões |
+| `barra_de_menus` | região fixa da tela — não é membro do corpo | **ativo**, fechado — não reabrir |
+
+### Estrutura conceitual mínima do `lancador`
+
+O `lancador` é uma caixa com título e uma lista de itens. Cada item tem
+exatamente três partes:
+
+| Parte | Descrição |
+|---|---|
+| `chip` | identificador visual de ação (ex.: `[A]`) |
+| `texto` | rótulo do item — **máximo 15 caracteres** |
+| `tela_destino` | campo formal que identifica a tela a ser aberta |
+
+**Regra do texto:** texto acima de 15 caracteres é **rejeitado em
+verificação** — não é truncado nem abreviado. Cabe à classe de tela garantir
+o limite antes de declarar o `lancador`.
+
+**Papel de cada item**: aciona navegação para outra tela (`tela_destino`).
+Não executa processo, não filtra dado, não altera estado.
+
+### Escopo desta decisão
+
+Fechado:
+- O nome formal do tipo é `lancador`.
+- A estrutura mínima (título + itens `chip + texto + tela_destino`) está definida.
+- O limite de 15 caracteres para `texto` é absoluto e verificado (não truncado).
+
+Fechado nesta etapa:
+- O nome do arquivo de configuração é **`config/lancador.json`** (decisão fechada em 2026-07-06).
+
+Não fechado — DOC-0008:
+- Criar o contrato próprio do `lancador` e o arquivo inicial `config/lancador.json`.
+
+Não fechado — DOC-0009:
+- Migrar os artefatos existentes que ainda usam `menu` como nome do tipo: `NOMENCLATURA.md` seções 2–10, `contrato_composicao_corpo.md`, `config/layout_menu.json`.

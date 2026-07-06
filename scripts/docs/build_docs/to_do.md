@@ -110,6 +110,31 @@ com dois campos textuais (`titulo` e `descricao`); textos pertencem à classe/te
 guarda somente parâmetros de apresentação; contrato ativo criado com schema, semântica e regras de uso.
 **Próxima ação:** — (concluído)
 
+### DOC-0008 — Criar contrato do `lancador`
+**Tipo:** documentacao
+**Status:** concluido
+**Concluido_em:** 2026-07-06
+**Arquivo(s) envolvido(s):** `docs/contratos/contrato_lancador.md` (criado), `config/lancador.json` (criado), `docs/INDICE.md` (atualizado)
+**Origem:** `docs/NOMENCLATURA.md` seção 13
+**Descrição:** criar o contrato próprio do `lancador` (antigo corpo tipo `menu`)
+e o arquivo inicial `config/lancador.json`. Decisão terminológica fechada em
+seção 13 do `NOMENCLATURA.md`; nome do arquivo de configuração definido como
+`config/lancador.json` (decisão fechada em 2026-07-06). Estrutura mínima
+definida: título + itens com `chip`, `texto` (máx. 15 caracteres, rejeitado em
+verificação se exceder) e `tela_destino`. Migração dos artefatos existentes
+que ainda usam `menu` como nome do tipo fica para DOC-0009.
+**Próxima ação:** — (concluído)
+
+### DOC-0009 — Migrar artefatos de `menu` para `lancador`
+**Tipo:** documentacao
+**Status:** pronto_para_execucao
+**Arquivo(s) envolvido(s):** `docs/NOMENCLATURA.md` (seções 2–10), `docs/contratos/contrato_composicao_corpo.md`, `config/layout_menu.json`
+**Origem:** `docs/NOMENCLATURA.md` seção 13; DOC-0008
+**Descrição:** revisar e atualizar os artefatos existentes que ainda referenciam
+o tipo de objeto do corpo como `menu`, substituindo pelo termo canônico
+`lancador`. Executar somente após conclusão de DOC-0008.
+**Próxima ação:** executar após DOC-0008 concluído; revisar cada artefato listado.
+
 ## Itens bloqueados (precisam de sessão de decisão antes de virar tarefa)
 
 ### DOC-B001 — Regras de ajuste do `tx` (corpo tipo `dado`)

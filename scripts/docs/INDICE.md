@@ -35,7 +35,8 @@ Antes de mover este padrao para outro projeto, verificar:
 4. `docs/adr/INDICE_ADR.md`
 5. `docs/contratos/` — demais contratos de modulo ja `ativo` (hoje:
    `contrato_estilo.md`, `contrato_composicao_corpo.md`,
-   `contrato_barra_de_menus.md`, `contrato_cabecalho.md`)
+   `contrato_barra_de_menus.md`, `contrato_cabecalho.md`,
+   `contrato_lancador.md`)
 6. `docs/handoff/README.md`
 7. `docs/relatorios/README.md`
 8. Templates em `docs/templates/`, conforme a tarefa.
@@ -50,6 +51,7 @@ scripts/
     layout_dado.json
     barra_de_menus.json
     cabecalho.json
+    lancador.json
   docs/
     INDICE.md
     NOMENCLATURA.md
@@ -61,6 +63,7 @@ scripts/
       contrato_composicao_corpo.md
       contrato_barra_de_menus.md
       contrato_cabecalho.md
+      contrato_lancador.md
     adr/
       INDICE_ADR.md
       ADR-0001-menu-suporta-matriz.md
@@ -90,7 +93,7 @@ tempo de execução (ver `docs/NOMENCLATURA.md` seção 0). Fica dentro de
 | Artefato | Funcao | Regra |
 |---|---|---|
 | Glossário (`NOMENCLATURA.md`) | Fonte única de nomes e schema | Todo contrato deriva dele; ele não guarda valor concreto de produção (ver seção 0) |
-| Config (`config/*.json`) | Valores concretos que o renderer lê | Um arquivo por domínio (estilo, corpo-menu, corpo-dado, Info, barra_de_menus); gabarito de teste da implementação |
+| Config (`config/*.json`) | Valores concretos que o renderer lê | Um arquivo por domínio (estilo, lancador, corpo-dado, Info, barra_de_menus, cabecalho); gabarito de teste da implementação |
 | Contrato | Define comportamento esperado | Deve ser aprovado antes da implementacao |
 | ADR | Registra decisao arquitetural | Nao substitui contrato; contratos afetados devem ser atualizados |
 | RFC | Propoe mudanca | Nao autoriza implementacao |

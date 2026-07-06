@@ -1,0 +1,38 @@
+{
+  "_meta": {
+    "nome": "lancador",
+    "descricao": "Parametros concretos de layout e verificacao do lancador (antigo corpo tipo menu)",
+    "status": "ativo",
+    "observacao": "Este arquivo nao substitui config/layout_menu.json ainda — a migracao dos artefatos que ainda referenciam o tipo menu fica para DOC-0009"
+  },
+  "verificacao": {
+    "texto": {
+      "max_caracteres": 15
+    }
+  },
+  "layout": {
+    "vaos": {
+      "chip_texto": {
+        "minimo": 1,
+        "maximo": 3
+      }
+    },
+    "colunas": {
+      "alinhamento_interno": "esquerda",
+      "uma_coluna": {
+        "alinhamento_bloco": "centralizado"
+      },
+      "multiplas_colunas": {
+        "distribuicao_horizontal": "uniforme"
+      }
+    },
+    "vertical": {
+      "margem_borda_superior": 1,
+      "margem_borda_inferior": 1,
+      "entre_elementos": {
+        "minimo": 0,
+        "maximo": 2
+      }
+    }
+  }
+}
