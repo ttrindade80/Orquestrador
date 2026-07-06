@@ -99,6 +99,17 @@ como fonte de valores concretos; referencia `contrato_estilo.md` para `cor_inati
 e `cor_alerta`; declara ordem canônica e semântica de cada chip.
 **Próxima ação:** — (concluído)
 
+### DOC-0007 — Formalizar cabecalho
+**Tipo:** documentacao
+**Status:** concluido
+**Concluido_em:** 2026-07-05
+**Arquivo(s) envolvido(s):** `config/cabecalho.json` (criado), `docs/contratos/contrato_cabecalho.md` (criado), `docs/NOMENCLATURA.md` (seção 0 e nova seção 7), `docs/INDICE.md` (atualizado), `docs/relatorios/RELATORIO_QA_DOC-0007_CABECALHO.md` (criado)
+**Origem:** `docs/NOMENCLATURA.md` seção 0 (entrada Cabeçalho — pendente), seção 2 (estrutura da tela)
+**Descrição:** `cabecalho` formalizado como domínio próprio: região fixa superior da tela, sempre presente,
+com dois campos textuais (`titulo` e `descricao`); textos pertencem à classe/tela; `config/cabecalho.json`
+guarda somente parâmetros de apresentação; contrato ativo criado com schema, semântica e regras de uso.
+**Próxima ação:** — (concluído)
+
 ## Itens bloqueados (precisam de sessão de decisão antes de virar tarefa)
 
 ### DOC-B001 — Regras de ajuste do `tx` (corpo tipo `dado`)

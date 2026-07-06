@@ -27,7 +27,7 @@ como origem da decisão — a decisão em si continua vindo do usuário.
 ## 0. Política — NOMENCLATURA.md vs arquivos JSON de dados (decidida nesta sessão)
 
 Cada domínio de renderização (`estilo`, corpo tipo `menu`, corpo tipo `dado`,
-`Info`, `barra_de_menus`, e possivelmente `cabecalho`) tem exatamente **dois**
+`Info`, `barra_de_menus` e `cabecalho`) tem exatamente **dois**
 artefatos, com responsabilidades separadas e não sobrepostas:
 
 | Artefato | Responsabilidade |
@@ -58,7 +58,7 @@ neutra, sem dado de produção, ver `docs/INDICE.md`).
 | Corpo tipo `dado` | `config/layout_dado.json` | feito (seção 4) |
 | `Info` | *(a definir)* | não iniciado — vai ser tratado em outro chat |
 | `barra_de_menus` | `config/barra_de_menus.json` | feito (seção 5.1) |
-| Cabeçalho | *(avaliar se compensa)* | não decidido — cabeçalho é simples (posição de título, caixa de texto, alinhamento do texto de descrição: centralizado/justificado/esquerda, uma ou duas linhas); pode não justificar arquivo próprio |
+| Cabeçalho | `config/cabecalho.json` | feito (seção 7) |
 
 ---
 
@@ -521,6 +521,72 @@ aquele corpo ocupa fisicamente.
 
 **Ainda não definido (adiado, sem caso de uso real ainda)**: combinação de
 layout lado a lado com objeto Info presente ao mesmo tempo.
+
+---
+
+## 7. Cabeçalho
+
+Região fixa superior de toda tela do sistema (ver seção 2). Sempre existe;
+nunca ausente, condicional ou opcional.
+
+O `cabecalho` não é corpo, não é `Info`, não é `menu` e não é
+`barra_de_menus`. Não herda regras de layout de nenhuma dessas regiões.
+
+### 7.1 Campos textuais
+
+O `cabecalho` tem exatamente dois campos textuais:
+
+| Campo | Função | Restrição |
+|---|---|---|
+| `titulo` | Texto curto de identificação da tela | Sem limite de caracteres definido — o estilo de apresentação é configurável via `config/cabecalho.json` |
+| `descricao` | Texto longo de contextualização | Máximo de 200 caracteres (`max_caracteres` em `config/cabecalho.json`) |
+
+**Os textos concretos de `titulo` e `descricao` pertencem à classe/tela**,
+não ao JSON de configuração global. A classe declara o conteúdo textual;
+`config/cabecalho.json` guarda somente os parâmetros de apresentação.
+
+### 7.2 Schema de apresentação — `titulo`
+
+| Campo | Valores permitidos | Semântica |
+|---|---|---|
+| `posicao` | `esquerda` \| `centro` \| `direita` | Posição horizontal do bloco do título na linha da borda superior |
+| `recuo_lateral` | inteiro ≥ 0 | Distância em caracteres do canto esquerdo (posicao `esquerda`) ou do canto direito (posicao `direita`). Ignorado quando `posicao = centro`. |
+| `capitalizacao` | `maiusculas` \| `inicio_de_frase` | Transformação aplicada ao texto do `titulo` antes da renderização |
+| `formato_na_borda` | `com_espacos_laterais` | Estilo de integração do título à linha da borda superior |
+
+**Semântica de `formato_na_borda`:**
+
+- `com_espacos_laterais`: o bloco exibido é `borda + espaço + título + espaço + borda`.
+
+**Semântica de `posicao`:**
+
+- `esquerda`: o bloco do título inicia a `recuo_lateral` caracteres do canto esquerdo da borda.
+- `centro`: o bloco do título fica centralizado na linha da borda superior; `recuo_lateral` é ignorado.
+- `direita`: o bloco do título termina a `recuo_lateral` caracteres do canto direito da borda.
+
+### 7.3 Schema de apresentação — `descricao`
+
+| Campo | Valores permitidos | Semântica |
+|---|---|---|
+| `max_caracteres` | inteiro > 0 | Número máximo de caracteres; texto que exceder é truncado antes da renderização |
+| `alinhamento` | `esquerda` \| `centro` \| `direita` | Alinhamento horizontal do texto da descrição |
+| `recuo` | inteiro ≥ 0 | Distância em caracteres da borda esquerda (alinhamento `esquerda`) ou da borda direita (alinhamento `direita`). Ignorado quando `alinhamento = centro`. |
+| `capitalizacao` | `maiusculas` \| `inicio_de_frase` | Transformação aplicada ao texto da `descricao` antes da renderização |
+
+**Semântica de `alinhamento`:**
+
+- `esquerda`: a descrição começa a `recuo` caracteres da borda esquerda.
+- `centro`: a descrição fica centralizada na largura disponível; `recuo` é ignorado.
+- `direita`: a descrição termina a `recuo` caracteres da borda direita.
+
+### 7.4 Parametrização externa — `config/cabecalho.json`
+
+Seguindo a política da seção 0: os parâmetros de apresentação do `cabecalho`
+vivem em `config/cabecalho.json`, não hardcoded. Esta seção define o schema e
+a semântica; o arquivo guarda os valores concretos de apresentação.
+
+O arquivo não contém textos concretos de telas (valores de `titulo` e
+`descricao`) — esses pertencem a cada classe/tela.
 
 ---
 

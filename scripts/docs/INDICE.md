@@ -35,7 +35,7 @@ Antes de mover este padrao para outro projeto, verificar:
 4. `docs/adr/INDICE_ADR.md`
 5. `docs/contratos/` — demais contratos de modulo ja `ativo` (hoje:
    `contrato_estilo.md`, `contrato_composicao_corpo.md`,
-   `contrato_barra_de_menus.md`)
+   `contrato_barra_de_menus.md`, `contrato_cabecalho.md`)
 6. `docs/handoff/README.md`
 7. `docs/relatorios/README.md`
 8. Templates em `docs/templates/`, conforme a tarefa.
@@ -49,6 +49,7 @@ scripts/
     layout_menu.json
     layout_dado.json
     barra_de_menus.json
+    cabecalho.json
   docs/
     INDICE.md
     NOMENCLATURA.md
@@ -59,6 +60,7 @@ scripts/
       contrato_estilo.md
       contrato_composicao_corpo.md
       contrato_barra_de_menus.md
+      contrato_cabecalho.md
     adr/
       INDICE_ADR.md
       ADR-0001-menu-suporta-matriz.md
