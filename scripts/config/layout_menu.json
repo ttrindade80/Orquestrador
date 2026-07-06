@@ -1,0 +1,62 @@
+{
+  "_meta": {
+    "name": "layout_menu",
+    "description": "Parametros de layout do corpo tipo menu (vaos, alinhamento, linhas minimas) — nao confundir com barra_de_menus",
+    "origem": "docs/NOMENCLATURA.md secao 8",
+    "status": "rascunho_inicial",
+    "reaproveitado_de_legado": false,
+    "parametro_layout": "distribuicao_menu",
+    "valores_possiveis": ["fila", "matriz"],
+    "pendencias": [
+      "Campos de navegacao aguardam formalizacao no contrato de mecanismos de selecao/navegacao."
+    ]
+  },
+  "vaos": {
+    "chip_rotulo": {
+      "minimo": 1,
+      "maximo": 3,
+      "descricao": "espaco entre o chip [R] e o texto do rotulo, dentro de um mesmo item"
+    },
+    "entre_itens": {
+      "minimo": 2,
+      "maximo": 5,
+      "descricao": "espaco entre itens na mesma linha, entre colunas em modo matriz, e entre a borda e o primeiro/ultimo elemento"
+    }
+  },
+  "distribuicao_de_sobra": {
+    "prioridade": ["vaos_entre_itens", "margem_borda_elemento"],
+    "descricao": "espaco sobrando estica primeiro os vaos entre itens ate o maximo (5); so depois disso o restante vai para a margem borda-elemento, tambem ate seu proprio teto (5)"
+  },
+  "alinhamento": {
+    "horizontal_sobra_excedente": "direita",
+    "descricao_horizontal": "sobra alem de todos os tetos (vaos e margens ja no maximo) fica a direita — sem centralizacao do bloco",
+    "vertical_maximo_linhas_brancas_entre_itens": 2,
+    "descricao_vertical": "distribuicao uniforme entre itens; espaco restante apos aplicar o limite de linhas em branco vai para topo/base do bloco"
+  },
+  "linhas": {
+    "minimo": 1,
+    "descricao": "numero minimo de linhas do menu, mesmo que caiba tudo em menos"
+  },
+  "calculo_de_colunas": {
+    "etapa_1": "tenta caber todos os itens numa linha so (n_col = numero de itens), usando vaos no minimo",
+    "etapa_2": "se nao couber em uma linha, distribui em matriz — maximiza colunas usando vaos no minimo; so aumenta uma linha (reduz uma coluna) se a distribuicao anterior nao coube na largura disponivel mesmo no vao minimo",
+    "teto_absoluto_de_colunas": null,
+    "nota": "sem teto absoluto — o unico limite e a largura disponivel"
+  },
+  "matriz": {
+    "ordem_preenchimento": "coluna_a_coluna",
+    "largura_coluna": "maior_item_da_propria_coluna",
+    "alinhamento_item_na_coluna": "esquerda",
+    "sub_colunas": {
+      "descricao": "chip e rotulo alinham como duas sub-colunas independentes dentro de cada coluna da grade — nao e uma string unica chip+rotulo tratada como bloco",
+      "chip": "alinhado a esquerda pela largura do maior chip daquela coluna",
+      "rotulo": "alinhado a esquerda pela largura do maior rotulo daquela coluna, apos o vao vaos.chip_rotulo",
+      "efeito": "todos os rotulos de uma coluna comecam na mesma posicao horizontal, mesmo com chips de tamanhos diferentes"
+    },
+    "coluna_incompleta": "celula vazia, sem preenchimento visual especial"
+  },
+  "navegacao": {
+    "wrap": "toroidal — cada eixo (linha e coluna) fecha de forma independente",
+    "celula_vazia": "linha ou coluna incompleta forma seu proprio toroide local, contando so as posicoes preenchidas; o cursor nunca entra em celula vazia e o movimento nunca muda de eixo pra evitar o vazio"
+  }
+}

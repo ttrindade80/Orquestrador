@@ -1,0 +1,152 @@
+{
+  "_meta": {
+    "name": "barra_de_menus",
+    "description": "Ordem canonica, rotulos e condicoes de existencia dos chips da barra_de_menus — nao confundir com layout_menu.json (corpo tipo menu)",
+    "origem": "docs/NOMENCLATURA.md secao 5",
+    "status": "rascunho_inicial",
+    "reaproveitado_de_legado": false,
+    "pendencias": [
+      "estrutura do chip especifico tipo 'aciona processo' (secao 5.2)",
+      "relacao entre [#] e [\u2423] quando ambos ativos (secao 4)"
+    ]
+  },
+  "ordem_canonica": [
+    "esc",
+    "paginas",
+    "colunas",
+    "grupos",
+    "alternar",
+    "navegar",
+    "selecionar",
+    "executar",
+    "especificos",
+    "verboso",
+    "ajuda"
+  ],
+  "chips": {
+    "esc": {
+      "simbolo": "[Esc]",
+      "rotulo": "Sair",
+      "rotulo_alternativo": "Voltar",
+      "regra_rotulo": "Sair somente na tela Orquestrador (raiz fixa do sistema); Voltar em qualquer outra tela",
+      "rotulo_dinamico": {
+        "condicao": "ha selecao ativa no corpo em foco (formacao_de_selecao: com)",
+        "rotulo": "Limpar",
+        "comportamento": "limpa a selecao atual, permanece na mesma tela; so volta a se comportar como Sair/Voltar depois da selecao ser limpa"
+      },
+      "existencia": "sempre",
+      "estado_dinamico": "sempre_ativo"
+    },
+    "paginas": {
+      "simbolo": "[<][>]",
+      "rotulo": "Páginas",
+      "existencia": {
+        "eixo_composicao": "paginacao",
+        "valor_requerido": "com"
+      },
+      "estado_dinamico": {
+        "condicao_inativo": "numero_de_paginas <= 1"
+      }
+    },
+    "colunas": {
+      "simbolo": "[-][+]",
+      "rotulo": "Colunas",
+      "existencia": {
+        "eixo_composicao": "colunas_ajustavel",
+        "valor_requerido": "com",
+        "restricao_tipo_conteudo": "dado"
+      },
+      "estado_dinamico": {
+        "condicao_inativo_menos": "n_col == n_col_minimo (1)",
+        "condicao_inativo_mais": "n_col == n_col_maximo_pela_largura_atual"
+      },
+      "nota": "numero de colunas nao aparece mais no chip — ja e visivel na propria grade renderizada"
+    },
+    "grupos": {
+      "simbolo": "[#]",
+      "rotulo": "Grupos",
+      "existencia": {
+        "eixo_composicao": "filtro_de_grupo",
+        "valor_requerido": "com"
+      },
+      "comportamento": "abre entrada para digitar numero do grupo; filtra exibicao para mostrar so membros do grupo selecionado"
+    },
+    "alternar": {
+      "simbolo": "[⇆]",
+      "rotulo": "Alternar",
+      "existencia": {
+        "eixo_composicao": "quantidade_corpos",
+        "valor_requerido": "multiplos"
+      },
+      "comportamento": "move o foco de interacao entre corpos; distinto de 'navegar', que move o cursor dentro do corpo em foco"
+    },
+    "navegar": {
+      "simbolo": "[✥]",
+      "rotulo": "Navegar",
+      "existencia": {
+        "condicao": "existencia estrutural: tela possui ao menos um corpo navegavel (tipo dado ou menu)"
+      },
+      "estado_dinamico": "ativo quando o corpo em foco e navegavel; inativo via cor_inativo quando o corpo em foco nao e navegavel, mas a tela possui navegacao em algum corpo",
+      "comportamento": "e a dica visual de 'use as setas do teclado'; nao aparece/desaparece por foco, dataset corrente ou conteudo renderizado; em corpo com grade/matriz, as setas seguem a geometria real (cima/baixo dentro da coluna, esquerda/direita entre colunas); em dados complexos sem grade regular, e a propria tela que declara o que e navegavel"
+    },
+    "selecionar": {
+      "simbolo": "[␣]",
+      "rotulo": "Selecionar",
+      "existencia": {
+        "eixo_composicao": "formacao_de_selecao",
+        "valor_requerido": "com"
+      },
+      "comportamento": "toggle nomeado; ocupa o espaco tg do item (ec+tg+tx, ver docs/NOMENCLATURA.md secao 4.2); indicador on/off vem do preset 'incluido' do schema de estilo (default: circulo, ● / ○) quando ha selecao real; simbolo estatico configuravel quando o item so navega sem selecionar"
+    },
+    "executar": {
+      "simbolo": "[⏎]",
+      "rotulo_dinamico": {
+        "todos": {
+          "condicao": "tela com formacao_de_selecao ativa e nada selecionado ainda",
+          "rotulo": "Todos",
+          "comportamento": "marca todos os itens do corpo; depois disso o rotulo passa a Executar"
+        },
+        "executar": {
+          "condicao": "alguma selecao marcada (manual ou via Todos)",
+          "rotulo": "Executar",
+          "comportamento": "roda a funcao da tela sobre os itens selecionados"
+        },
+        "visualizar": {
+          "condicao": "tela de visualizacao sem execucao (ex.: relatorios so-leitura)",
+          "rotulo": "Visualizar",
+          "comportamento": "abre o detalhe do item sob o cursor; nao depende de selecao"
+        }
+      },
+      "existencia": "sempre",
+      "estado_dinamico": {
+        "condicao_inativo": "nenhum alvo valido sob o cursor"
+      },
+      "comportamento": "executa a acao vinculada ao item sob o cursor ou sobre a selecao, conforme o tipo de tela — ver rotulo_dinamico"
+    },
+    "especificos": {
+      "simbolo": null,
+      "rotulo": null,
+      "existencia": {
+        "condicao": "definido por classe — ver docs/NOMENCLATURA.md secao 5.2"
+      },
+      "posicao": "entre executar e verboso/ajuda, conforme chips presentes"
+    },
+    "verboso": {
+      "simbolo": "[V]",
+      "rotulo": "Verboso",
+      "existencia": {
+        "eixo_composicao": "tipo_exibicao",
+        "valor_requerido": "verboso",
+        "restricao_tipo_conteudo": "dado"
+      }
+    },
+    "ajuda": {
+      "simbolo": "[?]",
+      "rotulo": "Ajuda",
+      "existencia": "sempre",
+      "estado_dinamico": "sempre_ativo"
+    }
+  },
+  "regra_estrutural": "nenhum chip decide sua propria exibicao — existencia sempre deriva de eixo de composicao ja declarado pela classe de tela; a barra_de_menus e so um espelho",
+  "regra_estado_dinamico": "existencia (estatica, declarada) e diferente de ativo/inativo (dinamico, recalculado a cada render); chip inativo continua ocupando a posicao/ordem, usa cor_inativo do schema de estilo, e para de reagir ao acionamento"
+}

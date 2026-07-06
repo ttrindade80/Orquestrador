@@ -1,0 +1,49 @@
+{
+  "_meta": {
+    "name": "layout_dado",
+    "description": "Parametros de layout do corpo tipo dado (estrutura de item, vaos, colunas, navegacao) — regras proprias, nao compartilha arquivo com layout_menu.json",
+    "origem": "docs/NOMENCLATURA.md secao 4",
+    "status": "rascunho_inicial",
+    "reaproveitado_de_legado": false,
+    "pendencias": [
+      "regras de ajuste do tx quando o texto nao cabe no espaco disponivel (truncar, quebrar linha, outra estrategia)"
+    ]
+  },
+  "estrutura_item": {
+    "ordem": ["ec", "tg", "tx"],
+    "ec": "espaco do cursor — indicador 'selecionado' aparece aqui quando o cursor esta na linha",
+    "tg": "espaco de toggle — indicador 'incluido' (com selecao real) ou simbolo estatico configuravel (sem selecao real)",
+    "tx": "texto do item, tamanho variavel"
+  },
+  "vaos": {
+    "ec_tg_tx": {
+      "minimo": 1,
+      "maximo": 3,
+      "descricao": "espaco entre ec-tg e entre tg-tx, dentro do mesmo item"
+    },
+    "entre_colunas": {
+      "minimo": 5,
+      "maximo": 10
+    },
+    "coluna_borda": {
+      "minimo": 5,
+      "maximo": null,
+      "descricao": "sem teto — espaco sobrando alem dos vaos e colunas fica aqui"
+    }
+  },
+  "alinhamento": {
+    "horizontal_sobra_excedente": "centralizado",
+    "descricao_horizontal": "diferente do corpo tipo menu (bloco à esquerda com sobra à direita) — regra independente por tipo de corpo",
+    "vertical": "ec, tg e tx sempre alinhados entre si em todas as linhas de uma mesma coluna (uniformidade de coluna)"
+  },
+  "colunas": {
+    "largura": "maior_item_da_propria_coluna",
+    "numero_inicial": "maximo possivel aplicando os vaos acima sobre a largura real do terminal",
+    "ajuste_manual": "chip [-][+] (colunas, ver config/barra_de_menus.json); minimo 1, maximo conforme a largura atual comporta"
+  },
+  "navegacao": {
+    "wrap": "toroidal — cada eixo (linha e coluna) fecha de forma independente",
+    "celula_vazia": "linha ou coluna incompleta forma seu proprio toroide local, contando so as posicoes preenchidas; o cursor nunca entra em celula vazia e o movimento nunca muda de eixo pra evitar o vazio",
+    "paginacao": "independente da navegacao — cursor nunca troca de pagina sozinho ao cruzar a borda; cada pagina e seu proprio toroide; a selecao persiste entre paginas"
+  }
+}

@@ -20,8 +20,10 @@ compõem borda, chip, indicadores e tiling, e as regras de uso que vinculam
 todos os módulos a esse schema.
 
 Este contrato cobre exclusivamente a seção 1 ("Estilo — universal") de
-`docs/NOMENCLATURA.md`. Composição de corpo, barra_de_menus e layout são
-contratos separados, ainda não escritos.
+`docs/NOMENCLATURA.md`. Composição de corpo (`contrato_composicao_corpo.md`,
+`ativo`) e barra_de_menus (`contrato_barra_de_menus.md`, `ativo`) são módulos
+separados com contratos próprios. Os demais domínios devem ser tratados em
+contratos próprios quando formalizados.
 
 ---
 
@@ -29,7 +31,9 @@ contratos separados, ainda não escritos.
 
 **Nenhuma classe de tela ou renderer pode hardcodar símbolo, cor ou caractere
 pertencente a esta especificação.** Todo valor de estilo — incluindo os
-defaults listados abaixo — deve vir do schema de estilo em tempo de execução.
+defaults listados abaixo e os estados dinâmicos de cor da seção 3.5
+(`cor_inativo` e `cor_alerta`, conforme ADR-0004) — deve vir do schema de
+estilo em tempo de execução.
 Hardcoding de qualquer campo desta seção é violação contratual.
 
 Esta regra vem de `docs/NOMENCLATURA.md` seção 1, parágrafo de abertura e
@@ -58,18 +62,9 @@ estilos de borda é apenas o caractere de preenchimento de cada campo.
 O schema não deve suprimir campos — mesmo que um estilo use o mesmo caractere
 em múltiplos campos, cada campo continua declarado separadamente.
 
-**Conjuntos obrigatórios de borda** (exemplos canônicos; não esgotam os
-valores possíveis, mas devem estar presentes como presets nomeados):
-
-| Campo | "Borda Curva" | "Borda Reta"  | "Linha" |
-|---|---|---|---|
-| `canto_superior_esquerdo` | `╭` | `┌` | `─` |
-| `canto_superior_direito` | `╮` | `┐` | `─` |
-| `canto_inferior_esquerdo` | `╰` | `└` | `" "` |
-| `canto_inferior_direito` | `╯` | `┘` | `" "` |
-| `traco_superior` | `─` | `─` | `─` |
-| `traco_inferior` | `─` | `─` | `" "` |
-| `lateral` | `│` | `│` | `" "` |
+**Presets obrigatórios de borda**: três conjuntos nomeados ("Borda Curva",
+"Borda Reta", "Linha") devem estar presentes na camada de dados. Valores
+concretos em `config/estilo.json`, seção `borda.presets`.
 
 ### 3.2 Chip
 
@@ -88,16 +83,10 @@ Cinco campos obrigatórios.
 o valor real de terminal (ANSI, paleta, etc.) é responsabilidade exclusiva
 do renderer, nunca do schema de estilo.
 
-**Conjuntos obrigatórios de chip** (exemplos canônicos; não esgotam os
-valores possíveis, mas devem estar presentes como presets nomeados):
-
-| Campo | "Colchete" | "Curva" | "Ornamental" | "Traço" | "Ponto" | "Destaque Texto" | "Destaque Fundo" |
-|---|---|---|---|---|---|---|---|
-| `caractere_esquerdo` | `[` | `╭` | `❲` | `-` | `" "` | `" "` | `" "` |
-| `caractere_direito` | `]` | `╮` | `❳` | `-` | `.` | `" "` | `" "` |
-| `cor_texto` | `"padrão"` | `"padrão"` | `"padrão"` | `"padrão"` | `"padrão"` | `"azul"` | `"padrão"` |
-| `cor_fundo` | `"padrão"` | `"padrão"` | `"padrão"` | `"padrão"` | `"padrão"` | `"padrão"` | `"azul"` |
-| `caixa_alta` | `true` | `true` | `true` | `true` | `true` | `true` | `true` |
+**Presets obrigatórios de chip**: sete conjuntos nomeados ("Colchete",
+"Curva", "Ornamental", "Traço", "Ponto", "Destaque Texto", "Destaque Fundo")
+devem estar presentes na camada de dados. Valores concretos em
+`config/estilo.json`, seção `chip.presets`.
 
 `caixa_alta: true` é o default de todos os presets — regra geral, não
 exceção por preset.
@@ -106,10 +95,9 @@ exceção por preset.
 vazios): espaço representa "sem moldura visível", não ausência de campo —
 invariante equivalente ao da borda (seção 3.1).
 
-"Destaque Texto" e "Destaque Fundo" têm `caractere_esquerdo` e
-`caractere_direito` iguais (`" "` / `" "`) entre si — a distinção visual
-vem exclusivamente da cor aplicada (`cor_texto` vs `cor_fundo`), não da
-moldura.
+"Destaque Texto" e "Destaque Fundo" compartilham os mesmos delimitadores
+— a distinção visual vem exclusivamente da cor aplicada (`cor_texto` vs
+`cor_fundo`), não da moldura.
 
 ### 3.3 Indicadores
 
@@ -118,41 +106,52 @@ Todos os valores de símbolo são defaults configuráveis — nunca fixos em có
 
 #### `concluido` — par on/off
 
-| Estado | Símbolo default |
-|---|---|
-| `on` | `✓` |
-| `off` | espaço (configurável) |
-
 O schema deve expor os dois campos: `concluido_on` e `concluido_off`.
-O default de `concluido_off` é um caractere de espaço (`" "`).
-Ambos os campos são restritos a exatamente **1 caractere** — regra de
-alinhamento colunar, aplicável a todos os símbolos do sistema (ver R-6).
+Ambos são restritos a exatamente **1 caractere** — regra de alinhamento
+colunar, aplicável a todos os símbolos do sistema (ver R-6).
+Valores concretos em `config/estilo.json`, seção `indicadores.concluido`.
 
 #### `selecionado` — símbolo único, condicional
 
-| Estado | Símbolo default |
-|---|---|
-| aparece (quando aplicável) | `→` |
-
 `selecionado` só é renderizado quando o cursor está sobre o item.
-O schema deve expor dois campos:
-
-| Campo | Default |
-|---|---|
-| `selecionado_simbolo` | `→` |
-| `selecionado_off` | `" "` (espaço) |
-
+O schema deve expor dois campos: `selecionado_simbolo` e `selecionado_off`.
 `selecionado_off` garante alinhamento colunar quando o indicador não está
-ativo. Ambos os campos são restritos a exatamente **1 caractere** (ver R-6).
+ativo. Ambos são restritos a exatamente **1 caractere** (ver R-6).
+Quatro presets nomeados ("Seta" é o default). Valores concretos em
+`config/estilo.json`, seção `indicadores.selecionado`.
 
 #### `incluido` — par on/off
 
-| Estado | Símbolo default |
-|---|---|
-| `on` | `●` |
-| `off` | `○` |
-
 O schema deve expor os dois campos: `incluido_on` e `incluido_off`.
+Quatro presets nomeados ("Círculo" é o default). Valores concretos em
+`config/estilo.json`, seção `indicadores.incluido`.
+
+#### Transformação de preset para campos de runtime
+
+O indicador `incluido` é armazenado em `config/estilo.json` em estrutura
+aninhada (`preset_default` + `presets`). O indicador `selecionado` tem
+armazenamento misto: o símbolo ativo vem da estrutura de preset, enquanto o
+estado off vem do campo direto `indicadores.selecionado.off`. O indicador
+`concluido` é armazenado diretamente como par de campos (`on`/`off`), sem
+estrutura de preset. Em todos os casos, o loader é responsável por
+materializar os campos planos esperados pelo schema em runtime:
+
+- `concluido`: lê `indicadores.concluido.on` e `indicadores.concluido.off`
+  em `config/estilo.json` → produz `concluido_on` e `concluido_off` no schema
+  de runtime.
+- `selecionado`: lê `indicadores.selecionado.preset_default` → busca em
+  `indicadores.selecionado.presets` → extrai `simbolo` → produz
+  `selecionado_simbolo`; lê `indicadores.selecionado.off` → produz
+  `selecionado_off`.
+- `incluido`: lê `preset_default` → busca em `presets` → extrai `on` e `off`
+  → produz campos de runtime `incluido_on` e `incluido_off`.
+
+Os campos planos de runtime (`concluido_on`, `concluido_off`,
+`selecionado_simbolo`, `selecionado_off`, `incluido_on`, `incluido_off`) são
+os que o schema valida e o renderer usa. A estrutura de presets em
+`config/estilo.json` é forma de armazenamento, não o formato de runtime.
+Não alterar os valores dos presets com base nessa resolução — o loader
+transforma, não substitui.
 
 ### 3.4 Tiling
 
@@ -169,6 +168,45 @@ objetos no corpo da tela. Não é calculado a partir da largura do terminal —
 Não existe valor de largura de terminal que force `sobreposto`: a preferência
 do usuário é respeitada sempre, mesmo em terminal muito estreito.
 
+**Materialização em `config/estilo.json`**: `tiling` é campo obrigatório do
+schema de estilo em tempo de execução. Enquanto a preferência do usuário não
+for decidida, o campo pode não estar materializado com valor concreto em
+`config/estilo.json` — essa ausência é pendência de configuração/preferência,
+não omissão silenciosa do schema. Quando um valor for decidido, deve ser
+registrado em `config/estilo.json`. Tratamento análogo ao de `cor_inativo` e
+`cor_alerta` (seção 3.5).
+
+### 3.5 Estados dinâmicos de cor
+
+Dois campos obrigatórios. Aplicam-se a qualquer chip ou indicador do sistema
+quando houver estado dinâmico correspondente — não são específicos de um chip
+isolado.
+
+| Campo | Função | Tipo |
+|---|---|---|
+| `cor_inativo` | Cor aplicada quando um elemento existe mas está temporariamente inativo | nome semântico de cor (string) |
+| `cor_alerta` | Cor aplicada quando um valor ou limite exige destaque visual | nome semântico de cor (string) |
+
+`cor_inativo` e `cor_alerta` são nomes semânticos de cor — ex.: `"cinza"`,
+`"amarelo"`, `"padrão"` (sem cor diferenciada). A tradução desse nome para
+o valor real de terminal (ANSI, paleta, etc.) é responsabilidade exclusiva
+do renderer, nunca do schema de estilo (R-7).
+
+**Escopo de materialização em `config/estilo.json`**: o arquivo
+`config/estilo.json` contém os valores concretos já decididos para presets de
+estilo. A obrigatoriedade de `cor_inativo` e `cor_alerta` vale para o schema de
+estilo em tempo de execução. Enquanto seus valores concretos não forem
+definidos, eles permanecem documentados como campos obrigatórios do schema, mas
+não como presets materializados no JSON.
+
+**Distinção fundamental (ADR-0004)**:
+
+- **Existência** de um elemento = propriedade estrutural, declarada pela
+  classe de tela. A classe decide se o chip ou indicador existe naquela tela.
+- **Ativo/inativo e alerta** = estados dinâmicos de renderização, recalculados
+  a cada render a partir do conteúdo atual. O renderer aplica a cor
+  correspondente, mas não decide a existência estrutural do elemento.
+
 ---
 
 ## 4. Regras de uso
@@ -181,11 +219,13 @@ valores de estilo.
 **R-2. Proibição de hardcoding.**
 Decorre da seção 2 deste contrato. Aplica-se a qualquer símbolo, cor,
 caractere ou valor de enumeração dos grupos borda, chip, indicadores e
-tiling — sem exceção para "valores óbvios" ou "padrões universais".
+tiling, bem como aos estados dinâmicos de cor da seção 3.5 (`cor_inativo` e
+`cor_alerta`, conforme ADR-0004) — sem exceção para "valores óbvios" ou
+"padrões universais".
 
 **R-3. Completude do schema.**
 Um schema de estilo que omita qualquer campo obrigatório listado nas seções
-3.1, 3.2, 3.3 e 3.4 é inválido e não deve ser aceito pelo sistema.
+3.1, 3.2, 3.3, 3.4 e 3.5 é inválido e não deve ser aceito pelo sistema.
 
 **R-4. Imutabilidade em tempo de execução.**
 O schema de estilo não é alterado enquanto uma tela está aberta. Mudança de
@@ -217,29 +257,36 @@ diretamente, sem exceção.
 
 ## 5. Critérios de validação
 
-- [ ] Todo acesso a símbolo, cor ou caractere de borda, chip ou indicador em
-      qualquer classe ou renderer é feito exclusivamente via objeto de estilo —
-      nenhuma string ou constante de estilo aparece hardcoded no código-fonte.
+- [ ] Todo acesso a símbolo, cor ou caractere de borda, chip, indicador ou
+      estado dinâmico de cor em qualquer classe ou renderer é feito
+      exclusivamente via objeto de estilo — nenhuma string ou constante de
+      estilo aparece hardcoded no código-fonte.
 - [ ] O schema rejeita (ou registra erro) quando instanciado sem algum dos
-      campos obrigatórios de borda (7), chip (5) ou indicadores (6 campos:
+      campos obrigatórios de borda (7), chip (5), indicadores (6 campos:
       `concluido_on`, `concluido_off`, `selecionado_simbolo`, `selecionado_off`,
-      `incluido_on`, `incluido_off`).
+      `incluido_on`, `incluido_off`) ou estados dinâmicos de cor (2 campos:
+      `cor_inativo`, `cor_alerta`).
+- [ ] `cor_inativo` e `cor_alerta` são nomes semânticos de cor (strings) —
+      nenhum valor hardcoded de terminal (ANSI, RGB, etc.) aparece nesses
+      campos no schema ou nas classes de tela.
 - [ ] O schema rejeita (ou registra erro) qualquer campo de símbolo/caractere
       com comprimento diferente de 1 (R-6).
-- [ ] Os defaults de indicadores (`✓`, `→`, `●`, `○`, `" "`) só existem na
-      camada de construção do schema padrão — não no renderer nem nas classes.
+- [ ] Os valores de indicadores carregados pelo schema vêm exclusivamente de
+      `config/estilo.json` — nenhum símbolo de indicador aparece hardcoded no
+      renderer nem nas classes.
 - [ ] Dado um objeto de estilo com valores substituídos, o renderer produz
       saída com os valores fornecidos, não com os defaults.
 - [ ] Nenhuma classe de tela altera o objeto de estilo recebido.
 - [ ] O renderer traduz nomes semânticos de cor para valores de terminal — o
       schema não contém nenhuma lógica de tradução de cor (R-7).
-- [ ] Os três presets de borda ("Borda Curva", "Borda Reta", "Linha" ) estão
-      presentes e correspondem exatamente à tabela da seção 3.1.
+- [ ] Os três presets de borda ("Borda Curva", "Borda Reta", "Linha") estão
+      presentes em `config/estilo.json` e correspondem exatamente à seção
+      `borda.presets` desse arquivo.
 - [ ] Os sete presets de chip ("Colchete", "Curva", "Ornamental", "Traço",
-      "Ponto", "Destaque Texto", "Destaque Fundo") estão presentes e
-      correspondem exatamente à tabela da seção 3.2.
+      "Ponto", "Destaque Texto", "Destaque Fundo") estão presentes em
+      `config/estilo.json` e correspondem exatamente à seção `chip.presets`
+      desse arquivo.
 - [ ] `tiling` aceita apenas `"sobreposto"` ou `"lado_a_lado"`; qualquer
       outro valor é inválido.
 - [ ] O renderer não altera `tiling` com base em largura de terminal —
       o valor do schema é usado diretamente, sem fallback automático (R-8).
-

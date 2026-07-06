@@ -14,7 +14,7 @@ ADR registra uma decisao arquitetural aprovada ou rejeitada. Uma ADR aceita nao
 deve ser editada para mudar decisao; se a decisao mudar, criar nova ADR que
 substitui a anterior.
 
-Este indice padrao nao contem decisoes reais.
+Este indice registra as ADRs aceitas do projeto.
 
 ## Como criar ADR
 
@@ -28,7 +28,10 @@ Este indice padrao nao contem decisoes reais.
 
 | ID | Titulo | Status | Data |
 |---|---|---|---|
-| _(nenhuma)_ | — | — | — |
+| ADR-0001 | `menu` suporta modo matriz (múltiplas colunas) | aceita | 2026-07-05 |
+| ADR-0002 | `menu` usa sobra à direita | aceita | 2026-07-05 |
+| ADR-0003 | Vãos elásticos do `menu` | aceita | 2026-07-05 |
+| ADR-0004 | `cor_inativo` e `cor_alerta` no schema de estilo | aceita | 2026-07-05 |
 
 ## Exemplo de linha
 
