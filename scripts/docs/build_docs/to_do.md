@@ -189,8 +189,7 @@ canônico; `config/layout_dado.json` foi marcado como obsoleto/transicional.
 modelada como composição de `console` + `dashboard` + chips específicos da `barra_de_menus`.
 Taxonomia fechada do corpo permanece: `console`, `lancador`, `dashboard`. Aplicação efetiva
 em nomenclatura e contratos ativos fica para próxima tarefa.
-**Próxima ação:** gerar tarefa separada para aplicar ADR-0007 em `docs/NOMENCLATURA.md`,
-`docs/contratos/contrato_composicao_corpo.md` e `docs/contratos/contrato_barra_de_menus.md`
+**Próxima ação:** — (concluído; aplicação registrada em DOC-0014)
 
 ### DOC-0014 — Aplicar ADR-0007 em nomenclatura e contratos
 **Tipo:** documentação
@@ -204,7 +203,18 @@ de tipos existentes, sem criação de quarto tipo de corpo; chips específicos f
 mantidos na `barra_de_menus`, declarados pela classe de tela.
 **QA:** `docs/relatorios/RELATORIO_QA_DOC-0014_ADR-0007_APLICACAO.md` — APROVADO
 **Resultado final:** APROVADO
-**Próxima ação:** — (concluído; próxima ação: consolidar estado documental para revisão final)
+**Próxima ação:** — (concluído; consolidação, revisão final e commit registrados em DOC-0015)
+
+### DOC-0015 — Consolidar, revisar e commitar ciclo DOC-0010 a DOC-0014
+**Tipo:** consolidação/documentação
+**Status:** concluido
+**Concluido_em:** 2026-07-06
+**Arquivo(s) envolvido(s):** `docs/relatorios/RELATORIO_CONSOLIDACAO_DOCUMENTAL_DOC-0010_DOC-0014.md`, `docs/build_docs/to_do.md`
+**Origem:** fechamento do ciclo documental DOC-0010 a DOC-0014
+**Descrição:** consolidação final, revisão de diff, commit documental e check pós-commit do pacote que registrou ADR-0005, ADR-0006 e ADR-0007, aplicou a taxonomia `console`/`lancador`/`dashboard`, criou `config/layout_console.json` como canônico, marcou `config/layout_dado.json` como obsoleto/transicional e registrou tela de processamento como composição de tipos existentes.
+**Commit:** `6b609ed docs: consolidar taxonomia de corpos e processamento`
+**Resultado final:** APROVADO
+**Próxima ação:** — (concluído; próximos trabalhos permanecem nos itens bloqueados DOC-B001 a DOC-B004, dependentes de decisão)
 
 ## Itens bloqueados (precisam de sessão de decisão antes de virar tarefa)
 
