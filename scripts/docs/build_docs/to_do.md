@@ -362,6 +362,18 @@ mantidos na `barra_de_menus`, declarados pela classe de tela.
 **Pendências preservadas:** DOC-B008, DOC-B009, DOC-0018 (cabecalho/estilo), DOC-B001 a DOC-B004, DOC-B007.
 **Próxima ação:** commit documental único da Fase 0 / ADR-0008 / tela raiz.
 
+### DOC-0032 — Auditoria e arquivamento histórico/transicional pós-ADR-0008/ADR-0009
+**Tipo:** documentação/auditoria
+**Status:** concluido
+**Concluido_em:** 2026-07-07
+**Arquivo(s) envolvido(s):** `docs/relatorios/RELATORIO_ARQUIVAMENTO_DOC-0032_HISTORICOS_TRANSICIONAIS.md`, `docs/build_docs/to_do.md`
+**Origem:** ADR-0008, ADR-0009, consolidação final da Fase 0 e pendência de arquivamento histórico/transicional
+**Descrição:** auditoria dos artefatos históricos/transicionais pós-ADR-0008/ADR-0009. Nenhum artefato foi classificado como inequivocamente histórico; nenhum arquivo foi movido, apagado ou arquivado. Artefatos transicionais foram preservados por rastreabilidade, função ativa, referência normativa ou dúvida razoável.
+**Relatório:** `docs/relatorios/RELATORIO_ARQUIVAMENTO_DOC-0032_HISTORICOS_TRANSICIONAIS.md`
+**Resultado final:** APROVADO_COM_RESSALVAS
+**Ressalvas:** `config/layout_dado.json` e `config/layout_menu.json` permanecem obsoletos/transicionais; JSONs ativos/transicionais permanecem para reavaliação futura; DOC-B007 não deve ser removido silenciosamente sem decisão específica.
+**Próxima ação:** — (concluído; seguir para QA pós-DOC-0032 e, se aprovado, commit documental final da Fase 0 com ressalvas registradas)
+
 ## Itens bloqueados (precisam de sessão de decisão antes de virar tarefa)
 
 ### DOC-B006 — Definir contrato/classe `chip`
@@ -375,6 +387,7 @@ mantidos na `barra_de_menus`, declarados pela classe de tela.
 **Status:** bloqueado_decisao
 **Origem:** `docs/adr/ADR-0008-modelo-configuracao-por-tela.md`
 **Descrição:** pendência obrigatória de fechamento da Fase 0: arquivar artefatos históricos/transicionais de rastreabilidade para limpar a documentação ativa e evitar que buscas futuras priorizem contextos superados. Depende da decisão operacional de fechamento da etapa.
+**Observação pós-DOC-0032:** a auditoria DOC-0032 foi concluída com `APROVADO_COM_RESSALVAS` e não executou arquivamento físico; esta pendência permanece como decisão operacional futura, salvo decisão humana em contrário.
 
 ### DOC-B008 — Definir contratos/classes de itens internos de `console`
 **Status:** bloqueado_decisao
