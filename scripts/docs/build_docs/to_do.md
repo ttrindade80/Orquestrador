@@ -216,7 +216,190 @@ mantidos na `barra_de_menus`, declarados pela classe de tela.
 **Resultado final:** APROVADO
 **Próxima ação:** — (concluído; próximos trabalhos permanecem nos itens bloqueados DOC-B001 a DOC-B004, dependentes de decisão)
 
+### DOC-0016 — ADR: modelo de configuração por tela
+**Tipo:** adr
+**Status:** concluido
+**Concluido_em:** 2026-07-07
+**Arquivo(s) envolvido(s):** `docs/adr/ADR-0008-modelo-configuracao-por-tela.md`, `docs/adr/INDICE_ADR.md`, `docs/build_docs/to_do.md`
+**Origem:** decisão arquitetural — substituir JSON por domínio/componente por JSON por tela; manter `config/estilo.json` como biblioteca global de estilo.
+**Descrição:** registrar formalmente que cada tela terá JSON próprio com composição concreta, instâncias de `console`, `lancador`, `dashboard` e `barra_de_menus`, listas de itens, chips, destinos, ações, regras de existência/ativo-inativo, parâmetros visuais locais e casamento entre dados produzidos por scripts/leitores e campos exibidos. A ADR também registra que `dashboard` não terá `config/dashboard.json` universal, que o antigo `Info` é draft de instância da tela raiz do Orquestrador, e que o schema detalhado de `tela.json` será definido em tarefa/ADR posterior.
+**Próxima ação:** — (concluído; aplicação registrada nos itens DOC-0017 a DOC-0022; schema de `tela.json` materializado em DOC-0023; pendências remanescentes em DOC-B006 a DOC-B011)
+
+### DOC-0017 — Aplicar ADR-0008 em `NOMENCLATURA.md`
+**Tipo:** documentação
+**Status:** concluido
+**Concluido_em:** 2026-07-07
+**Arquivo(s) envolvido(s):** `docs/NOMENCLATURA.md`
+**Origem:** `docs/adr/ADR-0008-modelo-configuracao-por-tela.md`
+**Descrição:** substituir a política de JSON por domínio/componente pelo modelo de JSON por tela; registrar `config/estilo.json` como biblioteca global de estilo; registrar `tela.json` como declaração concreta de cada tela; atualizar quadro/status de JSONs; atualizar definição de `dashboard` como tipo mínimo; registrar `lancador` como instância declarada por tela com mudança declarativa; registrar `barra_de_menus` como instância declarada por tela com lista de chips; registrar `console` como container genérico de itens heterogêneos; separar explicitamente configuração de estado de runtime.
+**Próxima ação:** — (concluído; seções afetadas: 0, 2.2, 4, 5, 9, 13)
+
+### DOC-0018 — Aplicar ADR-0008 nos contratos afetados
+**Tipo:** documentação
+**Status:** pronto_para_execucao
+**Arquivo(s) envolvido(s):** `docs/contratos/contrato_cabecalho.md`, `docs/contratos/contrato_estilo.md`
+**Origem:** `docs/adr/ADR-0008-modelo-configuracao-por-tela.md`; depois de DOC-0017.
+**Descrição:** revisar contratos ativos para que dados concretos de instância passem a pertencer ao JSON da tela, preservando contratos como definição de semântica, invariantes e validação. `contrato_composicao_corpo.md` foi tratado em DOC-0025. `contrato_lancador.md` foi tratado em DOC-0020. `contrato_barra_de_menus.md` foi tratado em DOC-0021.
+**Próxima ação:** executar em tarefa separada para os contratos remanescentes (`contrato_cabecalho.md` e `contrato_estilo.md`).
+
+### DOC-0019 — Revisar `dashboard` conforme ADR-0008
+**Tipo:** documentação
+**Status:** pronto_para_execucao
+**Arquivo(s) envolvido(s):** `docs/NOMENCLATURA.md`, `docs/contratos/contrato_composicao_corpo.md`
+**Origem:** `docs/adr/ADR-0008-modelo-configuracao-por-tela.md`
+**Descrição:** registrar `dashboard` como tipo mínimo: não navegável por `[✥]`, não obrigatório, com moldura própria, posicionável dentro do corpo conforme configuração da tela e sem conteúdo universal fixo. Tratar a especificação do antigo `Info` como draft da instância de `dashboard` da tela raiz do Orquestrador.
+**Próxima ação:** pode ser executado junto de DOC-0017/DOC-0018 ou em tarefa separada de revisão de `dashboard`.
+
+### DOC-0020 — Revisar `lancador` conforme ADR-0008
+**Tipo:** documentação
+**Status:** concluido
+**Concluido_em:** 2026-07-07
+**Arquivo(s) envolvido(s):** `docs/contratos/contrato_lancador.md`, `docs/build_docs/to_do.md`
+**Origem:** `docs/adr/ADR-0008-modelo-configuracao-por-tela.md`
+**Descrição:** revisar `lancador` como instância configurável por tela, incluindo título, itens, chip/letra, texto, `tela_destino` e regras de exibição/layout da instância, sem lista global de itens. Aplicado em `contrato_lancador.md` (versão 0.2): natureza do tipo vs instância declarada no `tela.json`; instância com `id` obrigatório; cada item com `id`, `chip`/tecla, `texto` e `tela_destino` obrigatórios; `config/lancador.json` marcado como artefato ativo transicional; alinhamento horizontal como regra da instância (não regra universal); ADR-0002 preservada como referência histórica e default possível; seção explícita sobre relação com `barra_de_menus`; critérios de validação expandidos; ADR-0008 adicionada à rastreabilidade.
+**Próxima ação:** — (concluído; contratos remanescentes de DOC-0018 permanecem em aberto)
+
+### DOC-0021 — Revisar `barra_de_menus` conforme ADR-0008
+**Tipo:** documentação
+**Status:** concluido
+**Concluido_em:** 2026-07-07
+**Arquivo(s) envolvido(s):** `docs/contratos/contrato_barra_de_menus.md`, `docs/build_docs/to_do.md`
+**Origem:** `docs/adr/ADR-0008-modelo-configuracao-por-tela.md`
+**Descrição:** aplicar ADR-0008 em `contrato_barra_de_menus.md` (versão 0.2): natureza do tipo vs instância declarada no `tela.json`; `tela.json` como fonte da lista concreta de chips; `config/barra_de_menus.json` marcado como artefato ativo transicional; chips como entidades declarativas com campos conceituais (id, tipo, tecla, texto, acao, regra_existencia, regra_ativo, forma_exibicao); tipos conceituais de chip registrados; chips canônicos reposicionados como instâncias padronizadas; `[✥]` restrito a `console` navegável — não navega `lancador` nem `dashboard`; `[␣]` restrito a seleção múltipla; `[⏎]` atualizado como ação por item/binding; filtros declarativos formalizados; modo verboso `[V]` formalizado; ações whitelisted; seção de distribuição de instância adicionada; ADR-0004, ADR-0005 e ADR-0008 na rastreabilidade; critérios de validação expandidos. `docs/NOMENCLATURA.md` não foi alterado — os conceitos necessários já estão registrados na seção 5.
+**Próxima ação:** — (concluído; pendência de contrato/classe `chip` permanece em DOC-B006)
+
+### DOC-0022 — Atualizar `docs/INDICE.md` após aplicação da ADR-0008
+**Tipo:** documentação
+**Status:** pronto_para_execucao
+**Arquivo(s) envolvido(s):** `docs/INDICE.md`
+**Origem:** `docs/adr/ADR-0008-modelo-configuracao-por-tela.md`
+**Descrição:** atualizar a descrição da estrutura esperada e da função de `config/` para não priorizar o modelo antigo de JSON por domínio/componente depois que `NOMENCLATURA.md` e contratos forem revisados.
+**Próxima ação:** executar junto da aplicação documental da ADR-0008.
+
+### DOC-0023 — Criar contrato do schema de `tela.json`
+**Tipo:** documentação
+**Status:** concluido
+**Concluido_em:** 2026-07-07
+**Arquivo(s) envolvido(s):** `docs/contratos/contrato_tela_json.md` (criado), `docs/INDICE.md` (atualizado), `docs/NOMENCLATURA.md` (atualizado minimamente), `docs/build_docs/to_do.md` (atualizado)
+**Origem:** `docs/adr/ADR-0008-modelo-configuracao-por-tela.md`; antigo DOC-B005
+**Descrição:** criar contrato documental de `tela.json` como declaração configurável de uma tela, com estrutura obrigatória `schema`, `id`, `cabecalho`, `corpo` e `barra_de_menus`; corpo como lista de elementos `console`, `dashboard` e `lancador`; `console` como container genérico; filtros e bindings declarativos; ações whitelisted/registradas; validação obrigatória antes de renderizar; separação entre configuração e estado de runtime; e pendências derivadas para contratos futuros.
+**Próxima ação:** — (concluído; pendências derivadas registradas em DOC-0017 a DOC-0022, DOC-0024 e DOC-B006 a DOC-B011)
+
+### DOC-0024 — Revisar `console` como container genérico
+**Tipo:** documentação
+**Status:** concluido
+**Concluido_em:** 2026-07-07
+**Arquivo(s) envolvido(s):** `docs/contratos/contrato_console.md` (criado), `docs/INDICE.md` (atualizado), `docs/build_docs/to_do.md` (atualizado)
+**Origem:** `docs/contratos/contrato_tela_json.md`
+**Descrição:** criar contrato documental do `console` como container genérico de itens heterogêneos, declarado no `tela.json`. Contrato cobre: natureza do tipo vs instância declarada no `tela.json`; instância com `id` obrigatório e campos mínimos; itens heterogêneos com `navegavel`, `selecionavel`, `acao_enter`, `politica_quebra` e `politica_exibicao`; política geral de composição com truncamento em modo normal e expansão em modo verboso; navegação por item (não por linha física); três políticas de seleção (`nenhuma`, `unica`, `multipla`); ação Enter por item; filtros declarativos aplicados antes da paginação; paginação com políticas de quebra; colunas ajustáveis; relação com `chip` e `barra_de_menus`; relação com `dashboard` e `lancador`; regras de uso; critérios de validação; pendências fora de escopo.
+**Próxima ação:** — (concluído; pendências derivadas preservadas em DOC-B008, DOC-B009, DOC-B010, DOC-B011)
+
+### DOC-0026 — Criar contrato da classe `chip`
+**Tipo:** documentação
+**Status:** concluido
+**Concluido_em:** 2026-07-07
+**Arquivo(s) envolvido(s):** `docs/contratos/contrato_chip.md` (criado), `docs/INDICE.md` (atualizado), `docs/build_docs/to_do.md` (atualizado)
+**Origem:** `docs/adr/ADR-0008-modelo-configuracao-por-tela.md`; antigo DOC-B006
+**Descrição:** criar o contrato documental da classe `chip` como entidade declarativa de interface textual. Definidos: natureza do chip (não é ação por si só; aponta para ação/filtro/alternância/estado declarado); escopo principal na `barra_de_menus` com distinção obrigatória dos chips internos do `lancador`; campos mínimos (`id`, `tipo`, `tecla`, `texto`, `acao`/`referencia_regra`, `regra_existencia`, `regra_ativo`, `forma_exibicao`); tipos conceituais (`acao`, `filtro`, `alternancia`, `navegacao`, `informativo`, `especifico`); chips canônicos como instâncias padronizadas, não hardcoded; ações declarativas e whitelisted com proibição de comandos arbitrários; regra de existência como regra estrutural estática; regra de ativo/inativo como regra dinâmica; forma de exibição; texto e tecla; relação com estilo (aparência exclusivamente via `config/estilo.json`); relação com `barra_de_menus`; relação com `console`; relação com `lancador` e `dashboard`; critérios de validação; pendências fora de escopo. DOC-B006 fechado.
+**Próxima ação:** — (concluído; pendências derivadas registradas em DOC-B009 — registry de ações e tipos; DOC-B006 encerrado)
+
+### DOC-0027 — Ajustar critérios de validação do `contrato_console` pós-QA
+**Tipo:** documentação
+**Status:** concluido
+**Concluido_em:** 2026-07-07
+**Arquivo(s) envolvido(s):** `docs/contratos/contrato_console.md`, `docs/build_docs/to_do.md`
+**Origem:** `docs/relatorios/RELATORIO_QA_DOC-0024_CONTRATO_CONSOLE.md` — problema P1
+**Descrição:** expandir a seção 16 de `contrato_console.md` para espelhar explicitamente todos os campos mínimos definidos na seção 3. Critérios adicionados: instância sem `tipo`, instância com `tipo` diferente de `console`, instância sem `titulo` ou identificador visual, e ausência de `politica_composicao`, `politica_navegacao`, `politica_selecao`, `politica_paginacao` e `politica_exibicao`. Critérios existentes sobre itens, ações, filtros, paginação, quebra, colunas, seleção e hardcoding preservados. Wording de `origem_dados` atualizado de "regra de itens" para "regra de geração de itens" para alinhar com seção 3.
+**Próxima ação:** — (concluído; ajuste pós-QA responde ao relatório `RELATORIO_QA_DOC-0024_CONTRATO_CONSOLE.md`)
+
+### DOC-0025 — Aplicar ADR-0008 em `contrato_composicao_corpo.md`
+**Tipo:** documentação
+**Status:** concluido
+**Concluido_em:** 2026-07-07
+**Arquivo(s) envolvido(s):** `docs/contratos/contrato_composicao_corpo.md`, `docs/build_docs/to_do.md`
+**Origem:** `docs/adr/ADR-0008-modelo-configuracao-por-tela.md`; DOC-0018 (parcial — apenas `contrato_composicao_corpo.md`)
+**Descrição:** atualizar `contrato_composicao_corpo.md` para refletir que a composição concreta da tela é declarada no `tela.json`, não hardcoded em classe Python nem em JSON global por domínio/componente. Mudanças aplicadas: regra fundamental reescrita (declaração no `tela.json`, renderer executa sem deliberar); eixos de composição migrados para campos declarados por instância; `dashboard` deixa de ser eixo universal e passa a ser elemento opcional de `corpo.elementos[]`; `posicao_dashboard` passa a ser campo da instância; capacidades de `console` (paginação, colunas, filtros, seleção, modo verboso) passadas para declaração por instância; `lancador` refletido como instância declarada por tela; seção própria para `console` como container genérico adicionada; tiling atualizado para declaração em `tela.json`; seção de relação com `barra_de_menus` adicionada; R-13/R-14 adicionados; critérios de validação atualizados com regras ADR-0008; versão do contrato atualizada para `0.2`. Pendências derivadas preservadas (DOC-0020, DOC-0024, DOC-B004, DOC-B008).
+**Próxima ação:** — (concluído; contratos remanescentes de DOC-0018 permanecem em aberto)
+
+### DOC-0029 — ADR: caminho, nomenclatura e formato dos JSONs de tela
+**Tipo:** adr
+**Status:** concluido
+**Concluido_em:** 2026-07-07
+**Arquivo(s) envolvido(s):** `docs/adr/ADR-0009-caminho-formato-jsons-tela.md` (criado), `docs/adr/INDICE_ADR.md` (atualizado), `docs/build_docs/to_do.md` (atualizado)
+**Origem:** DOC-B010; `docs/contratos/contrato_tela_json.md`; `docs/relatorios/RELATORIO_CONSOLIDACAO_FASE_0_ADR-0008_TELA_BASE.md`
+**Descrição:** registrar formalmente o caminho canônico `config/telas/<id>.json`, a regra de nomenclatura por identificador estável em `snake_case` minúsculo sem acentos, a coincidência obrigatória entre `id` interno e nome base do arquivo, o identificador canônico `orquestrador` para a tela raiz, a ausência de índice central obrigatório nesta etapa, a permanência de `config/estilo.json` fora de `config/telas/`, e o status de artefatos transicionais existentes em `config/`. DOC-B010 encerrado.
+**Próxima ação:** — (concluído; DOC-B011 liberado para criar `config/telas/orquestrador.json`)
+
+### DOC-0028 — Consolidar Fase 0 após ADR-0008 na tela base
+**Tipo:** consolidação/documentação
+**Status:** concluido
+**Concluido_em:** 2026-07-07
+**Arquivo(s) envolvido(s):** `docs/relatorios/RELATORIO_CONSOLIDACAO_FASE_0_ADR-0008_TELA_BASE.md`, `docs/build_docs/to_do.md`
+**Origem:** fechamento documental curto do ciclo ADR-0008 aplicado aos contratos centrais da tela base.
+**Descrição:** relatório de consolidação criado para registrar o que já está fechado, o que foi aprovado com ressalva, quais ressalvas são apenas de worktree acumulado, quais ressalvas técnicas já foram resolvidas, quais pendências permanecem antes do draft do JSON da tela raiz do Orquestrador e se `contrato_cabecalho.md` ou `contrato_estilo.md` bloqueiam o próximo passo. Ciclo consolidado: ADR-0008, `contrato_tela_json.md`, aplicação em `NOMENCLATURA.md`, `contrato_composicao_corpo.md`, `contrato_lancador.md`, `contrato_barra_de_menus.md`, `contrato_chip.md`, `contrato_console.md` e ajuste pós-QA do `console`.
+**Resultado da análise de bloqueio:** `LIBERADO_COM_PENDENCIAS_NAO_BLOQUEANTES`; `contrato_cabecalho.md` e `contrato_estilo.md` permanecem pendentes em DOC-0018, mas não bloqueiam o draft conceitual da tela raiz.
+**Próxima ação:** tratar DOC-B010 antes do draft real, definindo formato, caminho, nomenclatura e organização dos JSONs de tela; em seguida abrir DOC para o draft do JSON da tela raiz do Orquestrador.
+
+### DOC-0030 — Ajustar draft da tela raiz pós-QA DOC-B011
+**Tipo:** documentação/configuração
+**Status:** concluido
+**Concluido_em:** 2026-07-07
+**Arquivo(s) envolvido(s):** `config/telas/orquestrador.json`, `docs/build_docs/to_do.md`
+**Origem:** `docs/relatorios/RELATORIO_QA_DOC-B011_TELA_RAIZ_ORQUESTRADOR_JSON.md`
+**Descrição:** ajustes pós-QA ao draft `config/telas/orquestrador.json` com base nos problemas P1–P4 do relatório DOC-B011. Ajustes aplicados: (1) `referencias_de_acoes` expandida com `status: pendente_DOC-B009` e nota explícita de que nenhuma ação executa comando shell, nenhuma chama Python arbitrariamente e todas são referências declarativas provisórias; (2) `colunas_ajustavel` do `console_principal` convertida de string `"com"` para objeto com `ativo`, `minimo: 1`, `maximo: 3` e nota; (3) `filtro_grupo` expandido com `atua_antes_da_paginacao: true`, `filtro_ativo_runtime: "nao_guardado_aqui"`, `campo: "pendente_DOC-B008"` e nota mais explícita; (4) `lancador_principal` recebeu campo `pendencia_itens` explicitando que `itens: []` aguarda definição de telas do sistema e que o lancador não é navegável por setas (ADR-0005); (5) `chip_estilo` recebeu campo `pendencia` e nota na ação marcando o chip como placeholder não executável; (6) `metadados.pendencias` atualizado para refletir todos os ajustes com referências explícitas a DOC-B008, DOC-B009, DOC-0018 e DOC-B004.
+**Pendências preservadas:** DOC-B008 (tipos internos de item de console e campo do filtro_grupo), DOC-B009 (registry de ações e tipos), DOC-0018 (contratos cabecalho/estilo), DOC-B004 (alinhamento do dashboard), DOC-B007 (arquivamento de artefatos), destinos do lancador, chip_estilo tela_destino.
+**Próxima ação:** DOC-B008 (tipos internos de item de console) ou DOC-B009 (registry de ações/tipos), conforme decisão de prioridade do usuário.
+
+### DOC-0031 — Consolidação final pré-commit da Fase 0 / ADR-0008 / tela raiz
+**Tipo:** consolidação/documentação
+**Status:** concluido
+**Concluido_em:** 2026-07-07
+**Arquivo(s) envolvido(s):** `docs/relatorios/RELATORIO_CONSOLIDACAO_FINAL_FASE_0_ADR-0008_TELA_RAIZ.md` (criado), `docs/build_docs/to_do.md` (atualizado)
+**Origem:** fechamento do ciclo documental Fase 0 / ADR-0008 / tela raiz do Orquestrador.
+**Descrição:** consolidação final pré-commit do pacote documental que cobre ADR-0008, ADR-0009, `contrato_tela_json.md`, aplicação em `NOMENCLATURA.md`, contratos `composicao_corpo`, `lancador`, `barra_de_menus`, `chip` e `console`, ajustes pós-QA, e draft real `config/telas/orquestrador.json`. Relatório criado com arrolamento completo de artefatos, itens fechados, pendências preservadas, resultado das QAs, checks finais e recomendação de commit.
+**Status final do pacote:** `PRONTO_PARA_COMMIT`
+**Checks executados:** `git diff --check` — aprovado; `python3 -m json.tool config/telas/orquestrador.json` — aprovado.
+**Pendências preservadas:** DOC-B008, DOC-B009, DOC-0018 (cabecalho/estilo), DOC-B001 a DOC-B004, DOC-B007.
+**Próxima ação:** commit documental único da Fase 0 / ADR-0008 / tela raiz.
+
 ## Itens bloqueados (precisam de sessão de decisão antes de virar tarefa)
+
+### DOC-B006 — Definir contrato/classe `chip`
+**Status:** concluido
+**Concluido_em:** 2026-07-07
+**Origem:** `docs/adr/ADR-0008-modelo-configuracao-por-tela.md`; `docs/NOMENCLATURA.md` seção 5.2
+**Descrição:** chips canônicos e específicos devem poder ser instâncias declaradas em JSON, mas ainda falta fechar contrato/classe `chip`: campos obrigatórios, tipos formais, ações, regras de existência, regras de ativo/inativo e forma de surgimento.
+**Resolução:** contrato criado em `docs/contratos/contrato_chip.md` (DOC-0026). Campos mínimos, tipos conceituais, regras de existência/ativo-inativo, forma de exibição, relações e critérios de validação definidos. Registry completo de ações e de tipos de chip permanece pendente em DOC-B009.
+
+### DOC-B007 — Arquivar artefatos históricos/transicionais no fechamento da Fase 0
+**Status:** bloqueado_decisao
+**Origem:** `docs/adr/ADR-0008-modelo-configuracao-por-tela.md`
+**Descrição:** pendência obrigatória de fechamento da Fase 0: arquivar artefatos históricos/transicionais de rastreabilidade para limpar a documentação ativa e evitar que buscas futuras priorizem contextos superados. Depende da decisão operacional de fechamento da etapa.
+
+### DOC-B008 — Definir contratos/classes de itens internos de `console`
+**Status:** bloqueado_decisao
+**Origem:** `docs/contratos/contrato_tela_json.md`
+**Descrição:** o contrato de `tela.json` define `console` como container genérico e admite itens heterogêneos, mas ainda não fecha a taxonomia, campos obrigatórios, renderização normal/verbosa, quebra de página, navegabilidade, selecionabilidade e ação de Enter de cada tipo interno de item.
+
+### DOC-B009 — Definir registry de tipos válidos
+**Status:** bloqueado_decisao
+**Origem:** `docs/contratos/contrato_tela_json.md`
+**Descrição:** falta definir o registry de tipos reconhecidos pelo renderer: tipos de corpo, tipos internos de item de `console`, tipos de chip, tipos de filtro, tipos de ação registrada, origens de dados e regras de validação de cada família.
+
+### DOC-B010 — Definir formato real e caminho dos JSONs de tela
+**Status:** concluido
+**Concluido_em:** 2026-07-07
+**Origem:** `docs/contratos/contrato_tela_json.md`; `docs/adr/ADR-0008-modelo-configuracao-por-tela.md`
+**Descrição:** o contrato de `tela.json` fecha o schema conceitual, mas ainda falta decidir caminho, nomenclatura, organização em diretórios, granularidade, exemplos reais mínimos e convenções de referência entre JSONs de tela.
+**Resolução:** ADR-0009 criada em `docs/adr/ADR-0009-caminho-formato-jsons-tela.md` (DOC-0029). Caminho canônico `config/telas/<id>.json`; identificador `orquestrador` para a tela raiz; nome base do arquivo coincide com `id` interno; `config/estilo.json` permanece fora de `config/telas/`; JSONs transicionais existentes marcados como artefatos a reavaliar/migrar; sem índice central obrigatório nesta etapa.
+
+### DOC-B011 — Criar draft do JSON da tela raiz do Orquestrador
+**Status:** concluido
+**Concluido_em:** 2026-07-07
+**Arquivo(s) envolvido(s):** `config/telas/orquestrador.json` (criado; diretório `config/telas/` criado), `docs/build_docs/to_do.md` (atualizado)
+**Origem:** `docs/contratos/contrato_tela_json.md`; `docs/adr/ADR-0009-caminho-formato-jsons-tela.md`
+**Descrição:** criado o primeiro draft real da tela raiz do Orquestrador em `config/telas/orquestrador.json`. Estrutura: `schema: tela.v1`, `id: orquestrador`, cabeçalho com `titulo` e `descricao`, corpo com 3 elementos (`console_principal`, `dashboard_info`, `lancador_principal`), barra_de_menus com 11 chips declarativos na ordem canônica, filtros, bindings e referencias_de_acoes declarados como pendentes. Dashboard com 8 campos do resumo (Adicionados, Fichados, Consolidados, Qualificados, Orfão, Missing, Secundários, Descartados) + Total + 8 marcadores (!, @, ?, *, &, %, ~, ^) conforme NOMENCLATURA.md seção 9. Lancador declarado sem itens — itens e destinos pendentes de documentação. Pendências preservadas em `metadados.pendencias`.
+**Próxima ação:** — (concluído; pendências remanescentes: DOC-B008, DOC-B009, DOC-0018, DOC-B007, DOC-B001 a DOC-B004)
 
 ### DOC-B001 — Regras de ajuste do `tx` (corpo tipo `console`)
 **Status:** bloqueado_decisao

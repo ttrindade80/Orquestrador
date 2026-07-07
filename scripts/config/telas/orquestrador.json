@@ -1,0 +1,257 @@
+{
+  "schema": "tela.v1",
+  "id": "orquestrador",
+  "metadados": {
+    "status": "draft",
+    "origem": "DOC-B011",
+    "adr_base": ["ADR-0008", "ADR-0009"],
+    "pendencias": [
+      "DOC-0018 — contrato_cabecalho.md e contrato_estilo.md nao revisados formalmente para tela.json; nao bloqueia draft conceitual",
+      "DOC-B009 — registry completo de acoes e tipos de chip a definir em tarefa propria; acoes dos chips sao referencias declarativas conceituais provisorias, nao implementadas; nenhuma acao executa comando shell; nenhuma acao chama Python arbitrariamente; nenhuma acao deve ser tratada como executavel ate o registry formal ser fechado",
+      "DOC-B008 — tipos internos de item de console nao definidos; regra_geracao_itens declarada como referencia pendente; campo do filtro_grupo pendente de definicao junto ao contrato de item",
+      "lancador_principal.itens: [] — itens e tela_destino pendentes de definicao das telas do sistema; lancador nao e navegavel por [setas] (ADR-0005)",
+      "DOC-B008 DOC-B009 — origem_dados e fontes do console e dashboard pendentes de definicao formal",
+      "DOC-B004 — alinhamento horizontal do bloco do dashboard pendente de confirmacao",
+      "chip_estilo.tela_destino pendente — ID da tela de estilo nao documentado; chip placeholder nao executavel como draft; aguarda definicao de telas do sistema e formalizacao do registry de acoes (DOC-B009)",
+      "colunas_ajustavel minimo=1 maximo=3 declarados como draft — maximo definitivo pode ser revisado quando renderer for implementado"
+    ]
+  },
+  "cabecalho": {
+    "titulo": "Orquestrador",
+    "descricao": "Tela raiz do sistema — ponto de entrada e visao consolidada do pipeline de survey"
+  },
+  "corpo": {
+    "arranjo": "sobreposto",
+    "elementos": [
+      {
+        "id": "console_principal",
+        "tipo": "console",
+        "titulo": "Itens",
+        "origem_dados": {
+          "referencia": "pendente",
+          "nota": "DOC-B008 DOC-B009 — binding de dados e tipo de item nao definidos formalmente"
+        },
+        "regra_geracao_itens": {
+          "tipo": "pendente",
+          "nota": "DOC-B008 — tipos internos de item de console aguardam contrato proprio"
+        },
+        "politica_composicao": {
+          "alinhamento_origem": "centralizado",
+          "overflow_normal": "truncar_com_reticencias"
+        },
+        "politica_navegacao": {
+          "navegavel": true,
+          "wrap_toroidal": true
+        },
+        "politica_selecao": "multipla",
+        "politica_paginacao": {
+          "paginacao": "com"
+        },
+        "politica_exibicao": {
+          "modo_verboso_permitido": true,
+          "modo_inicial": "normal"
+        },
+        "colunas_ajustavel": {
+          "ativo": "com",
+          "minimo": 1,
+          "maximo": 3,
+          "nota": "limites declarativos para chips [-][+]; valor runtime de colunas nao guardado aqui (contrato_console.md secao 12)"
+        },
+        "filtro_de_grupo": "com",
+        "formacao_de_selecao": "com"
+      },
+      {
+        "id": "dashboard_info",
+        "tipo": "dashboard",
+        "titulo": "Info",
+        "posicao_dashboard": "vertical",
+        "origem_dados": {
+          "referencia": "pendente",
+          "nota": "DOC-B009 — binding de dados do dashboard aguarda definicao"
+        },
+        "campos": [
+          {"id": "adicionados",  "rotulo": "Adicionados",  "fonte": "pendente"},
+          {"id": "fichados",     "rotulo": "Fichados",     "fonte": "pendente"},
+          {"id": "consolidados", "rotulo": "Consolidados", "fonte": "pendente"},
+          {"id": "qualificados", "rotulo": "Qualificados", "fonte": "pendente"},
+          {"id": "orfao",        "rotulo": "Orfão",        "fonte": "pendente"},
+          {"id": "missing",      "rotulo": "Missing",      "fonte": "pendente"},
+          {"id": "secundarios",  "rotulo": "Secundários",  "fonte": "pendente"},
+          {"id": "descartados",  "rotulo": "Descartados",  "fonte": "pendente"},
+          {
+            "id": "total",
+            "rotulo": "Total",
+            "fonte": "pendente",
+            "tipo_campo": "total",
+            "nota": "linha em branco obrigatoria entre Total e marcadores — contrato_composicao_corpo.md secao 5.3"
+          }
+        ],
+        "marcadores": [
+          {"id": "retido",      "simbolo": "!", "rotulo": "Retido",      "fonte": "pendente"},
+          {"id": "incompleto",  "simbolo": "@", "rotulo": "Incompleto",  "fonte": "pendente"},
+          {"id": "ausencia",    "simbolo": "?", "rotulo": "Ausência",    "fonte": "pendente"},
+          {"id": "revisao",     "simbolo": "*", "rotulo": "Revisão",     "fonte": "pendente"},
+          {"id": "dissonancia", "simbolo": "&", "rotulo": "Dissonância", "fonte": "pendente"},
+          {"id": "indevido",    "simbolo": "%", "rotulo": "Indevido",    "fonte": "pendente"},
+          {"id": "atualizacao", "simbolo": "~", "rotulo": "Atualização", "fonte": "pendente"},
+          {"id": "mesclado",    "simbolo": "^", "rotulo": "Mesclado",    "fonte": "pendente"}
+        ]
+      },
+      {
+        "id": "lancador_principal",
+        "tipo": "lancador",
+        "titulo": "Navegar",
+        "layout": {
+          "alinhamento": "esquerda",
+          "nota": "ADR-0002 — bloco a esquerda com sobra a direita como valor default do tipo"
+        },
+        "itens": [],
+        "pendencia_itens": "pendente — itens e tela_destino nao documentados; aguardar definicao das telas do sistema; lancador nao e navegavel por [setas] (ADR-0005)"
+      }
+    ]
+  },
+  "barra_de_menus": {
+    "distribuicao": "horizontal",
+    "chips": [
+      {
+        "id": "chip_esc",
+        "tipo": "acao",
+        "tecla": "Esc",
+        "texto": "Sair",
+        "acao": {
+          "tipo": "acao_contextual_esc",
+          "nota": "Limpar quando ha selecao ativa; Sair na tela raiz sem selecao (contrato_barra_de_menus secao 9)"
+        },
+        "regra_existencia": "sempre",
+        "regra_ativo": "sempre",
+        "forma_exibicao": "rotulo_dinamico"
+      },
+      {
+        "id": "chip_paginas",
+        "tipo": "navegacao",
+        "tecla": "<>",
+        "texto": "Páginas",
+        "acao": {"tipo": "paginar"},
+        "regra_existencia": "console_com_paginacao",
+        "regra_ativo": "multiplas_paginas",
+        "forma_exibicao": "visivel_condicional"
+      },
+      {
+        "id": "chip_colunas",
+        "tipo": "navegacao",
+        "tecla": "-+",
+        "texto": "Colunas",
+        "acao": {"tipo": "ajustar_colunas"},
+        "regra_existencia": "console_com_colunas_ajustavel",
+        "regra_ativo": "condicional_por_limite",
+        "forma_exibicao": "visivel_condicional"
+      },
+      {
+        "id": "chip_grupos",
+        "tipo": "filtro",
+        "tecla": "#",
+        "texto": "Grupos",
+        "acao": {"tipo": "alternar_filtro", "filtro": "filtro_grupo"},
+        "regra_existencia": "console_com_filtro_de_grupo",
+        "regra_ativo": "condicional",
+        "forma_exibicao": "visivel_condicional"
+      },
+      {
+        "id": "chip_alternar",
+        "tipo": "alternancia",
+        "tecla": "⇆",
+        "texto": "Alternar",
+        "acao": {"tipo": "alternar_foco_corpo"},
+        "regra_existencia": "tela_com_multiplos_corpos",
+        "regra_ativo": "sempre",
+        "forma_exibicao": "visivel_condicional"
+      },
+      {
+        "id": "chip_navegar",
+        "tipo": "navegacao",
+        "tecla": "✥",
+        "texto": "Navegar",
+        "acao": {"tipo": "navegar_console"},
+        "regra_existencia": "tela_com_console_navegavel",
+        "regra_ativo": "console_navegavel_em_foco",
+        "forma_exibicao": "visivel_condicional"
+      },
+      {
+        "id": "chip_selecionar",
+        "tipo": "acao",
+        "tecla": "␣",
+        "texto": "Selecionar",
+        "acao": {"tipo": "toggle_selecao"},
+        "regra_existencia": "console_com_selecao_multipla",
+        "regra_ativo": "item_selecionavel_em_foco",
+        "forma_exibicao": "visivel_condicional"
+      },
+      {
+        "id": "chip_enter",
+        "tipo": "acao",
+        "tecla": "⏎",
+        "texto": "Todos",
+        "acao": {
+          "tipo": "acao_por_item_em_foco",
+          "nota": "rotulo dinamico — Todos sem selecao; Executar com selecao; Visualizar em item so-leitura"
+        },
+        "regra_existencia": "sempre",
+        "regra_ativo": "item_com_acao_valida_em_foco",
+        "forma_exibicao": "rotulo_dinamico"
+      },
+      {
+        "id": "chip_estilo",
+        "tipo": "especifico",
+        "subtipo": "aciona_tela",
+        "tecla": "|",
+        "texto": "Estilo",
+        "acao": {
+          "tipo": "abrir_tela",
+          "tela_destino": "pendente",
+          "nota": "tela_destino pendente — ID da tela de estilo nao documentado; chip placeholder nao executavel como draft; aguarda definicao de telas do sistema e formalizacao do registry de acoes (DOC-B009)"
+        },
+        "pendencia": "tela_destino nao definida — chip placeholder; nao executavel como draft; aguarda DOC-B009 e definicao de telas do sistema",
+        "regra_existencia": "acao_especifica_declarada",
+        "regra_ativo": "sempre",
+        "forma_exibicao": "visivel_ativo"
+      },
+      {
+        "id": "chip_verboso",
+        "tipo": "alternancia",
+        "tecla": "V",
+        "texto": "Verboso",
+        "acao": {"tipo": "toggle_estado", "estado": "modo_verboso"},
+        "regra_existencia": "console_com_modo_verboso",
+        "regra_ativo": "sempre",
+        "forma_exibicao": "visivel_condicional"
+      },
+      {
+        "id": "chip_ajuda",
+        "tipo": "acao",
+        "tecla": "?",
+        "texto": "Ajuda",
+        "acao": {"tipo": "abrir_ajuda"},
+        "regra_existencia": "sempre",
+        "regra_ativo": "sempre",
+        "forma_exibicao": "visivel_ativo"
+      }
+    ]
+  },
+  "filtros": [
+    {
+      "id": "filtro_grupo",
+      "campo": "pendente_DOC-B008",
+      "tipo": "grupo",
+      "atua_antes_da_paginacao": true,
+      "filtro_ativo_runtime": "nao_guardado_aqui",
+      "nota": "DOC-B008 DOC-B009 — campo e atributo a definir quando contratos de item interno de console e registry de tipos forem fechados; filtro declarativo; atua antes da paginacao; nao guarda filtro ativo atual como estado; chip_grupos referencia este filtro"
+    }
+  ],
+  "bindings": {
+    "nota": "DOC-B008 e DOC-B009 — bindings de dados, renderizacao, navegacao e acao a definir quando registry de tipos e contratos de itens internos forem fechados"
+  },
+  "referencias_de_acoes": {
+    "status": "pendente_DOC-B009",
+    "nota": "DOC-B009 — registry completo de acoes e tipos de chip a definir em tarefa propria; acoes usadas pelos chips neste draft sao referencias declarativas conceituais provisorias, nao implementadas; nenhuma acao executa comando shell; nenhuma acao chama Python arbitrariamente; nenhuma acao deve ser tratada como executavel ate o registry formal ser fechado"
+  }
+}

@@ -6,7 +6,7 @@ metadata:
   scope: sistema_novo
   status: parcial
   origem_especificacao: usuario_sessao_2026-07-05
-  atualizado_em: 2026-07-06
+  atualizado_em: 2026-07-07
   reaproveitado_de_legado: false
 ---
 
@@ -24,21 +24,26 @@ nesta sessao de trabalho. Onde o Codex extraiu fatos do sistema antigo (ver
 seção 11), isso está marcado explicitamente como levantamento neutro, não
 como origem da decisão — a decisão em si continua vindo do usuário.
 
-## 0. Política — NOMENCLATURA.md vs arquivos JSON de dados (decidida nesta sessão)
+## 0. Política — NOMENCLATURA.md, `estilo.json` e JSONs de tela (ADR-0008)
 
-Cada domínio de renderização (`estilo`, corpo tipo `console`, corpo tipo
-`lancador`, `dashboard`, `barra_de_menus` e `cabecalho`) tem exatamente **dois**
-artefatos, com responsabilidades separadas e não sobrepostas:
+O modelo de configuração passou de JSON por domínio/componente para JSON por
+tela (ADR-0008, 2026-07-07). A responsabilidade de cada artefato é:
 
 | Artefato | Responsabilidade |
 |---|---|
-| `docs/NOMENCLATURA.md` (este documento) | **Schema e semântica**: quais campos existem, o que cada um significa, tipo, restrições, e como o renderer deve interpretá-los. Não guarda valor concreto de produção. |
-| `<dominio>.json` (arquivo próprio por domínio) | **Dados concretos**: os valores reais que o renderer lê e aplica. Serve também como gabarito de teste — uma implementação pode ser validada campo a campo contra esse arquivo. |
+| `docs/NOMENCLATURA.md` (este documento) | **Schema e semântica**: quais campos existem, o que cada um significa, tipo, restrições e como o renderer deve interpretá-los. Não guarda valor concreto de produção, composição de tela nem instância. |
+| `config/estilo.json` | **Biblioteca global de aparência**: presets de borda, chip, indicadores e demais parâmetros gerais de aparência. Não declara tela, conteúdo, composição, destino, ação, item de `lancador` nem instância de `dashboard`. |
+| `tela.json` (JSON próprio de cada tela) | **Declaração concreta da tela**: composição do corpo, instâncias de `console`, `dashboard`, `lancador` e `barra_de_menus`, listas de itens, chips, destinos, ações registradas, regras de existência/ativo-inativo, parâmetros visuais locais, bindings, filtros e regras de exibição. Não é código executável. Não guarda estado de runtime. |
 
-Isso substitui a prática usada para `estilo` (seção 1), onde os valores de
-preset (bordas, chips, indicadores) foram embutidos diretamente nas tabelas
-deste documento — inconsistência corrigida quando `estilo.json` foi gerado
-(DOC-0005).
+**Regra declarativa (ADR-0008)**: toda mudança que puder ser expressa por
+configuração deve ser feita alterando o JSON da tela, não o código. Exemplos:
+adicionar item ao `lancador`, mudar texto ou chip, apontar para nova tela,
+ajustar alinhamento, colunas, espaçamento e regras de exibição.
+
+**Estado de runtime não pertence ao JSON da tela**: cursor atual, página
+atual, filtro ativo, modo verboso ligado/desligado, seleção atual e item
+focado são estado de execução, não configuração. O JSON pode declarar
+defaults iniciais; o estado vivo pertence à execução.
 
 **Nomenclatura de arquivo**: nunca usar abreviação que misture dois termos
 já distinguidos neste glossário (ex.: nunca `barra_menu.json` — usar
@@ -49,17 +54,22 @@ já distinguidos neste glossário (ex.: nunca `barra_menu.json` — usar
 `scripts/`, irmã de `docs/` — nunca dentro de `docs/` (que é documentação
 neutra, sem dado de produção, ver `docs/INDICE.md`).
 
-**Status de migração por domínio:**
+**Status dos artefatos JSON (modelo ADR-0008):**
 
-| Domínio | JSON | Status |
+| Artefato | Papel no novo modelo | Status |
 |---|---|---|
-| Estilo | `config/estilo.json` | feito (seção 1) |
-| Corpo tipo `lancador` | `config/lancador.json` | feito (seção 8.4) |
-| Corpo tipo `console` | `config/layout_console.json` | feito (seção 4) |
-| Antigo corpo tipo `dado` | `config/layout_dado.json` | obsoleto/transicional — mantido para rastreabilidade da migração `dado` → `console` |
-| `dashboard` | *(a definir)* | não iniciado — antigo `Info`, vai ser tratado em outro chat |
-| `barra_de_menus` | `config/barra_de_menus.json` | feito (seção 5.1) |
-| Cabeçalho | `config/cabecalho.json` | feito (seção 7) |
+| `config/estilo.json` | Biblioteca global de aparência — mantida | ativo (seção 1) |
+| `config/layout_dado.json` | Obsoleto/transicional — rastreabilidade da migração `dado` → `console` | obsoleto; não é fonte canônica |
+| `config/layout_menu.json` | Obsoleto/transicional — rastreabilidade da migração `menu` → `lancador` | obsoleto; não é fonte canônica |
+| `config/lancador.json` | Parâmetros de layout do tipo `lancador` — a reavaliar/migrar conforme ADR-0008 | ativo transicional (seção 8.4) |
+| `config/layout_console.json` | Parâmetros de layout do tipo `console` — a reavaliar/migrar conforme ADR-0008 | ativo transicional (seção 4.4) |
+| `config/barra_de_menus.json` | Parâmetros de `barra_de_menus` — a reavaliar/migrar conforme ADR-0008 | ativo transicional (seção 5.1.3) |
+| `config/cabecalho.json` | Parâmetros de apresentação do `cabecalho` — a reavaliar/migrar conforme ADR-0008 | ativo transicional (seção 7.4) |
+| `tela.json` (por tela) | Declaração concreta de cada tela — modelo canônico ADR-0008 | contrato ativo em `docs/contratos/contrato_tela_json.md`; JSONs reais aguardam DOC-B010 |
+
+**`dashboard` não terá `config/dashboard.json` próprio.** A classe `dashboard`
+é definida como tipo mínimo (seção 9); dados concretos pertencem ao JSON da
+tela onde o `dashboard` for instanciado.
 
 ---
 
@@ -217,6 +227,40 @@ ferramenta, execução em segundo plano, estrutura do chip `aciona_processo`,
 renderer de progresso, implementação e alteração de dados reais de
 classes/telas.
 
+### 2.2 `tela.json` — declaração configurável da tela
+
+`tela.json` é o nome canônico da declaração configurável de uma tela. Ele é
+o arquivo declarativo que descreve a configuração concreta que o renderer
+deve validar e executar.
+
+O JSON de uma tela pode declarar:
+
+- estrutura do `cabecalho` (título e descrição);
+- composição do `corpo` e seus elementos;
+- instâncias de `console`, `dashboard` e `lancador`;
+- instância de `barra_de_menus` e lista de chips;
+- bindings entre dados e campos exibidos;
+- filtros declarativos;
+- ações registradas/whitelisted;
+- regras de exibição, layout e tiling.
+
+`tela.json` é declarativo, não procedural. Ele não executa comandos
+arbitrários, scripts livres, loops ou lógica executável não registrada. Ele
+não guarda estado de runtime (cursor, página, seleção, filtro ativo ou modo
+verboso corrente).
+
+Toda tela declarada por JSON deve conter, no mínimo:
+
+```text
+schema
+id
+cabecalho
+corpo
+barra_de_menus
+```
+
+O contrato ativo de referência é `docs/contratos/contrato_tela_json.md`.
+
 ---
 
 ## 3. Composicao de corpo (por classe de tela)
@@ -250,7 +294,26 @@ seção 8.3; valores em `config/lancador.json`.
 
 ---
 
-## 4. Mecanismos de selecao (corpo tipo `console`)
+## 4. Corpo tipo `console`
+
+`console` é um container interativo e navegável genérico (ver seção 2.1).
+A política geral de composição pertence à instância do `console`, declarada
+pelo JSON da tela. Os itens internos definem sua renderização específica.
+
+Propriedades gerais:
+
+- pode conter itens heterogêneos;
+- o cursor navega por itens, não por linhas físicas;
+- cada item pode declarar tipo, binding, navegabilidade, seleção e ação;
+- filtros atuam antes da paginação;
+- modo verboso é estado de exibição reutilizável — não é variação específica
+  de cada tela.
+
+A instância de `console` em uma tela é declarada pelo JSON da tela. O
+contrato detalhado de tipos internos de item de `console` é pendência
+DOC-B008. A revisão formal como container genérico é DOC-0024.
+
+### 4.0 Mecanismos de seleção (corpo tipo `console`)
 
 Quatro conceitos distintos, em camadas:
 
@@ -403,6 +466,16 @@ Campos cobertos pelo arquivo:
 ---
 
 ## 5. barra_de_menus
+
+A `barra_de_menus` é uma instância declarada pela tela. Cada tela declara
+sua `barra_de_menus` no JSON da tela como uma lista de chips. A barra
+continua sendo espelho da declaração — nunca fonte de decisão sobre
+composição.
+
+Chips canônicos e chips específicos devem poder ser instâncias declaradas
+no JSON da tela. A futura classe `chip` será detalhada em contrato próprio
+(DOC-B006). Até lá, a ordem e semântica de cada chip são definidas nesta
+seção.
 
 ### 5.1 Chips canônicos e ordem fixa (revisado nesta sessão)
 
@@ -726,14 +799,25 @@ formal — ver seção 11):
 
 ---
 
-## 9. Objeto `dashboard` — regras de layout
+## 9. Objeto `dashboard` — definição e regras de layout
 
-`dashboard` é um objeto opcional do corpo (ver seção 2.1), tipo saída passiva
-formatada. O usuário lê; não interage; não há cursor navegável por `[✥]`.
+`dashboard` é definido como tipo mínimo (ADR-0008):
 
-A estrutura de 8 campos de resumo + Total + 8 marcadores abaixo pertence ao
-caso específico legado do sistema de survey em desenvolvimento. Ela é exemplo
-e instância conhecida, não regra universal do tipo `dashboard`.
+- não navegável por `[✥]`;
+- não obrigatório;
+- possui moldura própria;
+- aceita posicionamento dentro do corpo conforme configuração da tela;
+- sem conteúdo universal fixo.
+
+`dashboard` não terá `config/dashboard.json` próprio. Cada instância de
+`dashboard` é declarada pelo JSON da tela onde é usada. O código não deve
+hardcodar conteúdo, composição ou campos de nenhuma instância de `dashboard`.
+
+O usuário lê; não interage; não há cursor navegável por `[✥]`.
+
+A estrutura de 8 campos de resumo + Total + 8 marcadores abaixo é o **draft
+da instância de `dashboard` da tela raiz do Orquestrador**. Ela é exemplo
+e instância conhecida; não define a classe universal `dashboard`.
 
 **Alinhamento horizontal:** mesma regra do corpo tipo `lancador` (seção 8) —
 coluna dimensionada pelo maior rótulo, alinhamento à esquerda dentro do
@@ -895,8 +979,8 @@ sistema. `lancador` é um nome sem colisão.
 
 ### Estrutura conceitual mínima do `lancador`
 
-O `lancador` é uma caixa com título e uma lista de itens. Cada item tem
-exatamente três partes:
+O `lancador` é uma instância declarada pelo JSON da tela. Cada instância tem
+título e uma lista de itens. Cada item tem exatamente três partes:
 
 | Parte | Descrição |
 |---|---|
@@ -910,6 +994,10 @@ o limite antes de declarar o `lancador`.
 
 **Papel de cada item**: aciona navegação para outra tela (`tela_destino`).
 Não executa processo, não filtra dado, não altera estado.
+
+**Mudança declarativa**: adicionar item ao `lancador`, mudar texto, mudar
+chip/letra ou mudar `tela_destino` deve ser alteração declarativa no JSON da
+tela. O código apenas percorre a lista de itens declarada.
 
 ### Escopo desta decisão
 

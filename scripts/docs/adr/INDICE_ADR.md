@@ -35,6 +35,8 @@ Este indice registra as ADRs aceitas do projeto.
 | ADR-0005 | lancador não é corpo navegável por [✥] | aceita | 2026-07-06 |
 | ADR-0006 | renomeação `dado` para `console` e `Info` para `dashboard` | aceita | 2026-07-06 |
 | ADR-0007 | tela de processamento é composição de tipos existentes | aceita | 2026-07-06 |
+| ADR-0008 | modelo de configuração por tela | aceita | 2026-07-07 |
+| ADR-0009 | caminho, nomenclatura e formato dos JSONs de tela | aceita | 2026-07-07 |
 
 ## Exemplo de linha
 

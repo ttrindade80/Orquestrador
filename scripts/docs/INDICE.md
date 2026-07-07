@@ -4,7 +4,7 @@ description: Indice da documentacao padrao para desenvolvimento de scripts
 metadata:
   type: indice
   scope: scripts
-  atualizado_em: 2026-07-06
+  atualizado_em: 2026-07-07
 ---
 
 # Indice — Documentacao de Scripts
@@ -36,7 +36,8 @@ Antes de mover este padrao para outro projeto, verificar:
 5. `docs/contratos/` — demais contratos de modulo ja `ativo` (hoje:
    `contrato_estilo.md`, `contrato_composicao_corpo.md`,
    `contrato_barra_de_menus.md`, `contrato_cabecalho.md`,
-   `contrato_lancador.md`)
+   `contrato_lancador.md`, `contrato_tela_json.md`, `contrato_chip.md`,
+   `contrato_console.md`)
 6. `docs/handoff/README.md`
 7. `docs/relatorios/README.md`
 8. Templates em `docs/templates/`, conforme a tarefa.
@@ -65,6 +66,9 @@ scripts/
       contrato_barra_de_menus.md
       contrato_cabecalho.md
       contrato_lancador.md
+      contrato_tela_json.md
+      contrato_chip.md
+      contrato_console.md
     adr/
       INDICE_ADR.md
       ADR-0001-menu-suporta-matriz.md
@@ -74,6 +78,7 @@ scripts/
       ADR-0005-lancador-nao-e-corpo-navegavel.md
       ADR-0006-renomeacao-console-dashboard.md
       ADR-0007-tela-processamento-composicao.md
+      ADR-0008-modelo-configuracao-por-tela.md
     handoff/
       README.md
     relatorios/
@@ -97,7 +102,7 @@ tempo de execução (ver `docs/NOMENCLATURA.md` seção 0). Fica dentro de
 | Artefato | Funcao | Regra |
 |---|---|---|
 | Glossário (`NOMENCLATURA.md`) | Fonte única de nomes e schema | Todo contrato deriva dele; ele não guarda valor concreto de produção (ver seção 0) |
-| Config (`config/*.json`) | Valores concretos que o renderer lê | Um arquivo por domínio (estilo, lancador, corpo-console, dashboard, barra_de_menus, cabecalho); gabarito de teste da implementação. `config/layout_dado.json` permanece apenas como obsoleto/transicional. |
+| Config (`config/*.json`) | Valores concretos que o renderer lê | Modelo em migração pela ADR-0008: `config/estilo.json` permanece biblioteca global de estilo; telas passam a ter JSON próprio de configuração concreta conforme `contrato_tela_json.md`. JSONs por domínio existentes permanecem transicionais até revisão específica. |
 | Contrato | Define comportamento esperado | Deve ser aprovado antes da implementacao |
 | ADR | Registra decisao arquitetural | Nao substitui contrato; contratos afetados devem ser atualizados |
 | RFC | Propoe mudanca | Nao autoriza implementacao |
