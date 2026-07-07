@@ -1,6 +1,6 @@
 ---
 name: contrato-cabecalho
-description: Schema e regras do cabecalho — região fixa superior da tela, distinta do corpo, Info, menu e barra_de_menus
+description: Schema e regras do cabecalho — região fixa superior da tela, distinta do corpo, dashboard, lancador e barra_de_menus
 metadata:
   type: contrato
   scope: scripts
@@ -33,18 +33,18 @@ duplica suas regras.
 
 O `cabecalho` é uma região distinta de todas as outras regiões da tela.
 Nenhum código, documentação ou nomenclatura pode tratar o `cabecalho` como
-equivalente a, ou subconjunto de, corpo, `Info`, `menu` ou `barra_de_menus`.
+equivalente a, ou subconjunto de, corpo, `dashboard`, `lancador` ou `barra_de_menus`.
 
 | Conceito | O que é | Localização | Regido por |
 |---|---|---|---|
 | `cabecalho` | Região fixa superior da tela com título e descrição | Sempre presente, acima do corpo | Este contrato |
-| Corpo | Região variável do meio da tela — contém objetos tipo `dado`, `menu` ou `Info` | Entre `cabecalho` e `barra_de_menus` | `contrato_composicao_corpo.md` |
+| Corpo | Região variável do meio da tela — contém objetos tipo `console`, `lancador` ou `dashboard` | Entre `cabecalho` e `barra_de_menus` | `contrato_composicao_corpo.md` |
 | `barra_de_menus` | Região fixa inferior com chips de ação e navegação | Abaixo do corpo | `contrato_barra_de_menus.md` |
 
 **Consequências diretas desta distinção:**
 
 - O `cabecalho` **não herda** nenhuma regra de layout, vão, alinhamento ou
-  distribuição do corpo, do objeto `Info`, do objeto `menu` do corpo, nem da
+  distribuição do corpo, do objeto `dashboard`, do objeto `lancador` do corpo, nem da
   `barra_de_menus`.
 - O arquivo de dados é exclusivo: `config/cabecalho.json` guarda somente
   parâmetros de apresentação do `cabecalho` — não é consultado por nenhum
@@ -156,7 +156,7 @@ de execução.
 
 **R-5. Independência de layout.**
 O renderer do `cabecalho` não consulta, herda nem aplica regras de layout do
-corpo (`contrato_composicao_corpo.md`), do objeto `Info`, do objeto `menu`
+corpo (`contrato_composicao_corpo.md`), do objeto `dashboard`, do objeto `lancador`
 do corpo, nem da `barra_de_menus` (`contrato_barra_de_menus.md`).
 
 **R-6. `recuo_lateral` ignorado quando `posicao = centro`.**

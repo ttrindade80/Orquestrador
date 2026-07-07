@@ -1,6 +1,6 @@
 ---
 name: contrato-barra-de-menus
-description: Schema e regras da barra_de_menus — região fixa de chips de ação da tela, distinta do objeto menu do corpo
+description: Schema e regras da barra_de_menus — região fixa de chips de ação da tela, distinta do objeto lancador do corpo
 metadata:
   type: contrato
   scope: scripts
@@ -28,24 +28,24 @@ duplica suas regras.
 
 ---
 
-## 2. Distinção fundamental — `barra_de_menus` vs objeto `menu` do corpo
+## 2. Distinção fundamental — `barra_de_menus` vs objeto `lancador` do corpo
 
-**`barra_de_menus`** e **`menu`** são entidades completamente distintas.
+**`barra_de_menus`** e **`lancador`** são entidades completamente distintas.
 Nenhum código, documentação ou nomenclatura pode usar os dois termos como
 sinônimos ou de forma intercambiável.
 
 | Conceito | O que é | Localização | Regido por |
 |---|---|---|---|
 | `barra_de_menus` | Região fixa da tela que contém os chips de ação e navegação | Sempre presente, separada do corpo | Este contrato |
-| `menu` | Tipo de objeto do corpo — composição de navegação dentro do próprio corpo da tela | Dentro do corpo, variável por tela | `contrato_composicao_corpo.md` |
+| `lancador` | Tipo de objeto do corpo — composição de navegação dentro do próprio corpo da tela | Dentro do corpo, variável por tela | `contrato_lancador.md` |
 
 **Consequências diretas desta distinção:**
 
 - A `barra_de_menus` **não herda** nenhuma regra de distribuição, layout ou
-  vãos do objeto `menu` do corpo (`contrato_composicao_corpo.md` seção 5.2).
+  vãos do objeto `lancador` do corpo (`contrato_lancador.md`).
 - Os arquivos de dados são separados:
   - `config/barra_de_menus.json` → dados concretos da `barra_de_menus`
-  - `config/layout_menu.json` → parâmetros de layout do objeto `menu` do corpo
+  - `config/lancador.json` → parâmetros de layout do objeto `lancador` do corpo
 - O termo `barra_de_menus` não pode ser abreviado para `barra_menu` — essa
   abreviação mistura dois termos distinguidos no glossário (ver
   `docs/NOMENCLATURA.md` seção 0).
@@ -138,12 +138,12 @@ em ADR-0004, que inclui `cor_inativo` e `cor_alerta` no schema de estilo
 | Chip canônico / notação documental | Rótulo documental | Eixo de composição que condiciona existência | Notas de estado dinâmico |
 |---|---|---|---|
 | `[<][>]` | Páginas | `paginacao: com` | Inativo quando há apenas 1 página no momento |
-| `[-][+]` | Colunas | `colunas_ajustavel: com` (tipo `dado`) | `[-]` inativo em `n_col` mínimo; `[+]` inativo em `n_col` máximo pela largura atual |
+| `[-][+]` | Colunas | `colunas_ajustavel: com` (tipo `console`) | `[-]` inativo em `n_col` mínimo; `[+]` inativo em `n_col` máximo pela largura atual |
 | `[#]` | Grupos | `filtro_de_grupo: com` | Abre entrada para digitar número do grupo |
 | `[⇆]` | Alternar | `quantidade_corpos: multiplos` | Move o foco de interação **entre corpos** — não confundir com `[✥]` |
-| `[✥]` | Navegar | tela possui ao menos um corpo navegável | Ativo quando o corpo em foco é navegável; inativo via `cor_inativo` quando o corpo em foco não é navegável |
+| `[✥]` | Navegar | tela possui ao menos um corpo tipo `console` navegável | Ativo quando o corpo em foco é um corpo tipo `console` navegável; inativo via `cor_inativo` quando há corpo tipo `console` navegável na tela, mas o corpo em foco não é navegável por `[✥]` |
 | `[␣]` | Selecionar | `formacao_de_selecao: com` | Toggle nomeado; indicador `incluido` do schema de estilo |
-| `[V]` | Verboso | `tipo_exibicao: verboso` (tipo `dado`) | — |
+| `[V]` | Verboso | `tipo_exibicao: verboso` (tipo `console`) | — |
 | específicos | (por classe) | definido por classe | Posicionados entre `[⏎]` e `[V]`/`[?]` |
 
 Os rótulos documentais acima nomeiam a semântica dos chips neste contrato. Os
@@ -152,13 +152,13 @@ de `config/barra_de_menus.json`.
 
 **`[✥]` — existência estrutural vs estado dinâmico**: a existência estrutural
 de `[✥]` é estática e declarada pela classe/tela quando a tela possui ao menos
-um corpo com navegação possível. O chip não aparece/desaparece conforme o foco
+um corpo tipo `console` navegável. O chip não aparece/desaparece conforme o foco
 atual, o dataset corrente ou o conteúdo renderizado naquele momento. Quando o
-corpo em foco é navegável, `[✥]` fica ativo; quando o corpo em foco não é
-navegável, mas a tela possui navegação em algum corpo, `[✥]` permanece
-existente e pode ficar visualmente inativo via `cor_inativo`. Se a tela não
-possui nenhum corpo navegável, a classe pode declarar ausência estrutural do
-chip.
+corpo em foco é um corpo tipo `console` navegável, `[✥]` fica ativo; quando o
+corpo em foco não é navegável por `[✥]`, mas a tela possui outro corpo tipo
+`console` navegável, `[✥]` permanece existente e pode ficar visualmente inativo
+via `cor_inativo`. Se a tela não possui nenhum corpo tipo `console` navegável,
+`[✥]` não existe.
 
 **`[-][+]` — `n_col` não aparece no chip (decisão intencional)**: o chip
 exibe o rótulo "Colunas"; o valor atual de `n_col` não aparece dentro do
@@ -222,6 +222,18 @@ Três tipos formais estão definidos; um quarto tem estrutura pendente:
 Chips específicos sempre ocupam a posição entre `[⏎]` e `[V]`/`[?]` na ordem
 canônica — nunca antes de `[⏎]` nem depois de `[?]`.
 
+Em tela de processamento, ações próprias da classe são representadas por chips
+específicos da `barra_de_menus`. Esses chips continuam na faixa canônica
+definida acima, têm existência declarada pela classe de tela, e reforçam que a
+`barra_de_menus` é espelho da composição declarada, não fonte de decisão.
+
+Esta aplicação da ADR-0007 não define a estrutura do tipo específico
+`aciona_processo`. `aciona_processo` permanece fora de escopo e pendente até
+contrato próprio ou decisão específica.
+
+Chips específicos de tela de processamento não transformam processamento em
+tipo de corpo. Nenhuma regra de `[✥]` muda.
+
 ---
 
 ## 10. Estados visuais — relação com `contrato_estilo.md`
@@ -264,13 +276,14 @@ com base em conteúdo dos dados, largura de terminal ou qualquer outra condiçã
 de ambiente.
 
 **R-4. Separação terminológica obrigatória.**
-`barra_de_menus` e `menu` nunca são usados como sinônimos — em código,
-comentário ou documentação. `menu` designa o tipo de objeto do corpo
-(`contrato_composicao_corpo.md` seção 3); `barra_de_menus` designa a região
-fixa da tela (este contrato). Sem herança de regras de layout entre os dois.
+`barra_de_menus` e `lancador` nunca são usados como sinônimos — em código,
+comentário ou documentação. `lancador` designa o tipo de objeto do corpo
+(`contrato_lancador.md`); `barra_de_menus` designa a região fixa da tela
+(este contrato). Sem herança de regras de layout entre os dois. O termo
+`menu` permanece apenas como nome antigo/histórico do `lancador`.
 
 **R-5. Separação de arquivos de dados.**
-`config/barra_de_menus.json` e `config/layout_menu.json` não se substituem
+`config/barra_de_menus.json` e `config/lancador.json` não se substituem
 nem se sobrepõem. Cada um serve seu domínio exclusivo.
 
 **R-6. Estado dinâmico não remove chips.**
@@ -320,20 +333,24 @@ e `[V]`/`[?]` na ordem canônica.
 - [ ] `[<][>]` só existe quando `paginacao: com` está declarado pela classe;
       fica inativo quando o número de páginas é 1.
 - [ ] `[-][+]` só existe quando `colunas_ajustavel: com` está declarado e o
-      tipo de conteúdo é `dado`; `[-]` inativo em `n_col` mínimo; `[+]` inativo
+      tipo de conteúdo é `console`; `[-]` inativo em `n_col` mínimo; `[+]` inativo
       em `n_col` máximo pela largura atual.
 - [ ] `[⇆]` só existe quando `quantidade_corpos: multiplos` está declarado;
       move foco entre corpos, não cursor dentro do corpo.
 - [ ] `[✥]` só existe estruturalmente quando a tela possui ao menos um corpo
-      navegável; fica ativo/inativo conforme o corpo em foco, sem
-      aparecer/desaparecer por foco, dataset ou conteúdo corrente; as setas do
-      teclado executam a navegação real quando ativo.
+      tipo `console` navegável — `lancador` e `dashboard` não contam como corpo
+      navegável por `[✥]`; fica ativo quando o corpo em foco é um corpo tipo
+      `console` navegável, inativo via `cor_inativo` quando o corpo em foco não é
+      navegável por `[✥]`, sem aparecer/desaparecer por foco, dataset ou
+      conteúdo corrente; se a tela não possui nenhum corpo tipo `console`
+      navegável, `[✥]` não existe; as setas do teclado executam a navegação
+      real quando ativo.
 - [ ] `[␣]` só existe quando `formacao_de_selecao: com` está declarado.
 - [ ] `[V]` só existe quando `tipo_exibicao: verboso` está disponível para
-      corpo tipo `dado`.
+      corpo tipo `console`.
 - [ ] Chips específicos de classe aparecem entre `[⏎]` e `[V]`/`[?]`.
-- [ ] A distinção `barra_de_menus` vs objeto `menu` do corpo é verificável:
-      nenhuma regra de layout de `config/layout_menu.json` é consultada pelo
+- [ ] A distinção `barra_de_menus` vs objeto `lancador` do corpo é verificável:
+      nenhuma regra de layout de `config/lancador.json` é consultada pelo
       renderer da `barra_de_menus`.
 - [ ] `[?]` existe e está ativo em toda tela, sempre como último chip.
 

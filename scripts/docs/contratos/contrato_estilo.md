@@ -162,8 +162,8 @@ Um campo obrigatório. Tipo: enumeração de string.
 | `tiling` | `sobreposto` \| `lado_a_lado` |
 
 Representa a preferência manual do usuário para a organização de múltiplos
-objetos no corpo da tela. Não é calculado a partir da largura do terminal —
-é lido do schema de estilo como qualquer outro campo.
+objetos tipo `console`/`lancador` no corpo da tela. Não é calculado a partir
+da largura do terminal — é lido do schema de estilo como qualquer outro campo.
 
 Não existe valor de largura de terminal que force `sobreposto`: a preferência
 do usuário é respeitada sempre, mesmo em terminal muito estreito.

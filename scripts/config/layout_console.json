@@ -1,15 +1,15 @@
 {
   "_meta": {
-    "name": "layout_dado",
-    "description": "Artefato obsoleto/transicional do antigo corpo tipo dado; nao e canonico",
+    "name": "layout_console",
+    "description": "Parametros de layout do corpo tipo console (estrutura de item, vaos, colunas, navegacao) — regras proprias, nao compartilha arquivo com config/lancador.json",
     "origem": "docs/NOMENCLATURA.md secao 4",
-    "status": "obsoleto_transicional",
-    "arquivo_canonico": false,
-    "substituido_por": "config/layout_console.json",
-    "justificativa_manutencao": "mantido temporariamente para rastreabilidade da ADR-0006/DOC-0011",
-    "pendencias": "nao usar este arquivo como fonte canonica nova",
+    "status": "rascunho_inicial",
+    "arquivo_canonico": true,
     "reaproveitado_de_legado": false,
-    "observacao": "O conteudo restante permanece para rastreabilidade da migracao dado -> console."
+    "substitui": "config/layout_dado.json",
+    "pendencias": [
+      "regras de ajuste do tx quando o texto nao cabe no espaco disponivel (truncar, quebrar linha, outra estrategia)"
+    ]
   },
   "estrutura_item": {
     "ordem": ["ec", "tg", "tx"],
@@ -35,7 +35,7 @@
   },
   "alinhamento": {
     "horizontal_sobra_excedente": "centralizado",
-    "descricao_horizontal": "diferente do corpo tipo menu (bloco à esquerda com sobra à direita) — regra independente por tipo de corpo",
+    "descricao_horizontal": "diferente do corpo tipo lancador (bloco à esquerda com sobra à direita) — regra independente por tipo de corpo",
     "vertical": "ec, tg e tx sempre alinhados entre si em todas as linhas de uma mesma coluna (uniformidade de coluna)"
   },
   "colunas": {

@@ -1,6 +1,6 @@
 ---
 name: contrato-composicao-corpo
-description: Schema e regras do módulo de composição de corpo — tipos de objeto, eixos declarados por classe de tela, reconhecimento de lancador e Info, indicador de paginação e tiling
+description: Schema e regras do módulo de composição de corpo — tipos de objeto, eixos declarados por classe de tela, reconhecimento de lancador e dashboard, indicador de paginação e tiling
 metadata:
   type: contrato
   scope: scripts
@@ -17,7 +17,7 @@ metadata:
 
 Especificar a composição do corpo da tela: a taxonomia fechada dos tipos de
 objeto do corpo, os eixos que a classe de tela declara, as regras de layout
-para corpo tipo `lancador` e para o objeto `Info`, a mecânica do indicador de
+para corpo tipo `lancador` e para o objeto `dashboard`, a mecânica do indicador de
 paginação, e as duas camadas de decisão de tiling.
 
 Este contrato cobre as seções 2, 3, 6, 6.1, 8, 9 e 10 de
@@ -31,7 +31,7 @@ esses módulos como dependências externas, mas não redefine nem duplica suas r
 ## 2. Regra fundamental (formal, não observação)
 
 **Toda propriedade de composição do corpo — tipo de conteúdo, tipo de
-exibição, presença e posição do Info, quantidade de corpos, arranjo de
+exibição, presença e posição do dashboard, quantidade de corpos, arranjo de
 múltiplos corpos, paginação e colunas ajustável — é declarada pela classe de
 tela, nunca decidida pelo renderer, pela barra_de_menus, ou pelo objeto de
 estilo.**
@@ -54,9 +54,9 @@ sem reescrita do renderer, desde que a amarração declarativa seja mantida.)
 
 | Tipo | Função | Presença |
 |---|---|---|
-| `dado` | Dados propriamente ditos, incluindo saída de script/log | Um ou mais por tela |
+| `console` | Corpo interativo com dados; preserva as regras do antigo tipo `dado`, incluindo saída de script/log | Um ou mais por tela |
 | `lancador` | Composição de navegação no próprio corpo da tela | Um ou mais por tela |
-| `Info` | Resumo/legenda dos dados exibidos | Zero ou um por tela — sempre opcional |
+| `dashboard` | Saída passiva formatada, resumo/legenda ou visão consolidada dos dados exibidos; antigo `Info` | Zero ou um por tela — sempre opcional |
 
 **Distinção obrigatória**: `lancador` (tipo de objeto do corpo) e
 `barra_de_menus` (região fixa da tela, contrato separado) são entidades
@@ -64,6 +64,26 @@ distintas. Nenhum código, documentação ou nomenclatura pode usar os dois
 termos como sinônimos ou de forma intercambiável. O nome antigo do
 `lancador` era `menu`; esse termo permanece apenas em contexto histórico
 e em ADRs já emitidas.
+
+### 3.1 Tela de processamento como composição
+
+Tela de processamento não é tipo de corpo. Não existe quarto tipo além de
+`console`, `lancador` e `dashboard`.
+
+A composição de uma tela de processamento deve usar os tipos existentes:
+
+- `console` cobre partes interativas ou navegáveis por `[✥]`;
+- `dashboard` cobre saída passiva formatada;
+- `lancador` não representa processamento.
+
+Chips específicos ficam fora do corpo, na `barra_de_menus`, e são declarados
+pela classe de tela. O renderer de composição de corpo não decide chips
+específicos.
+
+A regra de `[✥]` continua restrita a `console`.
+
+Esta seção não cria contrato detalhado para processamento, não define
+estrutura obrigatória de tela de processamento e não define `aciona_processo`.
 
 ---
 
@@ -74,12 +94,12 @@ valores e os executa sem alteração.
 
 | Eixo | Valores | Observação |
 |---|---|---|
-| `tipo_conteudo` | `lancador` \| `dado` | Tipo do(s) corpo(s) principal(is) da tela |
-| `tipo_exibicao` | `normal` \| `verboso` | Aplica-se **apenas** a corpos tipo `dado` — ver seção 5.1. Não existe para `lancador` |
-| `info` | `presente` \| `ausente` | Info é sempre opcional; ausência de declaração equivale a `ausente` |
+| `tipo_conteudo` | `console` \| `lancador` | Tipo do(s) corpo(s) principal(is) da tela |
+| `tipo_exibicao` | `normal` \| `verboso` | Aplica-se **apenas** a corpos tipo `console` — ver seção 5.1. Não existe para `lancador` |
+| `dashboard` | `presente` \| `ausente` | Dashboard é sempre opcional; ausência de declaração equivale a `ausente` |
 | `quantidade_corpos` | `1` \| `multiplos` | — |
 | `arranjo` | `sobreposto` \| `lado_a_lado` \| *(não declarado)* | Relevante apenas se `quantidade_corpos = multiplos`. Quando não declarado pela classe, o renderer usa o campo `tiling` do estilo ativo como default — ver seção 5.5 |
-| `posicao_info` | `horizontal` \| `vertical` | Relevante apenas se `info = presente`. `horizontal`: Info ao lado do corpo; `vertical`: Info abaixo do corpo. Eixo próprio — **nunca afetado** por `arranjo` nem por `tiling` |
+| `posicao_dashboard` | `horizontal` \| `vertical` | Relevante apenas se `dashboard = presente`. `horizontal`: dashboard ao lado do corpo; `vertical`: dashboard abaixo do corpo. Eixo próprio — **nunca afetado** por `arranjo` nem por `tiling` |
 | `paginacao` | `com` \| `sem` | — |
 | `colunas_ajustavel` | `com` \| `sem` | Eixo próprio, distinto de `paginacao` |
 | `filtro_de_grupo` | `com` \| `sem` | Condiciona a existência do chip `[#]`; `com` habilita filtro de exibição por grupo. A relação entre filtro e seleção não está definida — ver seção 8 |
@@ -98,8 +118,8 @@ qualquer corpo, sem exceção e sem possibilidade de supressão.
 | Tipo | Modo | Organização |
 |---|---|---|
 | `lancador` | `fila` ou `matriz` (calculado automaticamente) | Linha única horizontal ou grade de colunas; nunca pagina — ver seção 5.2 |
-| `dado` | `normal` | Colunar: `n_col` colunas, valor ajustável |
-| `dado` | `verboso` | Tabular: largura de coluna calculada por conteúdo; texto longo quebra dentro da célula |
+| `console` | `normal` | Colunar: `n_col` colunas, valor ajustável |
+| `console` | `verboso` | Tabular: largura de coluna calculada por conteúdo; texto longo quebra dentro da célula |
 
 **Largura sempre dinâmica**: calculada a partir da largura real do terminal em
 tempo real (redimensionamento reativo). O sistema reage a mudança de tamanho
@@ -110,10 +130,12 @@ Sem perfis fixos pré-definidos.
 sempre pagina, exceto corpo tipo `lancador` — ver seção 5.2. Espaço sobrando é
 preenchido (padding), nunca deixado vazio de forma desorganizada.
 
-**Valores parametrizados de layout do corpo tipo `dado`**: vãos, alinhamento,
-configuração de colunas e navegação são lidos de `config/layout_dado.json`,
+**Valores parametrizados de layout do corpo tipo `console`**: vãos, alinhamento,
+configuração de colunas e navegação são lidos de `config/layout_console.json`,
 não hardcoded. O corpo tipo `lancador` lê seus próprios parâmetros em
 `config/lancador.json`, conforme `contrato_lancador.md`.
+`config/layout_dado.json` permanece apenas como artefato obsoleto/transicional
+de rastreabilidade da migração `dado` → `console`.
 
 ---
 
@@ -122,13 +144,17 @@ não hardcoded. O corpo tipo `lancador` lê seus próprios parâmetros em
 Este contrato reconhece `lancador` como valor válido de `tipo_conteudo` e
 define apenas seu encaixe na composição geral do corpo:
 
-- `lancador` é corpo navegável.
+- `lancador` é corpo válido da composição geral do corpo.
+- `lancador` não é corpo navegável por `[✥]` nem pelas setas da
+  `barra_de_menus`.
 - `lancador` não usa `tipo_exibicao`.
 - `lancador` não pagina.
 - O modo calculado automaticamente pelo renderer é o eixo
   `distribuicao_lancador`, com valores `fila` ou `matriz`.
 - A classe de tela não declara `distribuicao_lancador` e não ajusta esse eixo
   via chip.
+- O `lancador` é uma composição de navegação por itens próprios via
+  `tela_destino`, conforme `contrato_lancador.md`.
 
 As regras internas de estrutura, vãos, colunas, título, item, navegação e
 validação do `lancador` pertencem a `contrato_lancador.md` e aos valores
@@ -136,9 +162,13 @@ concretos de `config/lancador.json`; este contrato não as duplica.
 
 ---
 
-### 5.3 Layout do objeto `Info`
+### 5.3 Layout do objeto `dashboard`
 
-O objeto `Info` tem a seguinte estrutura interna, em **ordem obrigatória**:
+O objeto `dashboard` é uma saída passiva formatada, zero ou um por tela, e
+não é navegável por `[✥]`.
+
+A estrutura abaixo é caso específico legado do sistema de survey; não é regra
+universal obrigatória para todo `dashboard`:
 
 1. Lista de pares rótulo/valor (campos do resumo principal).
 2. Linha separadora.
@@ -147,7 +177,7 @@ O objeto `Info` tem a seguinte estrutura interna, em **ordem obrigatória**:
    uniforme geral).
 5. Lista de marcadores: símbolo + rótulo + valor.
 
-**Campos do resumo principal** (8 campos, conjunto fechado): Adicionados,
+**Campos do resumo principal no caso legado** (8 campos, conjunto fechado): Adicionados,
 Fichados, Consolidados, Qualificados, Orfão, Missing, Secundários, Descartados.
 
 **Marcadores** (8, conjunto fechado):
@@ -169,12 +199,12 @@ Todo campo sempre exibe um número — nunca existe estado de travessão (`—`)
 "sem dado"; `0` é exibido normalmente.
 
 *Distinção de escopo*: esta regra (número puro, sem padding, alinhado à
-direita) é exclusiva dos valores do objeto `Info`. Não se confunde com a
+direita) é exclusiva dos valores do caso legado de `dashboard`. Não se confunde com a
 restrição de exatamente 1 caractere fixo dos símbolos de borda, chip e
 indicadores de estilo, definida em `contrato_estilo.md` (R-6) — que rege
 caracteres de apresentação, não valores de dados.
 
-**Alinhamento horizontal**: coluna dimensionada pelo maior rótulo, itens alinhados à esquerda dentro do bloco. **Pendente de decisão (DOC-B004)**: o posicionamento do bloco do `Info` no espaço horizontal disponível — se acompanha a regra do `lancador` (bloco à esquerda com sobra à direita, ADR-0002) ou mantém centralização — não está fechado. Não implementar nem assumir comportamento até a decisão ser registrada; ver `docs/NOMENCLATURA.md` seção 11.
+**Alinhamento horizontal**: coluna dimensionada pelo maior rótulo, itens alinhados à esquerda dentro do bloco. **Pendente de decisão (DOC-B004)**: o posicionamento do bloco do `dashboard` no espaço horizontal disponível — se acompanha a regra do `lancador` (bloco à esquerda com sobra à direita, ADR-0002) ou mantém centralização — não está fechado. Não implementar nem assumir comportamento até a decisão ser registrada; ver `docs/NOMENCLATURA.md` seção 11.
 
 **Alinhamento vertical**: mesma mecânica do corpo tipo `lancador` (seção 5.2), com
 a exceção obrigatória já declarada acima: a linha em branco entre Total e
@@ -187,7 +217,7 @@ distribuição uniforme geral.
 
 O indicador de página é renderizado na **última linha da borda do próprio
 corpo paginado**, ancorado à direita. Pertence à borda do corpo — não ao
-layout geral da tela, não à barra_de_menus, não ao objeto Info.
+layout geral da tela, não à barra_de_menus, não ao objeto dashboard.
 
 **Composição da linha, lida da direita para a esquerda:**
 
@@ -208,20 +238,20 @@ que todos os caracteres de borda vêm do estilo ativo.
 
 **Casos especiais:**
 
-- **Info presente**: o indicador permanece na borda do corpo paginado. O
-  objeto Info não herda, não desloca, e não recebe o indicador — mesmo
+- **dashboard presente**: o indicador permanece na borda do corpo paginado. O
+  objeto dashboard não herda, não desloca, e não recebe o indicador — mesmo
   estando fisicamente mais próximo da barra_de_menus do que o corpo paginado.
 - **Layout lado a lado**: cada corpo exibe sua própria paginação, ancorada
   à direita dentro da própria borda, independente do lado da tela que aquele
   corpo ocupa fisicamente.
-- **Combinação lado a lado + Info presente**: não definida — ver seção 8.
+- **Combinação lado a lado + dashboard presente**: não definida — ver seção 8.
 
 ---
 
 ### 5.5 Tiling — duas camadas de decisão
 
-Aplica-se exclusivamente ao arranjo de 2+ corpos tipo `dado`/`lancador`. Nunca
-decide a posição do objeto `Info` — esse é o eixo `posicao_info` (seção 4),
+Aplica-se exclusivamente ao arranjo de 2+ corpos tipo `console`/`lancador`. Nunca
+decide a posição do objeto `dashboard` — esse é o eixo `posicao_dashboard` (seção 4),
 declarado independentemente pela classe.
 
 **Camada 1 — Fixação pela classe**: a classe de tela pode declarar
@@ -252,22 +282,22 @@ O renderer recebe a composição já resolvida e a executa. Não possui lógica
 de seleção de tipo, não possui fallback de tipo, e não toma nenhuma decisão
 de composição com base em condições de ambiente.
 
-**R-3. Info é sempre opcional e sempre ausente por omissão.**
-Nenhuma tela tem `Info` presente por default. A presença deve ser declaração
-explícita da classe. A ausência de declaração equivale a `info = ausente`;
-o renderer não reserva espaço nem cria estrutura para Info ausente.
+**R-3. Dashboard é sempre opcional e sempre ausente por omissão.**
+Nenhuma tela tem `dashboard` presente por default. A presença deve ser declaração
+explícita da classe. A ausência de declaração equivale a `dashboard = ausente`;
+o renderer não reserva espaço nem cria estrutura para dashboard ausente.
 
 **R-4. Separação terminológica entre `lancador` e `barra_de_menus`.**
 Os termos não são intercambiáveis em nenhum contexto — código, comentário ou
 documentação. `lancador` designa o tipo de objeto do corpo (seção 3);
 `barra_de_menus` designa a região fixa da tela (contrato separado).
 
-**R-5. `posicao_info` é eixo independente.**
-O eixo `posicao_info` (`horizontal`/`vertical`) é declarado pela classe e não
+**R-5. `posicao_dashboard` é eixo independente.**
+O eixo `posicao_dashboard` (`horizontal`/`vertical`) é declarado pela classe e não
 é afetado pelo valor de `arranjo`, pelo campo `tiling` do estilo ativo, nem
 por qualquer outra condição de ambiente ou estrutura da tela.
 
-**R-6. `tipo_exibicao` só existe para corpo tipo `dado`.**
+**R-6. `tipo_exibicao` só existe para corpo tipo `console`.**
 Para corpos tipo `lancador`, não existe o eixo `tipo_exibicao`. O layout é
 calculado automaticamente pelo renderer — modo `fila` ou `matriz`, a partir
 da largura real do terminal (seção 5.2). A classe não deve declarar
@@ -275,7 +305,7 @@ da largura real do terminal (seção 5.2). A classe não deve declarar
 
 **R-7. Indicador de paginação pertence à borda do corpo, não ao layout da tela.**
 O renderer posiciona o indicador na última linha da borda do corpo paginado.
-Não deve movê-lo para a barra_de_menus, para o Info, nem para nenhuma outra
+Não deve movê-lo para a barra_de_menus, para o dashboard, nem para nenhuma outra
 região, independente do arranjo visual.
 
 **R-8. Traço do indicador de paginação é sempre literal.**
@@ -283,18 +313,19 @@ O bloco `─ página X/Y ─` usa traço `─` fixo em código, independente do 
 ativo. Esta é a única exceção ao princípio de que todos os caracteres de borda
 vêm do estilo — e ela existe especificamente e apenas no indicador de paginação.
 
-**R-9. Tiling e arranjo não afetam o Info.**
+**R-9. Tiling e arranjo não afetam o dashboard.**
 O campo `tiling` do estilo e o eixo `arranjo` da classe regem apenas a
-disposição de corpos tipo `dado`/`lancador` entre si. A posição do objeto `Info`
-é determinada exclusivamente pelo eixo `posicao_info` declarado pela classe.
+disposição de corpos tipo `console`/`lancador` entre si. A posição do objeto
+`dashboard` é determinada exclusivamente pelo eixo `posicao_dashboard`
+declarado pela classe.
 
 **R-10. Espaçamento interno é universal e não configurável.**
 O renderer sempre insere uma linha em branco entre borda e conteúdo em qualquer
 corpo. Esta regra não pode ser suprimida pela classe de tela, pelo objeto de
 estilo, nem pelo tipo de conteúdo.
 
-**R-11. Valores do Info são sempre numéricos, nunca ausentes.**
-Nenhum campo de resumo principal ou marcador do objeto `Info` exibe estado de
+**R-11. Valores do caso legado de dashboard são sempre numéricos, nunca ausentes.**
+Nenhum campo de resumo principal ou marcador do caso legado de `dashboard` exibe estado de
 "sem dado", travessão (`—`), ou campo vazio. O valor `0` é exibido normalmente.
 
 **R-12. Tiling tem duas camadas de decisão — nenhuma é única.**
@@ -307,14 +338,14 @@ define um — essa combinação é proibida: ou a classe declara ou o estilo pro
 ## 7. Critérios de validação
 
 - [ ] Nenhum renderer possui lógica de escolha de tipo de conteúdo, tipo de
-      exibição, presença de Info ou posição de Info — todos esses valores são
+      exibição, presença de dashboard ou posição de dashboard — todos esses valores são
       lidos exclusivamente da declaração da classe.
 - [ ] Corpo tipo `lancador` não declara nem processa `tipo_exibicao` — o eixo é
       inexistente para esse tipo (R-6).
-- [ ] Info ausente não gera nenhuma estrutura no layout (sem espaço reservado,
+- [ ] Dashboard ausente não gera nenhuma estrutura no layout (sem espaço reservado,
       sem objeto vazio).
-- [ ] Com `posicao_info = horizontal`, Info renderiza ao lado do corpo principal;
-      com `posicao_info = vertical`, renderiza abaixo — independente do valor de
+- [ ] Com `posicao_dashboard = horizontal`, dashboard renderiza ao lado do corpo principal;
+      com `posicao_dashboard = vertical`, renderiza abaixo — independente do valor de
       `arranjo` ou `tiling`.
 - [ ] O indicador de paginação aparece na última linha da borda do corpo
       paginado, ancorado à direita, nunca em outra região da tela.
@@ -327,7 +358,7 @@ define um — essa combinação é proibida: ou a classe declara ou o estilo pro
       dígitos, mantendo a largura total da linha constante.
 - [ ] Em layout lado a lado, cada corpo exibe seu próprio indicador de paginação
       dentro de sua própria borda.
-- [ ] Info presente não recebe nem desloca o indicador de paginação do corpo
+- [ ] Dashboard presente não recebe nem desloca o indicador de paginação do corpo
       paginado — R-7.
 - [ ] Com `quantidade_corpos = multiplos` e `arranjo` declarado pela classe, o
       renderer usa o arranjo fixo e ignora `tiling` do estilo ativo.
@@ -336,18 +367,19 @@ define um — essa combinação é proibida: ou a classe declara ou o estilo pro
       automático baseado em largura de terminal.
 - [ ] Em modo lado a lado, o espaço horizontal é dividido em 3 vãos iguais
       (borda↔col_1, col_1↔col_2, col_2↔borda).
-- [ ] Todo campo do resumo principal e todo marcador do Info exibe valor numérico
+- [ ] Todo campo do resumo principal e todo marcador do caso legado de dashboard exibe valor numérico
       — nunca `—`, nunca vazio; `0` é exibido normalmente (R-11).
-- [ ] Corpo tipo `lancador` é tratado como corpo navegável e nunca pagina.
+- [ ] Corpo tipo `lancador` não é tratado como corpo navegável por `[✥]` nem
+      pelas setas da `barra_de_menus`, e nunca pagina.
 - [ ] O renderer calcula `distribuicao_lancador` automaticamente como `fila`
       ou `matriz`, sem declaração da classe e sem ajuste via chip.
 - [ ] As regras internas do `lancador` são validadas contra
       `contrato_lancador.md` e `config/lancador.json`, não duplicadas neste
       contrato.
-- [ ] Os valores de vãos, alinhamento e configuração de colunas do corpo tipo `dado` são lidos de `config/layout_dado.json`, não hardcoded.
-- [ ] A distribuição vertical do Info respeita as regras deste contrato; limites
+- [ ] Os valores de vãos, alinhamento e configuração de colunas do corpo tipo `console` são lidos de `config/layout_console.json`, não hardcoded; `config/layout_dado.json` é obsoleto/transicional.
+- [ ] A distribuição vertical do dashboard respeita as regras deste contrato; limites
       internos do `lancador` são validados por `contrato_lancador.md`.
-- [ ] A linha em branco entre Total e lista de marcadores no Info é exatamente
+- [ ] A linha em branco entre Total e lista de marcadores no caso legado de dashboard é exatamente
       1 — não sujeita à distribuição uniforme e não comprimível.
 - [ ] O renderer insere linha em branco entre borda e conteúdo em todo corpo,
       sem exceção (R-10).
@@ -360,8 +392,8 @@ Itens adiados intencionalmente — não são lacunas de especificação, são
 decisões conscientes de adiar até surgir caso de uso real (conforme
 `docs/NOMENCLATURA.md` seções 6.1, 10 e 11):
 
-- **Combinação `arranjo = lado_a_lado` + `info = presente` ao mesmo tempo**:
-  comportamento do indicador de paginação e posicionamento do objeto Info
+- **Combinação `arranjo = lado_a_lado` + `dashboard = presente` ao mesmo tempo**:
+  comportamento do indicador de paginação e posicionamento do objeto dashboard
   quando ambas as condições estão ativas simultaneamente. Sem caso de uso
   real até o momento — não especificar nem implementar até surgir caso
   concreto.

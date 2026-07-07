@@ -139,9 +139,76 @@ passa a ser o arquivo canônico, com parâmetros úteis migrados de
 artefato obsoleto/transicional de rastreabilidade.
 **Próxima ação:** — (concluído)
 
+### DOC-0010 — ADR: lancador não é corpo navegável por [✥]
+**Tipo:** adr/documentação
+**Status:** concluido
+**Concluido_em:** 2026-07-06
+**Arquivo(s) envolvido(s):** `docs/adr/ADR-0005-lancador-nao-e-corpo-navegavel.md` (criado), `docs/adr/INDICE_ADR.md` (atualizado), `docs/build_docs/to_do.md` (atualizado), `docs/relatorios/RELATORIO_QA_DOC-0010_ADR-0005_APLICACAO.md`, `docs/relatorios/RELATORIO_QA_DOC-0010_ADR-0005_POS_AJUSTE.md`
+**Origem:** decisão arquitetural — `lancador` não é corpo navegável por `[✥]`; `[✥]` restrito a corpo tipo `dado`
+**Descrição:** Aplicar ADR-0005 nos contratos/configs ativos, restringindo `[✥]` a `dado`.
+**QA inicial:** `docs/relatorios/RELATORIO_QA_DOC-0010_ADR-0005_APLICACAO.md` — APROVADO_COM_AJUSTES
+**QA pós-ajuste:** `docs/relatorios/RELATORIO_QA_DOC-0010_ADR-0005_POS_AJUSTE.md` — APROVADO
+**Resultado final:** APROVADO
+**Próxima ação:** — (concluído; ADR-0006 iniciada em DOC-0011)
+
+### DOC-0011 — ADR: renomeação `dado` → `console` e `Info` → `dashboard`
+**Tipo:** adr/documentação
+**Status:** concluido
+**Concluido_em:** 2026-07-06
+**Arquivo(s) envolvido(s):** `docs/adr/ADR-0006-renomeacao-console-dashboard.md` (criado), `docs/adr/INDICE_ADR.md` (atualizado), `docs/build_docs/to_do.md` (atualizado), `docs/INDICE.md` (atualizado — lista nominal de ADRs)
+**Origem:** decisão arquitetural de taxonomia — `dado` → `console`, `Info` → `dashboard`; `lancador` permanece
+**Descrição:** registrar formalmente a decisão de renomeação terminológica dos tipos de corpo.
+`console` preserva todas as regras do antigo `dado` (navegável por `[✥]`, estrutura `ec`/`tg`/`tx`,
+eixos de composição). `dashboard` é saída passiva formatada, não navegável, não universalizado pela
+estrutura de 8 campos legados. `lancador` permanece inalterado. Taxonomia fechada: `console`,
+`lancador`, `dashboard`. Aplicação efetiva em contratos/configs fica para próxima tarefa.
+**Próxima ação:** — (concluído; aplicação registrada em DOC-0012)
+
+### DOC-0012 — Aplicar ADR-0006 em nomenclatura, contratos e configs
+**Tipo:** documentação/configuração
+**Status:** concluido
+**Concluido_em:** 2026-07-06
+**Arquivo(s) envolvido(s):** `docs/NOMENCLATURA.md`, `docs/INDICE.md`, `docs/contratos/contrato_composicao_corpo.md`, `docs/contratos/contrato_barra_de_menus.md`, `docs/contratos/contrato_lancador.md`, `docs/contratos/contrato_cabecalho.md`, `docs/contratos/contrato_estilo.md`, `config/barra_de_menus.json`, `config/layout_console.json` (criado), `config/layout_dado.json`, `docs/build_docs/to_do.md`
+**Origem:** `docs/adr/ADR-0006-renomeacao-console-dashboard.md`
+**Descrição:** aplicação da ADR-0006 em nomenclatura, contratos e configs ativos.
+Taxonomia ativa do corpo passa a ser `console`, `lancador`, `dashboard`; `[✥]`,
+`[-][+]` e `[V]` ficam restritos a `console`; `dashboard` substitui `Info` como
+saída passiva não navegável; `config/layout_console.json` foi criado como
+canônico; `config/layout_dado.json` foi marcado como obsoleto/transicional.
+**QA:** `docs/relatorios/RELATORIO_QA_DOC-0011_ADR-0006_APLICACAO.md` — APROVADO
+**Resultado final:** APROVADO
+**Próxima ação:** — (concluído; próxima tarefa: iniciar ADR/tarefa separada para composição de tela de processamento)
+
+### DOC-0013 — ADR: tela de processamento é composição de tipos existentes
+**Tipo:** adr/documentação
+**Status:** concluido
+**Concluido_em:** 2026-07-06
+**Arquivo(s) envolvido(s):** `docs/adr/ADR-0007-tela-processamento-composicao.md` (criado), `docs/adr/INDICE_ADR.md` (atualizado), `docs/build_docs/to_do.md` (atualizado)
+**Origem:** ADR-0006 decisão 11 — tela de processamento remetida para decisão própria ou composição de tipos existentes
+**Descrição:** registrar formalmente que tela de processamento não é quarto tipo de corpo; deve ser
+modelada como composição de `console` + `dashboard` + chips específicos da `barra_de_menus`.
+Taxonomia fechada do corpo permanece: `console`, `lancador`, `dashboard`. Aplicação efetiva
+em nomenclatura e contratos ativos fica para próxima tarefa.
+**Próxima ação:** gerar tarefa separada para aplicar ADR-0007 em `docs/NOMENCLATURA.md`,
+`docs/contratos/contrato_composicao_corpo.md` e `docs/contratos/contrato_barra_de_menus.md`
+
+### DOC-0014 — Aplicar ADR-0007 em nomenclatura e contratos
+**Tipo:** documentação
+**Status:** concluido
+**Concluido_em:** 2026-07-06
+**Arquivo(s) envolvido(s):** `docs/NOMENCLATURA.md`, `docs/contratos/contrato_composicao_corpo.md`, `docs/contratos/contrato_barra_de_menus.md`, `docs/build_docs/to_do.md`
+**Origem:** `docs/adr/ADR-0007-tela-processamento-composicao.md`
+**Descrição:** aplicação da ADR-0007 em `NOMENCLATURA.md`, `contrato_composicao_corpo.md`
+e `contrato_barra_de_menus.md`. Tela de processamento foi registrada como composição
+de tipos existentes, sem criação de quarto tipo de corpo; chips específicos foram
+mantidos na `barra_de_menus`, declarados pela classe de tela.
+**QA:** `docs/relatorios/RELATORIO_QA_DOC-0014_ADR-0007_APLICACAO.md` — APROVADO
+**Resultado final:** APROVADO
+**Próxima ação:** — (concluído; próxima ação: consolidar estado documental para revisão final)
+
 ## Itens bloqueados (precisam de sessão de decisão antes de virar tarefa)
 
-### DOC-B001 — Regras de ajuste do `tx` (corpo tipo `dado`)
+### DOC-B001 — Regras de ajuste do `tx` (corpo tipo `console`)
 **Status:** bloqueado_decisao
 **Origem:** `docs/NOMENCLATURA.md` seção 4.3, seção 11
 **Descrição:** o que acontece quando o texto do item não cabe no espaço
@@ -152,7 +219,7 @@ outra estratégia. Ainda não descrito pelo usuário.
 **Status:** bloqueado_decisao
 **Origem:** `docs/NOMENCLATURA.md` seção 11
 **Descrição:** janela temporária de saída de execução de script — não é
-corpo, Info, nem barra_de_menus. Usuário mencionou já ter ideias, mas
+corpo, dashboard, nem barra_de_menus. Usuário mencionou já ter ideias, mas
 decidiu tratar depois de fechar o `lancador`. Precisa de: tamanho, posição,
 critério de fechamento, se bloqueia a tela por trás, borda própria do
 schema de estilo.
@@ -164,12 +231,12 @@ schema de estilo.
 de exibição de dados a definir, mas nunca chegou a descrever do que se
 trata. Precisa perguntar antes de qualquer coisa.
 
-### DOC-B004 — Reorganização corpo × Info e alinhamento do `Info`
+### DOC-B004 — Reorganização corpo × dashboard e alinhamento do `dashboard`
 **Status:** bloqueado_decisao
 **Origem:** `docs/NOMENCLATURA.md` seção 9, seção 11
-**Descrição:** duas coisas amarradas — (a) se `Info` acompanha a mudança
-se o `Info` acompanha a regra de sobra à direita do `lancador` ou mantém centralização como o `dado`;
-(b) a reorganização maior de telas só-visualização usarem `Info` como
+**Descrição:** duas coisas amarradas — (a) se `dashboard` acompanha a mudança
+se o `dashboard` acompanha a regra de sobra à direita do `lancador` ou mantém centralização como o `console`;
+(b) a reorganização maior de telas só-visualização usarem `dashboard` como
 conteúdo principal e telas de processo usarem `corpo`. Explicitamente
-remarcado para um chat/sessão dedicado a `Info` — escopo grande demais
+remarcado para um chat/sessão dedicado a `dashboard` — escopo grande demais
 pra resolver de raspão.

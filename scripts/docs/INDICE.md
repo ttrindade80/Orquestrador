@@ -48,7 +48,8 @@ scripts/
   config/
     estilo.json
     lancador.json
-    layout_dado.json
+    layout_console.json
+    layout_dado.json  # obsoleto/transicional; nao canonico
     barra_de_menus.json
     cabecalho.json
     layout_menu.json  # obsoleto/transicional; nao canonico
@@ -70,6 +71,9 @@ scripts/
       ADR-0002-menu-sobra-direita.md
       ADR-0003-vaos-elasticos-menu.md
       ADR-0004-estilo-cor-inativo-cor-alerta.md
+      ADR-0005-lancador-nao-e-corpo-navegavel.md
+      ADR-0006-renomeacao-console-dashboard.md
+      ADR-0007-tela-processamento-composicao.md
     handoff/
       README.md
     relatorios/
@@ -93,7 +97,7 @@ tempo de execução (ver `docs/NOMENCLATURA.md` seção 0). Fica dentro de
 | Artefato | Funcao | Regra |
 |---|---|---|
 | Glossário (`NOMENCLATURA.md`) | Fonte única de nomes e schema | Todo contrato deriva dele; ele não guarda valor concreto de produção (ver seção 0) |
-| Config (`config/*.json`) | Valores concretos que o renderer lê | Um arquivo por domínio (estilo, lancador, corpo-dado, Info, barra_de_menus, cabecalho); gabarito de teste da implementação |
+| Config (`config/*.json`) | Valores concretos que o renderer lê | Um arquivo por domínio (estilo, lancador, corpo-console, dashboard, barra_de_menus, cabecalho); gabarito de teste da implementação. `config/layout_dado.json` permanece apenas como obsoleto/transicional. |
 | Contrato | Define comportamento esperado | Deve ser aprovado antes da implementacao |
 | ADR | Registra decisao arquitetural | Nao substitui contrato; contratos afetados devem ser atualizados |
 | RFC | Propoe mudanca | Nao autoriza implementacao |

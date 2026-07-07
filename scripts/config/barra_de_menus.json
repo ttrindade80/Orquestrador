@@ -1,7 +1,7 @@
 {
   "_meta": {
     "name": "barra_de_menus",
-    "description": "Ordem canonica, rotulos e condicoes de existencia dos chips da barra_de_menus — nao confundir com layout_menu.json (corpo tipo menu)",
+    "description": "Ordem canonica, rotulos e condicoes de existencia dos chips da barra_de_menus — nao confundir com config/lancador.json (corpo tipo lancador)",
     "origem": "docs/NOMENCLATURA.md secao 5",
     "status": "rascunho_inicial",
     "reaproveitado_de_legado": false,
@@ -54,7 +54,7 @@
       "existencia": {
         "eixo_composicao": "colunas_ajustavel",
         "valor_requerido": "com",
-        "restricao_tipo_conteudo": "dado"
+        "restricao_tipo_conteudo": "console"
       },
       "estado_dinamico": {
         "condicao_inativo_menos": "n_col == n_col_minimo (1)",
@@ -84,10 +84,10 @@
       "simbolo": "[✥]",
       "rotulo": "Navegar",
       "existencia": {
-        "condicao": "existencia estrutural: tela possui ao menos um corpo navegavel (tipo dado ou menu)"
+        "condicao": "existencia estrutural: tela possui ao menos um corpo tipo console navegavel"
       },
-      "estado_dinamico": "ativo quando o corpo em foco e navegavel; inativo via cor_inativo quando o corpo em foco nao e navegavel, mas a tela possui navegacao em algum corpo",
-      "comportamento": "e a dica visual de 'use as setas do teclado'; nao aparece/desaparece por foco, dataset corrente ou conteudo renderizado; em corpo com grade/matriz, as setas seguem a geometria real (cima/baixo dentro da coluna, esquerda/direita entre colunas); em dados complexos sem grade regular, e a propria tela que declara o que e navegavel"
+      "estado_dinamico": "ativo quando o corpo em foco e um corpo tipo console navegavel; inativo via cor_inativo quando ha corpo tipo console navegavel na tela, mas o corpo em foco nao e navegavel por [✥]",
+      "comportamento": "e a dica visual de 'use as setas do teclado'; nao aparece/desaparece por foco, dataset corrente ou conteudo renderizado; em corpo tipo console com grade/matriz, as setas seguem a geometria real (cima/baixo dentro da coluna, esquerda/direita entre colunas); em dados complexos sem grade regular, e a propria tela que declara o que e navegavel"
     },
     "selecionar": {
       "simbolo": "[␣]",
@@ -137,7 +137,7 @@
       "existencia": {
         "eixo_composicao": "tipo_exibicao",
         "valor_requerido": "verboso",
-        "restricao_tipo_conteudo": "dado"
+        "restricao_tipo_conteudo": "console"
       }
     },
     "ajuda": {

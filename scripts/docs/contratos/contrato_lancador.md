@@ -38,7 +38,7 @@ documentação ou nomenclatura pode tratar o `lancador` como equivalente à
 |---|---|---|
 | `lancador` | Objeto do corpo; caixa com título e itens de navegação | Membro do corpo — regido por este contrato |
 | `barra_de_menus` | Região fixa inferior da tela com chips de ação e navegação | Região da tela — regida por `contrato_barra_de_menus.md` |
-| `dado` | Objeto do corpo com dados tabulares ou de lista | Membro do corpo — regido por `contrato_composicao_corpo.md` |
+| `console` | Objeto do corpo com dados tabulares ou de lista; antigo `dado` | Membro do corpo — regido por `contrato_composicao_corpo.md` |
 
 **Nome anterior:** o `lancador` era chamado de `menu` (corpo) nos artefatos
 anteriores a 2026-07-06. O termo `menu` está descontinuado para este tipo;

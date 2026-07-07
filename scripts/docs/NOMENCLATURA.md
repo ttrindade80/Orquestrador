@@ -26,8 +26,8 @@ como origem da decisão — a decisão em si continua vindo do usuário.
 
 ## 0. Política — NOMENCLATURA.md vs arquivos JSON de dados (decidida nesta sessão)
 
-Cada domínio de renderização (`estilo`, corpo tipo `lancador`, corpo tipo `dado`,
-`Info`, `barra_de_menus` e `cabecalho`) tem exatamente **dois**
+Cada domínio de renderização (`estilo`, corpo tipo `console`, corpo tipo
+`lancador`, `dashboard`, `barra_de_menus` e `cabecalho`) tem exatamente **dois**
 artefatos, com responsabilidades separadas e não sobrepostas:
 
 | Artefato | Responsabilidade |
@@ -55,8 +55,9 @@ neutra, sem dado de produção, ver `docs/INDICE.md`).
 |---|---|---|
 | Estilo | `config/estilo.json` | feito (seção 1) |
 | Corpo tipo `lancador` | `config/lancador.json` | feito (seção 8.4) |
-| Corpo tipo `dado` | `config/layout_dado.json` | feito (seção 4) |
-| `Info` | *(a definir)* | não iniciado — vai ser tratado em outro chat |
+| Corpo tipo `console` | `config/layout_console.json` | feito (seção 4) |
+| Antigo corpo tipo `dado` | `config/layout_dado.json` | obsoleto/transicional — mantido para rastreabilidade da migração `dado` → `console` |
+| `dashboard` | *(a definir)* | não iniciado — antigo `Info`, vai ser tratado em outro chat |
 | `barra_de_menus` | `config/barra_de_menus.json` | feito (seção 5.1) |
 | Cabeçalho | `config/cabecalho.json` | feito (seção 7) |
 
@@ -123,8 +124,8 @@ Escolha manual do usuário, não decisão automática por largura de
 terminal. Não existe largura mínima de segurança que force sobreposto —
 a preferência do usuário sempre vale quando aplicada.
 
-**Escopo**: aplica-se apenas a arranjo de 2+ corpos tipo `dado`/`lancador`.
-Nunca decide posição do objeto `Info` (esse é eixo próprio, ver seção 3).
+**Escopo**: aplica-se apenas a arranjo de 2+ corpos tipo `console`/`lancador`.
+Nunca decide posição do objeto `dashboard` (esse é eixo próprio, ver seção 3).
 
 **É default, não obrigatório**: a classe de tela pode fixar seu próprio
 arranjo (seção 3, "Arranjo de múltiplos corpos") e ignorar a preferência
@@ -172,15 +173,49 @@ Toda tela do sistema tem exatamente estas tres regioes:
 
 ### 2.1 Tipos de objeto do corpo
 
-- **dado**: dados propriamente ditos, incluindo saida de script/log.
+- **console**: corpo interativo com dados, incluindo saída de script/log;
+  preserva as regras do antigo tipo `dado`.
 - **lancador**: objeto do corpo que é uma composição de navegação para outras
   telas (não confundir com `barra_de_menus`, que é a região fixa da tela).
-- **Info**: objeto opcional do corpo — resumo/legenda dos dados exibidos.
+- **dashboard**: objeto opcional do corpo — saída passiva formatada,
+  resumo/legenda ou visão consolidada dos dados exibidos; antigo `Info`.
 
 Extensibilidade: um novo tipo de conteudo pode ser adicionado no futuro
 seguindo o mesmo principio do estilo — schema aberto, sem exigir reescrita
 do renderer, desde que a amarracao declarativa (classe declara, renderer so
 executa) seja respeitada.
+
+**Tela de processamento como composição (ADR-0007)**: tela de processamento
+não é tipo de corpo. A taxonomia fechada do corpo permanece `console`,
+`lancador`, `dashboard`; não existe quarto tipo de corpo para processamento.
+
+Uma tela de processamento é descrita como composição de tipos existentes:
+
+- um ou mais corpos tipo `console`, quando houver região interativa ou
+  navegável por `[✥]`;
+- zero ou um `dashboard`, quando houver saída passiva formatada, como estado
+  agregado, resumo ou progresso;
+- chips específicos declarados pela classe de tela na `barra_de_menus`.
+
+Chips específicos pertencem à `barra_de_menus`, nunca ao corpo. A classe de
+tela declara sua existência; a `barra_de_menus` continua sendo espelho da
+declaração, não fonte de decisão.
+
+`lancador` não representa processamento. O `lancador` continua sendo navegação
+para outras telas via `tela_destino`. Nenhuma regra de `[✥]` muda: `[✥]`
+continua restrito a corpo tipo `console`.
+
+Exemplo conceitual, não obrigatório: uma tela de processamento pode conter
+`cabecalho`, corpo com `console` Lista, corpo com `console` Detalhe, corpo com
+`console` Log se o log for navegável, zero ou um `dashboard` de estado
+agregado/resumo/progresso, e `barra_de_menus` com chips canônicos e chips
+específicos da classe. Este exemplo não obriga toda tela de processamento a
+ter exatamente essa estrutura.
+
+Ficam fora de escopo desta decisão: pop-up de ferramenta, seleção prévia de
+ferramenta, execução em segundo plano, estrutura do chip `aciona_processo`,
+renderer de progresso, implementação e alteração de dados reais de
+classes/telas.
 
 ---
 
@@ -191,22 +226,22 @@ barra_de_menus.
 
 | Eixo | Valores |
 |---|---|
-| Tipo de conteudo | `lancador`, `dado` |
-| Tipo de exibicao | `normal` (lista simples) / `verboso` (detalhes) — depende dos dados |
-| Info | presente / ausente |
+| Tipo de conteudo | `console`, `lancador` |
+| Tipo de exibicao | `normal` (lista simples) / `verboso` (detalhes) — aplica-se apenas a `console` |
+| Dashboard | presente / ausente |
 | Quantidade de corpos | 1 corpo / múltiplos corpos |
 | Arranjo de múltiplos corpos (opcional) | `sobreposto` / `lado_a_lado` — a classe PODE fixar isso; se não fixar, usa o `tiling` global do estilo (seção 1.4) como default |
-| Posição do Info | `horizontal` (lado) / `vertical` (inferior) — declarada por classe, sempre. Eixo próprio, **não** afetado pelo `tiling` do estilo — tiling só rege corpos tipo dado/lancador, nunca a posição do Info |
+| Posição do dashboard | `horizontal` (lado) / `vertical` (inferior) — declarada por classe, sempre. Eixo próprio, **não** afetado pelo `tiling` do estilo — tiling só rege corpos tipo console/lancador, nunca a posição do dashboard |
 | Paginacao | com / sem |
-| Colunas ajustavel (tipo `dado`) | com / sem — eixo proprio, distinto de paginacao. Aplica-se apenas a corpos tipo `dado`, ajustável manualmente via chip `[-][+]` |
+| Colunas ajustavel (tipo `console`) | com / sem — eixo proprio, distinto de paginacao. Aplica-se apenas a corpos tipo `console`, ajustável manualmente via chip `[-][+]` |
 | `filtro_de_grupo` | `com` / `sem` — eixo próprio; condiciona a existência estrutural do chip `[#]`; não decide ainda a relação entre filtro de grupo e seleção |
 | `formacao_de_selecao` | `com` / `sem` — eixo próprio; condiciona a existência estrutural do chip `[␣]` e participa da semântica do rótulo dinâmico de `[⏎]` |
 | Espacamento interno | universal (renderer): linha em branco entre borda e conteudo, sempre |
-| Organizacao horizontal | regra minima por tipo de conteudo (lancador vs dado) — ver secao 6 |
+| Organizacao horizontal | regra minima por tipo de conteudo (lancador vs console) — ver secao 6 |
 
 **Nota — corpo tipo `lancador` também pode ter múltiplas colunas** (decisão
 desta sessão, formalizada em ADR-0001 — `docs/adr/ADR-0001-menu-suporta-matriz.md`): diferente
-do eixo `colunas_ajustavel` do `dado` (declarado com/sem pela classe,
+do eixo `colunas_ajustavel` do `console` (declarado com/sem pela classe,
 ajustável manualmente via chip), o número de colunas do `lancador` é regido
 pelo eixo **`distribuicao_lancador`** (valores `fila` | `matriz`), calculado
 **automaticamente** a partir da largura real do terminal — não é declarado
@@ -215,7 +250,7 @@ seção 8.3; valores em `config/lancador.json`.
 
 ---
 
-## 4. Mecanismos de selecao (corpo tipo `dado`)
+## 4. Mecanismos de selecao (corpo tipo `console`)
 
 Quatro conceitos distintos, em camadas:
 
@@ -223,7 +258,7 @@ Quatro conceitos distintos, em camadas:
 |---|---|---|
 | **Cursor / selecionado** | aponta um item; `[⏎]` executa acao sobre ele | navegacao via `[✥]` (setas do teclado), indicador `→` |
 | **Grupo** | origem/categoria do dado (ex.: grupo 1, 2, 3) — atributo do proprio dado | ja existe nos dados, filtra **exibicao** via `[#]` |
-| **Selecao** | conjunto **nomeado** de elementos (ex.: selecao `a`, `b`) — **cruza grupos livremente**, sem limite. Mecanismo geral: serve tanto para selecionar itens de dado quanto, futuramente, para selecionar ferramentas em um processo — o mecanismo e o mesmo, o contexto de uso e que muda | toggle via `[␣]`, indicador `●`/`○`, persiste com nome |
+| **Selecao** | conjunto **nomeado** de elementos (ex.: selecao `a`, `b`) — **cruza grupos livremente**, sem limite. Mecanismo geral: serve tanto para selecionar itens de console quanto, futuramente, para selecionar ferramentas em um processo — o mecanismo e o mesmo, o contexto de uso e que muda | toggle via `[␣]`, indicador `●`/`○`, persiste com nome |
 | **Lote** | unidade de **execucao** — calculado a partir de uma selecao no momento de rodar um processo especifico, tipicamente `selecao − o que ja foi processado por aquele processo`. A mesma selecao pode gerar lotes diferentes dependendo do processo | derivado, nao e marcado manualmente |
 
 Termo descontinuado: **"lote" nao e sinonimo de "grupo"** nem de "selecao".
@@ -241,10 +276,10 @@ aparecer. Nao ha decisao de coexistencia/exclusividade travada agora.
 `[✥]` é a dica visual de "use as setas do teclado" — a navegação em si é
 feita pelas quatro setas, não por uma tecla própria.
 
-- **Corpo em formato de matriz/grade** (ex.: `lancador` em matriz, `dado` em
-  colunas): as setas seguem a geometria real da grade — cima/baixo move
-  dentro da coluna, esquerda/direita move entre colunas. Não é uma ordem
-  abstrata de "próximo/anterior", é navegação 2D pela posição visual.
+- **Corpo tipo `console` em formato de matriz/grade**: as setas seguem a
+  geometria real da grade — cima/baixo move dentro da coluna,
+  esquerda/direita move entre colunas. Não é uma ordem abstrata de
+  "próximo/anterior", é navegação 2D pela posição visual.
 - **Dados mais complexos, sem grade regular**: é a própria tela/dataset que
   declara o que é navegável — regra geral, não fixa por formato. O corpo
   não assume uma estrutura só porque parece uma lista.
@@ -277,9 +312,14 @@ fechado, só `[<][>]` muda de página. A seleção (ver seção 4.3), porém,
 persiste entre páginas — o usuário pode ir e voltar com `[<][>]` marcando
 itens de páginas diferentes antes de executar.
 
-### 4.2 Estrutura do item do corpo tipo `dado` (decidido nesta sessão)
+**Escopo de `[✥]` (ADR-0005, atualizado pela ADR-0006)**: `[✥]` e as setas da
+`barra_de_menus` controlam somente cursor de corpo tipo `console`. Corpo tipo
+`lancador` possui navegação própria por itens via `tela_destino`, mas não é
+corpo navegável por `[✥]`; `dashboard` também não é corpo navegável por `[✥]`.
 
-Todo item de um corpo tipo `dado` navegável tem exatamente três partes,
+### 4.2 Estrutura do item do corpo tipo `console` (decidido nesta sessão)
+
+Todo item de um corpo tipo `console` navegável tem exatamente três partes,
 sempre na mesma ordem:
 
 | Parte | Sigla | Função |
@@ -307,7 +347,7 @@ se sobrepõem entre si. (A sobreposição só acontecia na formulação antiga
 de uma coluna única — com `ec` e `tg` como espaços distintos, cada um tem
 seu próprio lugar fixo.)
 
-### 4.3 Espaçamento e layout do corpo tipo `dado` (decidido nesta sessão)
+### 4.3 Espaçamento e layout do corpo tipo `console` (decidido nesta sessão)
 
 Regras próprias, distintas das do corpo tipo `lancador` (seção 8) — **não
 compartilham arquivo de configuração** (ver seção 4.4).
@@ -339,11 +379,14 @@ por tipo de corpo, não uma regra geral do sistema.
 espaço disponível (truncar com reticências, quebrar em múltiplas linhas,
 outra estratégia) — ainda não definidas, ver seção 11.
 
-### 4.4 Parametrização externa — `config/layout_dado.json`
+### 4.4 Parametrização externa — `config/layout_console.json`
 
 Seguindo a política da seção 0: os valores concretos e configuráveis do layout
-do corpo tipo `dado` vivem em `config/layout_dado.json`, não hardcoded. Esta
+do corpo tipo `console` vivem em `config/layout_console.json`, não hardcoded. Esta
 seção define o schema e a semântica; o arquivo guarda os dados.
+
+`config/layout_dado.json` permanece apenas como artefato obsoleto/transicional
+de rastreabilidade da migração `dado` → `console`; não é fonte canônica nova.
 
 Campos cobertos pelo arquivo:
 
@@ -371,14 +414,14 @@ Campos cobertos pelo arquivo:
 |---|---|---|---|---|
 | `[Esc]` | Sair (só na tela Orquestrador) / Voltar (demais telas) / **Limpar** (ver 5.1.2) | sempre, primeiro | fixo — "Sair" é exclusivo da tela raiz (Orquestrador); qualquer outra tela usa "Voltar" | sempre ativo |
 | `[<][>]` | Páginas | condicional | classe declara `paginacao: com` | inativo quando há apenas 1 página no momento |
-| `[-][+]` | Colunas | condicional | classe declara `colunas_ajustavel: com` (tipo `dado`) | `[-]` inativo em `n_col` mínimo (1); `[+]` inativo em `n_col` máximo que a largura atual comporta |
+| `[-][+]` | Colunas | condicional | classe declara `colunas_ajustavel: com` (tipo `console`) | `[-]` inativo em `n_col` mínimo (1); `[+]` inativo em `n_col` máximo que a largura atual comporta |
 | `[#]` | Grupos | condicional | classe declara filtro por grupo — abre entrada para digitar número do grupo, filtra exibição | — |
 | `[⇆]` | Alternar | condicional | `quantidade_corpos: multiplos` — alterna foco de interação entre corpos | — |
-| `[✥]` | Navegar | condicional | tela possui ao menos um corpo navegável (tipo `dado` ou `lancador`) — move o cursor via setas do teclado quando o corpo em foco é navegável (ver 4.1) | inativo via `cor_inativo` quando o corpo em foco não é navegável |
+| `[✥]` | Navegar | condicional | tela possui ao menos um corpo tipo `console` navegável — move o cursor via setas do teclado quando o corpo em foco é `console` navegável (ver 4.1) | inativo via `cor_inativo` quando há outro corpo tipo `console` navegável na tela, mas o corpo em foco não é `console` |
 | `[␣]` | Selecionar | condicional | classe declara formação de seleção (ver seção 4) — toggle nomeado, indicador `●`/`○` | — |
 | `[⏎]` | **Todos** / **Executar** / **Visualizar** (ver 5.1.2) | sempre | executa a ação vinculada ao item sob o cursor ou sobre a seleção, conforme o tipo de tela | inativo quando não há alvo válido sob o cursor |
 | específicos | (por classe) | condicional | chips próprios da classe — ver seção 5.2 | — |
-| `[V]` | Verboso | condicional | classe/dados aceitam `tipo_exibicao: verboso` (só existe pra `dado`, ver seção 3) | — |
+| `[V]` | Verboso | condicional | classe/dados aceitam `tipo_exibicao: verboso` (só existe pra `console`, ver seção 3) | — |
 | `[?]` | Ajuda | sempre, último | — | sempre ativo |
 
 **`[-][+]` — `n_col` não aparece no chip (decisão intencional)**: o chip
@@ -426,8 +469,8 @@ nessa condição, não é caso a caso.
   nas demais, seção 5.1).
 
 **Fora de escopo desta sessão**: a reorganização de arquitetura de tela
-(relatórios só-visualização usando `Info` como conteúdo principal, telas
-de processo usando `corpo`) fica para o chat dedicado a `Info` — não foi
+(relatórios só-visualização usando `dashboard` como conteúdo principal, telas
+de processo usando `corpo`) fica para o chat dedicado a `dashboard` — não foi
 decidida aqui, só o terceiro rótulo `Visualizar` do `[⏎]`.
 
 
@@ -447,7 +490,7 @@ mas ainda não tem estrutura definida:
 |---|---|---|
 | **Toggle** | texto, tecla, `ativo` (booleano), papel | filtro de exibição, liga/desliga |
 | **Múltiplo** | texto, teclas (plural), cores (por tecla), papel | filtro de exibição, conjunto de opções (`set`), tipicamente mutuamente exclusivas entre si |
-| **Aciona processo** | *(estrutura a definir)* | executa lógica sobre seleção/lote — sem precedente formal em `teste_classe_c.py`. Lógica real de execução existe em `orquestrador.py` (não `teste_orquestrador_v2.py`), mas está misturada com `print()` direto no meio do código — na extração, separar o que é *processo* (mantém) do que é *exibição* (descarta, substituído pelo renderer novo) |
+| **Aciona processo** | *(estrutura a definir)* | executa lógica sobre seleção/lote; estrutura formal pendente e fora do escopo da ADR-0007 |
 | **Aciona tela** | texto, tecla, `tela_destino`, papel | abre outra tela (navegação) — ex.: `[\|] Estilo` abre a tela de seleção de estilo. Diferente de "aciona processo": não executa lógica de fundo, só troca de tela |
 
 `[|] Estilo` é um exemplo de específico do tipo **aciona tela**, presente
@@ -474,7 +517,7 @@ telas, mas classificado como específico, não como canônico da ordem fixa
     ver `docs/adr/ADR-0001-menu-suporta-matriz.md` e seção 12). Continua **sem paginação** mesmo em modo matriz —
     overflow em `lancador` não pagina (regra mantida). Regras completas de
     layout na seção 8.
-  - `dado`: colunar (modo normal, `n_col` ajustável) ou tabular (modo
+  - `console`: colunar (modo normal, `n_col` ajustável) ou tabular (modo
     verboso, largura de coluna calculada por conteúdo, texto longo quebra
     dentro da coluna).
 - **Overflow**: nunca existe scroll. Conteúdo que excede o espaço
@@ -505,21 +548,21 @@ total da borda.
 
 **Posição na tela**: sempre na última linha do próprio corpo com
 paginação — não necessariamente colada na barra_de_menus. Quando não há
-objeto Info, corpo e "linha acima da barra_de_menus" costumam coincidir
+objeto dashboard, corpo e "linha acima da barra_de_menus" costumam coincidir
 visualmente, mas isso é coincidência, não regra: o indicador pertence à
 borda do corpo, nunca ao layout geral da tela.
 
-**Exceção — Info presente**: o objeto Info não herda nem desloca o
-indicador de página. Ele nunca aparece na borda do Info, mesmo o Info
+**Exceção — dashboard presente**: o objeto dashboard não herda nem desloca o
+indicador de página. Ele nunca aparece na borda do dashboard, mesmo o dashboard
 estando mais próximo da barra_de_menus. O indicador continua preso à
-borda do corpo paginado, mesmo com Info ocupando o espaço abaixo dele.
+borda do corpo paginado, mesmo com dashboard ocupando o espaço abaixo dele.
 
 **Lado a lado**: cada corpo exibe sua própria paginação, ancorada à
 direita **dentro da própria borda**, independente de qual lado da tela
 aquele corpo ocupa fisicamente.
 
 **Ainda não definido (adiado, sem caso de uso real ainda)**: combinação de
-layout lado a lado com objeto Info presente ao mesmo tempo.
+layout lado a lado com objeto dashboard presente ao mesmo tempo.
 
 ---
 
@@ -528,7 +571,7 @@ layout lado a lado com objeto Info presente ao mesmo tempo.
 Região fixa superior de toda tela do sistema (ver seção 2). Sempre existe;
 nunca ausente, condicional ou opcional.
 
-O `cabecalho` não é corpo, não é `Info`, não é `lancador` e não é
+O `cabecalho` não é corpo, não é `dashboard`, não é `lancador` e não é
 `barra_de_menus`. Não herda regras de layout de nenhuma dessas regiões.
 
 ### 7.1 Campos textuais
@@ -683,17 +726,19 @@ formal — ver seção 11):
 
 ---
 
-## 9. Objeto `Info` — regras de layout
+## 9. Objeto `dashboard` — regras de layout
 
-`Info` é um objeto opcional do corpo (ver seção 2.1), tipo "resumo".
-Estrutura: lista de pares rótulo/valor, uma linha separadora, uma linha de
-Total, uma linha em branco obrigatória, e uma segunda lista de marcadores
-(símbolo + rótulo + valor).
+`dashboard` é um objeto opcional do corpo (ver seção 2.1), tipo saída passiva
+formatada. O usuário lê; não interage; não há cursor navegável por `[✥]`.
+
+A estrutura de 8 campos de resumo + Total + 8 marcadores abaixo pertence ao
+caso específico legado do sistema de survey em desenvolvimento. Ela é exemplo
+e instância conhecida, não regra universal do tipo `dashboard`.
 
 **Alinhamento horizontal:** mesma regra do corpo tipo `lancador` (seção 8) —
 coluna dimensionada pelo maior rótulo, alinhamento à esquerda dentro do
 bloco. **Pendente de confirmação** (ver seção 11): o `lancador` adotou bloco
-à esquerda com sobra à direita (ADR-0002) — falta decidir se o `Info`
+à esquerda com sobra à direita (ADR-0002) — falta decidir se o `dashboard`
 acompanha essa mudança ou mantém centralização.
 
 **Alinhamento vertical:** mesma regra do corpo tipo `lancador` (seção 8), com
@@ -732,7 +777,7 @@ incompleto, não um estado real do sistema.
 
 ---
 
-## 10. Tiling (2+ corpos tipo dado/lancador — não se aplica ao Info)
+## 10. Tiling (2+ corpos tipo console/lancador — não se aplica ao dashboard)
 
 - Quantidade de corpos (1 / múltiplos) é declarada pela classe de tela
   (seção 3).
@@ -744,31 +789,31 @@ incompleto, não um estado real do sistema.
   segurança que force sobreposto.
 - Em modo lado a lado (2 colunas), o espaço horizontal se distribui em 3
   vãos, igualmente: borda↔coluna_1, coluna_1↔coluna_2, coluna_2↔borda.
-- A posição do objeto **Info** é eixo separado (seção 3, "Posição do
-  Info") — nunca decidida por `tiling` nem pelo arranjo de múltiplos
+- A posição do objeto **dashboard** é eixo separado (seção 3, "Posição do
+  dashboard") — nunca decidida por `tiling` nem pelo arranjo de múltiplos
   corpos.
 - Quando há múltiplos corpos, `[⇆]` alterna o foco de interação entre eles
   (ver seção 5.1).
 - **Pendente** (já registrado seção 6.1): combinação de lado a lado com
-  objeto Info presente ao mesmo tempo.
+  objeto dashboard presente ao mesmo tempo.
 
 ## 11. Pendências em aberto
 
 Itens que ainda não têm decisão do usuário:
 
-- **Regras de ajuste do `tx`** (corpo tipo `dado`, seção 4.3): quando o
+- **Regras de ajuste do `tx`** (corpo tipo `console`, seção 4.3): quando o
   texto do item não cabe no espaço disponível — truncar com reticências,
   quebrar em múltiplas linhas, ou outra estratégia. Ainda não definidas.
-- **`popup_execucao`** (estrutura nova, não é corpo/Info/barra_de_menus):
+- **`popup_execucao`** (estrutura nova, não é corpo/dashboard/barra_de_menus):
   janela temporária de saída de execução de script. Mencionada nesta
   sessão, usuário já tem ideias mas decidiu tratar depois de fechar o que
   já estava em andamento. Precisa de regras próprias (tamanho, posição,
   fechamento, bloqueio de tela por trás, borda própria do schema de
   estilo).
-- **Impacto no alinhamento do objeto `Info`**: ver seção 9 — falta
+- **Impacto no alinhamento do objeto `dashboard`**: ver seção 9 — falta
   confirmar se acompanha a mudança do `lancador` (centralizado → bloco à esquerda com sobra à direita) ou
-  segue centralizado como o `dado` (seção 4.3). Tratar junto do chat
-  dedicado a `Info`.
+  segue centralizado como o `console` (seção 4.3). Tratar junto do chat
+  dedicado a `dashboard`.
 - **Segunda pauta de "estilos de exibição de dados no corpo"**:
   mencionada pelo usuário nesta sessão, ainda não descrita.
 - **`config/lancador.json` — campos de navegação**: vãos, alinhamento e número
@@ -776,9 +821,9 @@ Itens que ainda não têm decisão do usuário:
   (seção 5.2). Pendente apenas a formalização dos campos de `navegacao` em
   `config/lancador.json`, que deve aguardar o contrato de mecanismos de
   seleção/navegação.
-- **Reorganização corpo × Info** (relatórios só-visualização usando `Info`
+- **Reorganização corpo × dashboard** (relatórios só-visualização usando `dashboard`
   como conteúdo principal, telas de processo usando `corpo`): mencionada
-  nesta sessão, explicitamente adiada para o chat dedicado a `Info` — não
+  nesta sessão, explicitamente adiada para o chat dedicado a `dashboard` — não
   é lacuna, é escopo remarcado de propósito.
 
 ### Levantamento do Codex — `teste_classe_c.py` / `teste_combo.py` (referência, não decisão)
@@ -806,7 +851,7 @@ Itens adiados intencionalmente (não são lacuna, são decisão de adiar):
 - Estrutura do chip "aciona processo" — ver seção 5.2, será extraída de
   `orquestrador.py` quando o primeiro caso concreto for definido,
   separando lógica de processo de código de exibição (`print`) misturado.
-- Combinação de layout lado a lado com objeto Info presente ao mesmo
+- Combinação de layout lado a lado com objeto dashboard presente ao mesmo
   tempo — ver seção 6.1, sem caso de uso real ainda.
 
 ## 12. ADRs aceitas (decisões desta sessão que reabriam contratos ativos)
