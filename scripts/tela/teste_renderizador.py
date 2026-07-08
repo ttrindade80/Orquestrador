@@ -1,9 +1,11 @@
-"""Diagnostico do renderer visual com borda fixa (H-0006).
+"""Diagnostico do renderer visual com borda (H-0006 / H-0007).
 
 Executavel via:
     python tela/teste_renderizador.py
 
-Cobre os criterios de aceite testaveis do handoff H-0006:
+Cobre os criterios de aceite testaveis dos handoffs H-0006 e H-0007:
+
+Seções 1-5 (H-0006, preservadas):
 - renderizar_tela aceita ModeloTela valido sem excecao;
 - saida e str;
 - saida comeca com "╭ ORQUESTRADOR";
@@ -25,6 +27,20 @@ Cobre os criterios de aceite testaveis do handoff H-0006:
 - renderer nao executa acao, binding, filtro ou navegacao;
 - saida nao vaza campos inertes (origem_dados/bindings/filtros/
   tela_destino/regra_existencia) nem ids internos de chip.
+
+Seção 6 (H-0007, nova) - Alternancia de borda em memoria:
+- renderizar_tela(modelo, tipo_borda="curva") sem excecao;
+- renderizar_tela(modelo, tipo_borda="curva") == renderizar_tela(modelo);
+- renderizar_tela(modelo, tipo_borda="reta") sem excecao;
+- saida reta e str e contem ┌, ┐, └, ┘ e nao contem ╭, ╮, ╰, ╯;
+- conteudo textual (│ Tela raiz do sistema, Dashboard de teste,
+  [B] Borda) preservado na borda reta;
+- cada linha da saida reta tem exatamente 42 chars Python;
+- saida reta bate com _EXPECTED_ORQUESTRADOR_RETA (igualdade estrita);
+- trocar borda altera somente os quatro cantos;
+- linhas de conteudo (│ ...) identicas entre curva e reta;
+- tipo_borda invalido ("invalida", "CURVA") lanca RenderizadorErro;
+- saida reta e deterministica (duas chamadas identicas).
 
 Apenas biblioteca padrao do Python.
 """
@@ -64,6 +80,22 @@ _EXPECTED_ORQUESTRADOR = (
     "╭ Menu ──────────────────────────────────╮\n"
     "│ [Esc] Sair    [B] Borda                │\n"
     "╰────────────────────────────────────────╯\n"
+)
+
+
+_EXPECTED_ORQUESTRADOR_RETA = (
+    "┌ ORQUESTRADOR ──────────────────────────┐\n"
+    "│ Tela raiz do sistema — ponto de entrada│\n"
+    "└────────────────────────────────────────┘\n"
+    "\n"
+    "┌ DASHBOARD ─────────────────────────────┐\n"
+    "│ Dashboard de teste                     │\n"
+    "│ Sem dados carregados                   │\n"
+    "└────────────────────────────────────────┘\n"
+    "\n"
+    "┌ Menu ──────────────────────────────────┐\n"
+    "│ [Esc] Sair    [B] Borda                │\n"
+    "└────────────────────────────────────────┘\n"
 )
 
 
@@ -347,8 +379,158 @@ def teste_inercia():
     )
 
 
+def teste_alternancia_borda():
+    print("")
+    print("== Alternancia de borda em memoria (H-0007) ==")
+
+    tela_raw = carregar_tela(_BASE_PADRAO, "orquestrador")
+    modelo = construir_modelo(tela_raw)
+
+    try:
+        saida_curva_explicita = renderizar_tela(modelo, tipo_borda="curva")
+    except Exception as exc:  # pragma: no cover - diagnostico
+        _registrar(
+            "renderizar_tela(modelo, tipo_borda='curva') sem excecao",
+            False,
+            "{0}: {1}".format(type(exc).__name__, exc),
+        )
+        return
+    _registrar(
+        "renderizar_tela(modelo, tipo_borda='curva') sem excecao",
+        True,
+    )
+
+    saida_default = renderizar_tela(modelo)
+    _registrar(
+        "renderizar_tela(modelo, tipo_borda='curva') == renderizar_tela(modelo)",
+        saida_curva_explicita == saida_default,
+    )
+
+    try:
+        saida_reta = renderizar_tela(modelo, tipo_borda="reta")
+    except Exception as exc:  # pragma: no cover - diagnostico
+        _registrar(
+            "renderizar_tela(modelo, tipo_borda='reta') sem excecao",
+            False,
+            "{0}: {1}".format(type(exc).__name__, exc),
+        )
+        return
+    _registrar(
+        "renderizar_tela(modelo, tipo_borda='reta') sem excecao",
+        True,
+    )
+
+    _registrar(
+        "saida reta e str",
+        isinstance(saida_reta, str),
+        "tipo={0}".format(type(saida_reta).__name__),
+    )
+    _registrar(
+        "saida reta contem '┌' (canto superior esquerdo reto)",
+        "┌" in saida_reta,
+    )
+    _registrar(
+        "saida reta contem '┐' (canto superior direito reto)",
+        "┐" in saida_reta,
+    )
+    _registrar(
+        "saida reta contem '└' (canto inferior esquerdo reto)",
+        "└" in saida_reta,
+    )
+    _registrar(
+        "saida reta contem '┘' (canto inferior direito reto)",
+        "┘" in saida_reta,
+    )
+    _registrar(
+        "saida reta nao contem '╭' (canto curvo ausente)",
+        "╭" not in saida_reta,
+    )
+    _registrar(
+        "saida reta nao contem '╮' (canto curvo ausente)",
+        "╮" not in saida_reta,
+    )
+    _registrar(
+        "saida reta nao contem '╰' (canto curvo ausente)",
+        "╰" not in saida_reta,
+    )
+    _registrar(
+        "saida reta nao contem '╯' (canto curvo ausente)",
+        "╯" not in saida_reta,
+    )
+    _registrar(
+        "saida reta contem '│ Tela raiz do sistema' (conteudo preservado)",
+        "│ Tela raiz do sistema" in saida_reta,
+    )
+    _registrar(
+        "saida reta contem 'Dashboard de teste' (conteudo preservado)",
+        "Dashboard de teste" in saida_reta,
+    )
+    _registrar(
+        "saida reta contem '[B] Borda' (menu inerte preservado)",
+        "[B] Borda" in saida_reta,
+    )
+
+    larguras_reta_ok = all(
+        len(ln) == 42 for ln in saida_reta.split("\n") if ln != ""
+    )
+    _registrar(
+        "cada linha da saida reta tem exatamente 42 chars Python",
+        larguras_reta_ok,
+    )
+
+    bate_reta = saida_reta == _EXPECTED_ORQUESTRADOR_RETA
+    _registrar(
+        "saida reta bate com _EXPECTED_ORQUESTRADOR_RETA (igualdade estrita)",
+        bate_reta,
+        "" if bate_reta else "ver diff abaixo",
+    )
+    if not bate_reta:
+        print("--- esperado (repr) ---")
+        print(repr(_EXPECTED_ORQUESTRADOR_RETA))
+        print("--- obtido (repr) ---")
+        print(repr(saida_reta))
+
+    curva_convertida = (
+        saida_curva_explicita
+        .replace("╭", "┌").replace("╮", "┐")
+        .replace("╰", "└").replace("╯", "┘")
+    )
+    _registrar(
+        "trocar borda altera somente os quatro cantos",
+        curva_convertida == saida_reta,
+    )
+
+    linhas_conteudo_curva = [
+        ln for ln in saida_curva_explicita.split("\n") if ln.startswith("│")
+    ]
+    linhas_conteudo_reta = [
+        ln for ln in saida_reta.split("\n") if ln.startswith("│")
+    ]
+    _registrar(
+        "linhas de conteudo (│ ...) sao identicas entre curva e reta",
+        linhas_conteudo_curva == linhas_conteudo_reta,
+    )
+
+    _espera_excecao(
+        "renderizar_tela(modelo, tipo_borda='invalida') lanca RenderizadorErro",
+        lambda: renderizar_tela(modelo, tipo_borda="invalida"),
+        RenderizadorErro,
+    )
+    _espera_excecao(
+        "renderizar_tela(modelo, tipo_borda='CURVA') lanca RenderizadorErro "
+        "(case sensitive)",
+        lambda: renderizar_tela(modelo, tipo_borda="CURVA"),
+        RenderizadorErro,
+    )
+
+    _registrar(
+        "saida reta e deterministica (duas chamadas identicas)",
+        renderizar_tela(modelo, "reta") == renderizar_tela(modelo, "reta"),
+    )
+
+
 def main():
-    print("Diagnostico H-0006 - renderer visual com borda fixa")
+    print("Diagnostico H-0006/H-0007 - renderer visual com borda (curva/reta)")
     print("Base padrao: {0}".format(_BASE_PADRAO))
     print("Python: {0}".format(sys.version.split()[0]))
 
@@ -357,6 +539,7 @@ def main():
     teste_erros_renderizador()
     teste_proibicoes_importacao()
     teste_inercia()
+    teste_alternancia_borda()
 
     print("")
     print("== Resumo ==")

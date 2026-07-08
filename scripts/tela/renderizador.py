@@ -1,20 +1,29 @@
-"""Renderer visual com borda fixa da tela raiz (H-0006).
+"""Renderer visual com borda da tela raiz (H-0006 / H-0007).
 
 Evolui o renderer estrutural (H-0005) para uma representacao visual
 com tres caixas bordeadas (largura total fixa de 42 caracteres Python
 por linha): cabecalho (derivado do modelo), dashboard (placeholder
 hardcoded) e menu (placeholder inerte hardcoded).
 
+O H-0007 estende `renderizar_tela` com o parametro opcional
+`tipo_borda`, permitindo alternar em memoria entre dois conjuntos de
+caracteres de borda (`"curva"` e `"reta"`). A chamada padrao sem
+`tipo_borda` produz exatamente a saida H-0006 (borda curva). Nao ha
+persistencia, nao ha leitura de config, nao ha UI interativa, nao ha
+captura de teclado.
+
 Consome o ModeloTela produzido pelo pipeline H-0001 + H-0002
 (`carregar_tela` -> `construir_modelo` -> `ModeloTela`) e gera uma
 string visual deterministica, sem dependencia de terminal, sem
 execucao de acao, sem ativacao de binding e sem consulta a JSON.
 
-ESCOPO (H-0006):
-- Apenas renderizacao visual com borda fixa a partir de ModeloTela.
+ESCOPO (H-0006 / H-0007):
+- Apenas renderizacao visual com borda a partir de ModeloTela.
 - Caixa de cabecalho derivada de modelo.cabecalho (titulo/descricao).
 - Caixa de dashboard totalmente hardcoded (placeholder de teste).
 - Caixa de menu totalmente hardcoded (texto inerte [Esc] Sair e [B] Borda).
+- Alternancia de borda em memoria entre `"curva"` (default) e `"reta"`,
+  definida como constante `_BORDAS` em nivel de modulo.
 - Nao acessa config/telas/orquestrador.json diretamente.
 - Nao chama carregar_tela nem construir_modelo.
 - Nao importa json, os ou pathlib.
@@ -24,6 +33,13 @@ ESCOPO (H-0006):
 - Nao acessa campos inertes internos de nenhum ElementoCorpo.
 - Nao acessa modelo.corpo, modelo.barra_de_menus, modelo.id nem modelo.schema.
 - [Esc] Sair e [B] Borda sao apenas texto inerte -- nenhum binding.
+- Nao le config/estilo.json, config/barra_de_menus.json,
+  config/layout_console.json nem config/lancador.json.
+- Nao persiste tipo_borda entre chamadas.
+
+A largura fixa (TOTAL_WIDTH=42, INNER_WIDTH=40, CONTENT_WIDTH=39) e
+heranca tecnica provisoria do H-0006, preservada sem declaracao
+normativa de layout.
 
 Apenas biblioteca padrao do Python.
 """
@@ -41,55 +57,83 @@ CONTENT_WIDTH = 39
 _LABEL_MAX = 38
 
 
-def _linha_topo(label):
+_BORDAS = {
+    "curva": {
+        "tl": "╭", "tr": "╮",
+        "bl": "╰", "br": "╯",
+        "v":  "│", "h":  "─",
+    },
+    "reta": {
+        "tl": "┌", "tr": "┐",
+        "bl": "└", "br": "┘",
+        "v":  "│", "h":  "─",
+    },
+}
+
+
+def _linha_topo(label, borda):
     """Monta a borda superior com label.
 
-    Formato: ╭ {LABEL} {─×(38-len(LABEL))}╮
+    Formato: {tl} {LABEL} {h x (38-len(LABEL))}{tr}
     """
     label_trunc = label[:_LABEL_MAX]
     dashes = _LABEL_MAX - len(label_trunc)
-    return "╭ {0} {1}╮".format(label_trunc, "─" * dashes)
+    return "{tl} {0} {1}{tr}".format(
+        label_trunc, borda["h"] * dashes, tl=borda["tl"], tr=borda["tr"]
+    )
 
 
-def _linha_base():
-    """Monta a borda inferior: ╰{─×40}╯."""
-    return "╰{0}╯".format("─" * INNER_WIDTH)
+def _linha_base(borda):
+    """Monta a borda inferior: {bl}{h x 40}{br}."""
+    return "{bl}{0}{br}".format(
+        borda["h"] * INNER_WIDTH, bl=borda["bl"], br=borda["br"]
+    )
 
 
-def _linha_conteudo(texto):
-    """Monta uma linha de conteudo: │ {text:<39}│."""
-    return "│ {0:<39}│".format(texto[:CONTENT_WIDTH])
+def _linha_conteudo(texto, borda):
+    """Monta uma linha de conteudo: {v} {text:<39}{v}."""
+    return "{v} {0:<39}{v}".format(texto[:CONTENT_WIDTH], v=borda["v"])
 
 
-def _caixa(label, linhas_conteudo):
+def _caixa(label, linhas_conteudo, borda):
     """Monta uma caixa bordeada com label no topo e linhas de conteudo."""
-    partes = [_linha_topo(label)]
+    partes = [_linha_topo(label, borda)]
     for texto in linhas_conteudo:
-        partes.append(_linha_conteudo(texto))
-    partes.append(_linha_base())
+        partes.append(_linha_conteudo(texto, borda))
+    partes.append(_linha_base(borda))
     return "\n".join(partes)
 
 
-def renderizar_tela(modelo: ModeloTela) -> str:
-    """Renderiza ModeloTela como string visual com borda fixa (H-0006).
+def renderizar_tela(modelo: ModeloTela, tipo_borda: str = "curva") -> str:
+    """Renderiza ModeloTela como string visual com borda (H-0006 / H-0007).
 
     Parametros:
         modelo: ModeloTela produzido por construir_modelo (H-0002) a
             partir do dict retornado por carregar_tela (H-0001).
+        tipo_borda: nome do conjunto de caracteres de borda a usar.
+            Valores aceitos: `"curva"` (default, saida identica ao
+            H-0006) e `"reta"`. Outros valores lancam RenderizadorErro.
+            A validacao e case-sensitive.
 
     Retorna:
-        str com a representacao visual no formato definido pelo
-        handoff H-0006 (tres caixas bordeadas de 42 chars por linha:
-        cabecalho derivado do modelo, dashboard placeholder hardcoded,
-        menu placeholder hardcoded inerte).
+        str com a representacao visual no formato definido pelos
+        handoffs H-0006 / H-0007 (tres caixas bordeadas de 42 chars por
+        linha: cabecalho derivado do modelo, dashboard placeholder
+        hardcoded, menu placeholder hardcoded inerte). Os caracteres de
+        canto variam conforme `tipo_borda`; o restante (bordas
+        vertical/horizontal e conteudo textual) e identico entre
+        conjuntos.
 
     Lancamentos:
-        RenderizadorErro quando o argumento nao e um ModeloTela valido
-        (ex.: None ou objeto de outro tipo).
+        RenderizadorErro quando:
+            - o argumento `modelo` nao e um ModeloTela valido
+              (ex.: None ou objeto de outro tipo);
+            - o argumento `tipo_borda` nao e `"curva"` nem `"reta"`.
 
     Efeitos colaterais:
         Nenhum. Nao altera o modelo, nao grava arquivo, nao consulta
-        JSON em disco, nao executa acao, nao ativa binding.
+        JSON em disco, nao executa acao, nao ativa binding, nao
+        persiste tipo_borda entre chamadas.
     """
     if not isinstance(modelo, ModeloTela):
         raise RenderizadorErro(
@@ -98,16 +142,26 @@ def renderizar_tela(modelo: ModeloTela) -> str:
             )
         )
 
+    if tipo_borda not in _BORDAS:
+        raise RenderizadorErro(
+            "tipo_borda invalido: {0!r}; valores aceitos: curva, reta".format(
+                tipo_borda
+            )
+        )
+
+    borda = _BORDAS[tipo_borda]
+
     titulo = modelo.cabecalho.get("titulo", "(ausente)")
     descricao = modelo.cabecalho.get("descricao", "(ausente)")
     label_cabecalho = titulo.upper()
 
-    caixa_cabecalho = _caixa(label_cabecalho, [descricao])
+    caixa_cabecalho = _caixa(label_cabecalho, [descricao], borda)
     caixa_dashboard = _caixa(
         "DASHBOARD",
         ["Dashboard de teste", "Sem dados carregados"],
+        borda,
     )
-    caixa_menu = _caixa("Menu", ["[Esc] Sair    [B] Borda"])
+    caixa_menu = _caixa("Menu", ["[Esc] Sair    [B] Borda"], borda)
 
     return (
         caixa_cabecalho + "\n\n"
