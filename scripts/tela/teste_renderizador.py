@@ -1,47 +1,33 @@
-"""Diagnostico do renderer visual com borda (H-0006 / H-0007 / H-0009).
+"""Diagnostico do renderer declarativo (H-0006 / H-0007 / H-0009 / H-0010A).
 
 Executavel via:
     python tela/teste_renderizador.py
 
-Cobre os criterios de aceite testaveis dos handoffs H-0006, H-0007 e
-H-0009:
+Cobre os criterios de aceite testaveis dos handoffs H-0006, H-0007,
+H-0009 e H-0010A. O H-0010A substitui placeholders hardcoded por
+conteudo derivado do modelo/JSON e adiciona:
 
-Seções 1-5 (H-0006, preservadas):
-- renderizar_tela aceita ModeloTela valido sem excecao;
-- saida e str;
-- saida comeca com "╭ ORQUESTRADOR";
-- saida contem "│ Tela raiz do sistema";
-- saida contem "╭ DASHBOARD", "Dashboard de teste",
-  "Sem dados carregados";
-- saida contem "╭ Menu", "[Esc] Sair", "[B] Borda";
-- saida contem "╰" (borda inferior);
-- saida e deterministica (duas chamadas com mesmo modelo sao identicas);
-- saida bate com expected output literal do handoff H-0006 (igualdade
-  estrita, incluindo o \\n final);
-- cada linha da saida tem exatamente 42 chars Python (sem o \\n);
-- modelo fabricado com titulo="Fab" produz saida usando dados do
-  modelo, nao do JSON em disco (label "FAB", conteudo "desc fab",
-  caixas hardcoded DASHBOARD e Menu presentes);
-- renderizar_tela(None) e renderizar_tela(<dict>) lancam RenderizadorErro;
-- renderer nao importa json/os/pathlib nem chama carregar_tela;
-- renderer nao acessa _campos_inertes dos elementos;
-- renderer nao executa acao, binding, filtro ou navegacao;
-- saida nao vaza campos inertes (origem_dados/bindings/filtros/
-  tela_destino/regra_existencia) nem ids internos de chip.
+- inspecao de fonte contra constantes hardcoded de itens do lancador;
+- inspecao de fonte contra chips hardcoded da barra_de_menus;
+- rejeicao de item de lancador com texto acima de 15 caracteres
+  (sem truncamento, sem abreviacao);
+- render declarativo do dashboard com fonte "literal";
+- render declarativo do console com placeholder "(console)";
+- render declarativo da barra_de_menus lendo chips[] do JSON;
+- render declarativo do lancador lendo itens[] do JSON;
+- destino_minimo renderiza "Voltar" e "Tela de destino para teste do
+  lancador" (lidos do JSON, nao hardcoded).
 
-Seção 6 (H-0007, nova) - Alternancia de borda em memoria:
-- renderizar_tela(modelo, tipo_borda="curva") sem excecao;
-- renderizar_tela(modelo, tipo_borda="curva") == renderizar_tela(modelo);
-- renderizar_tela(modelo, tipo_borda="reta") sem excecao;
-- saida reta e str e contem ┌, ┐, └, ┘ e nao contem ╭, ╮, ╰, ╯;
-- conteudo textual (│ Tela raiz do sistema, Dashboard de teste,
-  [B] Borda) preservado na borda reta;
-- cada linha da saida reta tem exatamente 42 chars Python;
-- saida reta bate com _EXPECTED_ORQUESTRADOR_RETA (igualdade estrita);
-- trocar borda altera somente os quatro cantos;
-- linhas de conteudo (│ ...) identicas entre curva e reta;
-- tipo_borda invalido ("invalida", "CURVA") lanca RenderizadorErro;
-- saida reta e deterministica (duas chamadas identicas).
+Secoes cobertas:
+- renderer sobre config/telas/orquestrador.json;
+- renderer sobre config/telas/destino_minimo.json (H-0010A);
+- modelo fabricado (usa dados do modelo, nao do JSON em disco);
+- casos de erro (None, dict, tipo_borda invalido, texto > 15 chars);
+- proibicoes de import/leitura no modulo do renderer;
+- inspecao de fonte contra constantes hardcoded (H-0010A);
+- inercia: renderer nao executa/resolve/ativa;
+- alternancia de borda em memoria (H-0007);
+- largura explicita (H-0009).
 
 Apenas biblioteca padrao do Python.
 """
@@ -72,12 +58,26 @@ _EXPECTED_ORQUESTRADOR = (
     "╭ ORQUESTRADOR ──────────────────────────╮\n"
     "│ Tela raiz do sistema — ponto de entrada│\n"
     "╰────────────────────────────────────────╯\n"
-    "╭ DASHBOARD ─────────────────────────────╮\n"
-    "│ Dashboard de teste                     │\n"
-    "│ Sem dados carregados                   │\n"
+    "╭ ITENS ─────────────────────────────────╮\n"
+    "│ (console)                              │\n"
     "╰────────────────────────────────────────╯\n"
-    "╭ Menu ──────────────────────────────────╮\n"
-    "│ [Esc] Sair    [B] Borda                │\n"
+    "╭ INFO ──────────────────────────────────╮\n"
+    "╰────────────────────────────────────────╯\n"
+    "╭ NAVEGAR ───────────────────────────────╮\n"
+    "│ [d] Destino                            │\n"
+    "╰────────────────────────────────────────╯\n"
+    "╭ Menus ─────────────────────────────────╮\n"
+    "│ [Esc] Sair                             │\n"
+    "│ [<>] Páginas                           │\n"
+    "│ [-+] Colunas                           │\n"
+    "│ [#] Grupos                             │\n"
+    "│ [⇆] Alternar                           │\n"
+    "│ [✥] Navegar                            │\n"
+    "│ [␣] Selecionar                         │\n"
+    "│ [⏎] Todos                              │\n"
+    "│ [|] Estilo                             │\n"
+    "│ [V] Verboso                            │\n"
+    "│ [?] Ajuda                              │\n"
     "╰────────────────────────────────────────╯\n"
 )
 
@@ -86,12 +86,26 @@ _EXPECTED_ORQUESTRADOR_RETA = (
     "┌ ORQUESTRADOR ──────────────────────────┐\n"
     "│ Tela raiz do sistema — ponto de entrada│\n"
     "└────────────────────────────────────────┘\n"
-    "┌ DASHBOARD ─────────────────────────────┐\n"
-    "│ Dashboard de teste                     │\n"
-    "│ Sem dados carregados                   │\n"
+    "┌ ITENS ─────────────────────────────────┐\n"
+    "│ (console)                              │\n"
     "└────────────────────────────────────────┘\n"
-    "┌ Menu ──────────────────────────────────┐\n"
-    "│ [Esc] Sair    [B] Borda                │\n"
+    "┌ INFO ──────────────────────────────────┐\n"
+    "└────────────────────────────────────────┘\n"
+    "┌ NAVEGAR ───────────────────────────────┐\n"
+    "│ [d] Destino                            │\n"
+    "└────────────────────────────────────────┘\n"
+    "┌ Menus ─────────────────────────────────┐\n"
+    "│ [Esc] Sair                             │\n"
+    "│ [<>] Páginas                           │\n"
+    "│ [-+] Colunas                           │\n"
+    "│ [#] Grupos                             │\n"
+    "│ [⇆] Alternar                           │\n"
+    "│ [✥] Navegar                            │\n"
+    "│ [␣] Selecionar                         │\n"
+    "│ [⏎] Todos                              │\n"
+    "│ [|] Estilo                             │\n"
+    "│ [V] Verboso                            │\n"
+    "│ [?] Ajuda                              │\n"
     "└────────────────────────────────────────┘\n"
 )
 
@@ -165,36 +179,73 @@ def teste_renderizador_orquestrador():
         saida.startswith("╭ ORQUESTRADOR"),
     )
     _registrar(
-        "saida contem '│ Tela raiz do sistema'",
+        "saida contem '│ Tela raiz do sistema' (cabecalho do JSON)",
         "│ Tela raiz do sistema" in saida,
     )
     _registrar(
-        "saida contem '╭ DASHBOARD'",
-        "╭ DASHBOARD" in saida,
+        "saida contem '╭ ITENS' (console_principal)",
+        "╭ ITENS" in saida,
     )
     _registrar(
-        "saida contem 'Dashboard de teste'",
-        "Dashboard de teste" in saida,
+        "saida contem '(console)' (placeholder de escopo)",
+        "(console)" in saida,
     )
     _registrar(
-        "saida contem 'Sem dados carregados'",
-        "Sem dados carregados" in saida,
+        "saida contem '╭ INFO' (dashboard_info do JSON)",
+        "╭ INFO" in saida,
     )
     _registrar(
-        "saida contem '╭ Menu'",
-        "╭ Menu" in saida,
+        "saida contem '╭ NAVEGAR' (lancador_principal do JSON)",
+        "╭ NAVEGAR" in saida,
     )
     _registrar(
-        "saida contem '[Esc] Sair'",
+        "saida contem '[d]' (chip do item do lancador do JSON)",
+        "[d]" in saida,
+    )
+    _registrar(
+        "saida contem 'Destino' (texto do item do lancador do JSON)",
+        "Destino" in saida,
+    )
+    _registrar(
+        "saida contem '╭ Menus' (caixa da barra)",
+        "╭ Menus" in saida,
+    )
+    _registrar(
+        "saida contem '[Esc] Sair' (chip Esc do JSON)",
         "[Esc] Sair" in saida,
     )
     _registrar(
-        "saida contem '[B] Borda'",
-        "[B] Borda" in saida,
+        "saida contem '[<>] Páginas' (chip do JSON)",
+        "[<>] Páginas" in saida,
+    )
+    _registrar(
+        "saida contem '[?] Ajuda' (chip do JSON)",
+        "[?] Ajuda" in saida,
     )
     _registrar(
         "saida contem '╰' (borda inferior)",
         "╰" in saida,
+    )
+
+    _registrar(
+        "saida NAO contem '[B] Borda' (nao hardcoded; nunca declarado no JSON)",
+        "[B] Borda" not in saida,
+    )
+    _registrar(
+        "saida NAO contem 'Dashboard de teste' (placeholder removido)",
+        "Dashboard de teste" not in saida,
+    )
+    _registrar(
+        "saida NAO contem 'Sem dados carregados' (placeholder removido)",
+        "Sem dados carregados" not in saida,
+    )
+    _registrar(
+        "saida NAO contem '╭ DASHBOARD' (label generico removido)",
+        "╭ DASHBOARD" not in saida,
+    )
+    _registrar(
+        "saida NAO contem '╭ Menu ' (label antigo 'Menu' sem 's')",
+        "╭ Menu " not in saida,
     )
 
     saida2 = renderizar_tela(modelo)
@@ -213,7 +264,7 @@ def teste_renderizador_orquestrador():
 
     bate = saida == _EXPECTED_ORQUESTRADOR
     _registrar(
-        "saida bate com expected output literal do handoff H-0009 (sem \\n\\n)",
+        "saida bate com expected output literal do H-0010A (curva, 42)",
         bate,
         "" if bate else "ver diff abaixo",
     )
@@ -222,6 +273,75 @@ def teste_renderizador_orquestrador():
         print(repr(_EXPECTED_ORQUESTRADOR))
         print("--- obtido (repr) ---")
         print(repr(saida))
+
+    return modelo
+
+
+def teste_renderizador_destino_minimo():
+    print("")
+    print("== Renderer sobre modelo de config/telas/destino_minimo.json (H-0010A) ==")
+    try:
+        tela_raw = carregar_tela(_BASE_PADRAO, "destino_minimo")
+        modelo = construir_modelo(tela_raw)
+    except Exception as exc:  # pragma: no cover - diagnostico
+        _registrar(
+            "pipeline carregar_tela + construir_modelo (destino_minimo)",
+            False,
+            "{0}: {1}".format(type(exc).__name__, exc),
+        )
+        return None
+    _registrar(
+        "pipeline carregar_tela + construir_modelo (destino_minimo)",
+        True,
+    )
+
+    try:
+        saida = renderizar_tela(modelo)
+    except Exception as exc:  # pragma: no cover - diagnostico
+        _registrar(
+            "renderizar_tela(destino_minimo) sem excecao",
+            False,
+            "{0}: {1}".format(type(exc).__name__, exc),
+        )
+        return None
+    _registrar("renderizar_tela(destino_minimo) sem excecao", True)
+
+    _registrar(
+        "saida destino comeca com '╭ DESTINO MINIMO'",
+        saida.startswith("╭ DESTINO MINIMO"),
+    )
+    _registrar(
+        "saida destino contem 'Tela de destino para teste do lancador'",
+        "Tela de destino para teste do lancador" in saida,
+    )
+    _registrar(
+        "saida destino contem '╭ TESTE' (dashboard_teste do JSON)",
+        "╭ TESTE" in saida,
+    )
+    _registrar(
+        "saida destino contem '╭ Menus'",
+        "╭ Menus" in saida,
+    )
+    _registrar(
+        "saida destino contem '[Esc] Voltar' (chip Esc declarado no JSON)",
+        "[Esc] Voltar" in saida,
+    )
+    _registrar(
+        "saida destino NAO contem '[Esc] Sair'",
+        "[Esc] Sair" not in saida,
+    )
+    _registrar(
+        "saida destino NAO contem '(console)' (sem elemento console)",
+        "(console)" not in saida,
+    )
+
+    larguras_ok = all(
+        (len(ln) == 42 for ln in saida.split("\n") if ln != "")
+    )
+    _registrar(
+        "cada linha da saida destino tem exatamente 42 chars Python",
+        larguras_ok,
+    )
 
     return modelo
 
@@ -238,7 +358,7 @@ def teste_modelo_fabricado():
             arranjo="linear",
             elementos=[ElementoCorpo(id="e1", tipo="console")],
         ),
-        barra_de_menus={"chips": [{"id": "c1", "texto": "Ok"}]},
+        barra_de_menus={"chips": [{"id": "c1", "tecla": "k", "texto": "Ok"}]},
         _raw={},
     )
 
@@ -254,16 +374,20 @@ def teste_modelo_fabricado():
         "desc fab" in saida_fab,
     )
     _registrar(
-        "saida fabricada contem '╭ DASHBOARD' (hardcoded)",
-        "╭ DASHBOARD" in saida_fab,
+        "saida fabricada contem '╭ CONSOLE' (fallback de titulo)",
+        "╭ CONSOLE" in saida_fab,
     )
     _registrar(
-        "saida fabricada contem '[Esc] Sair' (hardcoded)",
-        "[Esc] Sair" in saida_fab,
+        "saida fabricada contem '(console)' (placeholder de escopo)",
+        "(console)" in saida_fab,
     )
     _registrar(
-        "saida fabricada contem '[B] Borda' (hardcoded)",
-        "[B] Borda" in saida_fab,
+        "saida fabricada contem '╭ Menus' (label fixo da caixa)",
+        "╭ Menus" in saida_fab,
+    )
+    _registrar(
+        "saida fabricada contem '[k] Ok' (chip do modelo fabricado)",
+        "[k] Ok" in saida_fab,
     )
     _registrar(
         "saida fabricada nao menciona 'orquestrador'",
@@ -272,6 +396,14 @@ def teste_modelo_fabricado():
     _registrar(
         "saida fabricada nao menciona 'ORQUESTRADOR'",
         "ORQUESTRADOR" not in saida_fab,
+    )
+    _registrar(
+        "saida fabricada nao menciona '[Esc] Sair' (nao esta no modelo fab)",
+        "[Esc] Sair" not in saida_fab,
+    )
+    _registrar(
+        "saida fabricada nao menciona '[d] Destino' (nao esta no modelo fab)",
+        "[d] Destino" not in saida_fab,
     )
 
 
@@ -289,6 +421,88 @@ def teste_erros_renderizador():
         lambda: renderizar_tela({"id": "x"}),
         RenderizadorErro,
     )
+
+    print("")
+    print("-- Rejeicao de item de lancador com texto > 15 chars (H-0010A) --")
+
+    modelo_item_longo = ModeloTela(
+        id="x",
+        schema="tela.v1",
+        cabecalho={"titulo": "X", "descricao": "D"},
+        corpo=Corpo(
+            arranjo="sobreposto",
+            elementos=[
+                ElementoCorpo(
+                    id="l",
+                    tipo="lancador",
+                    _campos_inertes={
+                        "titulo": "L",
+                        "itens": [
+                            {
+                                "id": "i_longo",
+                                "chip": "z",
+                                "texto": "1234567890123456",
+                                "tela_destino": "x",
+                            }
+                        ],
+                    },
+                )
+            ],
+        ),
+        barra_de_menus={"chips": []},
+        _raw={},
+    )
+    exc_item = _espera_excecao(
+        "item com texto de 16 chars levanta RenderizadorErro (sem truncamento)",
+        lambda: renderizar_tela(modelo_item_longo),
+        RenderizadorErro,
+    )
+    if exc_item is not None:
+        _registrar(
+            "mensagem de erro menciona o limite 15 e o texto recusado",
+            "15" in str(exc_item) and "1234567890123456" in str(exc_item),
+            str(exc_item),
+        )
+
+    modelo_item_limite = ModeloTela(
+        id="y",
+        schema="tela.v1",
+        cabecalho={"titulo": "Y", "descricao": "D"},
+        corpo=Corpo(
+            arranjo="sobreposto",
+            elementos=[
+                ElementoCorpo(
+                    id="l",
+                    tipo="lancador",
+                    _campos_inertes={
+                        "titulo": "L",
+                        "itens": [
+                            {
+                                "id": "i_ok",
+                                "chip": "z",
+                                "texto": "123456789012345",
+                                "tela_destino": "y",
+                            }
+                        ],
+                    },
+                )
+            ],
+        ),
+        barra_de_menus={"chips": []},
+        _raw={},
+    )
+    try:
+        saida_limite = renderizar_tela(modelo_item_limite)
+        _registrar(
+            "item com texto de exatamente 15 chars e aceito",
+            "[z] 123456789012345" in saida_limite,
+        )
+    except Exception as exc:  # pragma: no cover - diagnostico
+        _registrar(
+            "item com texto de exatamente 15 chars e aceito",
+            False,
+            "{0}: {1}".format(type(exc).__name__, exc),
+        )
 
 
 def teste_proibicoes_importacao():
@@ -326,9 +540,68 @@ def teste_proibicoes_importacao():
         and "exec(" not in texto_mod
         and "eval(" not in texto_mod,
     )
+
     _registrar(
-        "renderer nao acessa _campos_inertes dos elementos",
-        "_campos_inertes" not in texto_mod,
+        "renderer acessa _campos_inertes legitimamente (H-0010A declarativo)",
+        "_campos_inertes" in texto_mod,
+    )
+
+
+def teste_inspecao_fonte_hardcoded():
+    print("")
+    print("== Inspecao de fonte contra constantes hardcoded (H-0010A) ==")
+
+    caminho_mod = _BASE_PADRAO / "tela" / "renderizador.py"
+    texto_mod = caminho_mod.read_text(encoding="utf-8")
+
+    _registrar(
+        "renderer fonte NAO contem '[d] Destino' (item do lancador)",
+        "[d] Destino" not in texto_mod,
+    )
+    _registrar(
+        "renderer fonte NAO contem 'Destino' como literal de item",
+        "\"Destino\"" not in texto_mod,
+    )
+    _registrar(
+        "renderer fonte NAO contem '[Esc] Sair' (chip do JSON)",
+        "[Esc] Sair" not in texto_mod,
+    )
+    _registrar(
+        "renderer fonte NAO contem '[Esc] Voltar' (chip do JSON)",
+        "[Esc] Voltar" not in texto_mod,
+    )
+    _registrar(
+        "renderer fonte NAO contem 'Voltar' como literal de chip",
+        "\"Voltar\"" not in texto_mod,
+    )
+    _registrar(
+        "renderer fonte NAO contem 'Sair' como literal de chip",
+        "\"Sair\"" not in texto_mod,
+    )
+    _registrar(
+        "renderer fonte NAO contem 'Páginas' (chip do JSON)",
+        "Páginas" not in texto_mod,
+    )
+    _registrar(
+        "renderer fonte NAO contem 'destino_minimo' (tela_destino do JSON)",
+        "destino_minimo" not in texto_mod,
+    )
+    _registrar(
+        "renderer fonte NAO contem 'Dashboard de teste' (placeholder antigo)",
+        "Dashboard de teste" not in texto_mod,
+    )
+    _registrar(
+        "renderer fonte NAO contem '[B] Borda' (binding interno da demo)",
+        "[B] Borda" not in texto_mod,
+    )
+
+    _registrar(
+        "renderer fonte contem '_campos_inertes' (acesso declarativo)",
+        "_campos_inertes" in texto_mod,
+    )
+    _registrar(
+        "renderer fonte contem 'barra_de_menus' (leitura declarativa)",
+        "barra_de_menus" in texto_mod,
     )
 
 
@@ -459,12 +732,12 @@ def teste_alternancia_borda():
         "│ Tela raiz do sistema" in saida_reta,
     )
     _registrar(
-        "saida reta contem 'Dashboard de teste' (conteudo preservado)",
-        "Dashboard de teste" in saida_reta,
+        "saida reta contem '[d] Destino' (item do lancador preservado)",
+        "[d] Destino" in saida_reta,
     )
     _registrar(
-        "saida reta contem '[B] Borda' (menu inerte preservado)",
-        "[B] Borda" in saida_reta,
+        "saida reta NAO contem '[B] Borda' (nao declarado no JSON)",
+        "[B] Borda" not in saida_reta,
     )
 
     larguras_reta_ok = all(
@@ -593,14 +866,16 @@ def teste_largura_explicita():
 
 
 def main():
-    print("Diagnostico H-0006/H-0007 - renderer visual com borda (curva/reta)")
+    print("Diagnostico H-0010A - renderer declarativo (curva/reta)")
     print("Base padrao: {0}".format(_BASE_PADRAO))
     print("Python: {0}".format(sys.version.split()[0]))
 
     teste_renderizador_orquestrador()
+    teste_renderizador_destino_minimo()
     teste_modelo_fabricado()
     teste_erros_renderizador()
     teste_proibicoes_importacao()
+    teste_inspecao_fonte_hardcoded()
     teste_inercia()
     teste_alternancia_borda()
     teste_largura_explicita()

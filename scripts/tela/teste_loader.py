@@ -227,9 +227,50 @@ def teste_caminho_feliz():
         if isinstance(el, dict) and el.get("id") == "lancador_principal":
             lancador = el
             break
+    itens_lancador = (
+        lancador.get("itens") if isinstance(lancador, dict) else None
+    )
     _registrar(
-        "lancador_principal.itens == [] carregado sem erro",
-        isinstance(lancador, dict) and lancador.get("itens") == [],
+        "lancador_principal.itens e lista com 1 item (H-0010A)",
+        isinstance(itens_lancador, list) and len(itens_lancador) == 1,
+        "n={0}".format(
+            len(itens_lancador) if isinstance(itens_lancador, list) else "?"
+        ),
+    )
+    item_lancador = (
+        itens_lancador[0]
+        if isinstance(itens_lancador, list) and len(itens_lancador) >= 1
+        else None
+    )
+    _registrar(
+        "item do lancador possui id, chip, texto e tela_destino",
+        isinstance(item_lancador, dict)
+        and isinstance(item_lancador.get("id"), str)
+        and isinstance(item_lancador.get("chip"), str)
+        and isinstance(item_lancador.get("texto"), str)
+        and isinstance(item_lancador.get("tela_destino"), str),
+        "item={0!r}".format(item_lancador),
+    )
+    _registrar(
+        "item do lancador: texto == 'Destino' (7 chars, <= 15)",
+        isinstance(item_lancador, dict)
+        and item_lancador.get("texto") == "Destino"
+        and len(item_lancador.get("texto", "")) == 7,
+    )
+    _registrar(
+        "item do lancador: tela_destino == 'destino_minimo'",
+        isinstance(item_lancador, dict)
+        and item_lancador.get("tela_destino") == "destino_minimo",
+    )
+    _registrar(
+        "item do lancador: chip == 'd'",
+        isinstance(item_lancador, dict)
+        and item_lancador.get("chip") == "d",
+    )
+    _registrar(
+        "lancador_principal sem 'pendencia_itens' apos adicionar item (H-0010A)",
+        isinstance(lancador, dict)
+        and "pendencia_itens" not in lancador,
     )
 
     _registrar(

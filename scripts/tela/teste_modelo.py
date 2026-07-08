@@ -187,14 +187,40 @@ def teste_modelo_orquestrador():
         origem_ok,
     )
 
-    itens_ok = (
+    itens_inerte_ok = (
         lancador is not None
-        and lancador._campos_inertes.get("itens") == []
+        and isinstance(lancador._campos_inertes.get("itens"), list)
+        and len(lancador._campos_inertes.get("itens")) == 1
     )
     _registrar(
-        "lancador_principal._campos_inertes['itens'] == [] (inerte)",
-        itens_ok,
+        "lancador_principal._campos_inertes['itens'] e lista com 1 item (H-0010A)",
+        itens_inerte_ok,
+        "itens={0!r}".format(
+            lancador._campos_inertes.get("itens") if lancador else None
+        ),
     )
+    if itens_inerte_ok:
+        item_inerte = lancador._campos_inertes["itens"][0]
+        _registrar(
+            "item inerte preserva chip == 'd'",
+            isinstance(item_inerte, dict)
+            and item_inerte.get("chip") == "d",
+        )
+        _registrar(
+            "item inerte preserva texto == 'Destino'",
+            isinstance(item_inerte, dict)
+            and item_inerte.get("texto") == "Destino",
+        )
+        _registrar(
+            "item inerte preserva tela_destino == 'destino_minimo'",
+            isinstance(item_inerte, dict)
+            and item_inerte.get("tela_destino") == "destino_minimo",
+        )
+        _registrar(
+            "item inerte preserva id == 'item_destino_minimo'",
+            isinstance(item_inerte, dict)
+            and item_inerte.get("id") == "item_destino_minimo",
+        )
 
     _registrar(
         "modelo.barra_de_menus e dict nao vazio",

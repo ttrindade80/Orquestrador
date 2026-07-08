@@ -105,8 +105,14 @@
           "alinhamento": "esquerda",
           "nota": "ADR-0002 — bloco a esquerda com sobra a direita como valor default do tipo"
         },
-        "itens": [],
-        "pendencia_itens": "pendente — itens e tela_destino nao documentados; aguardar definicao das telas do sistema; lancador nao e navegavel por [setas] (ADR-0005)"
+        "itens": [
+          {
+            "id": "item_destino_minimo",
+            "chip": "d",
+            "texto": "Destino",
+            "tela_destino": "destino_minimo"
+          }
+        ]
       }
     ]
   },

@@ -4,23 +4,23 @@ Executavel via:
     python tela/teste_diagnostico.py
 
 Cobre os criterios de aceite testaveis do handoff H-0004, com as
-verificacoes de formato atualizadas para o renderer visual H-0006
-(tres caixas bordeadas de 42 chars por linha):
+verificacoes de formato atualizadas para o renderer declarativo H-0010A
+(caixas bordeadas derivadas do modelo/JSON, 42 chars por linha):
 - gerar_diagnostico_tela() nao lanca excecao para o padrao "orquestrador";
 - retorno e str;
 - saida comeca com "╭ ORQUESTRADOR";
-- saida contem "│ Tela raiz do sistema", "╭ DASHBOARD",
-  "Dashboard de teste", "Sem dados carregados", "╭ Menu",
-  "[Esc] Sair", "[B] Borda", "╰" (borda inferior),
-  "│" (borda lateral);
+- saida contem "│ Tela raiz do sistema", "╭ ITENS", "(console)",
+  "╭ INFO", "╭ NAVEGAR", "[d] Destino", "╭ Menus", "[Esc] Sair",
+  "╰" (borda inferior), "│" (borda lateral);
+- saida NAO contem "[B] Borda" (nunca declarado no JSON);
 - saida e deterministica (duas chamadas identicas);
-- saida bate com expected output literal do H-0006 (igualdade estrita);
+- saida bate com expected output literal do H-0010A (igualdade estrita);
 - modo executavel `python tela/diagnostico.py` imprime a mesma string
   (verificado via subprocess.run com capture_output=True);
 - campos inertes (origem_dados, bindings, filtros, tela_destino,
   regra_existencia) nao vazam na saida;
 - gerar_diagnostico_tela("orquestrador") == gerar_diagnostico_tela();
-- invariantes H-0001, H-0002 e H-0006 preservados (via subprocess.run,
+- invariantes H-0001, H-0002 e H-0010A preservados (via subprocess.run,
   executados antes dos demais testes);
 - proibicoes de importacao no modulo tela/diagnostico.py.
 
@@ -48,12 +48,26 @@ _EXPECTED_ORQUESTRADOR = (
     "╭ ORQUESTRADOR ──────────────────────────╮\n"
     "│ Tela raiz do sistema — ponto de entrada│\n"
     "╰────────────────────────────────────────╯\n"
-    "╭ DASHBOARD ─────────────────────────────╮\n"
-    "│ Dashboard de teste                     │\n"
-    "│ Sem dados carregados                   │\n"
+    "╭ ITENS ─────────────────────────────────╮\n"
+    "│ (console)                              │\n"
     "╰────────────────────────────────────────╯\n"
-    "╭ Menu ──────────────────────────────────╮\n"
-    "│ [Esc] Sair    [B] Borda                │\n"
+    "╭ INFO ──────────────────────────────────╮\n"
+    "╰────────────────────────────────────────╯\n"
+    "╭ NAVEGAR ───────────────────────────────╮\n"
+    "│ [d] Destino                            │\n"
+    "╰────────────────────────────────────────╯\n"
+    "╭ Menus ─────────────────────────────────╮\n"
+    "│ [Esc] Sair                             │\n"
+    "│ [<>] Páginas                           │\n"
+    "│ [-+] Colunas                           │\n"
+    "│ [#] Grupos                             │\n"
+    "│ [⇆] Alternar                           │\n"
+    "│ [✥] Navegar                            │\n"
+    "│ [␣] Selecionar                         │\n"
+    "│ [⏎] Todos                              │\n"
+    "│ [|] Estilo                             │\n"
+    "│ [V] Verboso                            │\n"
+    "│ [?] Ajuda                              │\n"
     "╰────────────────────────────────────────╯\n"
 )
 
@@ -84,7 +98,7 @@ def teste_invariantes_anteriores():
     for rotulo, script in (
         ("H-0001", "tela/teste_loader.py"),
         ("H-0002", "tela/teste_modelo.py"),
-        ("H-0006", "tela/teste_renderizador.py"),
+        ("H-0010A", "tela/teste_renderizador.py"),
     ):
         proc = subprocess.run(
             [sys.executable, script],
@@ -140,28 +154,36 @@ def teste_gerar_diagnostico():
         "│ Tela raiz do sistema" in resultado,
     )
     _registrar(
-        "resultado contem '╭ DASHBOARD'",
-        "╭ DASHBOARD" in resultado,
+        "resultado contem '╭ ITENS' (console_principal do JSON)",
+        "╭ ITENS" in resultado,
     )
     _registrar(
-        "resultado contem 'Dashboard de teste'",
-        "Dashboard de teste" in resultado,
+        "resultado contem '(console)' (placeholder de escopo)",
+        "(console)" in resultado,
     )
     _registrar(
-        "resultado contem 'Sem dados carregados'",
-        "Sem dados carregados" in resultado,
+        "resultado contem '╭ INFO' (dashboard_info do JSON)",
+        "╭ INFO" in resultado,
     )
     _registrar(
-        "resultado contem '╭ Menu'",
-        "╭ Menu" in resultado,
+        "resultado contem '╭ NAVEGAR' (lancador_principal do JSON)",
+        "╭ NAVEGAR" in resultado,
     )
     _registrar(
-        "resultado contem '[Esc] Sair'",
+        "resultado contem '[d] Destino' (item do lancador do JSON)",
+        "[d] Destino" in resultado,
+    )
+    _registrar(
+        "resultado contem '╭ Menus'",
+        "╭ Menus" in resultado,
+    )
+    _registrar(
+        "resultado contem '[Esc] Sair' (chip Esc declarado no JSON)",
         "[Esc] Sair" in resultado,
     )
     _registrar(
-        "resultado contem '[B] Borda'",
-        "[B] Borda" in resultado,
+        "resultado NAO contem '[B] Borda' (nao declarado no JSON)",
+        "[B] Borda" not in resultado,
     )
     _registrar(
         "resultado contem '╰' (borda inferior presente)",
@@ -180,7 +202,7 @@ def teste_gerar_diagnostico():
 
     bate = resultado == _EXPECTED_ORQUESTRADOR
     _registrar(
-        "resultado bate com saida esperada do H-0006 (igualdade estrita)",
+        "resultado bate com saida esperada do H-0010A (igualdade estrita)",
         bate,
         "" if bate else "ver diff abaixo",
     )
