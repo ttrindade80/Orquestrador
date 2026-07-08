@@ -13,6 +13,7 @@ metadata:
     adrs_aplicadas:
       - docs/adr/ADR-0008-modelo-configuracao-por-tela.md
       - docs/adr/ADR-0009-caminho-formato-jsons-tela.md
+      - docs/adr/ADR-0010-composicao-hierarquica-corpo-dashboard.md
     reaproveitado_de_legado: false
 ---
 
@@ -116,9 +117,12 @@ Quando a tela fixa explicitamente o arranjo do corpo:
 
 `arranjo` declarado fixa o layout para aquela tela; o renderer usa esse valor
 e ignora o campo `tiling` do estilo ativo. `arranjo` é relevante para 2+
-elementos `console`/`lancador` — não decide a posição do `dashboard`, que é
-determinada pelo campo `posicao_dashboard` da instância, conforme
-`contrato_composicao_corpo.md` seções 4.2 e 4.3.
+elementos funcionais do corpo (`console`, `lancador`, `dashboard`) — todos os
+elementos do corpo seguem o mecanismo geral de composição declarativa
+(ADR-0010). O campo `posicao_dashboard` está descontinuado como eixo de
+posicionamento independente; JSONs existentes com esse campo podem ser
+honrados por compatibilidade em H-0011A. Ver `contrato_composicao_corpo.md`
+e `contrato_json_dashboard.md`.
 
 ---
 
@@ -145,10 +149,13 @@ no envelope mínimo.
 
 Regras complementares:
 
-- `corpo.arranjo` é relevante para 2+ elementos `console`/`lancador` no corpo.
-- `corpo.arranjo` **não** decide a posição do `dashboard` — essa é determinada
-  pelo campo `posicao_dashboard` da instância, independente de `arranjo` ou
-  `tiling`.
+- `corpo.arranjo` é relevante para 2+ elementos funcionais do corpo
+  (`console`, `lancador`, `dashboard`).
+- A composição visual do `dashboard` segue o mecanismo geral de composição do
+  `corpo`, não um eixo independente (ADR-0010, 2026-07-08). O campo
+  `posicao_dashboard` está descontinuado como eixo independente; JSONs
+  existentes com esse campo podem ser honrados por compatibilidade transicional
+  em H-0011A. Ver `contrato_json_dashboard.md`.
 - O renderer não inventa arranjo, não cria fallback próprio baseado em largura
   de terminal e não decide composição por condição de ambiente.
 

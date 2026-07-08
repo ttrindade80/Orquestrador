@@ -37,6 +37,7 @@ Este indice registra as ADRs aceitas do projeto.
 | ADR-0007 | tela de processamento é composição de tipos existentes | aceita | 2026-07-06 |
 | ADR-0008 | modelo de configuração por tela | aceita | 2026-07-07 |
 | ADR-0009 | caminho, nomenclatura e formato dos JSONs de tela | aceita | 2026-07-07 |
+| ADR-0010 | composição hierárquica do corpo e dashboard como elemento funcional | aceita | 2026-07-08 |
 
 ## Exemplo de linha
 

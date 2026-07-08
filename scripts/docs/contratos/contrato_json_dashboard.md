@@ -14,6 +14,7 @@ metadata:
     adrs_aplicadas:
       - docs/adr/ADR-0008-modelo-configuracao-por-tela.md
       - docs/adr/ADR-0009-caminho-formato-jsons-tela.md
+      - docs/adr/ADR-0010-composicao-hierarquica-corpo-dashboard.md
     reaproveitado_de_legado: false
 ---
 
@@ -95,8 +96,13 @@ Observações sobre o envelope mínimo:
 - `conteudo.tipo: "placeholder"` indica ausência de conteúdo real — é o
   valor mínimo válido antes de um contrato de conteúdo ser aplicado;
 - `conteudo.binding: null` indica que não há vínculo de dados declarado;
-- `regras_exibicao.posicao_dashboard` declara a posição relativa no corpo:
-  `"vertical"` (abaixo) ou `"horizontal"` (ao lado).
+- `regras_exibicao.posicao_dashboard`: **campo transicional — superado pela
+  ADR-0010 (2026-07-08)**. A posição do `dashboard` no corpo é controlada
+  pela estrutura declarativa geral do `corpo`, como acontece com `console` e
+  `lancador`. O campo `posicao_dashboard` não é eixo independente de
+  `arranjo` nem de `tiling`. JSONs existentes com este campo podem ser
+  honrados por compatibilidade em H-0011A. A migração/descarte do campo
+  ocorrerá em handoff específico após H-0011A.
 
 ---
 
@@ -110,8 +116,8 @@ Observações sobre o envelope mínimo:
 | `conteudo` | objeto | Envelope de conteúdo. Deve declarar ao menos `tipo` e `binding`. Conteúdo concreto pertence ao JSON da tela; cada tipo real de conteúdo tem contrato próprio. |
 | `conteudo.tipo` | string | Tipo de conteúdo: `"placeholder"` (sem conteúdo real) ou identificador de tipo real definido por contrato próprio. |
 | `conteudo.binding` | objeto ou null | Vínculo declarativo com a origem de dados. `null` quando não há dados vinculados. |
-| `regras_exibicao` | objeto | Regras de posicionamento e exibição da instância no corpo. |
-| `regras_exibicao.posicao_dashboard` | string | `"vertical"` ou `"horizontal"`. Posição do elemento no corpo — independente de `arranjo` e `tiling`. |
+| `regras_exibicao` | objeto | Regras de posicionamento e exibição da instância no corpo. A posição visual do `dashboard` é controlada pela estrutura declarativa geral do `corpo` (ADR-0010). |
+| `regras_exibicao.posicao_dashboard` | string (transicional) | **Campo descontinuado como eixo independente (ADR-0010)**. `"vertical"` ou `"horizontal"`. JSONs existentes com este campo podem ser honrados por compatibilidade em H-0011A. Não é eixo separado de `arranjo` nem de `tiling`. |
 
 ---
 
@@ -142,9 +148,13 @@ Nenhum arquivo global `config/dashboard.json` deve ser criado. Conteúdo de
 `conteudo.tipo` com valor não registrado é erro de validação. `"placeholder"`
 é valor de reserva enquanto não há contrato de conteúdo aplicado.
 
-**V-7. `posicao_dashboard` não é afetada por `arranjo` nem por `tiling`.**
-O campo `regras_exibicao.posicao_dashboard` é declarado na instância e é
-independente do arranjo dos demais elementos do corpo.
+**V-7. Posição do `dashboard` é controlada pela composição geral do corpo (ADR-0010).**
+A posição visual do `dashboard` no corpo é definida pela estrutura declarativa
+do `corpo`, como acontece com `console` e `lancador`. O campo
+`regras_exibicao.posicao_dashboard` está descontinuado como eixo de
+posicionamento independente de `arranjo` e `tiling` (ADR-0010, 2026-07-08).
+JSONs existentes com esse campo podem ser honrados por compatibilidade em
+H-0011A; a migração/descarte ocorrerá em handoff específico após H-0011A.
 
 ---
 

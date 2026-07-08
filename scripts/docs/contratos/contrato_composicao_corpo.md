@@ -16,6 +16,7 @@ metadata:
       - docs/adr/ADR-0006-renomeacao-console-dashboard.md
       - docs/adr/ADR-0007-tela-processamento-composicao.md
       - docs/adr/ADR-0008-modelo-configuracao-por-tela.md
+      - docs/adr/ADR-0010-composicao-hierarquica-corpo-dashboard.md
     reaproveitado_de_legado: false
 ---
 
@@ -140,12 +141,20 @@ transicional/a reavaliar pela ADR-0008.
 
 ### 4.3 Posicionamento do `dashboard`
 
-A posição do `dashboard` no corpo é regra de layout da instância declarada no
-`tela.json` — não é eixo universal fixo separado por tela.
+**ADR-0010**: o posicionamento do `dashboard` no corpo é controlado pela
+estrutura declarativa geral do `corpo` do `tela.json`. `dashboard` é
+elemento funcional do corpo como `console` e `lancador` — não possui eixo
+de posicionamento separado que contradiga o mecanismo geral de composição.
 
-| Campo | Valores | Observação |
+O campo `posicao_dashboard` declarado na instância, que era tratado como
+"eixo próprio — nunca afetado por `arranjo` nem por `tiling`", está
+**descontinuado** como mecanismo separado. JSONs existentes com
+`posicao_dashboard` podem ser honrados por compatibilidade durante H-0011A;
+a migração/descarte do campo ocorrerá em handoff específico.
+
+| Campo | Valores | Status |
 |---|---|---|
-| `posicao_dashboard` | `horizontal` \| `vertical` | Declarado na instância do elemento `tipo=dashboard`. `horizontal`: dashboard ao lado do corpo; `vertical`: dashboard abaixo. Eixo próprio — **nunca afetado** por `arranjo` nem por `tiling` |
+| `posicao_dashboard` | `horizontal` \| `vertical` | Descontinuado como eixo separado (ADR-0010). Mantido apenas por compatibilidade em H-0011A. Substituído pela composição declarativa geral do corpo. |
 
 ### 4.4 Capacidades declaradas por instância de `console`
 
@@ -230,6 +239,10 @@ concretos de `config/lancador.json`; este contrato não as duplica.
 
 ### 5.3 Elemento `dashboard`
 
+**ADR-0010**: `dashboard` é elemento funcional do corpo como `console` e
+`lancador`. Seu posicionamento é controlado pela estrutura declarativa geral
+do `corpo` — não por eixo separado.
+
 `dashboard` é elemento passivo do corpo declarado no `tela.json`:
 
 - não é navegável por `[✥]`;
@@ -239,6 +252,7 @@ concretos de `config/lancador.json`; este contrato não as duplica.
 - não possui conteúdo universal fixo;
 - não haverá `config/dashboard.json`;
 - conteúdo e campos vêm da instância declarada no `tela.json` da tela;
+- o compositor não conhece os campos internos do `dashboard`;
 - o renderer não deve hardcodar conteúdo, composição ou campos de nenhuma
   instância de `dashboard`.
 
@@ -248,9 +262,9 @@ conhecida, não regra universal da classe `dashboard`. O antigo `Info` é o draf
 dessa instância.
 
 **Alinhamento horizontal**: coluna dimensionada pelo maior rótulo, itens alinhados
-à esquerda dentro do bloco. **Pendente de decisão (DOC-B004)**: o posicionamento
-do bloco do `dashboard` no espaço horizontal disponível não está fechado. Não
-implementar nem assumir comportamento até a decisão ser registrada.
+à esquerda dentro do bloco. O posicionamento horizontal do `dashboard` na
+composição da tela é determinado pela estrutura declarativa do `corpo`
+(ADR-0010); o campo `posicao_dashboard` como eixo separado foi descontinuado.
 
 **Alinhamento vertical**: mesma mecânica do `lancador` (seção 5.2), com a exceção
 obrigatória: a linha em branco entre Total e início da lista de marcadores é
@@ -340,9 +354,10 @@ que todos os caracteres de borda vêm do estilo ativo.
 
 ### 5.6 Tiling — duas camadas de decisão
 
-Aplica-se exclusivamente ao arranjo de 2+ elementos `console`/`lancador`. Nunca
-decide a posição do `dashboard` — esse é o campo `posicao_dashboard` declarado
-na instância (seção 4.3).
+Aplica-se ao arranjo de elementos do corpo declarados em `corpo.elementos[]`.
+**ADR-0010**: `dashboard` é elemento funcional do corpo e pode participar da
+composição declarada. O campo `posicao_dashboard` como eixo separado está
+descontinuado (seção 4.3).
 
 **Camada 1 — Fixação no `tela.json`**: o `tela.json` pode declarar
 explicitamente `arranjo = sobreposto` ou `arranjo = lado_a_lado`. Quando
@@ -404,10 +419,12 @@ Os termos não são intercambiáveis em nenhum contexto — código, comentário
 documentação. `lancador` designa o tipo de elemento do corpo (seção 3);
 `barra_de_menus` designa a região fixa da tela (contrato separado).
 
-**R-5. `posicao_dashboard` é campo da instância, independente do tiling.**
-O campo `posicao_dashboard` (`horizontal`/`vertical`) é declarado na instância
-do elemento `tipo=dashboard` e não é afetado pelo valor de `arranjo`, pelo campo
-`tiling` do estilo ativo, nem por qualquer condição de ambiente.
+**R-5. Posicionamento de `dashboard` segue a composição geral do corpo.**
+O posicionamento do `dashboard` na composição da tela é controlado pela
+estrutura declarativa do `corpo` do `tela.json`, como qualquer outro
+elemento funcional (ADR-0010). O campo `posicao_dashboard` como eixo
+separado independente está descontinuado; JSONs existentes com este campo
+podem ser honrados por compatibilidade durante H-0011A.
 
 **R-6. `tipo_exibicao` só existe para `console`.**
 Para elementos `lancador`, não existe `tipo_exibicao`. O layout do `lancador`
@@ -424,10 +441,11 @@ O bloco `─ página X/Y ─` usa traço `─` fixo em código, independente do 
 ativo. Esta é a única exceção ao princípio de que todos os caracteres de borda
 vêm do estilo.
 
-**R-9. Tiling e arranjo não afetam o `dashboard`.**
-O campo `tiling` do estilo e o `arranjo` do `tela.json` regem apenas a
-disposição de elementos `console`/`lancador` entre si. A posição do `dashboard`
-é determinada exclusivamente por `posicao_dashboard`.
+**R-9. Composição do corpo aplica-se a todos os elementos funcionais.**
+`dashboard`, `console` e `lancador` são elementos funcionais do corpo. A
+estrutura declarativa do `corpo` do `tela.json` é a fonte de posicionamento
+de todos eles. O renderer não separa `dashboard` dos demais elementos para
+aplicar lógica de posicionamento diferenciada não declarada (ADR-0010).
 
 **R-10. Espaçamento interno é universal e não configurável.**
 O renderer sempre insere uma linha em branco entre borda e conteúdo em qualquer
@@ -471,9 +489,11 @@ paginação. O conjunto paginado é sempre o resultado filtrado.
 - [ ] `lancador` não declara nem processa `tipo_exibicao` — o eixo é inexistente
       para esse tipo (R-6).
 - [ ] `dashboard` ausente não gera nenhuma estrutura no layout.
-- [ ] Com `posicao_dashboard = horizontal`, `dashboard` renderiza ao lado do corpo
-      principal; com `posicao_dashboard = vertical`, renderiza abaixo — independente
-      de `arranjo` ou `tiling`.
+- [ ] O posicionamento de `dashboard` na composição da tela é determinado pela
+      estrutura declarativa do `corpo` do `tela.json`, não por campo `posicao_dashboard`
+      tratado como eixo separado independente (ADR-0010). O campo `posicao_dashboard`
+      legado pode ser honrado por compatibilidade em H-0011A enquanto a migração
+      não ocorrer.
 - [ ] O indicador de paginação aparece na última linha da borda do elemento paginado,
       ancorado à direita, nunca em outra região.
 - [ ] O bloco `─ página X/Y ─` usa traço `─` literal mesmo quando o estilo ativo
@@ -509,18 +529,21 @@ paginação. O conjunto paginado é sempre o resultado filtrado.
 
 Itens adiados intencionalmente — não são lacunas de especificação:
 
-- **Combinação `arranjo = lado_a_lado` + `dashboard` presente ao mesmo tempo**:
-  comportamento do indicador de paginação e posicionamento do `dashboard` quando
-  ambas as condições estão ativas simultaneamente. Sem caso de uso real até o
-  momento — não especificar nem implementar até surgir caso concreto.
+- **Combinação `arranjo = lado_a_lado` + `dashboard` presente**: o comportamento
+  do indicador de paginação quando `dashboard` participa do arranjo horizontal
+  será tratado em H-0011B (layout horizontal plano) ou handoff posterior.
+  ADR-0010 resolve conceitualmente que `dashboard` segue a composição geral;
+  a implementação do indicador de paginação nesse contexto aguarda o handoff.
 - **Relação entre `filtro_de_grupo` e `formacao_de_selecao`**: coexistência,
   exclusividade ou atalho entre `[#]` (filtrar exibição por grupo) e `[␣]`
   (marcar item para seleção) — não está definida. Ver
   `docs/NOMENCLATURA.md` seção 4.
-- **Posicionamento horizontal do bloco de `dashboard`** (DOC-B004): se acompanha
-  a regra do `lancador` (bloco à esquerda com sobra à direita, ADR-0002) ou
-  mantém centralização. Não implementar nem assumir comportamento até a decisão
-  ser registrada; ver `docs/NOMENCLATURA.md` seção 11.
+- **Migração do campo `posicao_dashboard`** (ADR-0010): JSONs existentes com
+  `posicao_dashboard` serão migrados/descartados em handoff específico após
+  H-0011A. Durante H-0011A, o campo pode ser honrado por compatibilidade.
+- **Schema de grupos hierárquicos no `corpo.elementos[]`**: a estrutura de
+  grupos e aninhamento será especificada nos handoffs H-0011A–D conforme
+  cada capacidade for implementada. Não criar schema completo antecipado.
 - **Revisão de `contrato_lancador.md` conforme ADR-0008** (DOC-0020): detalhes
   da instância de `lancador` em `tela.json` pertencem ao contrato próprio.
 - **Revisão de `console` como container genérico** (DOC-0024): contrato e

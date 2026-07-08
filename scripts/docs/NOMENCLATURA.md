@@ -134,8 +134,14 @@ Escolha manual do usuário, não decisão automática por largura de
 terminal. Não existe largura mínima de segurança que force sobreposto —
 a preferência do usuário sempre vale quando aplicada.
 
-**Escopo**: aplica-se apenas a arranjo de 2+ corpos tipo `console`/`lancador`.
-Nunca decide posição do objeto `dashboard` (esse é eixo próprio, ver seção 3).
+**Escopo**: aplica-se ao arranjo de elementos funcionais do corpo —
+`console`, `lancador` e `dashboard` seguem o mecanismo geral de composição
+declarativa do `corpo` (ADR-0010, 2026-07-08). A posição do `dashboard` não
+é eixo separado externo ao mecanismo de composição; é controlada pela
+estrutura declarativa do `corpo`. Ver seção 3 para a tabela de eixos e
+seção 10 para tiling. O campo `posicao_dashboard` está descontinuado como
+eixo independente (ADR-0010); JSONs existentes com esse campo podem ser
+honrados por compatibilidade em H-0011A.
 
 **É default, não obrigatório**: a classe de tela pode fixar seu próprio
 arranjo (seção 3, "Arranjo de múltiplos corpos") e ignorar a preferência
@@ -275,7 +281,7 @@ barra_de_menus.
 | Dashboard | presente / ausente |
 | Quantidade de corpos | 1 corpo / múltiplos corpos |
 | Arranjo de múltiplos corpos (opcional) | `sobreposto` / `lado_a_lado` — a classe PODE fixar isso; se não fixar, usa o `tiling` global do estilo (seção 1.4) como default |
-| Posição do dashboard | `horizontal` (lado) / `vertical` (inferior) — declarada por classe, sempre. Eixo próprio, **não** afetado pelo `tiling` do estilo — tiling só rege corpos tipo console/lancador, nunca a posição do dashboard |
+| Posição do dashboard | Controlada pela estrutura declarativa geral do `corpo` (ADR-0010). `dashboard` é elemento funcional do corpo como `console` e `lancador`; não possui eixo de posicionamento separado. O campo `posicao_dashboard` (`horizontal`/`vertical`) está descontinuado como eixo independente; JSONs existentes com este campo podem ser honrados por compatibilidade em H-0011A. |
 | Paginacao | com / sem |
 | Colunas ajustavel (tipo `console`) | com / sem — eixo proprio, distinto de paginacao. Aplica-se apenas a corpos tipo `console`, ajustável manualmente via chip `[-][+]` |
 | `filtro_de_grupo` | `com` / `sem` — eixo próprio; condiciona a existência estrutural do chip `[#]`; não decide ainda a relação entre filtro de grupo e seleção |
@@ -861,7 +867,7 @@ incompleto, não um estado real do sistema.
 
 ---
 
-## 10. Tiling (2+ corpos tipo console/lancador — não se aplica ao dashboard)
+## 10. Tiling (composição de múltiplos elementos do corpo)
 
 - Quantidade de corpos (1 / múltiplos) é declarada pela classe de tela
   (seção 3).
@@ -873,9 +879,10 @@ incompleto, não um estado real do sistema.
   segurança que force sobreposto.
 - Em modo lado a lado (2 colunas), o espaço horizontal se distribui em 3
   vãos, igualmente: borda↔coluna_1, coluna_1↔coluna_2, coluna_2↔borda.
-- A posição do objeto **dashboard** é eixo separado (seção 3, "Posição do
-  dashboard") — nunca decidida por `tiling` nem pelo arranjo de múltiplos
-  corpos.
+- A posição do objeto **dashboard** é controlada pela estrutura declarativa
+  geral do `corpo` (ADR-0010, 2026-07-08). `dashboard` é elemento funcional
+  do corpo como `console` e `lancador`; o campo `posicao_dashboard` como
+  eixo separado está descontinuado.
 - Quando há múltiplos corpos, `[⇆]` alterna o foco de interação entre eles
   (ver seção 5.1).
 - **Pendente** (já registrado seção 6.1): combinação de lado a lado com

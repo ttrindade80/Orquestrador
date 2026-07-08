@@ -93,7 +93,52 @@ O executor deve bloquear quando:
 Status recomendado: `ARCHITECTURE_REVIEW_REQUIRED` para lacuna estrutural ou
 `BLOCKED` para impedimento operacional.
 
-## 9. Exemplos neutros de nomes
+## 9. Mudanças declarativas em JSON
+
+Mudança puramente declarativa em JSON não exige handoff próprio quando
+**todas** as condições abaixo são satisfeitas simultaneamente:
+
+- o schema já suporta a declaração (campo existe e é reconhecido);
+- o loader/modelo já preserva e valida os campos declarados;
+- o renderer/binding já interpreta a declaração e produz o comportamento
+  esperado;
+- não há novo comportamento de código;
+- não há novo tipo estrutural;
+- não há nova ação, navegação, binding ou regra de renderização;
+- não há mudança de contrato;
+- não há mudança de arquitetura.
+
+**Exemplos validados de mudança declarativa sem handoff próprio:**
+
+- adicionar tela simples por JSON quando loader e renderer já suportam
+  o tipo;
+- apontar item de lancador para tela existente por JSON;
+- alterar título de dashboard declarado;
+- remover ou adicionar chip já suportado na `barra_de_menus` da própria
+  tela;
+- alterar texto de item de lancador respeitando o limite de 15 caracteres.
+
+**Ciclo formal é obrigatório quando a alteração exigir qualquer um dos
+itens abaixo:**
+
+- novo binding entre dado e campo declarado;
+- nova validação estrutural ou novo campo de schema;
+- nova regra de renderização;
+- nova navegação entre telas ou dentro de tela;
+- nova ação;
+- novo tipo estrutural (tipo de elemento, tipo de chip, tipo de item);
+- mudança de contrato;
+- mudança de arquitetura;
+- alteração de código de qualquer módulo.
+
+**Mudança declarativa pode exigir verificação, revisão ou commit**, mas não
+precisa virar handoff próprio quando o suporte já existe. Se houver dúvida
+sobre se o suporte existe, tratar como ciclo formal até confirmar.
+
+A regra acima foi formalizada a partir da validação declarativa com `stub_b`
+registrada em `f41bd2f`.
+
+## 10. Exemplos neutros de nomes
 
 ```text
 docs/contratos/contrato_modulo_exemplo.md

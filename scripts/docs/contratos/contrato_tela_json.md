@@ -174,7 +174,7 @@ id
 tipo
 ```
 
-Tipos inicialmente válidos:
+Tipos inicialmente válidos de elemento:
 
 ```text
 console
@@ -183,6 +183,25 @@ lancador
 ```
 
 Essa lista é a taxonomia atual do corpo. Extensões futuras exigem ADR.
+
+**Composição hierárquica (ADR-0010)**: `elementos[]` pode evoluir para
+admitir agrupamentos e composição hierárquica, preservando compatibilidade
+com a forma plana atual. A lista plana de elementos continua válida; o schema
+pode conter grupos que envolvem elementos conforme a sequência incremental
+H-0011A–D:
+
+- **H-0011A**: layout hierárquico vertical compatível — `elementos[]` pode
+  conter grupos; JSONs com lista plana permanecem válidos sem alteração;
+- **H-0011B**: layout horizontal plano — todos os elementos funcionais
+  (`console`, `lancador`, `dashboard`) podem participar de arranjo horizontal;
+- **H-0011C**: distribuição por percentual/fração;
+- **H-0011D**: aninhamento de grupos.
+
+`console`, `lancador` e `dashboard` são elementos funcionais do corpo. O
+posicionamento de qualquer elemento é controlado pela estrutura declarada
+no `corpo` do `tela.json`, não por campo de posicionamento especial por
+tipo (ADR-0010). O compositor não conhece os campos internos de cada
+elemento — esses permanecem responsabilidade da instância declarada.
 
 ---
 
