@@ -37,7 +37,10 @@ Antes de mover este padrao para outro projeto, verificar:
    `contrato_estilo.md`, `contrato_composicao_corpo.md`,
    `contrato_barra_de_menus.md`, `contrato_cabecalho.md`,
    `contrato_lancador.md`, `contrato_tela_json.md`, `contrato_chip.md`,
-   `contrato_console.md`)
+   `contrato_console.md`; contratos incrementais de JSON:
+   `contrato_json_tela_minima.md`, `contrato_json_cabecalho.md`,
+   `contrato_json_barra_de_menus.md`, `contrato_json_lancador.md`,
+   `contrato_json_dashboard.md`, `contrato_json_console.md`)
 6. `docs/handoff/README.md`
 7. `docs/relatorios/README.md`
 8. Templates em `docs/templates/`, conforme a tarefa.
