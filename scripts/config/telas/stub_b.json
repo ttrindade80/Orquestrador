@@ -1,0 +1,54 @@
+{
+  "schema": "tela.v1",
+  "id": "stub_b",
+  "cabecalho": {
+    "titulo": "STUB B - TESTE",
+    "descricao": "Tela de destino para teste do lancador com múltiplas telas"
+  },
+  "corpo": {
+    "arranjo": "sobreposto",
+    "elementos": [
+      {
+        "id": "dashboard_teste",
+        "tipo": "dashboard",
+        "titulo": "STUB B",
+        "campos": [
+          {
+            "id": "msg_teste",
+            "rotulo": "Mensagem",
+            "fonte": "literal",
+            "valor": "Tela stub B criada somente por JSON"
+          }
+        ]
+      }
+    ]
+  },
+  "barra_de_menus": {
+    "distribuicao": "horizontal",
+    "chips": [
+      {
+        "id": "chip_esc",
+        "tipo": "acao",
+        "tecla": "Esc",
+        "texto": "Voltar",
+        "acao": {
+          "tipo": "acao_contextual_esc",
+          "nota": "Voltar na tela interna sem selecao ativa (contrato_barra_de_menus secao 9)"
+        },
+        "regra_existencia": "sempre",
+        "regra_ativo": "sempre",
+        "forma_exibicao": "rotulo_dinamico"
+      },
+      {
+        "id": "chip_ajuda",
+        "tipo": "acao",
+        "tecla": "?",
+        "texto": "Ajuda",
+        "acao": {"tipo": "abrir_ajuda"},
+        "regra_existencia": "sempre",
+        "regra_ativo": "sempre",
+        "forma_exibicao": "visivel_ativo"
+      }
+    ]
+  }
+}
