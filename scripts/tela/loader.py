@@ -24,6 +24,12 @@ from pathlib import Path
 
 TIPOS_CORPO_VALIDOS = {"console", "lancador", "dashboard"}
 
+# Tipos estruturais de composicao (H-0012 / ADR-0010). Sao distintos da
+# taxonomia funcional fechada (console, lancador, dashboard). Container
+# estrutural nao e elemento funcional, nao gera caixa visual propria, nao e
+# navegavel e nao tem foco/chip/acao/registry.
+TIPOS_ESTRUTURAIS_VALIDOS = {"grupo"}
+
 _ID_TELA_RAIZ = "orquestrador"
 
 
@@ -114,6 +120,10 @@ class TelaTipoDesconhecido(TelaErro):
         )
 
 
+class TelaGrupoInvalido(TelaErro):
+    """Invariante do tipo estrutural 'grupo' violada (H-0012)."""
+
+
 def _caminho_padrao_base():
     """Diretorio raiz do repositorio de scripts (pai de tela/)."""
     return Path(__file__).resolve().parent.parent
@@ -125,6 +135,87 @@ def _para_base(caminho_base):
     if isinstance(caminho_base, Path):
         return caminho_base
     return Path(caminho_base)
+
+
+def _validar_grupo(elemento, id_grupo):
+    """Valida os invariantes do tipo estrutural 'grupo' no H-0012.
+
+    O grupo e container estrutural de composicao, nao elemento funcional.
+    Invariantes deste ciclo (H-0012):
+
+    - campo ``elementos`` presente, lista nao vazia, com exatamente 1 item;
+    - o item interno tem ``id`` e ``tipo``;
+    - o ``tipo`` do item interno e funcional (console/lancador/dashboard);
+    - o ``tipo`` do item interno nao e ``"grupo"`` (proibir aninhamento);
+    - ``arranjo`` do grupo, se presente, nao e ``"lado_a_lado"``.
+
+    Mantem o elemento interno como declaracao inerte acessivel ao modelo
+    (preservado no dict de saida do loader).
+    """
+    arranjo = elemento.get("arranjo")
+    if arranjo == "lado_a_lado":
+        raise TelaGrupoInvalido(
+            "Grupo '{0}' com arranjo 'lado_a_lado' e fora de escopo no "
+            "H-0012".format(id_grupo)
+        )
+
+    if "elementos" not in elemento:
+        raise TelaGrupoInvalido(
+            "Grupo '{0}' sem campo 'elementos'".format(id_grupo)
+        )
+
+    sub = elemento.get("elementos")
+    if not isinstance(sub, list):
+        raise TelaGrupoInvalido(
+            "Grupo '{0}' com 'elementos' nao e uma lista".format(id_grupo)
+        )
+
+    if len(sub) == 0:
+        raise TelaGrupoInvalido(
+            "Grupo '{0}' com 'elementos' vazio".format(id_grupo)
+        )
+
+    if len(sub) > 1:
+        raise TelaGrupoInvalido(
+            "Grupo '{0}' com mais de 1 elemento interno (H-0012 exige "
+            "exatamente 1)".format(id_grupo)
+        )
+
+    item = sub[0]
+    if not isinstance(item, dict) or "id" not in item:
+        raise TelaGrupoInvalido(
+            "Elemento interno do grupo '{0}' sem campo 'id'".format(id_grupo)
+        )
+    id_item = item.get("id")
+    if not isinstance(id_item, str) or id_item == "":
+        raise TelaGrupoInvalido(
+            "Elemento interno do grupo '{0}' com 'id' invalido".format(
+                id_grupo
+            )
+        )
+
+    if "tipo" not in item:
+        raise TelaGrupoInvalido(
+            "Elemento interno '{0}' do grupo '{1}' sem campo 'tipo'".format(
+                id_item, id_grupo
+            )
+        )
+    tipo_item = item.get("tipo")
+    if not isinstance(tipo_item, str) or tipo_item == "":
+        raise TelaGrupoInvalido(
+            "Elemento interno '{0}' do grupo '{1}' com 'tipo' invalido".format(
+                id_item, id_grupo
+            )
+        )
+
+    if tipo_item == "grupo":
+        raise TelaGrupoInvalido(
+            "Grupo '{0}' contem grupo aninhado (fora de escopo no "
+            "H-0012)".format(id_grupo)
+        )
+
+    if tipo_item not in TIPOS_CORPO_VALIDOS:
+        raise TelaTipoDesconhecido(tipo=tipo_item, id_elemento=id_item)
 
 
 def carregar_tela(caminho_base, id_tela):
@@ -243,7 +334,9 @@ def carregar_tela(caminho_base, id_tela):
         tipo = elemento.get("tipo")
         if not isinstance(tipo, str) or tipo == "":
             raise TelaElementoSemTipo(indice=indice, id_elemento=id_elemento)
-        if tipo not in TIPOS_CORPO_VALIDOS:
+        if tipo in TIPOS_ESTRUTURAIS_VALIDOS:
+            _validar_grupo(elemento, id_elemento)
+        elif tipo not in TIPOS_CORPO_VALIDOS:
             raise TelaTipoDesconhecido(tipo=tipo, id_elemento=id_elemento)
         elementos_internos.append(elemento)
 

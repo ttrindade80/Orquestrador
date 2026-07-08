@@ -282,6 +282,103 @@ def teste_modelo_orquestrador():
     return modelo
 
 
+def teste_modelo_grupo_minimo():
+    print("")
+    print("== Construcao do modelo para config/telas/grupo_minimo.json (H-0012) ==")
+    try:
+        tela_raw = carregar_tela(_BASE_PADRAO, "grupo_minimo")
+        modelo = construir_modelo(tela_raw)
+    except Exception as exc:  # pragma: no cover - diagnostico
+        _registrar(
+            "construir_modelo(carregar_tela(grupo_minimo))",
+            False,
+            "{0}: {1}".format(type(exc).__name__, exc),
+        )
+        return None
+    _registrar("construir_modelo(carregar_tela(grupo_minimo))", True)
+
+    _registrar(
+        "modelo.id == 'grupo_minimo'",
+        modelo.id == "grupo_minimo",
+        "id={0!r}".format(modelo.id),
+    )
+    _registrar(
+        "modelo.corpo.elementos e lista com 1 item",
+        isinstance(modelo.corpo.elementos, list)
+        and len(modelo.corpo.elementos) == 1,
+        "n={0}".format(len(modelo.corpo.elementos)),
+    )
+
+    grupo = modelo.elemento_por_id("grupo_principal")
+    _registrar(
+        "elemento_por_id('grupo_principal') retorna elemento tipo 'grupo' (CA-18)",
+        grupo is not None and grupo.tipo == "grupo",
+    )
+    grupos = modelo.elementos_por_tipo("grupo")
+    _registrar(
+        "elementos_por_tipo('grupo') retorna lista com 1 item (CA-19)",
+        isinstance(grupos, list) and len(grupos) == 1,
+        "n={0}".format(len(grupos) if isinstance(grupos, list) else "?"),
+    )
+
+    _registrar(
+        "grupo e ElementoCorpo com id e tipo acessiveis",
+        isinstance(grupo, ElementoCorpo)
+        and isinstance(grupo.id, str) and isinstance(grupo.tipo, str),
+    )
+
+    _registrar(
+        "grupo preserva arranjo em _campos_inertes",
+        grupo is not None
+        and grupo._campos_inertes.get("arranjo") == "sobreposto",
+    )
+
+    # CA-15: elemento funcional interno acessivel sem manipular dict cru
+    _registrar(
+        "grupo.elementos e lista com 1 ElementoCorpo interno (CA-15)",
+        grupo is not None
+        and isinstance(grupo.elementos, list)
+        and len(grupo.elementos) == 1
+        and isinstance(grupo.elementos[0], ElementoCorpo),
+    )
+
+    interno = grupo.elementos[0] if grupo else None
+    _registrar(
+        "elemento interno tem id == 'dashboard_conteudo'",
+        interno is not None and interno.id == "dashboard_conteudo",
+    )
+    _registrar(
+        "elemento interno tem tipo == 'dashboard' (CA-16)",
+        interno is not None and interno.tipo == "dashboard",
+    )
+    _registrar(
+        "elemento interno._campos_inertes preserva titulo e campos (CA-16)",
+        interno is not None
+        and interno._campos_inertes.get("titulo") == "Conteudo"
+        and isinstance(interno._campos_inertes.get("campos"), list)
+        and len(interno._campos_inertes.get("campos")) == 1,
+    )
+    _registrar(
+        "elemento interno tem lista 'elementos' vazia (nao e container)",
+        interno is not None and interno.elementos == [],
+    )
+
+    _registrar(
+        "modelo distingue grupo de funcional: grupo.tipo nao e funcional",
+        grupo is not None and grupo.tipo not in TIPOS_CORPO_VALIDOS,
+    )
+    _registrar(
+        "modelo distingue grupo de funcional: interno.tipo e funcional",
+        interno is not None and interno.tipo in TIPOS_CORPO_VALIDOS,
+    )
+
+    diag = modelo.diagnostico()
+    _registrar(
+        "diagnostico do modelo de grupo e string contendo id",
+        isinstance(diag, str) and "grupo_minimo" in diag and "grupo" in diag,
+    )
+
+
 def teste_erros_modelo():
     print("")
     print("== Casos de erro do construtor de modelo ==")
@@ -348,6 +445,7 @@ def main():
     print("Python: {0}".format(sys.version.split()[0]))
 
     modelo = teste_modelo_orquestrador()
+    teste_modelo_grupo_minimo()
     teste_erros_modelo()
 
     print("")

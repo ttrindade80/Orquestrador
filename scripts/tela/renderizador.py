@@ -203,6 +203,36 @@ def _linhas_barra(barra_de_menus):
     return linhas
 
 
+def _caixa_de_elemento(elemento, borda, inner_w, content_w, label_max):
+    """Despacha um elemento funcional para sua caixa bordeada.
+
+    Retorna a string da caixa do elemento (console/dashboard/lancador) ou
+    ``None`` quando o tipo nao e funcional. Usado tanto para elementos
+    diretos de ``corpo.elementos[]`` (lista plana) quanto para os elementos
+    funcionais internos de um grupo estrutural (H-0012) -- o despacho e
+    identico nos dois casos.
+    """
+    if elemento.tipo == "console":
+        titulo_el = elemento._campos_inertes.get("titulo", "CONSOLE")
+        return _caixa(
+            titulo_el.upper(), _linhas_console(elemento),
+            borda, inner_w, content_w, label_max,
+        )
+    if elemento.tipo == "dashboard":
+        titulo_el = elemento._campos_inertes.get("titulo", "DASHBOARD")
+        return _caixa(
+            titulo_el.upper(), _linhas_dashboard(elemento),
+            borda, inner_w, content_w, label_max,
+        )
+    if elemento.tipo == "lancador":
+        titulo_el = elemento._campos_inertes.get("titulo", "LANCADOR")
+        return _caixa(
+            titulo_el.upper(), _linhas_lancador(elemento),
+            borda, inner_w, content_w, label_max,
+        )
+    return None
+
+
 def renderizar_tela(modelo: ModeloTela, tipo_borda: str = "curva", largura: int | None = None) -> str:
     """Renderiza ModeloTela como string visual declarativa (H-0010A).
 
@@ -272,24 +302,22 @@ def renderizar_tela(modelo: ModeloTela, tipo_borda: str = "curva", largura: int 
     ]
 
     for elemento in modelo.corpo.elementos:
-        if elemento.tipo == "console":
-            titulo_el = elemento._campos_inertes.get("titulo", "CONSOLE")
-            partes.append(_caixa(
-                titulo_el.upper(), _linhas_console(elemento),
-                borda, inner_w, content_w, label_max,
-            ))
-        elif elemento.tipo == "dashboard":
-            titulo_el = elemento._campos_inertes.get("titulo", "DASHBOARD")
-            partes.append(_caixa(
-                titulo_el.upper(), _linhas_dashboard(elemento),
-                borda, inner_w, content_w, label_max,
-            ))
-        elif elemento.tipo == "lancador":
-            titulo_el = elemento._campos_inertes.get("titulo", "LANCADOR")
-            partes.append(_caixa(
-                titulo_el.upper(), _linhas_lancador(elemento),
-                borda, inner_w, content_w, label_max,
-            ))
+        if elemento.tipo == "grupo":
+            # Grupo estrutural (H-0012): container sem caixa visual propria.
+            # Percorre os elementos funcionais internos e os renderiza com o
+            # mesmo despacho da lista plana, sem borda/titulo/linha extra.
+            for interno in elemento.elementos:
+                caixa = _caixa_de_elemento(
+                    interno, borda, inner_w, content_w, label_max
+                )
+                if caixa is not None:
+                    partes.append(caixa)
+        else:
+            caixa = _caixa_de_elemento(
+                elemento, borda, inner_w, content_w, label_max
+            )
+            if caixa is not None:
+                partes.append(caixa)
 
     partes.append(_caixa(
         _LABEL_BARRA, _linhas_barra(modelo.barra_de_menus),

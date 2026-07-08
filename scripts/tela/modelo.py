@@ -20,7 +20,14 @@ Apenas biblioteca padrao do Python.
 
 from dataclasses import dataclass, field
 
-from tela.loader import TIPOS_CORPO_VALIDOS
+from tela.loader import TIPOS_CORPO_VALIDOS, TIPOS_ESTRUTURAIS_VALIDOS
+
+
+# Conjunto aceito pelo construtor de modelo: tipos funcionais fechados
+# (console, lancador, dashboard) mais tipos estruturais de composicao
+# (grupo - H-0012/ADR-0010). Grupo e container estrutural, nao elemento
+# funcional.
+_TIPOS_VALIDOS_MODELO = TIPOS_CORPO_VALIDOS | TIPOS_ESTRUTURAIS_VALIDOS
 
 
 class ModeloTelaErro(Exception):
@@ -34,11 +41,17 @@ class ElementoCorpo:
     Os campos adicionais do elemento (titulo, origem_dados, itens, etc.)
     sao preservados em `_campos_inertes` como declaracao inerte, sem
     execucao, sem resolucao e sem semantica nova.
+
+    Para o tipo estrutural `grupo` (H-0012), `elementos` carrega os
+    ElementoCorpo dos elementos funcionais internos do grupo. Para tipos
+    funcionais diretos (console/lancador/dashboard) `elementos` permanece
+    vazio -- eles nao sao containers.
     """
 
     id: str
     tipo: str
     _campos_inertes: dict = field(default_factory=dict, repr=False)
+    elementos: list = field(default_factory=list, repr=False)
 
 
 @dataclass
@@ -103,6 +116,55 @@ class ModeloTela:
         return "\n".join(linhas)
 
 
+def _construir_elementos_internos_grupo(elemento_grupo, id_grupo):
+    """Constroi a lista de ElementoCorpo dos elementos internos do grupo.
+
+    Os elementos internos sao funcionais (console/lancador/dashboard) --
+    o loader (H-0012) ja garantiu exatamente 1 item, nao-grupo e tipo
+    funcional. Nao ha recursao: grupo dentro de grupo e rejeitado pelo
+    loader antes de chegar aqui.
+    """
+    sub_raw = elemento_grupo.get("elementos", [])
+    if not isinstance(sub_raw, list):
+        return []
+    sub_elementos = []
+    for sub_indice, sub_el in enumerate(sub_raw):
+        if not isinstance(sub_el, dict):
+            raise ModeloTelaErro(
+                "Elemento interno na posicao {0} do grupo '{1}' nao e um "
+                "dict".format(sub_indice, id_grupo)
+            )
+        if "id" not in sub_el:
+            raise ModeloTelaErro(
+                "Elemento interno na posicao {0} do grupo '{1}' sem campo "
+                "'id'".format(sub_indice, id_grupo)
+            )
+        if "tipo" not in sub_el:
+            raise ModeloTelaErro(
+                "Elemento interno '{0}' do grupo '{1}' sem campo "
+                "'tipo'".format(sub_el.get("id"), id_grupo)
+            )
+        sub_tipo = sub_el["tipo"]
+        if sub_tipo not in TIPOS_CORPO_VALIDOS:
+            raise ModeloTelaErro(
+                "Tipo interno desconhecido '{0}' em elemento '{1}' do grupo "
+                "'{2}'".format(sub_tipo, sub_el["id"], id_grupo)
+            )
+        sub_inertes = {
+            chave: valor
+            for chave, valor in sub_el.items()
+            if chave not in ("id", "tipo")
+        }
+        sub_elementos.append(
+            ElementoCorpo(
+                id=sub_el["id"],
+                tipo=sub_el["tipo"],
+                _campos_inertes=sub_inertes,
+            )
+        )
+    return sub_elementos
+
+
 def construir_modelo(tela_raw: dict) -> ModeloTela:
     """Constroi ModeloTela a partir do dict retornado por carregar_tela.
 
@@ -160,24 +222,43 @@ def construir_modelo(tela_raw: dict) -> ModeloTela:
                 "Elemento na posicao {0} sem campo 'tipo'".format(indice)
             )
         tipo = elemento["tipo"]
-        if tipo not in TIPOS_CORPO_VALIDOS:
+        if tipo not in _TIPOS_VALIDOS_MODELO:
             raise ModeloTelaErro(
                 "Tipo desconhecido '{0}' em elemento '{1}'".format(
                     tipo, elemento["id"]
                 )
             )
-        inertes = {
-            chave: valor
-            for chave, valor in elemento.items()
-            if chave not in ("id", "tipo")
-        }
-        elementos.append(
-            ElementoCorpo(
-                id=elemento["id"],
-                tipo=elemento["tipo"],
-                _campos_inertes=inertes,
+
+        if tipo == "grupo":
+            sub_elementos = _construir_elementos_internos_grupo(
+                elemento, elemento["id"]
             )
-        )
+            inertes = {
+                chave: valor
+                for chave, valor in elemento.items()
+                if chave not in ("id", "tipo", "elementos")
+            }
+            elementos.append(
+                ElementoCorpo(
+                    id=elemento["id"],
+                    tipo=elemento["tipo"],
+                    _campos_inertes=inertes,
+                    elementos=sub_elementos,
+                )
+            )
+        else:
+            inertes = {
+                chave: valor
+                for chave, valor in elemento.items()
+                if chave not in ("id", "tipo")
+            }
+            elementos.append(
+                ElementoCorpo(
+                    id=elemento["id"],
+                    tipo=elemento["tipo"],
+                    _campos_inertes=inertes,
+                )
+            )
 
     corpo = Corpo(arranjo=corpo_raw.get("arranjo"), elementos=elementos)
 

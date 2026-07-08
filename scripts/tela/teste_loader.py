@@ -35,11 +35,13 @@ sys.path.insert(0, str(_BASE_PADRAO))
 from tela import loader  # noqa: E402
 from tela.loader import (  # noqa: E402
     TIPOS_CORPO_VALIDOS,
+    TIPOS_ESTRUTURAIS_VALIDOS,
     TelaArquivoNaoEncontrado,
     TelaCampoObrigatorioAusente,
     TelaElementoSemId,
     TelaElementoSemTipo,
     TelaEstruturaInvalida,
+    TelaGrupoInvalido,
     TelaIdIncorreto,
     TelaIdNaoCoincideComArquivo,
     TelaJsonInvalido,
@@ -464,6 +466,161 @@ def teste_tipos_validos(tmp_base):
     )
 
 
+def teste_grupo_estrutural(tmp_base):
+    print("")
+    print("== Grupo estrutural minimo (H-0012) ==")
+
+    print("-- Carregamento do arquivo real config/telas/grupo_minimo.json --")
+    try:
+        tela = carregar_tela(_BASE_PADRAO, "grupo_minimo")
+        _registrar("carregar_tela(grupo_minimo) sem excecao", True)
+    except Exception as exc:  # pragma: no cover - diagnostico
+        _registrar("carregar_tela(grupo_minimo) sem excecao", False,
+                   "{0}: {1}".format(type(exc).__name__, exc))
+        return None
+
+    _registrar(
+        "grupo_minimo.id == 'grupo_minimo'",
+        tela.get("id") == "grupo_minimo",
+        "id={0!r}".format(tela.get("id")),
+    )
+    elementos = tela.get("corpo", {}).get("elementos", [])
+    _registrar(
+        "grupo_minimo.corpo.elementos e lista com 1 item",
+        isinstance(elementos, list) and len(elementos) == 1,
+        "n={0}".format(len(elementos) if isinstance(elementos, list) else "?"),
+    )
+    grupo = elementos[0] if isinstance(elementos, list) and elementos else {}
+    _registrar(
+        "elemento raiz e tipo 'grupo'",
+        grupo.get("tipo") == "grupo",
+        "tipo={0!r}".format(grupo.get("tipo")),
+    )
+    _registrar(
+        "grupo.id == 'grupo_principal'",
+        grupo.get("id") == "grupo_principal",
+    )
+    sub = grupo.get("elementos", [])
+    _registrar(
+        "grupo.elementos e lista com exatamente 1 item",
+        isinstance(sub, list) and len(sub) == 1,
+        "n={0}".format(len(sub) if isinstance(sub, list) else "?"),
+    )
+    item = sub[0] if isinstance(sub, list) and sub else {}
+    _registrar(
+        "item interno e tipo 'dashboard'",
+        item.get("tipo") == "dashboard",
+        "tipo={0!r}".format(item.get("tipo")),
+    )
+    campos = item.get("campos", [])
+    _registrar(
+        "dashboard interno tem 1 campo literal verificavel",
+        isinstance(campos, list) and len(campos) >= 1
+        and campos[0].get("fonte") == "literal"
+        and isinstance(campos[0].get("valor"), str),
+    )
+
+    _registrar(
+        "TIPOS_ESTRUTURAIS_VALIDOS == {grupo}",
+        TIPOS_ESTRUTURAIS_VALIDOS == {"grupo"},
+        "valor={0!r}".format(TIPOS_ESTRUTURAIS_VALIDOS),
+    )
+    _registrar(
+        "grupo NAO esta em TIPOS_CORPO_VALIDOS (nao e funcional)",
+        "grupo" not in TIPOS_CORPO_VALIDOS,
+    )
+
+    print("")
+    print("-- Rejeicoes de grupo invalido (H-0012) --")
+
+    def _grupo_minimo_dict(id_tela, **sobrepos):
+        base_g = {
+            "id": "grupo_principal",
+            "tipo": "grupo",
+            "arranjo": "sobreposto",
+            "elementos": [
+                {"id": "dash_interno", "tipo": "dashboard",
+                 "titulo": "T", "campos": []},
+            ],
+        }
+        for chave, valor in sobrepos.items():
+            if valor is _VAZIO:
+                if chave in base_g:
+                    del base_g[chave]
+            else:
+                base_g[chave] = valor
+        return _tela_minima(id_tela=id_tela, corpo={
+            "arranjo": "sobreposto", "elementos": [base_g],
+        })
+
+    _escrever_tela(tmp_base, "g_sem_elementos",
+                   _grupo_minimo_dict("g_sem_elementos", elementos=_VAZIO))
+    _espera_excecao(
+        "grupo sem 'elementos' -> TelaGrupoInvalido",
+        lambda: carregar_tela(tmp_base, "g_sem_elementos"),
+        TelaGrupoInvalido,
+    )
+
+    _escrever_tela(tmp_base, "g_elementos_vazio",
+                   _grupo_minimo_dict("g_elementos_vazio", elementos=[]))
+    _espera_excecao(
+        "grupo com 'elementos' vazio -> TelaGrupoInvalido",
+        lambda: carregar_tela(tmp_base, "g_elementos_vazio"),
+        TelaGrupoInvalido,
+    )
+
+    _escrever_tela(tmp_base, "g_dois_elementos",
+                   _grupo_minimo_dict("g_dois_elementos", elementos=[
+                       {"id": "d1", "tipo": "dashboard"},
+                       {"id": "d2", "tipo": "dashboard"},
+                   ]))
+    _espera_excecao(
+        "grupo com 2 elementos -> TelaGrupoInvalido",
+        lambda: carregar_tela(tmp_base, "g_dois_elementos"),
+        TelaGrupoInvalido,
+    )
+
+    _escrever_tela(tmp_base, "g_aninhado",
+                   _grupo_minimo_dict("g_aninhado", elementos=[
+                       {"id": "g_interno", "tipo": "grupo", "elementos": []},
+                   ]))
+    _espera_excecao(
+        "grupo dentro de grupo -> TelaGrupoInvalido",
+        lambda: carregar_tela(tmp_base, "g_aninhado"),
+        TelaGrupoInvalido,
+    )
+
+    _escrever_tela(tmp_base, "g_lado_a_lado",
+                   _grupo_minimo_dict("g_lado_a_lado",
+                                      arranjo="lado_a_lado"))
+    _espera_excecao(
+        "grupo com arranjo 'lado_a_lado' -> TelaGrupoInvalido",
+        lambda: carregar_tela(tmp_base, "g_lado_a_lado"),
+        TelaGrupoInvalido,
+    )
+
+    _escrever_tela(tmp_base, "g_tipo_desconhecido",
+                   _grupo_minimo_dict("g_tipo_desconhecido", elementos=[
+                       {"id": "x", "tipo": "tabela"},
+                   ]))
+    _espera_excecao(
+        "grupo com tipo funcional desconhecido dentro -> TelaTipoDesconhecido",
+        lambda: carregar_tela(tmp_base, "g_tipo_desconhecido"),
+        TelaTipoDesconhecido,
+    )
+
+    print("")
+    print("-- Lista plana permanece valida (preservacao) --")
+    for id_plano in ("orquestrador", "destino_minimo", "stub_b"):
+        try:
+            carregar_tela(_BASE_PADRAO, id_plano)
+            _registrar("lista plana '{0}' carrega sem erro".format(id_plano),
+                       True)
+        except Exception as exc:  # pragma: no cover - diagnostico
+            _registrar("lista plana '{0}' carrega sem erro".format(id_plano),
+                       False, "{0}: {1}".format(type(exc).__name__, exc))
+
+
 def teste_id_incorreto_classe():
     print("")
     print("== Excecao TelaIdIncorreto (verificacao de classe) ==")
@@ -490,6 +647,7 @@ def main():
     try:
         teste_erros(tmp_base)
         teste_tipos_validos(tmp_base)
+        teste_grupo_estrutural(tmp_base)
     finally:
         try:
             shutil.rmtree(tmp_base)

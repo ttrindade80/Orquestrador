@@ -346,6 +346,106 @@ def teste_renderizador_destino_minimo():
     return modelo
 
 
+def teste_renderizador_grupo_minimo():
+    print("")
+    print("== Renderer sobre modelo de config/telas/grupo_minimo.json (H-0012) ==")
+    try:
+        tela_raw = carregar_tela(_BASE_PADRAO, "grupo_minimo")
+        modelo = construir_modelo(tela_raw)
+    except Exception as exc:  # pragma: no cover - diagnostico
+        _registrar(
+            "pipeline carregar_tela + construir_modelo (grupo_minimo)",
+            False,
+            "{0}: {1}".format(type(exc).__name__, exc),
+        )
+        return None
+    _registrar(
+        "pipeline carregar_tela + construir_modelo (grupo_minimo)",
+        True,
+    )
+
+    try:
+        saida = renderizar_tela(modelo)
+    except Exception as exc:  # pragma: no cover - diagnostico
+        _registrar(
+            "renderizar_tela(grupo_minimo) sem excecao",
+            False,
+            "{0}: {1}".format(type(exc).__name__, exc),
+        )
+        return None
+    _registrar("renderizar_tela(grupo_minimo) sem excecao", True)
+
+    # CA-20: caixa bordeada do dashboard interno aparece
+    _registrar(
+        "saida contem '╭ CONTEUDO' (caixa do dashboard interno - CA-20)",
+        "╭ CONTEUDO" in saida,
+    )
+    # CA-21: valor literal declarado aparece
+    _registrar(
+        "saida contem 'Dashboard dentro de grupo estrutural' (CA-21)",
+        "Dashboard dentro de grupo estrutural" in saida,
+    )
+    # CA-22: grupo nao gera caixa visual propria
+    _registrar(
+        "grupo NAO gera caixa propria (sem '╭ GRUPO_PRINCIPAL') (CA-22)",
+        "╭ GRUPO_PRINCIPAL" not in saida,
+    )
+    _registrar(
+        "id interno do grupo nao vaza para saida ('grupo_principal' ausente)",
+        "grupo_principal" not in saida,
+    )
+    # CA-22: grupo nao gera caixa visual propria -- o cabecalho da tela
+    # legitimo e "Grupo Minimo", por isso o teste de "sem caixa do grupo"
+    # conta os top-borders: esperam-se exatamente 3 caixas (cabecalho,
+    # dashboard interno, menus), sem uma quarta caixa para o container.
+    _registrar(
+        "grupo nao adiciona caixa propria (3 caixas: cabec/dash/menus) (CA-22)",
+        saida.count("╭") == 3 and saida.count("╰") == 3,
+        "topos={0} bases={1}".format(
+            saida.count("╭"), saida.count("╰")
+        ),
+    )
+
+    larguras_ok = all(
+        len(ln) == 42 for ln in saida.split("\n") if ln != ""
+    )
+    _registrar(
+        "cada linha da saida grupo tem exatamente 42 chars Python",
+        larguras_ok,
+    )
+
+    # CA-23: saida do grupo e indistinguivel do mesmo dashboard em lista plana
+    grupo = modelo.elemento_por_id("grupo_principal")
+    interno = grupo.elementos[0]
+    modelo_plano = ModeloTela(
+        id=modelo.id,
+        schema=modelo.schema,
+        cabecalho=modelo.cabecalho,
+        corpo=Corpo(
+            arranjo=modelo.corpo.arranjo,
+            elementos=[interno],
+        ),
+        barra_de_menus=modelo.barra_de_menus,
+        _raw=modelo._raw,
+    )
+    saida_plano = renderizar_tela(modelo_plano)
+    _registrar(
+        "saida do grupo == saida da lista plana equivalente (CA-23)",
+        saida == saida_plano,
+    )
+
+    # CA-24 reforco: Orquestrador (lista plana) segue inalterado
+    tela_o = carregar_tela(_BASE_PADRAO, "orquestrador")
+    modelo_o = construir_modelo(tela_o)
+    saida_o = renderizar_tela(modelo_o)
+    _registrar(
+        "Orquestrador (lista plana) permanece inalterado (CA-24)",
+        saida_o == _EXPECTED_ORQUESTRADOR,
+    )
+
+    return modelo
+
+
 def teste_modelo_fabricado():
     print("")
     print("== Modelo fabricado: renderer usa dados do modelo, nao do JSON ==")
@@ -872,6 +972,7 @@ def main():
 
     teste_renderizador_orquestrador()
     teste_renderizador_destino_minimo()
+    teste_renderizador_grupo_minimo()
     teste_modelo_fabricado()
     teste_erros_renderizador()
     teste_proibicoes_importacao()

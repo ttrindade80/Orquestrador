@@ -1,0 +1,60 @@
+{
+  "schema": "tela.v1",
+  "id": "grupo_minimo",
+  "cabecalho": {
+    "titulo": "Grupo Minimo",
+    "descricao": "Tela de teste — grupo estrutural com dashboard simples"
+  },
+  "corpo": {
+    "arranjo": "sobreposto",
+    "elementos": [
+      {
+        "id": "grupo_principal",
+        "tipo": "grupo",
+        "arranjo": "sobreposto",
+        "elementos": [
+          {
+            "id": "dashboard_conteudo",
+            "tipo": "dashboard",
+            "titulo": "Conteudo",
+            "campos": [
+              {
+                "id": "msg_grupo",
+                "rotulo": "Grupo",
+                "fonte": "literal",
+                "valor": "Dashboard dentro de grupo estrutural"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "barra_de_menus": {
+    "distribuicao": "horizontal",
+    "chips": [
+      {
+        "id": "chip_esc",
+        "tipo": "acao",
+        "tecla": "Esc",
+        "texto": "Voltar",
+        "acao": {
+          "tipo": "acao_contextual_esc"
+        },
+        "regra_existencia": "sempre",
+        "regra_ativo": "sempre",
+        "forma_exibicao": "rotulo_dinamico"
+      },
+      {
+        "id": "chip_ajuda",
+        "tipo": "acao",
+        "tecla": "?",
+        "texto": "Ajuda",
+        "acao": {"tipo": "abrir_ajuda"},
+        "regra_existencia": "sempre",
+        "regra_ativo": "sempre",
+        "forma_exibicao": "visivel_ativo"
+      }
+    ]
+  }
+}
