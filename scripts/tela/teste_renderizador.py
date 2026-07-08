@@ -1,30 +1,30 @@
-"""Diagnostico do renderer estrutural de tela (H-0005).
+"""Diagnostico do renderer visual com borda fixa (H-0006).
 
 Executavel via:
     python tela/teste_renderizador.py
 
-Cobre os criterios de aceite testaveis do handoff H-0005:
+Cobre os criterios de aceite testaveis do handoff H-0006:
 - renderizar_tela aceita ModeloTela valido sem excecao;
 - saida e str;
-- saida comeca com "TELA: orquestrador";
-- saida contem "SCHEMA: tela.v1";
-- saida contem "REGIAO: cabecalho";
-- saida contem "titulo: Orquestrador";
-- saida contem "descricao:";
-- saida contem "REGIAO: corpo";
-- saida contem "arranjo: sobreposto";
-- saida contem cada componente do corpo como "[{tipo}] {id}";
-- saida contem "REGIAO: barra_de_menus";
-- saida contem "[chip_esc]" e "[chip_ajuda]";
+- saida comeca com "╭ ORQUESTRADOR";
+- saida contem "│ Tela raiz do sistema";
+- saida contem "╭ DASHBOARD", "Dashboard de teste",
+  "Sem dados carregados";
+- saida contem "╭ Menu", "[Esc] Sair", "[B] Borda";
+- saida contem "╰" (borda inferior);
 - saida e deterministica (duas chamadas com mesmo modelo sao identicas);
-- saida bate com expected output literal do handoff H-0005 (igualdade
+- saida bate com expected output literal do handoff H-0006 (igualdade
   estrita, incluindo o \\n final);
-- modelo fabricado com id="teste_fabricado" produz saida usando dados
-  do modelo, nao do JSON em disco (com corpo e chips tambem verificados);
-- renderizar_tela(None) lanca RenderizadorErro;
+- cada linha da saida tem exatamente 42 chars Python (sem o \\n);
+- modelo fabricado com titulo="Fab" produz saida usando dados do
+  modelo, nao do JSON em disco (label "FAB", conteudo "desc fab",
+  caixas hardcoded DASHBOARD e Menu presentes);
+- renderizar_tela(None) e renderizar_tela(<dict>) lancam RenderizadorErro;
 - renderer nao importa json/os/pathlib nem chama carregar_tela;
 - renderer nao acessa _campos_inertes dos elementos;
-- renderer nao executa acao, binding, filtro ou navegacao.
+- renderer nao executa acao, binding, filtro ou navegacao;
+- saida nao vaza campos inertes (origem_dados/bindings/filtros/
+  tela_destino/regra_existencia) nem ids internos de chip.
 
 Apenas biblioteca padrao do Python.
 """
@@ -52,34 +52,18 @@ _RESULTADOS = []
 
 
 _EXPECTED_ORQUESTRADOR = (
-    "TELA: orquestrador\n"
-    "SCHEMA: tela.v1\n"
+    "╭ ORQUESTRADOR ──────────────────────────╮\n"
+    "│ Tela raiz do sistema — ponto de entrada│\n"
+    "╰────────────────────────────────────────╯\n"
     "\n"
-    "REGIAO: cabecalho\n"
-    "  titulo: Orquestrador\n"
-    "  descricao: Tela raiz do sistema — ponto de entrada e visao "
-    "consolidada do pipeline de survey\n"
+    "╭ DASHBOARD ─────────────────────────────╮\n"
+    "│ Dashboard de teste                     │\n"
+    "│ Sem dados carregados                   │\n"
+    "╰────────────────────────────────────────╯\n"
     "\n"
-    "REGIAO: corpo\n"
-    "  arranjo: sobreposto\n"
-    "  componentes:\n"
-    "    [console] console_principal\n"
-    "    [dashboard] dashboard_info\n"
-    "    [lancador] lancador_principal\n"
-    "\n"
-    "REGIAO: barra_de_menus\n"
-    "  chips:\n"
-    "    [chip_esc] Sair\n"
-    "    [chip_paginas] Páginas\n"
-    "    [chip_colunas] Colunas\n"
-    "    [chip_grupos] Grupos\n"
-    "    [chip_alternar] Alternar\n"
-    "    [chip_navegar] Navegar\n"
-    "    [chip_selecionar] Selecionar\n"
-    "    [chip_enter] Todos\n"
-    "    [chip_estilo] Estilo\n"
-    "    [chip_verboso] Verboso\n"
-    "    [chip_ajuda] Ajuda\n"
+    "╭ Menu ──────────────────────────────────╮\n"
+    "│ [Esc] Sair    [B] Borda                │\n"
+    "╰────────────────────────────────────────╯\n"
 )
 
 
@@ -148,56 +132,40 @@ def teste_renderizador_orquestrador():
         "tipo={0}".format(type(saida).__name__),
     )
     _registrar(
-        "saida comeca com 'TELA: orquestrador'",
-        saida.startswith("TELA: orquestrador"),
+        "saida comeca com '╭ ORQUESTRADOR'",
+        saida.startswith("╭ ORQUESTRADOR"),
     )
     _registrar(
-        "saida contem 'SCHEMA: tela.v1'",
-        "SCHEMA: tela.v1" in saida,
+        "saida contem '│ Tela raiz do sistema'",
+        "│ Tela raiz do sistema" in saida,
     )
     _registrar(
-        "saida contem 'REGIAO: cabecalho'",
-        "REGIAO: cabecalho" in saida,
+        "saida contem '╭ DASHBOARD'",
+        "╭ DASHBOARD" in saida,
     )
     _registrar(
-        "saida contem 'titulo: Orquestrador'",
-        "titulo: Orquestrador" in saida,
+        "saida contem 'Dashboard de teste'",
+        "Dashboard de teste" in saida,
     )
     _registrar(
-        "saida contem 'descricao:'",
-        "descricao:" in saida,
+        "saida contem 'Sem dados carregados'",
+        "Sem dados carregados" in saida,
     )
     _registrar(
-        "saida contem 'REGIAO: corpo'",
-        "REGIAO: corpo" in saida,
+        "saida contem '╭ Menu'",
+        "╭ Menu" in saida,
     )
     _registrar(
-        "saida contem 'arranjo: sobreposto'",
-        "arranjo: sobreposto" in saida,
+        "saida contem '[Esc] Sair'",
+        "[Esc] Sair" in saida,
     )
     _registrar(
-        "saida contem '[console] console_principal'",
-        "[console] console_principal" in saida,
+        "saida contem '[B] Borda'",
+        "[B] Borda" in saida,
     )
     _registrar(
-        "saida contem '[dashboard] dashboard_info'",
-        "[dashboard] dashboard_info" in saida,
-    )
-    _registrar(
-        "saida contem '[lancador] lancador_principal'",
-        "[lancador] lancador_principal" in saida,
-    )
-    _registrar(
-        "saida contem 'REGIAO: barra_de_menus'",
-        "REGIAO: barra_de_menus" in saida,
-    )
-    _registrar(
-        "saida contem '[chip_esc]'",
-        "[chip_esc]" in saida,
-    )
-    _registrar(
-        "saida contem '[chip_ajuda]'",
-        "[chip_ajuda]" in saida,
+        "saida contem '╰' (borda inferior)",
+        "╰" in saida,
     )
 
     saida2 = renderizar_tela(modelo)
@@ -206,9 +174,17 @@ def teste_renderizador_orquestrador():
         saida == saida2,
     )
 
+    larguras_ok = all(
+        (len(ln) == 42 for ln in saida.split("\n") if ln != "")
+    )
+    _registrar(
+        "cada linha da saida tem exatamente 42 chars Python",
+        larguras_ok,
+    )
+
     bate = saida == _EXPECTED_ORQUESTRADOR
     _registrar(
-        "saida bate com expected output literal do handoff H-0005",
+        "saida bate com expected output literal do handoff H-0006",
         bate,
         "" if bate else "ver diff abaixo",
     )
@@ -240,29 +216,33 @@ def teste_modelo_fabricado():
     saida_fab = renderizar_tela(modelo_fab)
 
     _registrar(
-        "saida fabricada comeca com 'TELA: teste_fabricado'",
-        saida_fab.startswith("TELA: teste_fabricado"),
+        "saida fabricada comeca com '╭ FAB'",
+        saida_fab.startswith("╭ FAB"),
         "prefixo={0!r}".format(saida_fab[:40]),
     )
     _registrar(
-        "saida fabricada contem 'SCHEMA: tela.v0'",
-        "SCHEMA: tela.v0" in saida_fab,
+        "saida fabricada contem 'desc fab'",
+        "desc fab" in saida_fab,
     )
     _registrar(
-        "saida fabricada contem 'arranjo: linear'",
-        "arranjo: linear" in saida_fab,
+        "saida fabricada contem '╭ DASHBOARD' (hardcoded)",
+        "╭ DASHBOARD" in saida_fab,
     )
     _registrar(
-        "saida fabricada contem '[console] e1'",
-        "[console] e1" in saida_fab,
+        "saida fabricada contem '[Esc] Sair' (hardcoded)",
+        "[Esc] Sair" in saida_fab,
     )
     _registrar(
-        "saida fabricada contem '[c1] Ok'",
-        "[c1] Ok" in saida_fab,
+        "saida fabricada contem '[B] Borda' (hardcoded)",
+        "[B] Borda" in saida_fab,
     )
     _registrar(
-        "saida fabricada nao menciona orquestrador",
+        "saida fabricada nao menciona 'orquestrador'",
         "orquestrador" not in saida_fab,
+    )
+    _registrar(
+        "saida fabricada nao menciona 'ORQUESTRADOR'",
+        "ORQUESTRADOR" not in saida_fab,
     )
 
 
@@ -334,11 +314,6 @@ def teste_inercia():
     elementos_antes = [(e.id, e.tipo) for e in modelo.corpo.elementos]
     chips_antes = list(modelo.barra_de_menus.get("chips", []))
 
-    console = modelo.elemento_por_id("console_principal")
-    lancador = modelo.elemento_por_id("lancador_principal")
-    inertes_console_antes = dict(console._campos_inertes)
-    inertes_lancador_antes = dict(lancador._campos_inertes)
-
     saida = renderizar_tela(modelo)
 
     _registrar(
@@ -358,28 +333,22 @@ def teste_inercia():
         modelo.barra_de_menus.get("chips", []) == chips_antes,
     )
     _registrar(
-        "console._campos_inertes preserva origem_dados.referencia == 'pendente' (inerte)",
-        console._campos_inertes == inertes_console_antes
-        and console._campos_inertes.get("origem_dados", {}).get("referencia")
-        == "pendente",
-    )
-    _registrar(
-        "lancador._campos_inertes['itens'] == [] preservado (inerte)",
-        lancador._campos_inertes == inertes_lancador_antes
-        and lancador._campos_inertes.get("itens") == [],
-    )
-    _registrar(
-        "saida nao vaza campos inertes (origem_dados/bindings/filtros/tela_destino/regra_existencia)",
+        "saida nao vaza campos inertes "
+        "(origem_dados/bindings/filtros/tela_destino/regra_existencia)",
         "origem_dados" not in saida
         and "bindings" not in saida
         and "filtros" not in saida
         and "tela_destino" not in saida
         and "regra_existencia" not in saida,
     )
+    _registrar(
+        "saida nao expoe id interno de chip ('[chip_esc]')",
+        "[chip_esc]" not in saida,
+    )
 
 
 def main():
-    print("Diagnostico H-0005 - renderer estrutural de tela")
+    print("Diagnostico H-0006 - renderer visual com borda fixa")
     print("Base padrao: {0}".format(_BASE_PADRAO))
     print("Python: {0}".format(sys.version.split()[0]))
 

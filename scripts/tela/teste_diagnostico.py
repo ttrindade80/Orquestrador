@@ -4,22 +4,23 @@ Executavel via:
     python tela/teste_diagnostico.py
 
 Cobre os criterios de aceite testaveis do handoff H-0004, com as
-verificacoes de formato atualizadas para o renderer estrutural H-0005:
+verificacoes de formato atualizadas para o renderer visual H-0006
+(tres caixas bordeadas de 42 chars por linha):
 - gerar_diagnostico_tela() nao lanca excecao para o padrao "orquestrador";
 - retorno e str;
-- saida comeca com "TELA: orquestrador";
-- saida contem "SCHEMA: tela.v1", "REGIAO: cabecalho",
-  "titulo: Orquestrador", "REGIAO: corpo", "arranjo: sobreposto",
-  cada componente do corpo como "[{tipo}] {id}", "REGIAO: barra_de_menus",
-  "[chip_esc]" e "[chip_ajuda]";
+- saida comeca com "╭ ORQUESTRADOR";
+- saida contem "│ Tela raiz do sistema", "╭ DASHBOARD",
+  "Dashboard de teste", "Sem dados carregados", "╭ Menu",
+  "[Esc] Sair", "[B] Borda", "╰" (borda inferior),
+  "│" (borda lateral);
 - saida e deterministica (duas chamadas identicas);
-- saida bate com expected output literal do H-0005 (igualdade estrita);
+- saida bate com expected output literal do H-0006 (igualdade estrita);
 - modo executavel `python tela/diagnostico.py` imprime a mesma string
   (verificado via subprocess.run com capture_output=True);
 - campos inertes (origem_dados, bindings, filtros, tela_destino,
   regra_existencia) nao vazam na saida;
 - gerar_diagnostico_tela("orquestrador") == gerar_diagnostico_tela();
-- invariantes H-0001, H-0002 e H-0005 preservados (via subprocess.run,
+- invariantes H-0001, H-0002 e H-0006 preservados (via subprocess.run,
   executados antes dos demais testes);
 - proibicoes de importacao no modulo tela/diagnostico.py.
 
@@ -44,34 +45,18 @@ _RESULTADOS = []
 
 
 _EXPECTED_ORQUESTRADOR = (
-    "TELA: orquestrador\n"
-    "SCHEMA: tela.v1\n"
+    "╭ ORQUESTRADOR ──────────────────────────╮\n"
+    "│ Tela raiz do sistema — ponto de entrada│\n"
+    "╰────────────────────────────────────────╯\n"
     "\n"
-    "REGIAO: cabecalho\n"
-    "  titulo: Orquestrador\n"
-    "  descricao: Tela raiz do sistema — ponto de entrada e visao "
-    "consolidada do pipeline de survey\n"
+    "╭ DASHBOARD ─────────────────────────────╮\n"
+    "│ Dashboard de teste                     │\n"
+    "│ Sem dados carregados                   │\n"
+    "╰────────────────────────────────────────╯\n"
     "\n"
-    "REGIAO: corpo\n"
-    "  arranjo: sobreposto\n"
-    "  componentes:\n"
-    "    [console] console_principal\n"
-    "    [dashboard] dashboard_info\n"
-    "    [lancador] lancador_principal\n"
-    "\n"
-    "REGIAO: barra_de_menus\n"
-    "  chips:\n"
-    "    [chip_esc] Sair\n"
-    "    [chip_paginas] Páginas\n"
-    "    [chip_colunas] Colunas\n"
-    "    [chip_grupos] Grupos\n"
-    "    [chip_alternar] Alternar\n"
-    "    [chip_navegar] Navegar\n"
-    "    [chip_selecionar] Selecionar\n"
-    "    [chip_enter] Todos\n"
-    "    [chip_estilo] Estilo\n"
-    "    [chip_verboso] Verboso\n"
-    "    [chip_ajuda] Ajuda\n"
+    "╭ Menu ──────────────────────────────────╮\n"
+    "│ [Esc] Sair    [B] Borda                │\n"
+    "╰────────────────────────────────────────╯\n"
 )
 
 
@@ -85,14 +70,15 @@ def _registrar(nome, passou, detalhe=""):
 
 
 def teste_invariantes_anteriores():
-    """Confirma via subprocess que H-0001, H-0002 e H-0005 ainda passam.
+    """Confirma via subprocess que H-0001, H-0002 e H-0006 ainda passam.
 
     Executado antes dos demais testes para garantir estado de partida
     limpo. Esse e o uso autorizado de subprocess para invocar os ciclos
     anteriores (o modo executavel de tela/diagnostico.py tambem e
     verificado por subprocess, conforme tabela de verificacoes do
-    handoff H-0004). A linha do H-0003 foi atualizada para H-0005 porque
-    tela/teste_renderizador.py agora verifica o formato estrutural H-0005.
+    handoff H-0004). A linha do renderer foi atualizada para H-0006
+    porque tela/teste_renderizador.py agora verifica o formato visual
+    H-0006 com borda fixa.
     """
     print("")
     print("== Invariantes dos ciclos anteriores (subprocess) ==")
@@ -100,7 +86,7 @@ def teste_invariantes_anteriores():
     for rotulo, script in (
         ("H-0001", "tela/teste_loader.py"),
         ("H-0002", "tela/teste_modelo.py"),
-        ("H-0005", "tela/teste_renderizador.py"),
+        ("H-0006", "tela/teste_renderizador.py"),
     ):
         proc = subprocess.run(
             [sys.executable, script],
@@ -144,52 +130,48 @@ def teste_gerar_diagnostico():
         "tipo={0}".format(type(resultado).__name__),
     )
     _registrar(
-        "resultado comeca com 'TELA: orquestrador'",
-        resultado.startswith("TELA: orquestrador"),
+        "resultado comeca com '╭ ORQUESTRADOR'",
+        resultado.startswith("╭ ORQUESTRADOR"),
     )
     _registrar(
-        "resultado contem 'SCHEMA: tela.v1'",
-        "SCHEMA: tela.v1" in resultado,
+        "resultado contem '╭ ORQUESTRADOR'",
+        "╭ ORQUESTRADOR" in resultado,
     )
     _registrar(
-        "resultado contem 'REGIAO: cabecalho'",
-        "REGIAO: cabecalho" in resultado,
+        "resultado contem '│ Tela raiz do sistema'",
+        "│ Tela raiz do sistema" in resultado,
     )
     _registrar(
-        "resultado contem 'titulo: Orquestrador'",
-        "titulo: Orquestrador" in resultado,
+        "resultado contem '╭ DASHBOARD'",
+        "╭ DASHBOARD" in resultado,
     )
     _registrar(
-        "resultado contem 'REGIAO: corpo'",
-        "REGIAO: corpo" in resultado,
+        "resultado contem 'Dashboard de teste'",
+        "Dashboard de teste" in resultado,
     )
     _registrar(
-        "resultado contem 'arranjo: sobreposto'",
-        "arranjo: sobreposto" in resultado,
+        "resultado contem 'Sem dados carregados'",
+        "Sem dados carregados" in resultado,
     )
     _registrar(
-        "resultado contem '[console] console_principal'",
-        "[console] console_principal" in resultado,
+        "resultado contem '╭ Menu'",
+        "╭ Menu" in resultado,
     )
     _registrar(
-        "resultado contem '[dashboard] dashboard_info'",
-        "[dashboard] dashboard_info" in resultado,
+        "resultado contem '[Esc] Sair'",
+        "[Esc] Sair" in resultado,
     )
     _registrar(
-        "resultado contem '[lancador] lancador_principal'",
-        "[lancador] lancador_principal" in resultado,
+        "resultado contem '[B] Borda'",
+        "[B] Borda" in resultado,
     )
     _registrar(
-        "resultado contem 'REGIAO: barra_de_menus'",
-        "REGIAO: barra_de_menus" in resultado,
+        "resultado contem '╰' (borda inferior presente)",
+        "╰" in resultado,
     )
     _registrar(
-        "resultado contem '[chip_esc]'",
-        "[chip_esc]" in resultado,
-    )
-    _registrar(
-        "resultado contem '[chip_ajuda]'",
-        "[chip_ajuda]" in resultado,
+        "resultado contem '│' (borda lateral presente)",
+        "│" in resultado,
     )
 
     resultado2 = gerar_diagnostico_tela()
@@ -200,7 +182,7 @@ def teste_gerar_diagnostico():
 
     bate = resultado == _EXPECTED_ORQUESTRADOR
     _registrar(
-        "resultado bate com saida esperada do H-0005 (igualdade estrita)",
+        "resultado bate com saida esperada do H-0006 (igualdade estrita)",
         bate,
         "" if bate else "ver diff abaixo",
     )
