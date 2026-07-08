@@ -1,41 +1,41 @@
-"""Diagnostico do renderer textual estatico de tela (H-0003).
+"""Diagnostico do renderer estrutural de tela (H-0005).
 
 Executavel via:
     python tela/teste_renderizador.py
 
-Cobre os criterios de aceite testaveis do handoff H-0003:
+Cobre os criterios de aceite testaveis do handoff H-0005:
 - renderizar_tela aceita ModeloTela valido sem excecao;
 - saida e str;
 - saida comeca com "TELA: orquestrador";
 - saida contem "SCHEMA: tela.v1";
-- saida contem "CABECALHO";
+- saida contem "REGIAO: cabecalho";
 - saida contem "titulo: Orquestrador";
 - saida contem "descricao:";
-- saida contem "CORPO";
+- saida contem "REGIAO: corpo";
 - saida contem "arranjo: sobreposto";
-- saida contem cada elemento do corpo (id + tipo);
-- saida contem "BARRA_DE_MENUS";
-- saida contem "id: chip_esc" e "id: chip_ajuda";
+- saida contem cada componente do corpo como "[{tipo}] {id}";
+- saida contem "REGIAO: barra_de_menus";
+- saida contem "[chip_esc]" e "[chip_ajuda]";
 - saida e deterministica (duas chamadas com mesmo modelo sao identicas);
-- saida bate com expected output literal do handoff para o JSON atual;
+- saida bate com expected output literal do handoff H-0005 (igualdade
+  estrita, incluindo o \\n final);
 - modelo fabricado com id="teste_fabricado" produz saida usando dados
-  do modelo, nao do JSON em disco (com corpo e chips tambem verificados
-  -- fortalecido conforme nota nao bloqueante da auditoria);
+  do modelo, nao do JSON em disco (com corpo e chips tambem verificados);
 - renderizar_tela(None) lanca RenderizadorErro;
 - renderer nao importa json/os/pathlib nem chama carregar_tela;
+- renderer nao acessa _campos_inertes dos elementos;
 - renderer nao executa acao, binding, filtro ou navegacao.
 
 Apenas biblioteca padrao do Python.
 """
 
 import sys
-from pathlib import Path
-
-
-_BASE_PADRAO = Path(__file__).resolve().parent.parent
 
 sys.dont_write_bytecode = True
 
+from pathlib import Path
+
+_BASE_PADRAO = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(_BASE_PADRAO))
 
 from tela.loader import carregar_tela  # noqa: E402
@@ -55,31 +55,31 @@ _EXPECTED_ORQUESTRADOR = (
     "TELA: orquestrador\n"
     "SCHEMA: tela.v1\n"
     "\n"
-    "CABECALHO\n"
+    "REGIAO: cabecalho\n"
     "  titulo: Orquestrador\n"
     "  descricao: Tela raiz do sistema — ponto de entrada e visao "
     "consolidada do pipeline de survey\n"
     "\n"
-    "CORPO\n"
+    "REGIAO: corpo\n"
     "  arranjo: sobreposto\n"
-    "  elementos:\n"
-    "    - id: console_principal | tipo: console\n"
-    "    - id: dashboard_info | tipo: dashboard\n"
-    "    - id: lancador_principal | tipo: lancador\n"
+    "  componentes:\n"
+    "    [console] console_principal\n"
+    "    [dashboard] dashboard_info\n"
+    "    [lancador] lancador_principal\n"
     "\n"
-    "BARRA_DE_MENUS\n"
+    "REGIAO: barra_de_menus\n"
     "  chips:\n"
-    "    - id: chip_esc | texto: Sair\n"
-    "    - id: chip_paginas | texto: Páginas\n"
-    "    - id: chip_colunas | texto: Colunas\n"
-    "    - id: chip_grupos | texto: Grupos\n"
-    "    - id: chip_alternar | texto: Alternar\n"
-    "    - id: chip_navegar | texto: Navegar\n"
-    "    - id: chip_selecionar | texto: Selecionar\n"
-    "    - id: chip_enter | texto: Todos\n"
-    "    - id: chip_estilo | texto: Estilo\n"
-    "    - id: chip_verboso | texto: Verboso\n"
-    "    - id: chip_ajuda | texto: Ajuda\n"
+    "    [chip_esc] Sair\n"
+    "    [chip_paginas] Páginas\n"
+    "    [chip_colunas] Colunas\n"
+    "    [chip_grupos] Grupos\n"
+    "    [chip_alternar] Alternar\n"
+    "    [chip_navegar] Navegar\n"
+    "    [chip_selecionar] Selecionar\n"
+    "    [chip_enter] Todos\n"
+    "    [chip_estilo] Estilo\n"
+    "    [chip_verboso] Verboso\n"
+    "    [chip_ajuda] Ajuda\n"
 )
 
 
@@ -156,8 +156,8 @@ def teste_renderizador_orquestrador():
         "SCHEMA: tela.v1" in saida,
     )
     _registrar(
-        "saida contem 'CABECALHO'",
-        "CABECALHO" in saida,
+        "saida contem 'REGIAO: cabecalho'",
+        "REGIAO: cabecalho" in saida,
     )
     _registrar(
         "saida contem 'titulo: Orquestrador'",
@@ -168,36 +168,36 @@ def teste_renderizador_orquestrador():
         "descricao:" in saida,
     )
     _registrar(
-        "saida contem 'CORPO'",
-        "CORPO" in saida,
+        "saida contem 'REGIAO: corpo'",
+        "REGIAO: corpo" in saida,
     )
     _registrar(
         "saida contem 'arranjo: sobreposto'",
         "arranjo: sobreposto" in saida,
     )
     _registrar(
-        "saida contem 'id: console_principal | tipo: console'",
-        "id: console_principal | tipo: console" in saida,
+        "saida contem '[console] console_principal'",
+        "[console] console_principal" in saida,
     )
     _registrar(
-        "saida contem 'id: dashboard_info | tipo: dashboard'",
-        "id: dashboard_info | tipo: dashboard" in saida,
+        "saida contem '[dashboard] dashboard_info'",
+        "[dashboard] dashboard_info" in saida,
     )
     _registrar(
-        "saida contem 'id: lancador_principal | tipo: lancador'",
-        "id: lancador_principal | tipo: lancador" in saida,
+        "saida contem '[lancador] lancador_principal'",
+        "[lancador] lancador_principal" in saida,
     )
     _registrar(
-        "saida contem 'BARRA_DE_MENUS'",
-        "BARRA_DE_MENUS" in saida,
+        "saida contem 'REGIAO: barra_de_menus'",
+        "REGIAO: barra_de_menus" in saida,
     )
     _registrar(
-        "saida contem 'id: chip_esc'",
-        "id: chip_esc" in saida,
+        "saida contem '[chip_esc]'",
+        "[chip_esc]" in saida,
     )
     _registrar(
-        "saida contem 'id: chip_ajuda'",
-        "id: chip_ajuda" in saida,
+        "saida contem '[chip_ajuda]'",
+        "[chip_ajuda]" in saida,
     )
 
     saida2 = renderizar_tela(modelo)
@@ -208,7 +208,7 @@ def teste_renderizador_orquestrador():
 
     bate = saida == _EXPECTED_ORQUESTRADOR
     _registrar(
-        "saida bate com expected output literal do handoff",
+        "saida bate com expected output literal do handoff H-0005",
         bate,
         "" if bate else "ver diff abaixo",
     )
@@ -253,12 +253,12 @@ def teste_modelo_fabricado():
         "arranjo: linear" in saida_fab,
     )
     _registrar(
-        "saida fabricada contem 'id: e1 | tipo: console'",
-        "id: e1 | tipo: console" in saida_fab,
+        "saida fabricada contem '[console] e1'",
+        "[console] e1" in saida_fab,
     )
     _registrar(
-        "saida fabricada contem 'id: c1 | texto: Ok'",
-        "id: c1 | texto: Ok" in saida_fab,
+        "saida fabricada contem '[c1] Ok'",
+        "[c1] Ok" in saida_fab,
     )
     _registrar(
         "saida fabricada nao menciona orquestrador",
@@ -379,7 +379,7 @@ def teste_inercia():
 
 
 def main():
-    print("Diagnostico H-0003 - renderer textual estatico de tela")
+    print("Diagnostico H-0005 - renderer estrutural de tela")
     print("Base padrao: {0}".format(_BASE_PADRAO))
     print("Python: {0}".format(sys.version.split()[0]))
 

@@ -1,18 +1,26 @@
-"""Renderer textual estatico minimo de tela (H-0003).
+"""Renderer estrutural minimo da tela raiz (H-0005).
+
+Evolui o renderer textual estatico (H-0003) para uma representacao
+estrutural com regioes nomeadas (REGIAO: cabecalho, corpo,
+barra_de_menus) e componentes tipados na forma [{tipo}] {id} e
+chips na forma [{id}] {texto}.
 
 Consome o ModeloTela produzido pelo pipeline H-0001 + H-0002
-(`carregar_tela` -> `construir_modelo` -> `ModeloTela`) e geram uma
-string textual auditavel, deterministica, sem dependencia de terminal,
-sem execucao de acao, sem ativacao de binding e sem consulta a JSON.
+(`carregar_tela` -> `construir_modelo` -> `ModeloTela`) e gera uma
+string estrutural auditavel, deterministica, sem dependencia de
+terminal, sem execucao de acao, sem ativacao de binding e sem
+consulta a JSON.
 
-ESCOPO (H-0003):
-- Apenas renderizacao textual estatica a partir de ModeloTela.
+ESCOPO (H-0005):
+- Apenas renderizacao estrutural estatica a partir de ModeloTela.
 - Nao acessa config/telas/orquestrador.json diretamente.
 - Nao chama carregar_tela nem construir_modelo.
 - Nao importa json, os ou pathlib.
 - Nao executa acao, nao ativa binding, nao navega por tela_destino,
   nao aplica filtro, nao altera estado, nao grava arquivo.
 - Nao calcula largura de terminal, nao paginar, nao selecionar.
+- Nao acessa campos inertes internos de nenhum ElementoCorpo; usa
+  exclusivamente os campos publicos `id` e `tipo` de cada elemento.
 - Campos pendentes (DOC-B008 / DOC-B009) sao preservados como
   declaracao inerte, sem execucao.
 
@@ -23,22 +31,22 @@ from tela.modelo import ModeloTela
 
 
 class RenderizadorErro(Exception):
-    """Erro de renderizacao textual de tela."""
+    """Erro de renderizacao estrutural de tela."""
 
 
 def renderizar_tela(modelo: ModeloTela) -> str:
-    """Renderiza ModeloTela como string textual estatica e deterministica.
+    """Renderiza ModeloTela como string estrutural estatica e deterministica.
 
     Parametros:
         modelo: ModeloTela produzido por construir_modelo (H-0002) a
             partir do dict retornado por carregar_tela (H-0001).
 
     Retorna:
-        str com a representacao textual estatica no formato definido
-        pelo handoff H-0003 (seccoes TELA, SCHEMA, CABECALHO, CORPO e
-        BARRA_DE_MENUS).
+        str com a representacao estrutural no formato definido pelo
+        handoff H-0005 (regioes REGIAO: cabecalho, corpo e
+        barra_de_menus, com componentes tipados e chips identificados).
 
-    Lanca:
+    Lancamentos:
         RenderizadorErro quando o argumento nao e um ModeloTela valido
         (ex.: None ou objeto de outro tipo).
 
@@ -59,30 +67,30 @@ def renderizar_tela(modelo: ModeloTela) -> str:
     linhas.append("SCHEMA: {0}".format(modelo.schema))
     linhas.append("")
 
-    linhas.append("CABECALHO")
+    linhas.append("REGIAO: cabecalho")
     titulo = modelo.cabecalho.get("titulo", "(ausente)")
     descricao = modelo.cabecalho.get("descricao", "(ausente)")
     linhas.append("  titulo: {0}".format(titulo))
     linhas.append("  descricao: {0}".format(descricao))
     linhas.append("")
 
-    linhas.append("CORPO")
+    linhas.append("REGIAO: corpo")
     arranjo = modelo.corpo.arranjo or "(não declarado)"
     linhas.append("  arranjo: {0}".format(arranjo))
-    linhas.append("  elementos:")
+    linhas.append("  componentes:")
     for elemento in modelo.corpo.elementos:
         linhas.append(
-            "    - id: {0} | tipo: {1}".format(elemento.id, elemento.tipo)
+            "    [{0}] {1}".format(elemento.tipo, elemento.id)
         )
     linhas.append("")
 
-    linhas.append("BARRA_DE_MENUS")
+    linhas.append("REGIAO: barra_de_menus")
     linhas.append("  chips:")
     for chip in modelo.barra_de_menus.get("chips", []):
-        chip_id = chip.get("id")
+        chip_id = chip["id"]
         chip_texto = chip.get("texto", "(ausente)")
         linhas.append(
-            "    - id: {0} | texto: {1}".format(chip_id, chip_texto)
+            "    [{0}] {1}".format(chip_id, chip_texto)
         )
 
     return "\n".join(linhas) + "\n"
