@@ -1,9 +1,9 @@
-"""Diagnostico da aplicacao demonstravel H-0008 (tela/demo.py).
+"""Diagnostico da aplicacao demonstravel H-0008/H-0009 (tela/demo.py).
 
 Executavel via:
     python tela/teste_demo.py
 
-Cobre os criterios de aceite testaveis do handoff H-0008:
+Cobre os criterios de aceite testaveis dos handoffs H-0008 e H-0009:
 
 Secao 1 - Estado inicial:
 - criar_estado_inicial() retorna dict;
@@ -18,6 +18,9 @@ Secao 2 - processar_comando:
 - "s" define saindo == True;
 - "s" nao altera tipo_borda;
 - "s" sobre reta preserva tipo_borda == "reta";
+- "\x1b" (Esc) define saindo == True sem alterar tipo_borda (H-0009);
+- "\x1b" nao altera tipo_borda (curva nem reta) (H-0009);
+- processar_comando nao modifica o dict original com "\x1b" (H-0009);
 - comando desconhecido "x" nao altera tipo_borda nem saindo;
 - string vazia nao altera estado;
 - "B" (maiusculo) nao tem efeito (case-sensitive);
@@ -34,24 +37,33 @@ Secao 3 - renderizar_estado:
 - saida reta comeca com "┌ ORQUESTRADOR";
 - saida reta bate com _EXPECTED_RETA (igualdade estrita);
 - renderizar_estado nao altera estado;
-- renderizar_estado nao altera modelo.
+- renderizar_estado nao altera modelo;
+- renderizar_estado(..., largura=42) bate com _EXPECTED_* (H-0009);
+- renderizar_estado(..., largura=60) produz linhas de 60 chars (H-0009);
+- renderizar_estado(..., largura=None) equivale a omitir largura (H-0009).
 
 Secao 4 - Integracao via subprocess (demo completo):
 - python tela/demo.py com input "b\ns\n" encerra com codigo 0;
 - stdout contem render curva inicial;
 - stdout contem render reta apos "b";
-- stdout bate com _EXPECTED_CURVA + _EXPECTED_RETA;
+- stdout nao contem "\n\n" entre caixas (H-0009);
+- stdout bate com renderizar_tela(..., largura=80) curva+reta (H-0009);
 - stderr vazio;
-- config/telas/orquestrador.json inalterado apos demo.
+- config/telas/orquestrador.json inalterado apos demo;
+- subprocess com "b\n\x1b\n" encerra 0 e sai identico a "b\ns\n" (H-0009).
 
 Secao 5 - Preservacao do diagnostico:
 - gerar_diagnostico_tela() nao lanca excecao;
 - retorno de gerar_diagnostico_tela() e str;
-- retorno bate com _EXPECTED_CURVA (default curva H-0006/H-0007);
+- retorno bate com _EXPECTED_CURVA (default curva H-0006/H-0007, sem "\n\n");
 - python tela/diagnostico.py encerra com codigo 0;
 - stdout de diagnostico.py bate com _EXPECTED_CURVA;
 - diagnostico.py nao contem sys.stdin;
 - diagnostico.py nao contem input(.
+
+Secao 6 - Inspecao de codigo para modo sem echo (H-0009):
+- demo.py contem termios, tty, shutil.get_terminal_size, isatty;
+- demo.py nao contem input(, curses, textual, rich.
 
 Alem disso, verifica proibicoes de importacao em tela/demo.py e o
 comportamento de EOF sem "s" (encerra com codigo 0).
@@ -69,6 +81,7 @@ _BASE_PADRAO = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(_BASE_PADRAO))
 
 import subprocess  # noqa: E402
+import os  # noqa: E402
 
 from tela.loader import carregar_tela  # noqa: E402
 from tela.modelo import construir_modelo, ModeloTela  # noqa: E402
@@ -84,16 +97,17 @@ from tela.diagnostico import gerar_diagnostico_tela  # noqa: E402
 _RESULTADOS = []
 
 
+_LARGURA_SUBPROCESS = 80
+
+
 _EXPECTED_CURVA = (
     "╭ ORQUESTRADOR ──────────────────────────╮\n"
     "│ Tela raiz do sistema — ponto de entrada│\n"
     "╰────────────────────────────────────────╯\n"
-    "\n"
     "╭ DASHBOARD ─────────────────────────────╮\n"
     "│ Dashboard de teste                     │\n"
     "│ Sem dados carregados                   │\n"
     "╰────────────────────────────────────────╯\n"
-    "\n"
     "╭ Menu ──────────────────────────────────╮\n"
     "│ [Esc] Sair    [B] Borda                │\n"
     "╰────────────────────────────────────────╯\n"
@@ -103,12 +117,10 @@ _EXPECTED_RETA = (
     "┌ ORQUESTRADOR ──────────────────────────┐\n"
     "│ Tela raiz do sistema — ponto de entrada│\n"
     "└────────────────────────────────────────┘\n"
-    "\n"
     "┌ DASHBOARD ─────────────────────────────┐\n"
     "│ Dashboard de teste                     │\n"
     "│ Sem dados carregados                   │\n"
     "└────────────────────────────────────────┘\n"
-    "\n"
     "┌ Menu ──────────────────────────────────┐\n"
     "│ [Esc] Sair    [B] Borda                │\n"
     "└────────────────────────────────────────┘\n"
@@ -184,6 +196,28 @@ def teste_processar_comando():
     _registrar(
         "'s' sobre reta preserva tipo_borda == 'reta'",
         processar_comando({"tipo_borda": "reta", "saindo": False}, "s")["tipo_borda"] == "reta",
+    )
+
+    _registrar(
+        "'\\x1b' (Esc) define saindo == True",
+        processar_comando({"tipo_borda": "curva", "saindo": False}, "\x1b")["saindo"] is True,
+    )
+    _registrar(
+        "'\\x1b' nao altera tipo_borda (curva preservado)",
+        processar_comando({"tipo_borda": "curva", "saindo": False}, "\x1b")["tipo_borda"] == "curva",
+    )
+    _registrar(
+        "'\\x1b' nao altera tipo_borda (reta preservado)",
+        processar_comando({"tipo_borda": "reta", "saindo": False}, "\x1b")["tipo_borda"] == "reta",
+    )
+
+    estado_original_esc = {"tipo_borda": "curva", "saindo": False}
+    processar_comando(estado_original_esc, "\x1b")
+    _registrar(
+        "processar_comando nao modifica o dict original com '\\x1b'",
+        estado_original_esc["tipo_borda"] == "curva"
+        and estado_original_esc["saindo"] is False,
+        "estado apos chamada={0!r}".format(estado_original_esc),
     )
 
     res_x = processar_comando({"tipo_borda": "curva", "saindo": False}, "x")
@@ -315,6 +349,27 @@ def teste_renderizar_estado(modelo):
         modelo.cabecalho == cabecalho_antes,
     )
 
+    _registrar(
+        "renderizar_estado(estado_curva, modelo, largura=42) == _EXPECTED_CURVA",
+        renderizar_estado(estado_curva, modelo, largura=42) == _EXPECTED_CURVA,
+    )
+    _registrar(
+        "renderizar_estado(estado_reta, modelo, largura=42) == _EXPECTED_RETA",
+        renderizar_estado(estado_reta, modelo, largura=42) == _EXPECTED_RETA,
+    )
+
+    res_60 = renderizar_estado(estado_curva, modelo, largura=60)
+    linhas_60_ok = all(len(ln) == 60 for ln in res_60.split("\n") if ln != "")
+    _registrar(
+        "renderizar_estado(..., largura=60): cada linha nao-vazia tem 60 chars",
+        linhas_60_ok,
+    )
+    _registrar(
+        "renderizar_estado(estado, modelo) == renderizar_estado(estado, modelo, largura=None)",
+        renderizar_estado(estado_curva, modelo)
+        == renderizar_estado(estado_curva, modelo, largura=None),
+    )
+
 
 def teste_integracao_subprocess():
     print("")
@@ -323,12 +378,24 @@ def teste_integracao_subprocess():
     caminho_json = _BASE_PADRAO / "config" / "telas" / "orquestrador.json"
     json_antes = caminho_json.read_text(encoding="utf-8")
 
+    modelo = _carregar_modelo()
+    esperado_curva_80 = renderizar_tela(
+        modelo, tipo_borda="curva", largura=_LARGURA_SUBPROCESS
+    )
+    esperado_reta_80 = renderizar_tela(
+        modelo, tipo_borda="reta", largura=_LARGURA_SUBPROCESS
+    )
+    saida_esperada = esperado_curva_80 + esperado_reta_80
+
+    env_sem_columns = {k: v for k, v in os.environ.items() if k != "COLUMNS"}
+
     proc = subprocess.run(
         [sys.executable, "tela/demo.py"],
         cwd=str(_BASE_PADRAO),
         input="b\ns\n",
         capture_output=True,
         text=True,
+        env=env_sem_columns,
     )
 
     _registrar(
@@ -348,11 +415,14 @@ def teste_integracao_subprocess():
         "stdout contem render reta apos 'b' ('┌ ORQUESTRADOR')",
         "┌ ORQUESTRADOR" in proc.stdout,
     )
+    _registrar(
+        "stdout nao contem linha em branco entre caixas ('\\n\\n' ausente)",
+        "\n\n" not in proc.stdout,
+    )
 
-    saida_esperada = _EXPECTED_CURVA + _EXPECTED_RETA
     bate = proc.stdout == saida_esperada
     _registrar(
-        "stdout bate com _EXPECTED_CURVA + _EXPECTED_RETA",
+        "stdout bate com renderizar_tela(..., largura=80) curva+reta",
         bate,
         "" if bate else "ver diff abaixo",
     )
@@ -374,10 +444,38 @@ def teste_integracao_subprocess():
         json_antes == json_depois,
     )
 
+    proc_esc = subprocess.run(
+        [sys.executable, "tela/demo.py"],
+        cwd=str(_BASE_PADRAO),
+        input="b\n\x1b\n",
+        capture_output=True,
+        text=True,
+        env=env_sem_columns,
+    )
+    _registrar(
+        "demo com 'b\\n\\x1b\\n' encerra com codigo 0",
+        proc_esc.returncode == 0,
+        "returncode={0}".format(proc_esc.returncode),
+    )
+    _registrar(
+        "stdout de 'b\\n\\x1b\\n' contem render curva e reta apos 'b'",
+        "╭ ORQUESTRADOR" in proc_esc.stdout and "┌ ORQUESTRADOR" in proc_esc.stdout,
+    )
+    _registrar(
+        "stdout de 'b\\n\\x1b\\n' e identico ao de 'b\\ns\\n'",
+        proc_esc.stdout == proc.stdout,
+    )
+
 
 def teste_eof_sem_s():
     print("")
     print("== EOF sem 's' (encerra com codigo 0) ==")
+
+    modelo = _carregar_modelo()
+    esperado_curva_80 = renderizar_tela(
+        modelo, tipo_borda="curva", largura=_LARGURA_SUBPROCESS
+    )
+    env_sem_columns = {k: v for k, v in os.environ.items() if k != "COLUMNS"}
 
     proc = subprocess.run(
         [sys.executable, "tela/demo.py"],
@@ -385,6 +483,7 @@ def teste_eof_sem_s():
         input="",
         capture_output=True,
         text=True,
+        env=env_sem_columns,
     )
     _registrar(
         "printf '' | python tela/demo.py encerra com codigo 0",
@@ -392,9 +491,9 @@ def teste_eof_sem_s():
         "returncode={0}".format(proc.returncode),
     )
     _registrar(
-        "stdout com EOF sem 's' contem apenas render curva inicial",
-        proc.stdout == _EXPECTED_CURVA,
-        "" if proc.stdout == _EXPECTED_CURVA else "stdout diverge",
+        "stdout com EOF sem 's' contem apenas render curva inicial (largura 80)",
+        proc.stdout == esperado_curva_80,
+        "" if proc.stdout == esperado_curva_80 else "stdout diverge",
     )
 
 
@@ -486,6 +585,47 @@ def teste_proibicoes_importacao_demo():
     )
 
 
+def teste_inspecao_codigo_demo():
+    print("")
+    print("== Secao 6 - Inspecao de codigo para modo sem echo (H-0009) ==")
+
+    caminho_mod = _BASE_PADRAO / "tela" / "demo.py"
+    texto_mod = caminho_mod.read_text(encoding="utf-8")
+
+    _registrar(
+        "demo.py contem 'termios'",
+        "termios" in texto_mod,
+    )
+    _registrar(
+        "demo.py contem 'tty'",
+        "tty" in texto_mod,
+    )
+    _registrar(
+        "demo.py contem 'shutil.get_terminal_size'",
+        "shutil.get_terminal_size" in texto_mod,
+    )
+    _registrar(
+        "demo.py contem 'isatty'",
+        "isatty" in texto_mod,
+    )
+    _registrar(
+        "demo.py nao contem 'input('",
+        "input(" not in texto_mod,
+    )
+    _registrar(
+        "demo.py nao contem 'curses'",
+        "curses" not in texto_mod,
+    )
+    _registrar(
+        "demo.py nao contem 'textual'",
+        "textual" not in texto_mod,
+    )
+    _registrar(
+        "demo.py nao contem 'rich'",
+        "rich" not in texto_mod,
+    )
+
+
 def _finalizar():
     print("")
     print("== Resumo ==")
@@ -519,6 +659,7 @@ def main():
     teste_eof_sem_s()
     teste_preservacao_diagnostico()
     teste_proibicoes_importacao_demo()
+    teste_inspecao_codigo_demo()
 
     return _finalizar()
 

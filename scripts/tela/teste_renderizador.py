@@ -1,9 +1,10 @@
-"""Diagnostico do renderer visual com borda (H-0006 / H-0007).
+"""Diagnostico do renderer visual com borda (H-0006 / H-0007 / H-0009).
 
 Executavel via:
     python tela/teste_renderizador.py
 
-Cobre os criterios de aceite testaveis dos handoffs H-0006 e H-0007:
+Cobre os criterios de aceite testaveis dos handoffs H-0006, H-0007 e
+H-0009:
 
 Seções 1-5 (H-0006, preservadas):
 - renderizar_tela aceita ModeloTela valido sem excecao;
@@ -71,12 +72,10 @@ _EXPECTED_ORQUESTRADOR = (
     "╭ ORQUESTRADOR ──────────────────────────╮\n"
     "│ Tela raiz do sistema — ponto de entrada│\n"
     "╰────────────────────────────────────────╯\n"
-    "\n"
     "╭ DASHBOARD ─────────────────────────────╮\n"
     "│ Dashboard de teste                     │\n"
     "│ Sem dados carregados                   │\n"
     "╰────────────────────────────────────────╯\n"
-    "\n"
     "╭ Menu ──────────────────────────────────╮\n"
     "│ [Esc] Sair    [B] Borda                │\n"
     "╰────────────────────────────────────────╯\n"
@@ -87,12 +86,10 @@ _EXPECTED_ORQUESTRADOR_RETA = (
     "┌ ORQUESTRADOR ──────────────────────────┐\n"
     "│ Tela raiz do sistema — ponto de entrada│\n"
     "└────────────────────────────────────────┘\n"
-    "\n"
     "┌ DASHBOARD ─────────────────────────────┐\n"
     "│ Dashboard de teste                     │\n"
     "│ Sem dados carregados                   │\n"
     "└────────────────────────────────────────┘\n"
-    "\n"
     "┌ Menu ──────────────────────────────────┐\n"
     "│ [Esc] Sair    [B] Borda                │\n"
     "└────────────────────────────────────────┘\n"
@@ -216,7 +213,7 @@ def teste_renderizador_orquestrador():
 
     bate = saida == _EXPECTED_ORQUESTRADOR
     _registrar(
-        "saida bate com expected output literal do handoff H-0006",
+        "saida bate com expected output literal do handoff H-0009 (sem \\n\\n)",
         bate,
         "" if bate else "ver diff abaixo",
     )
@@ -529,6 +526,72 @@ def teste_alternancia_borda():
     )
 
 
+def teste_largura_explicita():
+    print("")
+    print("== Largura explicita (H-0009) ==")
+
+    tela_raw = carregar_tela(_BASE_PADRAO, "orquestrador")
+    modelo = construir_modelo(tela_raw)
+
+    saida_42 = renderizar_tela(modelo, largura=42)
+    bate_42 = saida_42 == _EXPECTED_ORQUESTRADOR
+    _registrar(
+        "renderizar_tela(modelo, largura=42) == _EXPECTED_ORQUESTRADOR "
+        "(fallback equivalente)",
+        bate_42,
+        "" if bate_42 else "ver diff abaixo",
+    )
+    if not bate_42:
+        print("--- esperado (repr) ---")
+        print(repr(_EXPECTED_ORQUESTRADOR))
+        print("--- obtido (repr) ---")
+        print(repr(saida_42))
+
+    saida_42_reta = renderizar_tela(modelo, largura=42, tipo_borda="reta")
+    bate_42_reta = saida_42_reta == _EXPECTED_ORQUESTRADOR_RETA
+    _registrar(
+        "renderizar_tela(modelo, largura=42, tipo_borda='reta') == "
+        "_EXPECTED_ORQUESTRADOR_RETA",
+        bate_42_reta,
+        "" if bate_42_reta else "ver diff abaixo",
+    )
+    if not bate_42_reta:
+        print("--- esperado (repr) ---")
+        print(repr(_EXPECTED_ORQUESTRADOR_RETA))
+        print("--- obtido (repr) ---")
+        print(repr(saida_42_reta))
+
+    saida_60 = renderizar_tela(modelo, largura=60)
+    _registrar(
+        "renderizar_tela(modelo, largura=60) retorna str",
+        isinstance(saida_60, str),
+        "tipo={0}".format(type(saida_60).__name__),
+    )
+
+    linhas_60_ok = all(
+        len(ln) == 60 for ln in saida_60.split("\n") if ln != ""
+    )
+    _registrar(
+        "cada linha nao-vazia de renderizar_tela(modelo, largura=60) tem 60 chars",
+        linhas_60_ok,
+    )
+
+    _registrar(
+        "saida com largura=60 comeca com '╭ ORQUESTRADOR'",
+        saida_60.startswith("╭ ORQUESTRADOR"),
+    )
+
+    _registrar(
+        "saida com largura=60 nao contem '\\n\\n' entre caixas",
+        "\n\n" not in saida_60,
+    )
+
+    _registrar(
+        "renderizar_tela(modelo) == renderizar_tela(modelo, largura=None)",
+        renderizar_tela(modelo) == renderizar_tela(modelo, largura=None),
+    )
+
+
 def main():
     print("Diagnostico H-0006/H-0007 - renderer visual com borda (curva/reta)")
     print("Base padrao: {0}".format(_BASE_PADRAO))
@@ -540,6 +603,7 @@ def main():
     teste_proibicoes_importacao()
     teste_inercia()
     teste_alternancia_borda()
+    teste_largura_explicita()
 
     print("")
     print("== Resumo ==")
