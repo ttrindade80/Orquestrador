@@ -1,11 +1,12 @@
 ---
 name: H-0011-renderizacao-lado-a-lado-barra-minima-orquestrador
-description: Handoff de implementação — renderização visual lado_a_lado para elementos console/lancador e barra mínima da tela raiz; declarativo por JSON; sem hardcoding no renderer
+description: Handoff cancelado — nao implementar; preservado apenas para rastreabilidade historica
 metadata:
   type: handoff_implementacao
-  status: HANDOFF_READY
+  status: CANCELADO_NAO_IMPLEMENTAR
   id: H-0011
   data_criacao: 2026-07-08
+  data_cancelamento: 2026-07-08
 rastreabilidade:
   contratos_alvo:
     - docs/contratos/contrato_processo_desenvolvimento.md
@@ -24,7 +25,25 @@ rastreabilidade:
 
 ## Status
 
-`HANDOFF_READY`
+`CANCELADO_NAO_IMPLEMENTAR`
+
+---
+
+## Aviso de cancelamento
+
+Este handoff está CANCELADO e não deve ser implementado.
+
+Motivo: o H-0011 foi superado pela correção arquitetural formalizada na
+ADR-0010. A ADR-0010 removeu o tratamento especial do dashboard, definiu
+console, lancador e dashboard como elementos funcionais do corpo, e determinou
+que a composição visual pertence à estrutura declarada no corpo da tela.
+
+Este documento permanece apenas para rastreabilidade histórica do bloqueio e
+do replanejamento. Ele não é base para implementação futura.
+
+O status anterior `HANDOFF_READY` fica preservado apenas como evidência
+histórica do estado em que o handoff foi preparado antes da revisão
+arquitetural. O estado final deste documento é `CANCELADO_NAO_IMPLEMENTAR`.
 
 ---
 
