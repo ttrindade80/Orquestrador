@@ -112,6 +112,7 @@ _EXPECTED_CURVA = (
     "╰──────────────────────────────────────────────────────────────────────────────╯\n"
     "╭ NAVEGAR ─────────────────────────────────────────────────────────────────────╮\n"
     "│ [d] Destino                                                                  │\n"
+    "│ [g] Grupo Min.                                                               │\n"
     "╰──────────────────────────────────────────────────────────────────────────────╯\n"
     "╭ Menus ───────────────────────────────────────────────────────────────────────╮\n"
     "│ [Esc] Sair                                                                   │\n"
@@ -139,6 +140,7 @@ _EXPECTED_RETA = (
     "└──────────────────────────────────────────────────────────────────────────────┘\n"
     "┌ NAVEGAR ─────────────────────────────────────────────────────────────────────┐\n"
     "│ [d] Destino                                                                  │\n"
+    "│ [g] Grupo Min.                                                               │\n"
     "└──────────────────────────────────────────────────────────────────────────────┘\n"
     "┌ Menus ───────────────────────────────────────────────────────────────────────┐\n"
     "│ [Esc] Sair                                                                   │\n"
@@ -167,6 +169,7 @@ _EXPECTED_DIAGNOSTICO_CURVA_42 = (
     "╰────────────────────────────────────────╯\n"
     "╭ NAVEGAR ───────────────────────────────╮\n"
     "│ [d] Destino                            │\n"
+    "│ [g] Grupo Min.                         │\n"
     "╰────────────────────────────────────────╯\n"
     "╭ Menus ─────────────────────────────────╮\n"
     "│ [Esc] Sair                             │\n"
@@ -204,6 +207,34 @@ _EXPECTED_DESTINO_MINIMO_RETA_80 = (
     "└──────────────────────────────────────────────────────────────────────────────┘\n"
     "┌ TESTE ───────────────────────────────────────────────────────────────────────┐\n"
     "│ Tela de destino para teste do lancador                                       │\n"
+    "└──────────────────────────────────────────────────────────────────────────────┘\n"
+    "┌ Menus ───────────────────────────────────────────────────────────────────────┐\n"
+    "│ [Esc] Voltar                                                                 │\n"
+    "│ [?] Ajuda                                                                    │\n"
+    "└──────────────────────────────────────────────────────────────────────────────┘\n"
+)
+
+
+_EXPECTED_GRUPO_MINIMO_CURVA_80 = (
+    "╭ GRUPO MINIMO ────────────────────────────────────────────────────────────────╮\n"
+    "│ Tela de teste — grupo estrutural com dashboard simples                       │\n"
+    "╰──────────────────────────────────────────────────────────────────────────────╯\n"
+    "╭ CONTEUDO ────────────────────────────────────────────────────────────────────╮\n"
+    "│ Dashboard dentro de grupo estrutural                                         │\n"
+    "╰──────────────────────────────────────────────────────────────────────────────╯\n"
+    "╭ Menus ───────────────────────────────────────────────────────────────────────╮\n"
+    "│ [Esc] Voltar                                                                 │\n"
+    "│ [?] Ajuda                                                                    │\n"
+    "╰──────────────────────────────────────────────────────────────────────────────╯\n"
+)
+
+
+_EXPECTED_GRUPO_MINIMO_RETA_80 = (
+    "┌ GRUPO MINIMO ────────────────────────────────────────────────────────────────┐\n"
+    "│ Tela de teste — grupo estrutural com dashboard simples                       │\n"
+    "└──────────────────────────────────────────────────────────────────────────────┘\n"
+    "┌ CONTEUDO ────────────────────────────────────────────────────────────────────┐\n"
+    "│ Dashboard dentro de grupo estrutural                                         │\n"
     "└──────────────────────────────────────────────────────────────────────────────┘\n"
     "┌ Menus ───────────────────────────────────────────────────────────────────────┐\n"
     "│ [Esc] Voltar                                                                 │\n"
@@ -486,6 +517,61 @@ def teste_navegacao_minima(modelo):
     _registrar(
         "chip 'd' preserva tipo_borda ao navegar",
         res_d_reta["tipo_borda"] == "reta",
+    )
+
+    print("")
+    print("-- Navegacao grupo_minimo (H-0013) --")
+
+    estado_raiz_g = {
+        "tipo_borda": "curva",
+        "saindo": False,
+        "tela_atual": "orquestrador",
+        "pilha_telas": [],
+    }
+
+    res_g = processar_comando(estado_raiz_g, "g", modelo)
+    _registrar(
+        "chip 'g' muda tela_atual para 'grupo_minimo' (H-0013)",
+        res_g["tela_atual"] == "grupo_minimo",
+        "tela_atual={0!r}".format(res_g.get("tela_atual")),
+    )
+    _registrar(
+        "chip 'g' empilha 'orquestrador' em pilha_telas (H-0013)",
+        res_g["pilha_telas"] == ["orquestrador"],
+        "pilha_telas={0!r}".format(res_g.get("pilha_telas")),
+    )
+    _registrar(
+        "chip 'g' nao altera tipo_borda nem saindo (H-0013)",
+        res_g["tipo_borda"] == "curva" and res_g["saindo"] is False,
+    )
+
+    estado_grupo_interno = {
+        "tipo_borda": "curva",
+        "saindo": False,
+        "tela_atual": "grupo_minimo",
+        "pilha_telas": ["orquestrador"],
+    }
+    res_esc_grupo = processar_comando(estado_grupo_interno, "\x1b")
+    _registrar(
+        "Esc em grupo_minimo volta para 'orquestrador' (H-0013)",
+        res_esc_grupo["tela_atual"] == "orquestrador"
+        and res_esc_grupo["pilha_telas"] == [],
+        "tela_atual={0!r} pilha={1!r}".format(
+            res_esc_grupo.get("tela_atual"), res_esc_grupo.get("pilha_telas")
+        ),
+    )
+    _registrar(
+        "Esc em grupo_minimo NAO define saindo == True (H-0013)",
+        res_esc_grupo["saindo"] is False,
+    )
+
+    e_g = processar_comando(estado_raiz_g, "g", modelo)
+    e_g_esc = processar_comando(e_g, "\x1b")
+    _registrar(
+        "ciclo completo: orquestrador -> grupo_minimo -> orquestrador (H-0013)",
+        e_g_esc["tela_atual"] == "orquestrador"
+        and e_g_esc["pilha_telas"] == []
+        and e_g_esc["saindo"] is False,
     )
 
 
@@ -832,6 +918,69 @@ def teste_navegacao_subprocess():
     _registrar(
         "destino_minimo.json inalterado apos navegacao",
         json_des_antes == json_des_depois,
+    )
+
+    print("")
+    print("-- Navegacao grupo_minimo via subprocess (H-0013) --")
+
+    caminho_json_grupo = _BASE_PADRAO / "config" / "telas" / "grupo_minimo.json"
+    json_grupo_antes = caminho_json_grupo.read_text(encoding="utf-8")
+
+    modelo_grupo = _carregar_modelo_por_id("grupo_minimo")
+    esperado_grupo_curva_80 = renderizar_tela(
+        modelo_grupo, tipo_borda="curva", largura=_LARGURA_SUBPROCESS
+    )
+
+    proc_nav_grupo = subprocess.run(
+        [sys.executable, "tela/demo.py"],
+        cwd=str(_BASE_PADRAO),
+        input="g\n\x1b\n\x1b\n",
+        capture_output=True,
+        text=True,
+        env=env_sem_columns,
+    )
+    saida_esperada_nav_grupo = (
+        esperado_orq_curva_80
+        + esperado_grupo_curva_80
+        + esperado_orq_curva_80
+    )
+    _registrar(
+        "demo 'g\\n\\x1b\\n\\x1b\\n' encerra com codigo 0 (H-0013)",
+        proc_nav_grupo.returncode == 0,
+        "returncode={0}".format(proc_nav_grupo.returncode),
+    )
+    if proc_nav_grupo.returncode != 0:
+        sys.stderr.write(proc_nav_grupo.stdout)
+        sys.stderr.write(proc_nav_grupo.stderr)
+    _registrar(
+        "demo 'g\\n\\x1b\\n\\x1b\\n' exibe render grupo_minimo ('GRUPO MINIMO') (H-0013)",
+        "GRUPO MINIMO" in proc_nav_grupo.stdout,
+    )
+    _registrar(
+        "demo 'g\\n\\x1b\\n\\x1b\\n' exibe '[Esc] Voltar' (H-0013)",
+        "[Esc] Voltar" in proc_nav_grupo.stdout,
+    )
+    bate_nav_grupo = proc_nav_grupo.stdout == saida_esperada_nav_grupo
+    _registrar(
+        "demo 'g\\n\\x1b\\n\\x1b\\n' gera 3 renders (orq-c,grupo-c,orq-c) largura 80 (H-0013)",
+        bate_nav_grupo,
+        "" if bate_nav_grupo else "ver diff abaixo",
+    )
+    if not bate_nav_grupo:
+        print("--- esperado (repr) ---")
+        print(repr(saida_esperada_nav_grupo))
+        print("--- stdout (repr) ---")
+        print(repr(proc_nav_grupo.stdout))
+    _registrar(
+        "demo 'g\\n\\x1b\\n\\x1b\\n' stderr vazio (H-0013)",
+        proc_nav_grupo.stderr == "",
+        "stderr={0!r}".format(proc_nav_grupo.stderr),
+    )
+
+    json_grupo_depois = caminho_json_grupo.read_text(encoding="utf-8")
+    _registrar(
+        "grupo_minimo.json inalterado apos navegacao (H-0013)",
+        json_grupo_antes == json_grupo_depois,
     )
 
 

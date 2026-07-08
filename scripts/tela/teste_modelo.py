@@ -190,10 +190,10 @@ def teste_modelo_orquestrador():
     itens_inerte_ok = (
         lancador is not None
         and isinstance(lancador._campos_inertes.get("itens"), list)
-        and len(lancador._campos_inertes.get("itens")) == 1
+        and len(lancador._campos_inertes.get("itens")) == 2
     )
     _registrar(
-        "lancador_principal._campos_inertes['itens'] e lista com 1 item (H-0010A)",
+        "lancador_principal._campos_inertes['itens'] e lista com 2 itens (H-0013)",
         itens_inerte_ok,
         "itens={0!r}".format(
             lancador._campos_inertes.get("itens") if lancador else None
@@ -202,24 +202,45 @@ def teste_modelo_orquestrador():
     if itens_inerte_ok:
         item_inerte = lancador._campos_inertes["itens"][0]
         _registrar(
-            "item inerte preserva chip == 'd'",
+            "item[0] inerte preserva chip == 'd'",
             isinstance(item_inerte, dict)
             and item_inerte.get("chip") == "d",
         )
         _registrar(
-            "item inerte preserva texto == 'Destino'",
+            "item[0] inerte preserva texto == 'Destino'",
             isinstance(item_inerte, dict)
             and item_inerte.get("texto") == "Destino",
         )
         _registrar(
-            "item inerte preserva tela_destino == 'destino_minimo'",
+            "item[0] inerte preserva tela_destino == 'destino_minimo'",
             isinstance(item_inerte, dict)
             and item_inerte.get("tela_destino") == "destino_minimo",
         )
         _registrar(
-            "item inerte preserva id == 'item_destino_minimo'",
+            "item[0] inerte preserva id == 'item_destino_minimo'",
             isinstance(item_inerte, dict)
             and item_inerte.get("id") == "item_destino_minimo",
+        )
+        item_grupo_inerte = lancador._campos_inertes["itens"][1]
+        _registrar(
+            "item[1] inerte preserva chip == 'g' (H-0013)",
+            isinstance(item_grupo_inerte, dict)
+            and item_grupo_inerte.get("chip") == "g",
+        )
+        _registrar(
+            "item[1] inerte preserva texto == 'Grupo Min.' (H-0013)",
+            isinstance(item_grupo_inerte, dict)
+            and item_grupo_inerte.get("texto") == "Grupo Min.",
+        )
+        _registrar(
+            "item[1] inerte preserva tela_destino == 'grupo_minimo' (H-0013)",
+            isinstance(item_grupo_inerte, dict)
+            and item_grupo_inerte.get("tela_destino") == "grupo_minimo",
+        )
+        _registrar(
+            "item[1] inerte preserva id == 'item_grupo_minimo' (H-0013)",
+            isinstance(item_grupo_inerte, dict)
+            and item_grupo_inerte.get("id") == "item_grupo_minimo",
         )
 
     _registrar(

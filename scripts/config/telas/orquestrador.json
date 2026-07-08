@@ -111,6 +111,12 @@
             "chip": "d",
             "texto": "Destino",
             "tela_destino": "destino_minimo"
+          },
+          {
+            "id": "item_grupo_minimo",
+            "chip": "g",
+            "texto": "Grupo Min.",
+            "tela_destino": "grupo_minimo"
           }
         ]
       }

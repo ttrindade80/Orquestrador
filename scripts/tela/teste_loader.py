@@ -233,8 +233,8 @@ def teste_caminho_feliz():
         lancador.get("itens") if isinstance(lancador, dict) else None
     )
     _registrar(
-        "lancador_principal.itens e lista com 1 item (H-0010A)",
-        isinstance(itens_lancador, list) and len(itens_lancador) == 1,
+        "lancador_principal.itens e lista com 2 itens (H-0013)",
+        isinstance(itens_lancador, list) and len(itens_lancador) == 2,
         "n={0}".format(
             len(itens_lancador) if isinstance(itens_lancador, list) else "?"
         ),
@@ -273,6 +273,41 @@ def teste_caminho_feliz():
         "lancador_principal sem 'pendencia_itens' apos adicionar item (H-0010A)",
         isinstance(lancador, dict)
         and "pendencia_itens" not in lancador,
+    )
+
+    item_grupo = (
+        itens_lancador[1]
+        if isinstance(itens_lancador, list) and len(itens_lancador) >= 2
+        else None
+    )
+    _registrar(
+        "item_grupo_minimo possui id, chip, texto e tela_destino (H-0013)",
+        isinstance(item_grupo, dict)
+        and isinstance(item_grupo.get("id"), str)
+        and isinstance(item_grupo.get("chip"), str)
+        and isinstance(item_grupo.get("texto"), str)
+        and isinstance(item_grupo.get("tela_destino"), str),
+        "item={0!r}".format(item_grupo),
+    )
+    _registrar(
+        "item_grupo_minimo: id == 'item_grupo_minimo' (H-0013)",
+        isinstance(item_grupo, dict)
+        and item_grupo.get("id") == "item_grupo_minimo",
+    )
+    _registrar(
+        "item_grupo_minimo: chip == 'g' (H-0013)",
+        isinstance(item_grupo, dict) and item_grupo.get("chip") == "g",
+    )
+    _registrar(
+        "item_grupo_minimo: texto == 'Grupo Min.' (10 chars, <= 15) (H-0013)",
+        isinstance(item_grupo, dict)
+        and item_grupo.get("texto") == "Grupo Min."
+        and len(item_grupo.get("texto", "")) == 10,
+    )
+    _registrar(
+        "item_grupo_minimo: tela_destino == 'grupo_minimo' (H-0013)",
+        isinstance(item_grupo, dict)
+        and item_grupo.get("tela_destino") == "grupo_minimo",
     )
 
     _registrar(
