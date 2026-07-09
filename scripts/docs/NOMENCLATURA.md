@@ -6,7 +6,7 @@ metadata:
   scope: sistema_novo
   status: parcial
   origem_especificacao: usuario_sessao_2026-07-05
-  atualizado_em: 2026-07-08
+  atualizado_em: 2026-07-09
   reaproveitado_de_legado: false
 ---
 
@@ -153,6 +153,17 @@ global do usuário para aquela tela especificamente. `tiling` só é
 consultado quando a classe não especifica um arranjo fixo.
 
 Campo já incluído em `contrato_estilo.md` (`ativo`).
+
+**Disambiguação terminológica obrigatória (ADR-0013, 2026-07-09)**:
+`corpo.arranjo = "vertical"` é **arranjo/composição** dos elementos do corpo
+(ADR-0011), **não** ocupação da altura do terminal. O preenchimento da altura
+da janela do terminal é conceito distinto, com termo específico próprio —
+`ocupacao_vertical_terminal` (ou equivalente, como `preenchimento_altura_corpo`
+ou `altura_disponivel`). Os dois conceitos coexistem independentemente: uma
+tela com `corpo.arranjo = "horizontal"` também deve poder ocupar a altura
+disponível. A substring `vertical` sozinha é ambígua e não deve ser usada
+como critério de alteração normativa (ver ADR-0014, regra contra filtro
+parcial).
 
 ### 1.5 Estados dinâmicos de elemento (ADR-0004 — incluído em `contrato_estilo.md`)
 
@@ -488,6 +499,41 @@ chips aplicáveis ao seu estado/capacidade atual; renderer, loader, modelo e
 demo não geram chips canônicos por conta própria; testes validam os chips
 declarados no JSON da tela. A existência de um chip canônico como categoria
 não obriga sua presença em toda tela.
+
+**Distribuição visual da barra (ADR-0014, 2026-07-09)**: o campo
+`barra_de_menus.distribuicao` é termo específico completo que controla a
+disposição visual dos chips na região da barra. Quando
+`barra_de_menus.distribuicao = "horizontal"`, os chips devem ser dispostos
+como **distribuição horizontal responsiva** — não linha única fixa e não
+empilhados um por linha; se não couberem em uma linha, a barra quebra em
+multilinha de forma determinística conforme declarado. A string `"horizontal"`
+é **alias transitório** de
+`barra_de_menus.distribuicao.modo = "horizontal_responsiva"`; o formato
+canônico futuro é objeto declarativo, registrado na ADR-0014, aplicável em
+handoff futuro.
+
+**Disambiguação obrigatória — três termos distintos e independentes**:
+
+| Termo específico completo | Conceito | Região | Forma |
+|---|---|---|---|
+| `corpo.arranjo = "horizontal"` | ordem/composição horizontal dos elementos do corpo (ADR-0011) | corpo | arranjo |
+| `barra_de_menus.distribuicao = "horizontal"` | distribuição horizontal **responsiva** dos chips (alias transitório) | barra_de_menus | string transitória |
+| `barra_de_menus.distribuicao.modo = "horizontal_responsiva"` | forma canônica futura da distribuição responsiva dos chips | barra_de_menus | objeto declarativo |
+
+Esses três termos **não colapsam**: uma substring (`horizontal`) não os
+identifica unicamente. `barra_de_menus.distribuicao` é **independente** de
+`corpo.arranjo` — uma tela pode ter `corpo.arranjo = "vertical"` e
+`barra_de_menus.distribuicao = "horizontal"` simultaneamente. Chips de itens
+do `lancador`/corpo (ex.: `g`, `d`) não são chips da `barra_de_menus` e não
+seguem esta distribuição.
+
+**Regra de alteração por termo específico (ADR-0014, Parte B)**: alterações
+normativas e implementações devem atingir apenas termos específicos
+completos (ex.: `corpo.arranjo = "vertical"`,
+`barra_de_menus.distribuicao = "horizontal"`, `ocupacao_vertical_terminal`).
+Filtros parciais por substring (`vertical`, `horizontal`, `barra`, `chip`,
+`arranjo`) podem ser usados apenas para busca/auditoria, nunca como
+critério automático de substituição.
 
 Chips canônicos e chips específicos devem poder ser instâncias declaradas
 no JSON da tela. A futura classe `chip` será detalhada em contrato próprio

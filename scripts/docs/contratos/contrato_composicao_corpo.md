@@ -18,6 +18,7 @@ metadata:
       - docs/adr/ADR-0008-modelo-configuracao-por-tela.md
       - docs/adr/ADR-0010-composicao-hierarquica-corpo-dashboard.md
       - docs/adr/ADR-0011-terminologia-arranjo-vertical-horizontal.md
+      - docs/adr/ADR-0013-ocupacao-vertical-janela-terminal-corpo.md
     reaproveitado_de_legado: false
 ---
 
@@ -193,6 +194,32 @@ internos do `lancador` pertencem a `contrato_lancador.md`.
 O renderer sempre insere uma linha em branco entre a borda e o conteúdo em
 qualquer elemento do corpo, sem exceção e sem possibilidade de supressão pela
 tela, pelo estilo ou pelo tipo de conteúdo.
+
+### 4.7 Ocupação vertical da janela (ADR-0013)
+
+A tela deve ocupar a largura **e** a altura disponíveis da janela do terminal.
+A largura já é tratada dinamicamente; a `altura_disponivel` é **dimensão
+futura** da renderização da tela, a ser propagada em handoff futuro.
+
+Distinção obrigatória (não colapsa):
+
+| Termo específico | Significado |
+|---|---|
+| `corpo.arranjo = "vertical"` | Ordem/composição vertical dos elementos do corpo (ADR-0011) |
+| `ocupacao_vertical_terminal` / `preenchimento_altura_corpo` | Preenchimento da altura da janela entre `cabecalho` e `barra_de_menus` (ADR-0013) |
+
+O corpo deve poder ocupar a altura disponível com **preenchimento de linhas
+em branco** adicionadas pelo renderer quando o conteúdo declarado for menor
+que a altura disponível. Esse preenchimento é **responsabilidade do
+renderer**, não do `tela.json` — o JSON não declara linhas de preenchimento.
+
+A decisão de ocupação vertical **não introduz novo arranjo nem altera a
+composição** declarada em `corpo.arranjo`: uma tela com
+`corpo.arranjo = "horizontal"` também deve poder ocupar a altura disponível.
+A representação exata das linhas de preenchimento (linha visual interna à
+caixa do corpo vs. linha física com largura total) é decisão de handoff
+futuro, desde que não seja tratada como novo arranjo nem novo tipo de
+elemento do corpo.
 
 ---
 

@@ -13,6 +13,7 @@ metadata:
       - docs/adr/ADR-0005-lancador-nao-e-corpo-navegavel.md
       - docs/adr/ADR-0008-modelo-configuracao-por-tela.md
       - docs/adr/ADR-0012-barra-de-menus-declarativa-por-tela.md
+      - docs/adr/ADR-0014-barra-horizontal-termos-especificos.md
     reaproveitado_de_legado: false
 ---
 
@@ -499,6 +500,56 @@ Regras de distribuição:
   existentes na instância — chips presentes respeitam a sequência canônica;
 - teclas duplicadas na mesma instância da `barra_de_menus` são erro de
   validação.
+
+**Distribuição horizontal responsiva (ADR-0014, 2026-07-09)**:
+`barra_de_menus.distribuicao` é termo específico completo que controla a
+disposição visual dos chips na região da barra.
+
+- `barra_de_menus.distribuicao = "horizontal"` **NÃO** significa linha única
+  fixa; significa **distribuição horizontal responsiva** dos chips.
+- `barra_de_menus.distribuicao = "horizontal"` é **alias transitório** de
+  `barra_de_menus.distribuicao.modo = "horizontal_responsiva"`, com defaults
+  definidos por este contrato ou pelo handoff aplicável.
+- O **formato canônico futuro** de `barra_de_menus.distribuicao` é **objeto
+  declarativo** com `modo = "horizontal_responsiva"` (a migração de
+  JSON/código/testes para esse formato é pendência de handoff futuro; este
+  contrato não cria nem altera JSON).
+- **Tentativa inicial** em linha única (`tentativa_inicial = "linha_unica"`).
+- **Quebra** para multilinha quando não couber
+  (`quebra = "multilinha_quando_nao_couber"`), até `linhas.maximo`.
+- **Preenchimento multilinha** declarado (`coluna_a_coluna` ou
+  `linha_a_linha`).
+- **Vãos** mínimos/máximos declarados (`margem_horizontal`, `vao_chip_texto`,
+  `vao_entre_chips`, `vao_entre_colunas`, `vao_vertical_entre_linhas`).
+- **Ordem** por declaração (`ordem.politica = "declaracao"` usa a ordem de
+  `barra_de_menus.chips[]`; `"grupos_declarados"` usa a ordem dos grupos e
+  dos chips dentro de cada grupo).
+- **Âncoras** (ex.: `chip_esc` primeiro, `chip_ajuda` último) são restrições
+  de **validação**, não instruções de reordenação automática; ordem que
+  viola âncora é erro de validação, o renderer não reordena para corrigir.
+- **Overflow** determinístico: quando nenhum arranjo couber, o resultado é
+  `quando_nao_couber = "erro_layout"` — erro determinístico de layout, nunca
+  omissão/truncamento/reordenação para "fazer caber".
+
+**Proibições do renderer** (reforçam a seção 19 e a ADR-0014):
+
+- **não empilhar um chip por linha** como fallback quando a distribuição
+  declarada for `horizontal`/`horizontal_responsiva`;
+- **não omitir chip** quando não couber (`nao_omitir_chips`);
+- **não truncar texto** para caber (`nao_truncar_texto`);
+- **não reordenar chips** para caber (`nao_reordenar`);
+- **não inventar chips ausentes** nem completar a barra com a lista
+  canônica global;
+- **não aplicar regra do `lancador` por herança** — a distribuição da barra
+  é independente da composição do corpo.
+
+A distribuição horizontal responsiva da barra **não é** o mesmo conceito que
+`corpo.arranjo = "horizontal"` (arranjo do corpo, ADR-0011): são campos em
+regiões distintas com semântica própria e independentes entre si. Chips de
+itens do `lancador`/corpo (ex.: `g`, `d`) não são chips da `barra_de_menus` e
+não seguem esta distribuição. A implementação da distribuição horizontal
+responsiva no renderer é pendência de handoff futuro; esta seção fixa a norma
+contratual que o handoff deverá respeitar.
 
 ---
 

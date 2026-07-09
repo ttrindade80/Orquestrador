@@ -40,6 +40,8 @@ Este indice registra as ADRs aceitas do projeto.
 | ADR-0010 | composição hierárquica do corpo e dashboard como elemento funcional | aceita | 2026-07-08 |
 | ADR-0011 | terminologia de arranjo: `vertical`/`horizontal` (aliases transicionais `sobreposto`/`lado_a_lado`) | aceita | 2026-07-08 |
 | ADR-0012 | `barra_de_menus` declarativa por tela | aceita | 2026-07-08 |
+| ADR-0013 | ocupação vertical da janela do terminal pelo corpo (`ocupacao_vertical_terminal`) — distinta de `corpo.arranjo` | aceita | 2026-07-09 |
+| ADR-0014 | distribuição horizontal **responsiva** da `barra_de_menus` (`distribuicao = "horizontal"` como alias transitório de `modo = "horizontal_responsiva"`) + regra de alteração por termo específico completo | aceita | 2026-07-09 |
 
 ## Exemplo de linha
 

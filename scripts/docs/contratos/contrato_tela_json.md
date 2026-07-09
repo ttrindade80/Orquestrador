@@ -237,6 +237,16 @@ instância de tela.
 específica; não são terminologia final. Novos JSONs de tela devem usar
 `vertical`/`horizontal`, salvo compatibilidade transicional explicitada.
 
+**Ocupação vertical da janela (ADR-0013, 2026-07-09)**: a tela deve ocupar a
+largura **e** a altura disponíveis da janela do terminal. A largura já é
+tratada dinamicamente; a `altura_disponivel` passa a ser **dimensão futura**
+da renderização da tela — o corpo deve preencher a área vertical disponível
+entre `cabecalho` e `barra_de_menus`, com preenchimento de linhas em branco
+pelo renderer quando o conteúdo declarado for menor. Esta ocupação **não**
+altera a semântica de `corpo.arranjo`: `corpo.arranjo = "vertical"` é
+composição, `ocupacao_vertical_terminal` é preenchimento da altura — termos
+específicos distintos que não colapsam.
+
 ---
 
 ## 10. `lancador` como instância
@@ -496,6 +506,33 @@ distribuicao
 
 A `barra_de_menus` é uma instância declarada pela tela. Ela não decide
 composição; ela apenas expõe chips declarados.
+
+**Distribuição visual (ADR-0014, 2026-07-09)**: `barra_de_menus.distribuicao`
+admite duas formas aceitas:
+
+- **forma transitória** — string `"horizontal"`, presente nos JSONs ativos;
+- **forma canônica futura** — objeto declarativo, com
+  `barra_de_menus.distribuicao.modo = "horizontal_responsiva"`.
+
+A string `"horizontal"` é **alias transitório** de
+`distribuicao.modo = "horizontal_responsiva"` e significa **distribuição
+horizontal responsiva** dos chips — **não** linha única fixa. O renderer deve
+respeitar a distribuição declarada, dispondo os chips horizontalmente e
+quebrando em multilinha de forma determinística quando não couberem em uma
+linha, sem omitir, truncar ou reordenar chips para "fazer caber". A migração
+dos JSONs para o formato canônico objeto é pendência de handoff futuro;
+`tela.json` deve poder declarar ambas as formas.
+
+`barra_de_menus.distribuicao` é termo específico completo, distinto de
+`corpo.arranjo = "horizontal"` (arranjo do corpo, ADR-0011): são campos em
+regiões distintas com semântica própria. Detalhes normativos completos
+(alias transitório, estrutura canônica futura, algoritmo, ordem, âncoras,
+overflow e proibições) em `contrato_barra_de_menus.md` seção 17 e na ADR-0014.
+
+**Alteração por termo específico (ADR-0014, Parte B)**: termos ambíguos
+(`vertical`, `horizontal`, `barra`, `chip`, `arranjo`) não devem ser
+alterados por filtro parcial automatizado; alterações normativas e de
+implementação devem atingir apenas termos específicos completos.
 
 ---
 

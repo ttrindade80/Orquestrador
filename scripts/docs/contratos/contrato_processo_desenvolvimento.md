@@ -138,7 +138,35 @@ sobre se o suporte existe, tratar como ciclo formal até confirmar.
 A regra acima foi formalizada a partir da validação declarativa com `stub_b`
 registrada em `f41bd2f`.
 
-## 10. Exemplos neutros de nomes
+## 10. Alteração por termo específico completo (ADR-0014)
+
+Substrings ambíguas circulam no sistema com significados distintos. Por
+exemplo, `vertical` e `horizontal` aparecem em `corpo.arranjo` (ADR-0011),
+em `barra_de_menus.distribuicao` (ADR-0014) e em
+`ocupacao_vertical_terminal` (ADR-0013) — três conceitos diferentes. Aplicar
+uma decisão procurando apenas por substring atinge campos/conceitos errados.
+
+Regras:
+
+- **filtros parciais podem ser usados para busca**, auditoria e localização
+  de candidatos (`rg`/`grep` por `vertical`, `horizontal`, `barra`, `chip`,
+  `arranjo`, etc.);
+- **alterações normativas e implementações devem atingir apenas termos
+  específicos completos** — ex.: `corpo.arranjo = "vertical"`,
+  `barra_de_menus.distribuicao = "horizontal"`, `ocupacao_vertical_terminal`,
+  `preenchimento_altura_corpo`;
+- **filtros parciais NÃO podem ser usados como critério de alteração
+  normativa automática** — substituição global por substring é proibida;
+- **ADRs e handoffs devem declarar exatamente o campo/conceito afetado**,
+  nomeando o termo específico completo por extenso;
+- **auditorias devem bloquear substituição por substring ambígua** quando
+  houver mais de um termo específico candidato para a mesma substring.
+
+A busca por substring é etapa de levantamento; a alteração é etapa normativa
+distinta e exige confirmação termo a termo. Esta regra vale para ADRs
+futuras, handoffs, implementações, migrações e QAs.
+
+## 11. Exemplos neutros de nomes
 
 ```text
 docs/contratos/contrato_modulo_exemplo.md
