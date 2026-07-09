@@ -14,6 +14,7 @@ metadata:
       - docs/adr/ADR-0008-modelo-configuracao-por-tela.md
       - docs/adr/ADR-0009-caminho-formato-jsons-tela.md
       - docs/adr/ADR-0010-composicao-hierarquica-corpo-dashboard.md
+      - docs/adr/ADR-0011-terminologia-arranjo-vertical-horizontal.md
     reaproveitado_de_legado: false
 ---
 
@@ -106,7 +107,7 @@ Quando a tela fixa explicitamente o arranjo do corpo:
   "id": "exemplo",
   "cabecalho": {},
   "corpo": {
-    "arranjo": "sobreposto",
+    "arranjo": "vertical",
     "elementos": []
   },
   "barra_de_menus": {
@@ -121,8 +122,13 @@ elementos funcionais do corpo (`console`, `lancador`, `dashboard`) — todos os
 elementos do corpo seguem o mecanismo geral de composição declarativa
 (ADR-0010). O campo `posicao_dashboard` está descontinuado como eixo de
 posicionamento independente; JSONs existentes com esse campo podem ser
-honrados por compatibilidade em H-0011A. Ver `contrato_composicao_corpo.md`
+  honrados por compatibilidade em handoff futuro de migração. Ver `contrato_composicao_corpo.md`
 e `contrato_json_dashboard.md`.
+
+> **Terminologia final (ADR-0011)**: `vertical`/`horizontal` são os valores
+> finais de `corpo.arranjo`. `sobreposto`/`lado_a_lado` são aliases
+> transicionais aceitos para compatibilidade de JSONs legados até migração
+> específica.
 
 ---
 
@@ -145,7 +151,7 @@ no envelope mínimo.
 
 | Campo | Valores | Regra |
 |---|---|---|
-| `corpo.arranjo` | `"sobreposto"` \| `"lado_a_lado"` | Quando declarado, fixa o arranjo para a tela e o renderer ignora `tiling` do estilo ativo. Quando não declarado, o renderer consulta o campo `tiling` do estilo ativo como default — ver `contrato_composicao_corpo.md` seção 5.6. |
+| `corpo.arranjo` | `"vertical"` \| `"horizontal"` | Valores finais (ADR-0011). Quando declarado, fixa o arranjo para a tela e o renderer ignora `tiling` do estilo ativo. Quando não declarado, o renderer consulta o campo `tiling` do estilo ativo como default — ver `contrato_composicao_corpo.md` seção 5.6. Os aliases transicionais `sobreposto` (→ `vertical`) e `lado_a_lado` (→ `horizontal`) são aceitos para compatibilidade de JSONs legados até migração específica. |
 
 Regras complementares:
 
@@ -155,7 +161,7 @@ Regras complementares:
   `corpo`, não um eixo independente (ADR-0010, 2026-07-08). O campo
   `posicao_dashboard` está descontinuado como eixo independente; JSONs
   existentes com esse campo podem ser honrados por compatibilidade transicional
-  em H-0011A. Ver `contrato_json_dashboard.md`.
+  em handoff futuro de migração. Ver `contrato_json_dashboard.md`.
 - O renderer não inventa arranjo, não cria fallback próprio baseado em largura
   de terminal e não decide composição por condição de ambiente.
 

@@ -38,6 +38,8 @@ Este indice registra as ADRs aceitas do projeto.
 | ADR-0008 | modelo de configuração por tela | aceita | 2026-07-07 |
 | ADR-0009 | caminho, nomenclatura e formato dos JSONs de tela | aceita | 2026-07-07 |
 | ADR-0010 | composição hierárquica do corpo e dashboard como elemento funcional | aceita | 2026-07-08 |
+| ADR-0011 | terminologia de arranjo: `vertical`/`horizontal` (aliases transicionais `sobreposto`/`lado_a_lado`) | aceita | 2026-07-08 |
+| ADR-0012 | `barra_de_menus` declarativa por tela | aceita | 2026-07-08 |
 
 ## Exemplo de linha
 

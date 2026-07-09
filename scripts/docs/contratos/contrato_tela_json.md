@@ -187,15 +187,23 @@ Essa lista é a taxonomia atual do corpo. Extensões futuras exigem ADR.
 **Composição hierárquica (ADR-0010)**: `elementos[]` pode evoluir para
 admitir agrupamentos e composição hierárquica, preservando compatibilidade
 com a forma plana atual. A lista plana de elementos continua válida; o schema
-pode conter grupos que envolvem elementos conforme a sequência incremental
-H-0011A–D:
+pode conter grupos que envolvem elementos conforme capacidades incrementais
+futuras, tais como:
 
-- **H-0011A**: layout hierárquico vertical compatível — `elementos[]` pode
-  conter grupos; JSONs com lista plana permanecem válidos sem alteração;
-- **H-0011B**: layout horizontal plano — todos os elementos funcionais
-  (`console`, `lancador`, `dashboard`) podem participar de arranjo horizontal;
-- **H-0011C**: distribuição por percentual/fração;
-- **H-0011D**: aninhamento de grupos.
+- layout hierárquico vertical compatível — `elementos[]` pode conter grupos;
+  JSONs com lista plana permanecem válidos sem alteração;
+- layout horizontal plano — todos os elementos funcionais (`console`,
+  `lancador`, `dashboard`) podem participar de arranjo horizontal;
+- distribuição por percentual/fração;
+- aninhamento de grupos.
+
+A sequência histórica registrada pela ADR-0010 foi cancelada como
+roteiro ativo: a sequência anterior (com letras) foi removida como
+planejamento vigente e não orienta novos ciclos. A partir de H-0014, a
+numeração de handoffs **não usa letras** (H-0014, H-0015, …), conforme
+estabelecido por H-0012/H-0013 e reafirmado pela ADR-0011. As
+capacidades listadas acima serão endereçadas em handoffs numerados
+posteriores, conforme decisão de planejamento futura.
 
 `console`, `lancador` e `dashboard` são elementos funcionais do corpo. O
 posicionamento de qualquer elemento é controlado pela estrutura declarada
@@ -221,6 +229,13 @@ Regras:
 
 `estilo.json` permanece biblioteca global de aparência. `tela.json` declara a
 instância de tela.
+
+**Terminologia de arranjo (ADR-0011, 2026-07-08)**: os valores finais de
+`corpo.arranjo` são `vertical` e `horizontal`. Os termos `sobreposto` e
+`lado_a_lado` são aliases transicionais (`sobreposto → vertical`,
+`lado_a_lado → horizontal`), aceitos para compatibilidade até migração
+específica; não são terminologia final. Novos JSONs de tela devem usar
+`vertical`/`horizontal`, salvo compatibilidade transicional explicitada.
 
 ---
 

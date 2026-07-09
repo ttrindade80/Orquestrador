@@ -6,7 +6,7 @@ metadata:
   scope: sistema_novo
   status: parcial
   origem_especificacao: usuario_sessao_2026-07-05
-  atualizado_em: 2026-07-07
+  atualizado_em: 2026-07-08
   reaproveitado_de_legado: false
 ---
 
@@ -128,7 +128,11 @@ schema; nenhum valor concreto foi decidido até o momento.
 
 ### 1.4 Preferência de tiling (default)
 
-Campo `tiling`, valores possíveis: `sobreposto` | `lado_a_lado`.
+Campo `tiling`. **Terminologia final de arranjo (ADR-0011, 2026-07-08)**:
+valores finais são `vertical` | `horizontal`. Os termos `sobreposto` e
+`lado_a_lado` permanecem como **aliases transicionais** — `sobreposto → vertical`
+e `lado_a_lado → horizontal` — apenas para compatibilidade de JSONs/contratos
+legados até migração específica; não são terminologia final.
 
 Escolha manual do usuário, não decisão automática por largura de
 terminal. Não existe largura mínima de segurança que force sobreposto —
@@ -141,7 +145,7 @@ declarativa do `corpo` (ADR-0010, 2026-07-08). A posição do `dashboard` não
 estrutura declarativa do `corpo`. Ver seção 3 para a tabela de eixos e
 seção 10 para tiling. O campo `posicao_dashboard` está descontinuado como
 eixo independente (ADR-0010); JSONs existentes com esse campo podem ser
-honrados por compatibilidade em H-0011A.
+honrados por compatibilidade em handoff futuro de migração.
 
 **É default, não obrigatório**: a classe de tela pode fixar seu próprio
 arranjo (seção 3, "Arranjo de múltiplos corpos") e ignorar a preferência
@@ -280,8 +284,8 @@ barra_de_menus.
 | Tipo de exibicao | `normal` (lista simples) / `verboso` (detalhes) — aplica-se apenas a `console` |
 | Dashboard | presente / ausente |
 | Quantidade de corpos | 1 corpo / múltiplos corpos |
-| Arranjo de múltiplos corpos (opcional) | `sobreposto` / `lado_a_lado` — a classe PODE fixar isso; se não fixar, usa o `tiling` global do estilo (seção 1.4) como default |
-| Posição do dashboard | Controlada pela estrutura declarativa geral do `corpo` (ADR-0010). `dashboard` é elemento funcional do corpo como `console` e `lancador`; não possui eixo de posicionamento separado. O campo `posicao_dashboard` (`horizontal`/`vertical`) está descontinuado como eixo independente; JSONs existentes com este campo podem ser honrados por compatibilidade em H-0011A. |
+| Arranjo de múltiplos corpos (opcional) | `vertical` / `horizontal` (terminologia final, ADR-0011) — a classe PODE fixar isso; se não fixar, usa o `tiling` global do estilo (seção 1.4) como default. `sobreposto`/`lado_a_lado` são aliases transicionais |
+| Posição do dashboard | Controlada pela estrutura declarativa geral do `corpo` (ADR-0010). `dashboard` é elemento funcional do corpo como `console` e `lancador`; não possui eixo de posicionamento separado. O campo `posicao_dashboard` (`horizontal`/`vertical`) está descontinuado como eixo independente; JSONs existentes com este campo podem ser honrados por compatibilidade em handoff futuro de migração. |
 | Paginacao | com / sem |
 | Colunas ajustavel (tipo `console`) | com / sem — eixo proprio, distinto de paginacao. Aplica-se apenas a corpos tipo `console`, ajustável manualmente via chip `[-][+]` |
 | `filtro_de_grupo` | `com` / `sem` — eixo próprio; condiciona a existência estrutural do chip `[#]`; não decide ainda a relação entre filtro de grupo e seleção |
@@ -478,6 +482,13 @@ sua `barra_de_menus` no JSON da tela como uma lista de chips. A barra
 continua sendo espelho da declaração — nunca fonte de decisão sobre
 composição.
 
+**Declarativa por tela (ADR-0012, 2026-07-08)**: a `barra_de_menus` não
+contém todos os chips canônicos por padrão. Cada tela declara apenas os
+chips aplicáveis ao seu estado/capacidade atual; renderer, loader, modelo e
+demo não geram chips canônicos por conta própria; testes validam os chips
+declarados no JSON da tela. A existência de um chip canônico como categoria
+não obriga sua presença em toda tela.
+
 Chips canônicos e chips específicos devem poder ser instâncias declaradas
 no JSON da tela. A futura classe `chip` será detalhada em contrato próprio
 (DOC-B006). Até lá, a ordem e semântica de cada chip são definidas nesta
@@ -491,17 +502,17 @@ seção.
 
 | Chip | Rótulo | Presença (existência) | Condição de existência | Estado ativo/inativo |
 |---|---|---|---|---|
-| `[Esc]` | Sair (só na tela Orquestrador) / Voltar (demais telas) / **Limpar** (ver 5.1.2) | sempre, primeiro | fixo — "Sair" é exclusivo da tela raiz (Orquestrador); qualquer outra tela usa "Voltar" | sempre ativo |
+| `[Esc]` | Sair (só na tela Orquestrador) / Voltar (demais telas) / **Limpar** (ver 5.1.2) | declarativa por tela; quando presente, primeiro na ordem | fixo — "Sair" é exclusivo da tela raiz (Orquestrador); qualquer outra tela usa "Voltar" | sempre ativo |
 | `[<][>]` | Páginas | condicional | classe declara `paginacao: com` | inativo quando há apenas 1 página no momento |
 | `[-][+]` | Colunas | condicional | classe declara `colunas_ajustavel: com` (tipo `console`) | `[-]` inativo em `n_col` mínimo (1); `[+]` inativo em `n_col` máximo que a largura atual comporta |
 | `[#]` | Grupos | condicional | classe declara filtro por grupo — abre entrada para digitar número do grupo, filtra exibição | — |
 | `[⇆]` | Alternar | condicional | `quantidade_corpos: multiplos` — alterna foco de interação entre corpos | — |
 | `[✥]` | Navegar | condicional | tela possui ao menos um corpo tipo `console` navegável — move o cursor via setas do teclado quando o corpo em foco é `console` navegável (ver 4.1) | inativo via `cor_inativo` quando há outro corpo tipo `console` navegável na tela, mas o corpo em foco não é `console` |
 | `[␣]` | Selecionar | condicional | classe declara formação de seleção (ver seção 4) — toggle nomeado, indicador `●`/`○` | — |
-| `[⏎]` | **Todos** / **Executar** / **Visualizar** (ver 5.1.2) | sempre | executa a ação vinculada ao item sob o cursor ou sobre a seleção, conforme o tipo de tela | inativo quando não há alvo válido sob o cursor |
+| `[⏎]` | **Todos** / **Executar** / **Visualizar** (ver 5.1.2) | declarativa por tela | executa a ação vinculada ao item sob o cursor ou sobre a seleção, conforme o tipo de tela | inativo quando não há alvo válido sob o cursor |
 | específicos | (por classe) | condicional | chips próprios da classe — ver seção 5.2 | — |
 | `[V]` | Verboso | condicional | classe/dados aceitam `tipo_exibicao: verboso` (só existe pra `console`, ver seção 3) | — |
-| `[?]` | Ajuda | sempre, último | — | sempre ativo |
+| `[?]` | Ajuda | declarativa por tela; quando presente, último na ordem | — | sempre ativo |
 
 **`[-][+]` — `n_col` não aparece no chip (decisão intencional)**: o chip
 exibe o rótulo "Colunas"; o número atual de colunas (`n_col`) não aparece
@@ -871,7 +882,8 @@ incompleto, não um estado real do sistema.
 
 - Quantidade de corpos (1 / múltiplos) é declarada pela classe de tela
   (seção 3).
-- Se múltiplos, o **arranjo** (sobreposto vs lado a lado) pode ser
+- Se múltiplos, o **arranjo** (`vertical`/`horizontal` — terminologia final,
+  ADR-0011; `sobreposto`/`lado a lado` são aliases transicionais) pode ser
   **fixado pela própria classe** — nesse caso, a preferência global do
   usuário é ignorada para aquela tela.
 - Se a classe não fixar arranjo, usa-se o campo `tiling` do estilo (seção

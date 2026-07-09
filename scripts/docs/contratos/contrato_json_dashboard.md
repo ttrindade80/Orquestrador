@@ -101,8 +101,8 @@ Observações sobre o envelope mínimo:
   pela estrutura declarativa geral do `corpo`, como acontece com `console` e
   `lancador`. O campo `posicao_dashboard` não é eixo independente de
   `arranjo` nem de `tiling`. JSONs existentes com este campo podem ser
-  honrados por compatibilidade em H-0011A. A migração/descarte do campo
-  ocorrerá em handoff específico após H-0011A.
+  honrados por compatibilidade em ciclo futuro de migração. A migração/
+  descarte do campo ocorrerá em handoff numerado posterior.
 
 ---
 
@@ -117,7 +117,7 @@ Observações sobre o envelope mínimo:
 | `conteudo.tipo` | string | Tipo de conteúdo: `"placeholder"` (sem conteúdo real) ou identificador de tipo real definido por contrato próprio. |
 | `conteudo.binding` | objeto ou null | Vínculo declarativo com a origem de dados. `null` quando não há dados vinculados. |
 | `regras_exibicao` | objeto | Regras de posicionamento e exibição da instância no corpo. A posição visual do `dashboard` é controlada pela estrutura declarativa geral do `corpo` (ADR-0010). |
-| `regras_exibicao.posicao_dashboard` | string (transicional) | **Campo descontinuado como eixo independente (ADR-0010)**. `"vertical"` ou `"horizontal"`. JSONs existentes com este campo podem ser honrados por compatibilidade em H-0011A. Não é eixo separado de `arranjo` nem de `tiling`. |
+| `regras_exibicao.posicao_dashboard` | string (transicional) | **Campo descontinuado como eixo independente (ADR-0010)**. `"vertical"` ou `"horizontal"`. JSONs existentes com este campo podem ser honrados por compatibilidade em handoff futuro de migração. Não é eixo separado de `arranjo` nem de `tiling`. |
 
 ---
 
@@ -154,7 +154,9 @@ do `corpo`, como acontece com `console` e `lancador`. O campo
 `regras_exibicao.posicao_dashboard` está descontinuado como eixo de
 posicionamento independente de `arranjo` e `tiling` (ADR-0010, 2026-07-08).
 JSONs existentes com esse campo podem ser honrados por compatibilidade em
-H-0011A; a migração/descarte ocorrerá em handoff específico após H-0011A.
+handoff futuro de migração; a migração/descarte ocorrerá em handoff
+numerado posterior. A sequência anterior de planejamento foi
+cancelada/removida e não orienta novos ciclos.
 
 ---
 

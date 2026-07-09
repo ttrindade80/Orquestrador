@@ -12,6 +12,7 @@ metadata:
       - docs/adr/ADR-0004-estilo-cor-inativo-cor-alerta.md
       - docs/adr/ADR-0005-lancador-nao-e-corpo-navegavel.md
       - docs/adr/ADR-0008-modelo-configuracao-por-tela.md
+      - docs/adr/ADR-0012-barra-de-menus-declarativa-por-tela.md
     reaproveitado_de_legado: false
 ---
 
@@ -105,6 +106,18 @@ própria, sem lógica de seleção de chips, sem fallback, sem lista hardcoded.
 
 Esta regra deriva da seção 5.1 de `docs/NOMENCLATURA.md`, parágrafo "Regra
 estrutural", e da ADR-0008.
+
+**Política declarativa por tela (ADR-0012, 2026-07-08)**: a `barra_de_menus`
+é declarativa por tela e **não contém todos os chips canônicos por padrão**.
+Cada tela declara apenas os chips aplicáveis ao seu estado/capacidade atual.
+O Orquestrador não precisa declarar todos os chips canônicos. A existência de
+um chip canônico como categoria semântica **não obriga** sua presença em toda
+tela — "canônico" define semântica e ordem quando o chip está presente, não
+obrigatoriedade de declaração. Chips condicionais só devem ser declarados
+quando a capacidade correspondente existir ou for aplicável à tela; se a
+capacidade não está implementada, o chip não deve ser declarado apenas por
+ser canônico. Testes devem validar os chips declarados no JSON da tela, não
+um conjunto global obrigatório.
 
 ---
 
@@ -201,18 +214,22 @@ Esta distinção é definida em `docs/NOMENCLATURA.md` seção 1.5 e formalizada
 em ADR-0004, que inclui `cor_inativo` e `cor_alerta` no schema de estilo
 (`contrato_estilo.md` seção 3.5).
 
-### 8.2 Chips canônicos de existência sempre presente
+### 8.2 Chips canônicos de semântica fixa
 
-Os chips abaixo existem em toda instância de `barra_de_menus`. São chips
-padronizados cuja semântica é definida por este contrato. A declaração
-concreta no `tela.json` especifica texto, tecla e ação; os invariantes de
-semântica são não negociáveis.
+Os chips abaixo são canônicos de semântica fixa. "Canônico" significa
+nome/semântica reconhecida pelo sistema, **não** presença obrigatória em toda
+tela (ADR-0012). A presença de cada um é declarativa por tela: a instância
+declarada no `tela.json` declara apenas os chips aplicáveis ao seu
+estado/capacidade atual. Quando presentes, esses chips seguem os invariantes
+contratuais abaixo (posição e estado); a declaração concreta no `tela.json`
+especifica texto, tecla e ação, e os invariantes de semântica são não
+negociáveis.
 
-| Chip canônico / notação documental | Rótulo documental | Estado | Regra |
+| Chip canônico / notação documental | Rótulo documental | Estado (quando presente) | Regra |
 |---|---|---|---|
-| `[Esc]` | Sair / Voltar / Limpar (ver seção 9) | sempre ativo | Primeiro na ordem; rótulo dinâmico conforme contexto |
+| `[Esc]` | Sair / Voltar / Limpar (ver seção 9) | sempre ativo | Primeiro na ordem quando declarado; rótulo dinâmico conforme contexto |
 | `[⏎]` | Ação do item em foco (ver seção 10) | inativo quando item em foco não tem ação válida | Rótulo derivado da ação declarada pelo item |
-| `[?]` | Ajuda | sempre ativo | Último na ordem |
+| `[?]` | Ajuda | sempre ativo | Último na ordem quando declarado |
 
 ### 8.3 Chips canônicos de existência condicional
 
@@ -247,8 +264,8 @@ Não são intercambiáveis.
 
 ## 9. `[Esc]` — comportamento contextual
 
-`[Esc]` sempre existe e sempre está ativo, mas o rótulo e a ação variam
-conforme o contexto da tela e o estado da seleção:
+`[Esc]`, quando declarado na instância, é sempre ativo, mas o rótulo e a ação
+variam conforme o contexto da tela e o estado da seleção:
 
 | Contexto | Rótulo documental | Ação |
 |---|---|---|
@@ -619,8 +636,7 @@ nem de ativação de `[✥]` (ADR-0005).
 - [ ] `[V]` só existe quando a instância de `console` declara que permite modo
       verboso.
 - [ ] Chips específicos de classe aparecem entre `[⏎]` e `[V]`/`[?]`.
-- [ ] `[?]` existe e está ativo em toda instância da `barra_de_menus`, sempre
-      como último chip.
+- [ ] `[?]`, quando declarado, é o último chip da instância e permanece ativo.
 - [ ] A distinção `barra_de_menus` vs objeto `lancador` do corpo é verificável:
       chips dos itens do `lancador` não são chips da `barra_de_menus`; nenhuma
       regra de layout de `contrato_lancador.md` é aplicada ao renderer da barra.

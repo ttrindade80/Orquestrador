@@ -17,6 +17,7 @@ metadata:
       - docs/adr/ADR-0007-tela-processamento-composicao.md
       - docs/adr/ADR-0008-modelo-configuracao-por-tela.md
       - docs/adr/ADR-0010-composicao-hierarquica-corpo-dashboard.md
+      - docs/adr/ADR-0011-terminologia-arranjo-vertical-horizontal.md
     reaproveitado_de_legado: false
 ---
 
@@ -131,9 +132,15 @@ opcional declarado no corpo.
 
 ### 4.2 Tiling e arranjo
 
+**Terminologia final (ADR-0011, 2026-07-08)**: os valores normativos finais
+de `corpo.arranjo` são `vertical` e `horizontal`. Os termos `sobreposto` e
+`lado_a_lado` são **aliases transicionais** — `sobreposto → vertical` e
+`lado_a_lado → horizontal` — aceitos temporariamente para compatibilidade de
+JSONs/contratos legados até migração específica; não são terminologia final.
+
 | Campo | Valores | Observação |
 |---|---|---|
-| `arranjo` | `sobreposto` \| `lado_a_lado` \| *(não declarado)* | Relevante com 2+ elementos `console`/`lancador`. Quando não declarado no `tela.json`, o renderer usa o campo `tiling` do estilo ativo como default — ver seção 5.6 |
+| `arranjo` | `vertical` \| `horizontal` \| *(não declarado)* | Valores finais (ADR-0011). Relevante com 2+ elementos `console`/`lancador`. Quando não declarado no `tela.json`, o renderer usa o campo `tiling` do estilo ativo como default — ver seção 5.6. `sobreposto`/`lado_a_lado` aceitos como aliases transicionais |
 
 `estilo.json` não decide composição. `tela.json` é a fonte de arranjo concreto.
 Se houver default histórico de artefato transicional, ele deve ser marcado como
@@ -149,12 +156,13 @@ de posicionamento separado que contradiga o mecanismo geral de composição.
 O campo `posicao_dashboard` declarado na instância, que era tratado como
 "eixo próprio — nunca afetado por `arranjo` nem por `tiling`", está
 **descontinuado** como mecanismo separado. JSONs existentes com
-`posicao_dashboard` podem ser honrados por compatibilidade durante H-0011A;
+`posicao_dashboard` podem ser honrados por compatibilidade durante handoff
+futuro de migração;
 a migração/descarte do campo ocorrerá em handoff específico.
 
 | Campo | Valores | Status |
 |---|---|---|
-| `posicao_dashboard` | `horizontal` \| `vertical` | Descontinuado como eixo separado (ADR-0010). Mantido apenas por compatibilidade em H-0011A. Substituído pela composição declarativa geral do corpo. |
+| `posicao_dashboard` | `horizontal` \| `vertical` | Descontinuado como eixo separado (ADR-0010). Mantido apenas por compatibilidade em handoff futuro de migração. Substituído pela composição declarativa geral do corpo. |
 
 ### 4.4 Capacidades declaradas por instância de `console`
 
@@ -360,9 +368,10 @@ composição declarada. O campo `posicao_dashboard` como eixo separado está
 descontinuado (seção 4.3).
 
 **Camada 1 — Fixação no `tela.json`**: o `tela.json` pode declarar
-explicitamente `arranjo = sobreposto` ou `arranjo = lado_a_lado`. Quando
-declarado, o renderer usa esse valor diretamente e **ignora** o campo `tiling`
-do estilo ativo para aquela tela.
+explicitamente `arranjo = vertical` ou `arranjo = horizontal` (terminologia
+final, ADR-0011; `sobreposto`/`lado_a_lado` aceitos como aliases
+transicionais). Quando declarado, o renderer usa esse valor diretamente e
+**ignora** o campo `tiling` do estilo ativo para aquela tela.
 
 **Camada 2 — Default do estilo**: quando o `tela.json` não declara `arranjo`,
 o renderer consulta o campo `tiling` do estilo ativo (`config/estilo.json`).
@@ -374,9 +383,9 @@ o `tela.json` não o declara. O renderer não decide sozinho o arranjo por largu
 O cálculo visual permitido pelo renderer limita-se à distribuição de espaço
 dentro da regra declarada.
 
-**Distribuição de espaço em modo lado a lado**: o espaço horizontal disponível
-é distribuído em **3 vãos iguais**: borda↔coluna_1, coluna_1↔coluna_2,
-coluna_2↔borda.
+**Distribuição de espaço em modo horizontal** (`horizontal`, ADR-0011;
+historicamente "lado a lado"): o espaço horizontal disponível é distribuído
+em **3 vãos iguais**: borda↔coluna_1, coluna_1↔coluna_2, coluna_2↔borda.
 
 ---
 
@@ -424,7 +433,7 @@ O posicionamento do `dashboard` na composição da tela é controlado pela
 estrutura declarativa do `corpo` do `tela.json`, como qualquer outro
 elemento funcional (ADR-0010). O campo `posicao_dashboard` como eixo
 separado independente está descontinuado; JSONs existentes com este campo
-podem ser honrados por compatibilidade durante H-0011A.
+podem ser honrados por compatibilidade em handoff futuro de migração.
 
 **R-6. `tipo_exibicao` só existe para `console`.**
 Para elementos `lancador`, não existe `tipo_exibicao`. O layout do `lancador`
@@ -492,8 +501,8 @@ paginação. O conjunto paginado é sempre o resultado filtrado.
 - [ ] O posicionamento de `dashboard` na composição da tela é determinado pela
       estrutura declarativa do `corpo` do `tela.json`, não por campo `posicao_dashboard`
       tratado como eixo separado independente (ADR-0010). O campo `posicao_dashboard`
-      legado pode ser honrado por compatibilidade em H-0011A enquanto a migração
-      não ocorrer.
+      legado pode ser honrado por compatibilidade em handoff futuro de migração
+      enquanto a migração não ocorrer.
 - [ ] O indicador de paginação aparece na última linha da borda do elemento paginado,
       ancorado à direita, nunca em outra região.
 - [ ] O bloco `─ página X/Y ─` usa traço `─` literal mesmo quando o estilo ativo
@@ -511,7 +520,8 @@ paginação. O conjunto paginado é sempre o resultado filtrado.
       `tiling` do estilo ativo.
 - [ ] Com `arranjo` não declarado no `tela.json`, o renderer consulta `tiling` do
       estilo ativo sem modificação, sem fallback automático baseado em largura.
-- [ ] Em modo lado a lado, o espaço horizontal é dividido em 3 vãos iguais
+- [ ] Em modo horizontal (`horizontal`, ADR-0011; alias transicional
+      `lado_a_lado`), o espaço horizontal é dividido em 3 vãos iguais
       (borda↔col_1, col_1↔col_2, col_2↔borda).
 - [ ] Campo do draft de dashboard do Orquestrador exibe valor numérico — nunca `—`,
       nunca vazio; `0` é exibido normalmente (R-11).
@@ -529,21 +539,26 @@ paginação. O conjunto paginado é sempre o resultado filtrado.
 
 Itens adiados intencionalmente — não são lacunas de especificação:
 
-- **Combinação `arranjo = lado_a_lado` + `dashboard` presente**: o comportamento
-  do indicador de paginação quando `dashboard` participa do arranjo horizontal
-  será tratado em H-0011B (layout horizontal plano) ou handoff posterior.
-  ADR-0010 resolve conceitualmente que `dashboard` segue a composição geral;
-  a implementação do indicador de paginação nesse contexto aguarda o handoff.
+- **Combinação `arranjo = horizontal` + `dashboard` presente** (`horizontal`,
+  ADR-0011; alias transicional `lado_a_lado`): o comportamento do indicador de
+  paginação quando `dashboard` participa do arranjo horizontal será tratado em
+  handoff futuro (a partir de H-0014). ADR-0010 resolve conceitualmente que
+  `dashboard` segue a composição geral; a implementação do indicador de
+  paginação nesse contexto aguarda o handoff.
 - **Relação entre `filtro_de_grupo` e `formacao_de_selecao`**: coexistência,
   exclusividade ou atalho entre `[#]` (filtrar exibição por grupo) e `[␣]`
   (marcar item para seleção) — não está definida. Ver
   `docs/NOMENCLATURA.md` seção 4.
 - **Migração do campo `posicao_dashboard`** (ADR-0010): JSONs existentes com
-  `posicao_dashboard` serão migrados/descartados em handoff específico após
-  H-0011A. Durante H-0011A, o campo pode ser honrado por compatibilidade.
+  `posicao_dashboard` serão migrados/descartados em handoff futuro de migração.
+  Até então, o campo pode ser honrado por compatibilidade.
 - **Schema de grupos hierárquicos no `corpo.elementos[]`**: a estrutura de
-  grupos e aninhamento será especificada nos handoffs H-0011A–D conforme
-  cada capacidade for implementada. Não criar schema completo antecipado.
+  grupos e aninhamento será especificada em handoffs futuros (H-0014 e
+  seguintes; sem letras, conforme H-0012/H-0013) conforme cada capacidade for
+  implementada. Referências históricas a planos anteriores cancelados
+  (ADR-0010) permanecem apenas como histórico e não orientam novos ciclos
+  (ADR-0011).
+  Não criar schema completo antecipado.
 - **Revisão de `contrato_lancador.md` conforme ADR-0008** (DOC-0020): detalhes
   da instância de `lancador` em `tela.json` pertencem ao contrato próprio.
 - **Revisão de `console` como container genérico** (DOC-0024): contrato e
