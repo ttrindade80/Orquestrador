@@ -27,7 +27,10 @@ Secoes cobertas:
 - inspecao de fonte contra constantes hardcoded (H-0010A);
 - inercia: renderer nao executa/resolve/ativa;
 - alternancia de borda em memoria (H-0007);
-- largura explicita (H-0009).
+- largura explicita (H-0009);
+- altura explicita (H-0015 / ADR-0013): ocupacao vertical da janela do
+  terminal pelo corpo com linhas de preenchimento e RenderizadorErro em
+  terminal pequeno.
 
 Apenas biblioteca padrao do Python.
 """
@@ -949,6 +952,199 @@ def teste_largura_explicita():
     )
 
 
+def teste_altura_explicita():
+    print("")
+    print("== Altura explicita (H-0015 / ADR-0013 - ocupacao vertical) ==")
+
+    tela_raw = carregar_tela(_BASE_PADRAO, "orquestrador")
+    modelo = construir_modelo(tela_raw)
+
+    # Contabilidade verificada contra o orquestrador.json real (largura=42):
+    #   L_cab = 3 (1 topo + 1 descricao + 1 base)
+    #   L_corpo_conteudo = 9 (ITENS=3, INFO=2, NAVEGAR=4)
+    #   L_barra = 4 (1 topo + 2 chips + 1 base)
+    #   altura natural (sem preenchimento) = 3 + 9 + 4 = 16
+    l_cab = 3
+    l_corpo_conteudo = 9
+    l_barra = 4
+    n_minimo = l_cab + l_corpo_conteudo + l_barra  # 16
+
+    # CA-09 / CA-10: altura=None preserva o comportamento atual.
+    _registrar(
+        "renderizar_tela(modelo, largura=42) == "
+        "renderizar_tela(modelo, largura=42, altura=None)",
+        renderizar_tela(modelo, largura=42)
+        == renderizar_tela(modelo, largura=42, altura=None),
+    )
+
+    # CA-03: altura exatamente minima -> sem preenchimento (L_corpo_fill == 0),
+    # saida identica ao comportamento natural.
+    saida_min = renderizar_tela(modelo, largura=42, altura=n_minimo)
+    _registrar(
+        "altura=N_minimo (16) -> count('\\n') == 16 (sem fill) (CA-03)",
+        saida_min.count("\n") == n_minimo,
+        "count={0}".format(saida_min.count("\n")),
+    )
+    _registrar(
+        "altura=N_minimo (16) gera saida identica a altura=None",
+        saida_min == renderizar_tela(modelo, largura=42),
+    )
+
+    # CA-01: altura=16 -> 16 linhas (caso de aceite explicito do handoff).
+    saida_16 = renderizar_tela(modelo, largura=42, altura=16)
+    _registrar(
+        "renderizar_tela(modelo, largura=42, altura=16) -> 16 linhas (CA-01)",
+        saida_16.count("\n") == 16,
+        "count={0}".format(saida_16.count("\n")),
+    )
+
+    # CA-02: altura=24 -> exatamente 24 linhas, barra preservada.
+    saida_24 = renderizar_tela(modelo, largura=42, altura=24)
+    _registrar(
+        "renderizar_tela(modelo, largura=42, altura=24) -> 24 linhas (CA-02)",
+        saida_24.count("\n") == 24,
+        "count={0}".format(saida_24.count("\n")),
+    )
+    _registrar(
+        "altura=24 preserva a barra_de_menus ('[Esc] Sair' na saida)",
+        "[Esc] Sair" in saida_24,
+    )
+
+    # Contagem de preenchimento para altura=24:
+    #   L_corpo_disponivel = 24 - 3 - 4 = 17
+    #   L_corpo_fill = 17 - 9 = 8
+    l_corpo_fill_24 = (24 - l_cab - l_barra) - l_corpo_conteudo  # 8
+    linhas_24 = saida_24.split("\n")
+    # Identifica linhas de preenchimento: NAO usa strip() para validar
+    # a evidencia (ACH-H15-02); compara a linha inteira contra a string
+    # de `total_w` espacos.
+    fill_esperado = " " * 42
+    fills = [ln for ln in linhas_24 if ln == fill_esperado]
+    _registrar(
+        "altura=24 gera exatamente 8 linhas de preenchimento",
+        len(fills) == l_corpo_fill_24,
+        "fills={0} esperado={1}".format(len(fills), l_corpo_fill_24),
+    )
+
+    # CA-05: cada linha de preenchimento tem exatamente `largura` espacos.
+    _registrar(
+        "linhas de preenchimento tem exatamente 42 espacos (CA-05)",
+        all(ln == fill_esperado for ln in fills),
+    )
+
+    # CA-04: cada linha nao-vazia da saida tem exatamente `largura` chars.
+    larguras_24_ok = all(
+        len(ln) == 42 for ln in linhas_24 if ln != ""
+    )
+    _registrar(
+        "altura=24: cada linha nao-vazia tem exatamente 42 chars (CA-04)",
+        larguras_24_ok,
+    )
+
+    # CA-08: preenchimento fica entre o ultimo box do corpo e o box Menus.
+    # Estrutura: cabecalho(3) + ITENS(3) + INFO(2) + NAVEGAR(4) = 12 caixas,
+    # depois 8 fills (indices 12..19), depois Menus topo no indice 20.
+    _registrar(
+        "preenchimento entre corpo e Menus (CA-08): linha 12 = fill, "
+        "linha 20 = '╭ Menus'",
+        linhas_24[12] == fill_esperado
+        and linhas_24[19] == fill_esperado
+        and linhas_24[20].startswith("╭ Menus"),
+        "l12={0!r} l19={1!r} l20={2!r}".format(
+            linhas_24[12], linhas_24[19], linhas_24[20][:9]
+        ),
+    )
+
+    # CA-06: cabecalho continua no topo (primeira linha comeca com '╭ ').
+    _registrar(
+        "cabecalho no topo: primeira linha comeca com '╭ ORQUESTRADOR' (CA-06)",
+        saida_24.startswith("╭ ORQUESTRADOR"),
+    )
+
+    # CA-07: barra_de_menus no rodape: ultima linha nao-vazia termina com '╯'.
+    ultima_nao_vazia = [ln for ln in linhas_24 if ln != ""][-1]
+    _registrar(
+        "barra_de_menus no rodape: ultima linha nao-vazia termina com '╯' (CA-07)",
+        ultima_nao_vazia.endswith("╯"),
+        "ultima={0!r}".format(ultima_nao_vazia),
+    )
+
+    # Invariante preservado: saida nao contem "\n\n" (linhas de preenchimento
+    # sao espacos, nao vazias).
+    _registrar(
+        "altura=24: saida nao contem '\\n\\n' (invariante preservado)",
+        "\n\n" not in saida_24,
+    )
+
+    # Preenchimento em outra largura: cada linha de fill tem a largura dada.
+    saida_60_24 = renderizar_tela(modelo, largura=60, altura=24)
+    linhas_60_24 = saida_60_24.split("\n")
+    fills_60 = [ln for ln in linhas_60_24 if ln == " " * 60]
+    _registrar(
+        "largura=60 altura=24 -> 24 linhas, fills com 60 espacos",
+        saida_60_24.count("\n") == 24
+        and len(fills_60) == l_corpo_fill_24
+        and all(len(ln) == 60 for ln in linhas_60_24 if ln != ""),
+    )
+
+    # Preenchimento com borda reta: largura e contagem identicas a curva.
+    saida_24_reta = renderizar_tela(
+        modelo, largura=42, altura=24, tipo_borda="reta"
+    )
+    _registrar(
+        "altura=24 reta -> 24 linhas e rodape termina com '┘'",
+        saida_24_reta.count("\n") == 24
+        and [ln for ln in saida_24_reta.split("\n") if ln != ""][-1].endswith("┘"),
+    )
+
+    # CA-12: altura insuficiente para o corpo (overflow) -> RenderizadorErro.
+    # N_overflow = L_cab + L_barra + L_corpo_conteudo - 1 = 15.
+    n_overflow = l_cab + l_barra + l_corpo_conteudo - 1
+    exc_overflow = _espera_excecao(
+        "altura=15 (corpo overflow) levanta RenderizadorErro (CA-12)",
+        lambda: renderizar_tela(modelo, largura=42, altura=n_overflow),
+        RenderizadorErro,
+    )
+    if exc_overflow is not None:
+        _registrar(
+            "mensagem de overflow menciona corpo/area disponivel (CA-13)",
+            "corpo" in str(exc_overflow) and "15" in str(exc_overflow),
+            str(exc_overflow),
+        )
+
+    # CA-11: altura insuficiente para cabecalho + barra -> RenderizadorErro.
+    # Para o Orquestrador: L_cab(3) + L_barra(4) = 7 > 6.
+    exc_pequeno = _espera_excecao(
+        "altura=6 (cabecalho + barra > altura) levanta RenderizadorErro (CA-11)",
+        lambda: renderizar_tela(modelo, largura=42, altura=6),
+        RenderizadorErro,
+    )
+    if exc_pequeno is not None:
+        _registrar(
+            "mensagem de terminal pequeno menciona cabecalho/barra (CA-13)",
+            "cabecalho" in str(exc_pequeno)
+            and "barra_de_menus" in str(exc_pequeno)
+            and "6" in str(exc_pequeno),
+            str(exc_pequeno),
+        )
+
+    # CA-14: exatamente no limite cabecalho + barra, sem corpo, deve ERRO
+    # quando L_corpo_conteudo(9) > 0 e L_corpo_disponivel = 0.
+    _espera_excecao(
+        "altura == L_cab + L_barra (7) com corpo nao vazio levanta "
+        "RenderizadorErro (sem truncamento silencioso)",
+        lambda: renderizar_tela(modelo, largura=42, altura=7),
+        RenderizadorErro,
+    )
+
+    # Determinismo: duas chamadas identicas produzem saidas identicas.
+    _registrar(
+        "altura explicita e deterministica (duas chamadas identicas)",
+        renderizar_tela(modelo, largura=42, altura=24)
+        == renderizar_tela(modelo, largura=42, altura=24),
+    )
+
+
 def main():
     print("Diagnostico H-0010A - renderer declarativo (curva/reta)")
     print("Base padrao: {0}".format(_BASE_PADRAO))
@@ -964,6 +1160,7 @@ def main():
     teste_inercia()
     teste_alternancia_borda()
     teste_largura_explicita()
+    teste_altura_explicita()
 
     print("")
     print("== Resumo ==")

@@ -99,6 +99,12 @@ _RESULTADOS = []
 
 
 _LARGURA_SUBPROCESS = 80
+# Altura deterministica do subprocess da demo (H-0015). Em contexto de
+# pipe/nao-tty, ``shutil.get_terminal_size(fallback=(80, 24))`` usa o fallback
+# ``lines=24``. Para garantir determinismo entre ambientes (ACH-H15-03), o env
+# do subprocess remove COLUMNS e LINES, forçando o fallback (80, 24); o
+# esperado e entao computado com largura=80 e altura=24.
+_ALTURA_SUBPROCESS = 24
 
 
 _EXPECTED_CURVA = (
@@ -645,6 +651,82 @@ def teste_renderizar_estado(modelo):
     )
 
 
+def teste_renderizar_estado_altura(modelo):
+    print("")
+    print("== Secao 3b - renderizar_estado com altura (H-0015) ==")
+
+    estado_curva = {"tipo_borda": "curva", "saindo": False, "pilha_telas": []}
+
+    # CA-02: altura explicita suficiente -> exatamente `altura` linhas.
+    res_24 = renderizar_estado(
+        estado_curva, modelo, largura=42, altura=24
+    )
+    _registrar(
+        "renderizar_estado(estado, modelo, largura=42, altura=24) -> 24 linhas",
+        isinstance(res_24, str) and res_24.count("\n") == 24,
+        "count={0}".format(res_24.count("\n") if isinstance(res_24, str) else "n/a"),
+    )
+
+    # CA-01 / CA-03: altura minima (16) sem preenchimento, saida identica
+    # ao comportamento natural (sem altura).
+    res_16 = renderizar_estado(
+        estado_curva, modelo, largura=42, altura=16
+    )
+    _registrar(
+        "renderizar_estado(..., altura=16) -> 16 linhas (sem fill)",
+        res_16.count("\n") == 16,
+        "count={0}".format(res_16.count("\n")),
+    )
+    _registrar(
+        "renderizar_estado(..., altura=16) == renderizar_estado(..., largura=42)",
+        res_16 == renderizar_estado(estado_curva, modelo, largura=42),
+    )
+
+    # altura=None preserva o comportamento atual.
+    _registrar(
+        "renderizar_estado(estado, modelo, largura=42) == "
+        "renderizar_estado(estado, modelo, largura=42, altura=None)",
+        renderizar_estado(estado_curva, modelo, largura=42)
+        == renderizar_estado(estado_curva, modelo, largura=42, altura=None),
+    )
+
+    # Consistencia: renderizar_estado repassa altura ao renderer.
+    _registrar(
+        "renderizar_estado(..., altura=24) == renderizar_tela(modelo, 'curva', "
+        "largura=42, altura=24)",
+        res_24 == renderizar_tela(
+            modelo, tipo_borda="curva", largura=42, altura=24
+        ),
+    )
+
+    # Barra_de_menus preservada no rodape (ultima linha nao-vazia termina
+    # com a borda inferior) e invariante de largura preservado.
+    linhas_24 = res_24.split("\n")
+    ultima = [ln for ln in linhas_24 if ln != ""][-1]
+    _registrar(
+        "renderizar_estado(..., altura=24): barra_de_menus no rodape ('╯')",
+        ultima.endswith("╯"),
+        "ultima={0!r}".format(ultima),
+    )
+    _registrar(
+        "renderizar_estado(..., altura=24): cada linha nao-vazia tem 42 chars",
+        all(len(ln) == 42 for ln in linhas_24 if ln != ""),
+    )
+
+    # renderizar_estado nao altera estado nem modelo.
+    estado_snap = {"tipo_borda": "curva", "saindo": False, "pilha_telas": []}
+    cabecalho_antes = dict(modelo.cabecalho)
+    renderizar_estado(estado_snap, modelo, largura=42, altura=24)
+    _registrar(
+        "renderizar_estado(..., altura=24) nao altera estado",
+        estado_snap == {"tipo_borda": "curva", "saindo": False, "pilha_telas": []},
+    )
+    _registrar(
+        "renderizar_estado(..., altura=24) nao altera modelo.cabecalho",
+        modelo.cabecalho == cabecalho_antes,
+    )
+
+
 def teste_integracao_subprocess():
     print("")
     print("== Secao 4 - Integracao via subprocess (demo completo) ==")
@@ -654,14 +736,18 @@ def teste_integracao_subprocess():
 
     modelo = _carregar_modelo()
     esperado_curva_80 = renderizar_tela(
-        modelo, tipo_borda="curva", largura=_LARGURA_SUBPROCESS
+        modelo, tipo_borda="curva",
+        largura=_LARGURA_SUBPROCESS, altura=_ALTURA_SUBPROCESS,
     )
     esperado_reta_80 = renderizar_tela(
-        modelo, tipo_borda="reta", largura=_LARGURA_SUBPROCESS
+        modelo, tipo_borda="reta",
+        largura=_LARGURA_SUBPROCESS, altura=_ALTURA_SUBPROCESS,
     )
     saida_esperada = esperado_curva_80 + esperado_reta_80
 
-    env_sem_columns = {k: v for k, v in os.environ.items() if k != "COLUMNS"}
+    env_sem_dimensoes = {
+        k: v for k, v in os.environ.items() if k not in ("COLUMNS", "LINES")
+    }
 
     proc = subprocess.run(
         [sys.executable, "tela/demo.py"],
@@ -669,7 +755,7 @@ def teste_integracao_subprocess():
         input="b\ns\n",
         capture_output=True,
         text=True,
-        env=env_sem_columns,
+        env=env_sem_dimensoes,
     )
 
     _registrar(
@@ -724,7 +810,7 @@ def teste_integracao_subprocess():
         input="b\n\x1b\n",
         capture_output=True,
         text=True,
-        env=env_sem_columns,
+        env=env_sem_dimensoes,
     )
     _registrar(
         "demo com 'b\\n\\x1b\\n' encerra com codigo 0",
@@ -747,9 +833,12 @@ def teste_eof_sem_s():
 
     modelo = _carregar_modelo()
     esperado_curva_80 = renderizar_tela(
-        modelo, tipo_borda="curva", largura=_LARGURA_SUBPROCESS
+        modelo, tipo_borda="curva",
+        largura=_LARGURA_SUBPROCESS, altura=_ALTURA_SUBPROCESS,
     )
-    env_sem_columns = {k: v for k, v in os.environ.items() if k != "COLUMNS"}
+    env_sem_dimensoes = {
+        k: v for k, v in os.environ.items() if k not in ("COLUMNS", "LINES")
+    }
 
     proc = subprocess.run(
         [sys.executable, "tela/demo.py"],
@@ -757,7 +846,7 @@ def teste_eof_sem_s():
         input="",
         capture_output=True,
         text=True,
-        env=env_sem_columns,
+        env=env_sem_dimensoes,
     )
     _registrar(
         "printf '' | python tela/demo.py encerra com codigo 0",
@@ -783,19 +872,25 @@ def teste_navegacao_subprocess():
     modelo_orq = _carregar_modelo()
     modelo_des = _carregar_modelo_por_id("destino_minimo")
     esperado_orq_curva_80 = renderizar_tela(
-        modelo_orq, tipo_borda="curva", largura=_LARGURA_SUBPROCESS
+        modelo_orq, tipo_borda="curva",
+        largura=_LARGURA_SUBPROCESS, altura=_ALTURA_SUBPROCESS,
     )
     esperado_orq_reta_80 = renderizar_tela(
-        modelo_orq, tipo_borda="reta", largura=_LARGURA_SUBPROCESS
+        modelo_orq, tipo_borda="reta",
+        largura=_LARGURA_SUBPROCESS, altura=_ALTURA_SUBPROCESS,
     )
     esperado_des_curva_80 = renderizar_tela(
-        modelo_des, tipo_borda="curva", largura=_LARGURA_SUBPROCESS
+        modelo_des, tipo_borda="curva",
+        largura=_LARGURA_SUBPROCESS, altura=_ALTURA_SUBPROCESS,
     )
     esperado_des_reta_80 = renderizar_tela(
-        modelo_des, tipo_borda="reta", largura=_LARGURA_SUBPROCESS
+        modelo_des, tipo_borda="reta",
+        largura=_LARGURA_SUBPROCESS, altura=_ALTURA_SUBPROCESS,
     )
 
-    env_sem_columns = {k: v for k, v in os.environ.items() if k != "COLUMNS"}
+    env_sem_dimensoes = {
+        k: v for k, v in os.environ.items() if k not in ("COLUMNS", "LINES")
+    }
 
     proc_nav = subprocess.run(
         [sys.executable, "tela/demo.py"],
@@ -803,7 +898,7 @@ def teste_navegacao_subprocess():
         input="d\n\x1b\n\x1b\n",
         capture_output=True,
         text=True,
-        env=env_sem_columns,
+        env=env_sem_dimensoes,
     )
     saida_esperada_nav = (
         esperado_orq_curva_80
@@ -854,7 +949,7 @@ def teste_navegacao_subprocess():
         input="b\nd\n\x1b\n\x1b\n",
         capture_output=True,
         text=True,
-        env=env_sem_columns,
+        env=env_sem_dimensoes,
     )
     saida_esperada_nav_borda = (
         esperado_orq_curva_80
@@ -901,7 +996,8 @@ def teste_navegacao_subprocess():
 
     modelo_grupo = _carregar_modelo_por_id("grupo_minimo")
     esperado_grupo_curva_80 = renderizar_tela(
-        modelo_grupo, tipo_borda="curva", largura=_LARGURA_SUBPROCESS
+        modelo_grupo, tipo_borda="curva",
+        largura=_LARGURA_SUBPROCESS, altura=_ALTURA_SUBPROCESS,
     )
 
     proc_nav_grupo = subprocess.run(
@@ -910,7 +1006,7 @@ def teste_navegacao_subprocess():
         input="g\n\x1b\n\x1b\n",
         capture_output=True,
         text=True,
-        env=env_sem_columns,
+        env=env_sem_dimensoes,
     )
     saida_esperada_nav_grupo = (
         esperado_orq_curva_80
@@ -948,6 +1044,16 @@ def teste_navegacao_subprocess():
         "demo 'g\\n\\x1b\\n\\x1b\\n' stderr vazio (H-0013)",
         proc_nav_grupo.stderr == "",
         "stderr={0!r}".format(proc_nav_grupo.stderr),
+    )
+
+    # ACH-H15-03: determinismo da altura em subprocess. Com COLUMNS e LINES
+    # removidos do env, a demo usa fallback (80, 24); cada um dos 3 renders
+    # (orq-c, grupo-c, orq-c) deve ter exatamente 24 linhas -> total 72.
+    _registrar(
+        "demo 'g\\n\\x1b\\n\\x1b\\n' propaga altura=24: stdout tem 72 "
+        "newlines (3 renders x 24) (ACH-H15-03)",
+        proc_nav_grupo.stdout.count("\n") == 3 * _ALTURA_SUBPROCESS,
+        "count={0}".format(proc_nav_grupo.stdout.count("\n")),
     )
 
     json_grupo_depois = caminho_json_grupo.read_text(encoding="utf-8")
@@ -1115,6 +1221,7 @@ def main():
     modelo = _carregar_modelo()
     teste_navegacao_minima(modelo)
     teste_renderizar_estado(modelo)
+    teste_renderizar_estado_altura(modelo)
 
     teste_integracao_subprocess()
     teste_navegacao_subprocess()

@@ -133,6 +133,18 @@ def _caixa(label, linhas_conteudo, borda, inner_w, content_w, label_max):
     return "\n".join(partes)
 
 
+def _contar_linhas(caixa_str):
+    """Conta o numero de linhas de um bloco multi-linha sem trailing newline.
+
+    Uma caixa gerada por ``_caixa`` (ou um bloco de preenchimento) e uma
+    string contendo ``N`` linhas separadas por ``"\\n"``, sem ``"\\n"`` final.
+    Portanto o numero de linhas e ``caixa_str.count("\\n") + 1``.
+    Usado pela ocupacao vertical (H-0015) para calcular ``L_cab``,
+    ``L_corpo_conteudo`` e ``L_barra``.
+    """
+    return caixa_str.count("\n") + 1
+
+
 def _linhas_console(elemento):
     """Linhas de conteudo para elemento console (placeholder de escopo)."""
     return [_PLACEHOLDER_CONSOLE]
@@ -233,7 +245,12 @@ def _caixa_de_elemento(elemento, borda, inner_w, content_w, label_max):
     return None
 
 
-def renderizar_tela(modelo: ModeloTela, tipo_borda: str = "curva", largura: int | None = None) -> str:
+def renderizar_tela(
+    modelo: ModeloTela,
+    tipo_borda: str = "curva",
+    largura: int | None = None,
+    altura: int | None = None,
+) -> str:
     """Renderiza ModeloTela como string visual declarativa (H-0010A).
 
     Parametros:
@@ -248,6 +265,21 @@ def renderizar_tela(modelo: ModeloTela, tipo_borda: str = "curva", largura: int 
             ``inner_w = largura - 2``, ``content_w = largura - 3`` e
             ``label_max = largura - 4``. ``largura < 10`` tem comportamento
             indefinido neste ciclo (nao validado, nao tratado).
+        altura: altura alvo (em linhas fisicas) da saida. Quando ``None``
+            (default), o comportamento atual e preservado integralmente:
+            nenhuma linha de preenchimento e inserida e a saida tem apenas
+            as linhas das caixas (cabecalho + corpo + barra_de_menus).
+            Quando fornecida (H-0015 / ADR-0013 -- ocupacao vertical da
+            janela do terminal pelo corpo), o renderer preenche a area do
+            corpo entre o cabecalho e a barra_de_menus com linhas fisicas
+            de ``largura`` espacos ate que a saida tenha exatamente
+            ``altura`` linhas. Esse preenchimento nao vem do JSON e nao e
+            novo arranjo nem novo elemento do corpo. Se a altura for
+            insuficiente para cabecalho + barra_de_menus ou para o
+            conteudo do corpo, lancar RenderizadorErro (sem truncamento
+            silencioso). ``altura`` interage apenas com o eixo vertical;
+            ``corpo.arranjo = "vertical"`` (composicao, ADR-0011) nao e
+            reinterpretado.
 
     Retorna:
         str com a representacao visual no formato definido pelo H-0010A:
@@ -257,14 +289,19 @@ def renderizar_tela(modelo: ModeloTela, tipo_borda: str = "curva", largura: int 
         canto variam conforme ``tipo_borda``; o restante (bordas
         vertical/horizontal e conteudo textual) e identico entre
         conjuntos. Cada linha nao-vazia tem exatamente ``largura`` (ou 42
-        no fallback) chars Python; a string termina com ``"\\n"``.
+        no fallback) chars Python; a string termina com ``"\\n"``. Quando
+        ``altura`` e fornecida e suficiente, a saida tem exatamente
+        ``altura`` linhas (``saida.count("\\n") == altura``).
 
     Lancamentos:
         RenderizadorErro quando:
             - o argumento ``modelo`` nao e um ModeloTela valido;
             - o argumento ``tipo_borda`` nao e ``"curva"`` nem ``"reta"``;
             - algum item de lancador possui ``texto`` acima de 15
-              caracteres (rejeitado sem truncamento).
+              caracteres (rejeitado sem truncamento);
+            - ``altura`` e fornecida e e insuficiente para cabecalho +
+              barra_de_menus (``L_cab + L_barra > altura``) ou para o
+              conteudo do corpo (``L_corpo_conteudo > L_corpo_disponivel``).
 
     Efeitos colaterais:
         Nenhum. Nao altera o modelo, nao grava arquivo, nao consulta
@@ -319,8 +356,53 @@ def renderizar_tela(modelo: ModeloTela, tipo_borda: str = "curva", largura: int 
             if caixa is not None:
                 partes.append(caixa)
 
+    # Linhas de conteudo da barra_de_menus, computadas uma vez e reutilizadas
+    # tanto para a contagem de L_barra (H-0015) quanto para a caixa final.
+    linhas_barra = _linhas_barra(modelo.barra_de_menus)
+
+    # H-0015 / ADR-0013: ocupacao vertical da janela do terminal pelo corpo.
+    # Quando ``altura`` e fornecida, preenche a area do corpo entre o
+    # cabecalho e a barra_de_menus com linhas fisicas de ``total_w`` espacos
+    # ate que a saida tenha exatamente ``altura`` linhas. O preenchimento e
+    # responsabilidade do renderer (nao do JSON), nao e novo arranjo nem novo
+    # elemento do corpo e nao reinterpreta ``corpo.arranjo = "vertical"``.
+    # Quando ``altura is None``, nenhum preenchimento e inserido e o caminho
+    # atual (comportamento anterior) e tomado integralmente.
+    if altura is not None:
+        l_cab = _contar_linhas(partes[0])
+        l_barra = len(linhas_barra) + 2
+        l_corpo_conteudo = sum(_contar_linhas(p) for p in partes[1:])
+
+        if l_cab + l_barra > altura:
+            raise RenderizadorErro(
+                "altura insuficiente: terminal com {0} linhas nao comporta "
+                "cabecalho ({1}) + barra_de_menus ({2})".format(
+                    altura, l_cab, l_barra
+                )
+            )
+        l_corpo_disponivel = altura - l_cab - l_barra
+        if l_corpo_conteudo > l_corpo_disponivel:
+            raise RenderizadorErro(
+                "altura insuficiente: corpo requer {0} linhas mas area "
+                "disponivel e {1} linhas (altura={2}, cabecalho={3}, "
+                "barra={4})".format(
+                    l_corpo_conteudo, l_corpo_disponivel,
+                    altura, l_cab, l_barra,
+                )
+            )
+        l_corpo_fill = l_corpo_disponivel - l_corpo_conteudo
+        if l_corpo_fill > 0:
+            # Linhas fisicas de preenchimento, cada uma com exatamente
+            # ``total_w`` espacos, inseridas apos o ultimo box de elemento
+            # do corpo e antes do box da barra_de_menus. Preserva os
+            # invariantes: cada linha nao-vazia tem ``total_w`` chars e a
+            # saida nao contem "\n\n".
+            partes.append(
+                "\n".join(" " * total_w for _ in range(l_corpo_fill))
+            )
+
     partes.append(_caixa(
-        _LABEL_BARRA, _linhas_barra(modelo.barra_de_menus),
+        _LABEL_BARRA, linhas_barra,
         borda, inner_w, content_w, label_max,
     ))
 

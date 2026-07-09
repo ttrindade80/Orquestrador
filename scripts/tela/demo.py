@@ -163,14 +163,19 @@ def processar_comando(estado, comando, modelo=None):
     return novo
 
 
-def renderizar_estado(estado, modelo, largura=None):
+def renderizar_estado(estado, modelo, largura=None, altura=None):
     """Delega para o renderer usando a borda do estado e a largura dada.
 
     Nao modifica ``estado`` nem ``modelo``. Nenhum efeito colateral
     alem da chamada a ``renderizar_tela``. ``largura=None`` produz
-    saida deterministica com fallback 42 chars.
+    saida deterministica com fallback 42 chars. ``altura=None``
+    preserva o comportamento atual (sem preenchimento vertical); quando
+    fornecida, repassa a altura ao renderer para a ocupacao vertical da
+    janela do terminal pelo corpo (H-0015 / ADR-0013).
     """
-    return renderizar_tela(modelo, tipo_borda=estado["tipo_borda"], largura=largura)
+    return renderizar_tela(
+        modelo, tipo_borda=estado["tipo_borda"], largura=largura, altura=altura
+    )
 
 
 def _carregar_modelo_por_id(id_tela):
@@ -209,9 +214,11 @@ def main():
     tela, renderiza e imprime o novo estado. Retorna 0 (saida limpa).
     """
     estado = criar_estado_inicial()
-    largura = shutil.get_terminal_size(fallback=(80, 24)).columns
+    tamanho_terminal = shutil.get_terminal_size(fallback=(80, 24))
+    largura = tamanho_terminal.columns
+    altura = tamanho_terminal.lines
     modelo = _carregar_modelo_por_id(estado["tela_atual"])
-    print(renderizar_estado(estado, modelo, largura), end="")
+    print(renderizar_estado(estado, modelo, largura, altura=altura), end="")
 
     if sys.stdin.isatty():
         while True:
@@ -223,7 +230,7 @@ def main():
             if estado["tela_atual"] != tela_antes:
                 modelo = _carregar_modelo_por_id(estado["tela_atual"])
             if ch == "b" or estado["tela_atual"] != tela_antes:
-                print(renderizar_estado(estado, modelo, largura), end="")
+                print(renderizar_estado(estado, modelo, largura, altura=altura), end="")
     else:
         for linha in sys.stdin:
             comando = linha.strip()
@@ -234,7 +241,7 @@ def main():
             if estado["tela_atual"] != tela_antes:
                 modelo = _carregar_modelo_por_id(estado["tela_atual"])
             if comando == "b" or estado["tela_atual"] != tela_antes:
-                print(renderizar_estado(estado, modelo, largura), end="")
+                print(renderizar_estado(estado, modelo, largura, altura=altura), end="")
     return 0
 
 
