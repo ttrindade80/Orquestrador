@@ -6,12 +6,12 @@
     "descricao": "Tela de teste — grupo estrutural com dashboard simples"
   },
   "corpo": {
-    "arranjo": "sobreposto",
+    "arranjo": "vertical",
     "elementos": [
       {
         "id": "grupo_principal",
         "tipo": "grupo",
-        "arranjo": "sobreposto",
+        "arranjo": "vertical",
         "elementos": [
           {
             "id": "dashboard_conteudo",

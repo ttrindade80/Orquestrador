@@ -69,15 +69,6 @@ _EXPECTED_ORQUESTRADOR = (
     "╰────────────────────────────────────────╯\n"
     "╭ Menus ─────────────────────────────────╮\n"
     "│ [Esc] Sair                             │\n"
-    "│ [<>] Páginas                           │\n"
-    "│ [-+] Colunas                           │\n"
-    "│ [#] Grupos                             │\n"
-    "│ [⇆] Alternar                           │\n"
-    "│ [✥] Navegar                            │\n"
-    "│ [␣] Selecionar                         │\n"
-    "│ [⏎] Todos                              │\n"
-    "│ [|] Estilo                             │\n"
-    "│ [V] Verboso                            │\n"
     "│ [?] Ajuda                              │\n"
     "╰────────────────────────────────────────╯\n"
 )
@@ -98,15 +89,6 @@ _EXPECTED_ORQUESTRADOR_RETA = (
     "└────────────────────────────────────────┘\n"
     "┌ Menus ─────────────────────────────────┐\n"
     "│ [Esc] Sair                             │\n"
-    "│ [<>] Páginas                           │\n"
-    "│ [-+] Colunas                           │\n"
-    "│ [#] Grupos                             │\n"
-    "│ [⇆] Alternar                           │\n"
-    "│ [✥] Navegar                            │\n"
-    "│ [␣] Selecionar                         │\n"
-    "│ [⏎] Todos                              │\n"
-    "│ [|] Estilo                             │\n"
-    "│ [V] Verboso                            │\n"
     "│ [?] Ajuda                              │\n"
     "└────────────────────────────────────────┘\n"
 )
@@ -217,8 +199,8 @@ def teste_renderizador_orquestrador():
         "[Esc] Sair" in saida,
     )
     _registrar(
-        "saida contem '[<>] Páginas' (chip do JSON)",
-        "[<>] Páginas" in saida,
+        "saida NAO contem '[<>] Paginas' (chip removido do Orquestrador)",
+        "[<>] Páginas" not in saida,
     )
     _registrar(
         "saida contem '[?] Ajuda' (chip do JSON)",

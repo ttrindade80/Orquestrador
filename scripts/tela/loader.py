@@ -147,16 +147,20 @@ def _validar_grupo(elemento, id_grupo):
     - o item interno tem ``id`` e ``tipo``;
     - o ``tipo`` do item interno e funcional (console/lancador/dashboard);
     - o ``tipo`` do item interno nao e ``"grupo"`` (proibir aninhamento);
-    - ``arranjo`` do grupo, se presente, nao e ``"lado_a_lado"``.
+    - ``arranjo`` do grupo, se presente, nao e ``"horizontal"`` nem seu
+      alias transicional ``"lado_a_lado"`` (ADR-0011; H-0014).
 
     Mantem o elemento interno como declaracao inerte acessivel ao modelo
     (preservado no dict de saida do loader).
     """
     arranjo = elemento.get("arranjo")
-    if arranjo == "lado_a_lado":
+    if arranjo in ("horizontal", "lado_a_lado"):
         raise TelaGrupoInvalido(
-            "Grupo '{0}' com arranjo 'lado_a_lado' e fora de escopo no "
-            "H-0012".format(id_grupo)
+            "Grupo '{0}' com arranjo '{1}' e fora de escopo no H-0014 "
+            "(arranjo horizontal nao implementado para grupo; "
+            "'lado_a_lado' e alias transicional de 'horizontal' — ADR-0011)".format(
+                id_grupo, arranjo
+            )
         )
 
     if "elementos" not in elemento:

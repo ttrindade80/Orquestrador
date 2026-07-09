@@ -21,7 +21,7 @@
     "descricao": "Tela raiz do sistema — ponto de entrada e visao consolidada do pipeline de survey"
   },
   "corpo": {
-    "arranjo": "sobreposto",
+    "arranjo": "vertical",
     "elementos": [
       {
         "id": "console_principal",
@@ -137,105 +137,6 @@
         "regra_existencia": "sempre",
         "regra_ativo": "sempre",
         "forma_exibicao": "rotulo_dinamico"
-      },
-      {
-        "id": "chip_paginas",
-        "tipo": "navegacao",
-        "tecla": "<>",
-        "texto": "Páginas",
-        "acao": {"tipo": "paginar"},
-        "regra_existencia": "console_com_paginacao",
-        "regra_ativo": "multiplas_paginas",
-        "forma_exibicao": "visivel_condicional"
-      },
-      {
-        "id": "chip_colunas",
-        "tipo": "navegacao",
-        "tecla": "-+",
-        "texto": "Colunas",
-        "acao": {"tipo": "ajustar_colunas"},
-        "regra_existencia": "console_com_colunas_ajustavel",
-        "regra_ativo": "condicional_por_limite",
-        "forma_exibicao": "visivel_condicional"
-      },
-      {
-        "id": "chip_grupos",
-        "tipo": "filtro",
-        "tecla": "#",
-        "texto": "Grupos",
-        "acao": {"tipo": "alternar_filtro", "filtro": "filtro_grupo"},
-        "regra_existencia": "console_com_filtro_de_grupo",
-        "regra_ativo": "condicional",
-        "forma_exibicao": "visivel_condicional"
-      },
-      {
-        "id": "chip_alternar",
-        "tipo": "alternancia",
-        "tecla": "⇆",
-        "texto": "Alternar",
-        "acao": {"tipo": "alternar_foco_corpo"},
-        "regra_existencia": "tela_com_multiplos_corpos",
-        "regra_ativo": "sempre",
-        "forma_exibicao": "visivel_condicional"
-      },
-      {
-        "id": "chip_navegar",
-        "tipo": "navegacao",
-        "tecla": "✥",
-        "texto": "Navegar",
-        "acao": {"tipo": "navegar_console"},
-        "regra_existencia": "tela_com_console_navegavel",
-        "regra_ativo": "console_navegavel_em_foco",
-        "forma_exibicao": "visivel_condicional"
-      },
-      {
-        "id": "chip_selecionar",
-        "tipo": "acao",
-        "tecla": "␣",
-        "texto": "Selecionar",
-        "acao": {"tipo": "toggle_selecao"},
-        "regra_existencia": "console_com_selecao_multipla",
-        "regra_ativo": "item_selecionavel_em_foco",
-        "forma_exibicao": "visivel_condicional"
-      },
-      {
-        "id": "chip_enter",
-        "tipo": "acao",
-        "tecla": "⏎",
-        "texto": "Todos",
-        "acao": {
-          "tipo": "acao_por_item_em_foco",
-          "nota": "rotulo dinamico — Todos sem selecao; Executar com selecao; Visualizar em item so-leitura"
-        },
-        "regra_existencia": "sempre",
-        "regra_ativo": "item_com_acao_valida_em_foco",
-        "forma_exibicao": "rotulo_dinamico"
-      },
-      {
-        "id": "chip_estilo",
-        "tipo": "especifico",
-        "subtipo": "aciona_tela",
-        "tecla": "|",
-        "texto": "Estilo",
-        "acao": {
-          "tipo": "abrir_tela",
-          "tela_destino": "pendente",
-          "nota": "tela_destino pendente — ID da tela de estilo nao documentado; chip placeholder nao executavel como draft; aguarda definicao de telas do sistema e formalizacao do registry de acoes (DOC-B009)"
-        },
-        "pendencia": "tela_destino nao definida — chip placeholder; nao executavel como draft; aguarda DOC-B009 e definicao de telas do sistema",
-        "regra_existencia": "acao_especifica_declarada",
-        "regra_ativo": "sempre",
-        "forma_exibicao": "visivel_ativo"
-      },
-      {
-        "id": "chip_verboso",
-        "tipo": "alternancia",
-        "tecla": "V",
-        "texto": "Verboso",
-        "acao": {"tipo": "toggle_estado", "estado": "modo_verboso"},
-        "regra_existencia": "console_com_modo_verboso",
-        "regra_ativo": "sempre",
-        "forma_exibicao": "visivel_condicional"
       },
       {
         "id": "chip_ajuda",

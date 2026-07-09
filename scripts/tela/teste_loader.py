@@ -166,7 +166,7 @@ def teste_caminho_feliz():
     )
     _registrar(
         "tela.corpo.arranjo preservado",
-        tela.get("corpo", {}).get("arranjo") == "sobreposto",
+        tela.get("corpo", {}).get("arranjo") == "vertical",
         "arranjo={0!r}".format(tela.get("corpo", {}).get("arranjo")),
     )
     elementos = tela.get("corpo", {}).get("elementos", [])
@@ -207,9 +207,9 @@ def teste_caminho_feliz():
             chip_estilo = chip
             break
     _registrar(
-        "chip_estilo.tela_destino == 'pendente' carregado sem erro",
-        isinstance(chip_estilo, dict)
-        and chip_estilo.get("acao", {}).get("tela_destino") == "pendente",
+        "chip_estilo removido da barra_de_menus do Orquestrador "
+        "(capacidade nao implementada - ADR-0012/H-0014)",
+        chip_estilo is None,
     )
 
     console_principal = None
@@ -572,7 +572,7 @@ def teste_grupo_estrutural(tmp_base):
         base_g = {
             "id": "grupo_principal",
             "tipo": "grupo",
-            "arranjo": "sobreposto",
+            "arranjo": "vertical",
             "elementos": [
                 {"id": "dash_interno", "tipo": "dashboard",
                  "titulo": "T", "campos": []},
@@ -585,7 +585,7 @@ def teste_grupo_estrutural(tmp_base):
             else:
                 base_g[chave] = valor
         return _tela_minima(id_tela=id_tela, corpo={
-            "arranjo": "sobreposto", "elementos": [base_g],
+            "arranjo": "vertical", "elementos": [base_g],
         })
 
     _escrever_tela(tmp_base, "g_sem_elementos",
@@ -625,11 +625,20 @@ def teste_grupo_estrutural(tmp_base):
         TelaGrupoInvalido,
     )
 
+    _escrever_tela(tmp_base, "g_horizontal",
+                   _grupo_minimo_dict("g_horizontal",
+                                      arranjo="horizontal"))
+    _espera_excecao(
+        "grupo com arranjo 'horizontal' -> TelaGrupoInvalido (ADR-0011)",
+        lambda: carregar_tela(tmp_base, "g_horizontal"),
+        TelaGrupoInvalido,
+    )
+
     _escrever_tela(tmp_base, "g_lado_a_lado",
                    _grupo_minimo_dict("g_lado_a_lado",
                                       arranjo="lado_a_lado"))
     _espera_excecao(
-        "grupo com arranjo 'lado_a_lado' -> TelaGrupoInvalido",
+        "grupo com arranjo 'lado_a_lado' -> TelaGrupoInvalido (alias de horizontal)",
         lambda: carregar_tela(tmp_base, "g_lado_a_lado"),
         TelaGrupoInvalido,
     )

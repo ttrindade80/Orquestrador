@@ -116,8 +116,8 @@ def teste_modelo_orquestrador():
         and hasattr(modelo.corpo, "elementos"),
     )
     _registrar(
-        "modelo.corpo.arranjo == 'sobreposto'",
-        modelo.corpo.arranjo == "sobreposto",
+        "modelo.corpo.arranjo == 'vertical'",
+        modelo.corpo.arranjo == "vertical",
         "arranjo={0!r}".format(modelo.corpo.arranjo),
     )
     _registrar(
@@ -255,9 +255,9 @@ def teste_modelo_orquestrador():
             chip_estilo = chip
             break
     _registrar(
-        "chip_estilo.acao.tela_destino == 'pendente' preservado (inerte)",
-        isinstance(chip_estilo, dict)
-        and chip_estilo.get("acao", {}).get("tela_destino") == "pendente",
+        "chip_estilo removido da barra_de_menus do Orquestrador "
+        "(capacidade nao implementada - ADR-0012/H-0014)",
+        chip_estilo is None,
     )
 
     _registrar(
@@ -351,7 +351,7 @@ def teste_modelo_grupo_minimo():
     _registrar(
         "grupo preserva arranjo em _campos_inertes",
         grupo is not None
-        and grupo._campos_inertes.get("arranjo") == "sobreposto",
+        and grupo._campos_inertes.get("arranjo") == "vertical",
     )
 
     # CA-15: elemento funcional interno acessivel sem manipular dict cru
