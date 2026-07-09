@@ -51,7 +51,11 @@ from tela.modelo import (  # noqa: E402
     ModeloTela,
     construir_modelo,
 )
-from tela.renderizador import RenderizadorErro, renderizar_tela  # noqa: E402
+from tela.renderizador import (  # noqa: E402
+    RenderizadorErro,
+    _linhas_barra,
+    renderizar_tela,
+)
 
 
 _RESULTADOS = []
@@ -71,8 +75,7 @@ _EXPECTED_ORQUESTRADOR = (
     "│ [g] Grupo Min.                         │\n"
     "╰────────────────────────────────────────╯\n"
     "╭ Menus ─────────────────────────────────╮\n"
-    "│ [Esc] Sair                             │\n"
-    "│ [?] Ajuda                              │\n"
+    "│ [Esc] Sair  [?] Ajuda                  │\n"
     "╰────────────────────────────────────────╯\n"
 )
 
@@ -91,8 +94,7 @@ _EXPECTED_ORQUESTRADOR_RETA = (
     "│ [g] Grupo Min.                         │\n"
     "└────────────────────────────────────────┘\n"
     "┌ Menus ─────────────────────────────────┐\n"
-    "│ [Esc] Sair                             │\n"
-    "│ [?] Ajuda                              │\n"
+    "│ [Esc] Sair  [?] Ajuda                  │\n"
     "└────────────────────────────────────────┘\n"
 )
 
@@ -959,15 +961,18 @@ def teste_altura_explicita():
     tela_raw = carregar_tela(_BASE_PADRAO, "orquestrador")
     modelo = construir_modelo(tela_raw)
 
-    # Contabilidade verificada contra o orquestrador.json real (largura=42):
+    # Contabilidade verificada contra o orquestrador.json real (largura=42).
+    # H-0016: a barra_de_menus agora e horizontal responsiva. Com 2 chips em
+    # largura 42 (content_w=39), "[Esc] Sair" + "  " + "[?] Ajuda" = 21 <= 39,
+    # logo cabem em linha unica -> N_linhas_barra = 1.
     #   L_cab = 3 (1 topo + 1 descricao + 1 base)
     #   L_corpo_conteudo = 9 (ITENS=3, INFO=2, NAVEGAR=4)
-    #   L_barra = 4 (1 topo + 2 chips + 1 base)
-    #   altura natural (sem preenchimento) = 3 + 9 + 4 = 16
+    #   L_barra = 3 (1 topo + 1 linha horizontal + 1 base)
+    #   altura natural (sem preenchimento) = 3 + 9 + 3 = 15
     l_cab = 3
     l_corpo_conteudo = 9
-    l_barra = 4
-    n_minimo = l_cab + l_corpo_conteudo + l_barra  # 16
+    l_barra = 3
+    n_minimo = l_cab + l_corpo_conteudo + l_barra  # 15
 
     # CA-09 / CA-10: altura=None preserva o comportamento atual.
     _registrar(
@@ -981,16 +986,16 @@ def teste_altura_explicita():
     # saida identica ao comportamento natural.
     saida_min = renderizar_tela(modelo, largura=42, altura=n_minimo)
     _registrar(
-        "altura=N_minimo (16) -> count('\\n') == 16 (sem fill) (CA-03)",
+        "altura=N_minimo (15) -> count('\\n') == 15 (sem fill) (CA-03)",
         saida_min.count("\n") == n_minimo,
         "count={0}".format(saida_min.count("\n")),
     )
     _registrar(
-        "altura=N_minimo (16) gera saida identica a altura=None",
+        "altura=N_minimo (15) gera saida identica a altura=None",
         saida_min == renderizar_tela(modelo, largura=42),
     )
 
-    # CA-01: altura=16 -> 16 linhas (caso de aceite explicito do handoff).
+    # CA-01: altura=16 -> 16 linhas (1 de preenchimento).
     saida_16 = renderizar_tela(modelo, largura=42, altura=16)
     _registrar(
         "renderizar_tela(modelo, largura=42, altura=16) -> 16 linhas (CA-01)",
@@ -1010,10 +1015,10 @@ def teste_altura_explicita():
         "[Esc] Sair" in saida_24,
     )
 
-    # Contagem de preenchimento para altura=24:
-    #   L_corpo_disponivel = 24 - 3 - 4 = 17
-    #   L_corpo_fill = 17 - 9 = 8
-    l_corpo_fill_24 = (24 - l_cab - l_barra) - l_corpo_conteudo  # 8
+    # Contagem de preenchimento para altura=24 (H-0016, L_barra=3):
+    #   L_corpo_disponivel = 24 - 3 - 3 = 18
+    #   L_corpo_fill = 18 - 9 = 9
+    l_corpo_fill_24 = (24 - l_cab - l_barra) - l_corpo_conteudo  # 9
     linhas_24 = saida_24.split("\n")
     # Identifica linhas de preenchimento: NAO usa strip() para validar
     # a evidencia (ACH-H15-02); compara a linha inteira contra a string
@@ -1042,16 +1047,17 @@ def teste_altura_explicita():
     )
 
     # CA-08: preenchimento fica entre o ultimo box do corpo e o box Menus.
-    # Estrutura: cabecalho(3) + ITENS(3) + INFO(2) + NAVEGAR(4) = 12 caixas,
-    # depois 8 fills (indices 12..19), depois Menus topo no indice 20.
+    # Estrutura (H-0016, L_barra=3): cabecalho(3) + ITENS(3) + INFO(2) +
+    # NAVEGAR(4) = 12 caixas, depois 9 fills (indices 12..20), depois Menus
+    # topo no indice 21, 1 linha horizontal de chips no 22, base no 23.
     _registrar(
         "preenchimento entre corpo e Menus (CA-08): linha 12 = fill, "
-        "linha 20 = '╭ Menus'",
+        "linha 20 = fill, linha 21 = '╭ Menus'",
         linhas_24[12] == fill_esperado
-        and linhas_24[19] == fill_esperado
-        and linhas_24[20].startswith("╭ Menus"),
-        "l12={0!r} l19={1!r} l20={2!r}".format(
-            linhas_24[12], linhas_24[19], linhas_24[20][:9]
+        and linhas_24[20] == fill_esperado
+        and linhas_24[21].startswith("╭ Menus"),
+        "l12={0!r} l20={1!r} l21={2!r}".format(
+            linhas_24[12], linhas_24[20], linhas_24[21][:9]
         ),
     )
 
@@ -1098,25 +1104,25 @@ def teste_altura_explicita():
     )
 
     # CA-12: altura insuficiente para o corpo (overflow) -> RenderizadorErro.
-    # N_overflow = L_cab + L_barra + L_corpo_conteudo - 1 = 15.
+    # N_overflow = L_cab + L_barra + L_corpo_conteudo - 1 = 14.
     n_overflow = l_cab + l_barra + l_corpo_conteudo - 1
     exc_overflow = _espera_excecao(
-        "altura=15 (corpo overflow) levanta RenderizadorErro (CA-12)",
+        "altura=14 (corpo overflow) levanta RenderizadorErro (CA-12)",
         lambda: renderizar_tela(modelo, largura=42, altura=n_overflow),
         RenderizadorErro,
     )
     if exc_overflow is not None:
         _registrar(
             "mensagem de overflow menciona corpo/area disponivel (CA-13)",
-            "corpo" in str(exc_overflow) and "15" in str(exc_overflow),
+            "corpo" in str(exc_overflow) and "14" in str(exc_overflow),
             str(exc_overflow),
         )
 
     # CA-11: altura insuficiente para cabecalho + barra -> RenderizadorErro.
-    # Para o Orquestrador: L_cab(3) + L_barra(4) = 7 > 6.
+    # Para o Orquestrador (H-0016): L_cab(3) + L_barra(3) = 6 > 5.
     exc_pequeno = _espera_excecao(
-        "altura=6 (cabecalho + barra > altura) levanta RenderizadorErro (CA-11)",
-        lambda: renderizar_tela(modelo, largura=42, altura=6),
+        "altura=5 (cabecalho + barra > altura) levanta RenderizadorErro (CA-11)",
+        lambda: renderizar_tela(modelo, largura=42, altura=5),
         RenderizadorErro,
     )
     if exc_pequeno is not None:
@@ -1124,16 +1130,16 @@ def teste_altura_explicita():
             "mensagem de terminal pequeno menciona cabecalho/barra (CA-13)",
             "cabecalho" in str(exc_pequeno)
             and "barra_de_menus" in str(exc_pequeno)
-            and "6" in str(exc_pequeno),
+            and "5" in str(exc_pequeno),
             str(exc_pequeno),
         )
 
     # CA-14: exatamente no limite cabecalho + barra, sem corpo, deve ERRO
     # quando L_corpo_conteudo(9) > 0 e L_corpo_disponivel = 0.
     _espera_excecao(
-        "altura == L_cab + L_barra (7) com corpo nao vazio levanta "
+        "altura == L_cab + L_barra (6) com corpo nao vazio levanta "
         "RenderizadorErro (sem truncamento silencioso)",
-        lambda: renderizar_tela(modelo, largura=42, altura=7),
+        lambda: renderizar_tela(modelo, largura=42, altura=6),
         RenderizadorErro,
     )
 
@@ -1143,6 +1149,486 @@ def teste_altura_explicita():
         renderizar_tela(modelo, largura=42, altura=24)
         == renderizar_tela(modelo, largura=42, altura=24),
     )
+
+
+def _dist_canonica(preenchimento="coluna_a_coluna", **sobrepos):
+    """Copia mutável do objeto canônico de distribuicao para testes H-0016."""
+    d = {
+        "modo": "horizontal_responsiva",
+        "ordem": {"politica": "declaracao", "ancoras": {}},
+        "tentativa_inicial": "linha_unica",
+        "quebra": "multilinha_quando_nao_couber",
+        "preenchimento_multilinha": preenchimento,
+        "preenchimentos_multilinha_suportados": ["coluna_a_coluna", "linha_a_linha"],
+        "linhas": {"minimo": 1, "maximo": 2, "preferir_menor_numero": True},
+        "alinhamento_linhas": "esquerda",
+        "espacamentos": {
+            "margem_horizontal": {"minimo": 1, "maximo": None},
+            "vao_chip_texto": {"minimo": 1, "maximo": 3},
+            "vao_entre_chips": {"minimo": 2, "maximo": 6},
+            "vao_entre_colunas": {"minimo": 2, "maximo": 8},
+            "vao_vertical_entre_linhas": {"minimo": 0, "maximo": 0},
+        },
+        "colunas": {
+            "largura": "por_maior_item_da_coluna",
+            "subcolunas": {
+                "chip": {"alinhamento": "esquerda"},
+                "texto": {"alinhamento": "esquerda"},
+            },
+        },
+        "overflow": {
+            "quando_nao_couber": "erro_layout",
+            "nao_omitir_chips": True,
+            "nao_truncar_texto": True,
+            "nao_reordenar": True,
+        },
+    }
+    for chave, valor in sobrepos.items():
+        d[chave] = valor
+    return d
+
+
+def _chip(cid, tecla, texto):
+    """Chip minimal para testes de _linhas_barra."""
+    return {"id": cid, "tecla": tecla, "texto": texto}
+
+
+class TestLinhasBarra:
+    """Casos H-0016: distribuicao horizontal responsiva da barra_de_menus.
+
+    Cobertura obrigatoria do handoff H-0016: linha unica, multilinha,
+    erro_layout, alias string, distribuicao ausente, chips vazia, ancoras
+    (valida/violada/inexistente), ordem preservada, chips do lancador
+    ausentes da barra, coluna_a_coluna, linha_a_linha, renderizar_tela com
+    canonico, preservacao da altura H-0015, altura minima com barra
+    horizontal, fluxo g/d/b/Esc, e validacoes defensivas (PR-M-01..04).
+    """
+
+    def _r(self, nome, passou, detalhe=""):
+        _registrar(nome, passou, detalhe)
+
+    def _espera_erro(self, nome, fn):
+        try:
+            fn()
+        except RenderizadorErro as exc:
+            self._r(nome, True, "{0}: {1}".format(type(exc).__name__, exc))
+            return exc
+        except Exception as exc:  # pragma: no cover - diagnostico
+            self._r(nome, False,
+                    "esperava RenderizadorErro; obteve {0}: {1}".format(
+                        type(exc).__name__, exc))
+            return None
+        self._r(nome, False, "esperava RenderizadorErro; nenhuma excecao")
+        return None
+
+    def test_linha_unica_cabe(self):
+        chips = [_chip("chip_esc", "Esc", "Sair"), _chip("chip_ajuda", "?", "Ajuda")]
+        bar = {"distribuicao": _dist_canonica(), "chips": chips}
+        linhas = _linhas_barra(bar, 39)
+        self._r(
+            "linha unica: retorna lista com 1 string quando cabe (content_w=39)",
+            isinstance(linhas, list) and len(linhas) == 1,
+            "linhas={0!r}".format(linhas),
+        )
+        self._r(
+            "linha unica contem ambos os chips",
+            "[Esc] Sair" in linhas[0] and "[?] Ajuda" in linhas[0],
+            "linha={0!r}".format(linhas[0] if linhas else None),
+        )
+
+    def test_linha_unica_nao_cabe_vai_para_multilinha(self):
+        chips = [_chip("chip_esc", "Esc", "Sair"), _chip("chip_ajuda", "?", "Ajuda")]
+        bar = {"distribuicao": _dist_canonica(), "chips": chips}
+        # single = 21 > 15; multilinha K=2 (1 coluna, 2 linhas) cabe (max 10).
+        linhas = _linhas_barra(bar, 15)
+        self._r(
+            "multilinha: content_w=15 -> 2 linhas",
+            isinstance(linhas, list) and len(linhas) == 2,
+            "linhas={0!r}".format(linhas),
+        )
+
+    def test_multilinha_nao_cabe_erro_layout(self):
+        chips = [_chip("chip_esc", "Esc", "Sair"), _chip("chip_ajuda", "?", "Ajuda")]
+        bar = {"distribuicao": _dist_canonica(), "chips": chips}
+        exc = self._espera_erro(
+            "erro_layout: content_w=5 nao cabe em nenhuma config",
+            lambda: _linhas_barra(bar, 5),
+        )
+        if exc is not None:
+            self._r(
+                "mensagem de erro_layout contem 'erro_layout'",
+                "erro_layout" in str(exc),
+                str(exc),
+            )
+
+    def test_alias_string_horizontal_aceito(self):
+        chips = [_chip("chip_esc", "Esc", "Sair"), _chip("chip_ajuda", "?", "Ajuda")]
+        bar = {"distribuicao": "horizontal", "chips": chips}
+        try:
+            linhas = _linhas_barra(bar, 39)
+            ok = isinstance(linhas, list) and len(linhas) == 1
+        except RenderizadorErro as exc:
+            ok = False
+            self._r("alias string 'horizontal' aceito sem erro", False, str(exc))
+            return
+        self._r("alias string 'horizontal' aceito sem erro", ok,
+                "linhas={0!r}".format(linhas))
+
+    def test_distribuicao_ausente_aceito(self):
+        chips = [_chip("chip_esc", "Esc", "Sair"), _chip("chip_ajuda", "?", "Ajuda")]
+        bar = {"chips": chips}  # sem 'distribuicao'
+        try:
+            linhas = _linhas_barra(bar, 39)
+            ok = isinstance(linhas, list) and len(linhas) >= 1
+        except RenderizadorErro as exc:
+            ok = False
+            self._r("distribuicao ausente/None aceito sem erro", False, str(exc))
+            return
+        self._r("distribuicao ausente/None aceito sem erro", ok,
+                "linhas={0!r}".format(linhas))
+
+    def test_chips_vazia_retorna_lista_vazia(self):
+        bar = {"distribuicao": _dist_canonica(), "chips": []}
+        linhas = _linhas_barra(bar, 39)
+        self._r(
+            "chips vazia retorna lista vazia",
+            linhas == [],
+            "linhas={0!r}".format(linhas),
+        )
+
+    def test_ancora_primeiro_valida(self):
+        chips = [_chip("chip_esc", "Esc", "Sair"), _chip("chip_ajuda", "?", "Ajuda")]
+        dist = _dist_canonica()
+        dist["ordem"]["ancoras"] = {"primeiro": ["chip_esc"]}
+        bar = {"distribuicao": dist, "chips": chips}
+        try:
+            _linhas_barra(bar, 39)
+            self._r("ancora primeiro valida: sem erro", True)
+        except RenderizadorErro as exc:
+            self._r("ancora primeiro valida: sem erro", False, str(exc))
+
+    def test_ancora_primeiro_violada(self):
+        chips = [_chip("chip_esc", "Esc", "Sair"), _chip("chip_ajuda", "?", "Ajuda")]
+        dist = _dist_canonica()
+        dist["ordem"]["ancoras"] = {"primeiro": ["chip_ajuda"]}  # nao eh o 1o
+        bar = {"distribuicao": dist, "chips": chips}
+        self._espera_erro(
+            "ancora primeiro violada -> RenderizadorErro",
+            lambda: _linhas_barra(bar, 39),
+        )
+
+    def test_ancora_ultimo_valida(self):
+        chips = [_chip("chip_esc", "Esc", "Sair"), _chip("chip_ajuda", "?", "Ajuda")]
+        dist = _dist_canonica()
+        dist["ordem"]["ancoras"] = {"ultimo": ["chip_ajuda"]}
+        bar = {"distribuicao": dist, "chips": chips}
+        try:
+            _linhas_barra(bar, 39)
+            self._r("ancora ultimo valida: sem erro", True)
+        except RenderizadorErro as exc:
+            self._r("ancora ultimo valida: sem erro", False, str(exc))
+
+    def test_ancora_ultimo_violada(self):
+        chips = [_chip("chip_esc", "Esc", "Sair"), _chip("chip_ajuda", "?", "Ajuda")]
+        dist = _dist_canonica()
+        dist["ordem"]["ancoras"] = {"ultimo": ["chip_esc"]}  # nao eh o ultimo
+        bar = {"distribuicao": dist, "chips": chips}
+        self._espera_erro(
+            "ancora ultimo violada -> RenderizadorErro",
+            lambda: _linhas_barra(bar, 39),
+        )
+
+    def test_ancora_id_inexistente(self):
+        chips = [_chip("chip_esc", "Esc", "Sair"), _chip("chip_ajuda", "?", "Ajuda")]
+        dist = _dist_canonica()
+        dist["ordem"]["ancoras"] = {"primeiro": ["chip_inexistente"]}
+        bar = {"distribuicao": dist, "chips": chips}
+        self._espera_erro(
+            "ancora com id inexistente -> RenderizadorErro",
+            lambda: _linhas_barra(bar, 39),
+        )
+
+    def test_ordem_preservada(self):
+        chips = [
+            _chip("a", "1", "AAA"),
+            _chip("b", "2", "BBB"),
+            _chip("c", "3", "CCC"),
+        ]
+        bar = {"distribuicao": _dist_canonica(), "chips": chips}
+        linhas = _linhas_barra(bar, 100)
+        saida = " ".join(linhas)
+        self._r(
+            "ordem preservada na saida (a antes de b antes de c)",
+            saida.find("[1] AAA") < saida.find("[2] BBB")
+            and saida.find("[2] BBB") < saida.find("[3] CCC"),
+            "saida={0!r}".format(saida),
+        )
+
+    def test_chips_declarados_aparecem_exatamente_uma_vez(self):
+        chips = [_chip("chip_esc", "Esc", "Sair"), _chip("chip_ajuda", "?", "Ajuda")]
+        bar = {"distribuicao": _dist_canonica(), "chips": chips}
+        linhas = _linhas_barra(bar, 39)
+        junta = " ".join(linhas)
+        self._r(
+            "cada chip declarado aparece exatamente uma vez",
+            junta.count("[Esc] Sair") == 1 and junta.count("[?] Ajuda") == 1,
+            "junta={0!r}".format(junta),
+        )
+
+    def test_chips_do_lancador_nao_entram_na_barra(self):
+        modelo = construir_modelo(carregar_tela(_BASE_PADRAO, "orquestrador"))
+        linhas = _linhas_barra(modelo.barra_de_menus, 39)
+        junta = " ".join(linhas)
+        self._r(
+            "barra contem chips da barra ([Esc], [?])",
+            "[Esc]" in junta and "[?]" in junta,
+            "junta={0!r}".format(junta),
+        )
+        self._r(
+            "barra NAO contem chips do lancador ([d], [g])",
+            "[d]" not in junta and "[g]" not in junta,
+            "junta={0!r}".format(junta),
+        )
+        # corpo.arranjo nao influencia a barra: o lancador continua no corpo.
+        saida = renderizar_tela(modelo, largura=42)
+        self._r(
+            "lancador ([d]/[g]) permanece no corpo, nao na barra",
+            "[d] Destino" in saida and "[g] Grupo Min." in saida,
+        )
+
+    def test_coluna_a_coluna_layout(self):
+        chips = [
+            _chip("a", "1", "A"),
+            _chip("b", "2", "B"),
+            _chip("c", "3", "C"),
+            _chip("d", "4", "D"),
+            _chip("e", "5", "E"),
+        ]
+        # Forca multilinha K=2: single = 5*5 + 2*4 = 33 > 20.
+        dist = _dist_canonica(preenchimento="coluna_a_coluna")
+        dist["linhas"] = {"minimo": 1, "maximo": 2, "preferir_menor_numero": True}
+        bar = {"distribuicao": dist, "chips": chips}
+        linhas = _linhas_barra(bar, 20)
+        self._r(
+            "coluna_a_coluna K=2 -> 2 linhas (content_w=20)",
+            isinstance(linhas, list) and len(linhas) == 2,
+            "linhas={0!r}".format(linhas),
+        )
+        if isinstance(linhas, list) and len(linhas) == 2:
+            # Preenchimento coluna-a-coluna: line0 tem A,C,E; line1 tem B,D.
+            self._r(
+                "coluna_a_coluna: linha 0 contem A, C, E (coluna-major)",
+                "[1] A" in linhas[0] and "[3] C" in linhas[0]
+                and "[5] E" in linhas[0],
+                "linha0={0!r}".format(linhas[0]),
+            )
+            self._r(
+                "coluna_a_coluna: linha 1 contem B, D (coluna-major)",
+                "[2] B" in linhas[1] and "[4] D" in linhas[1],
+                "linha1={0!r}".format(linhas[1]),
+            )
+            self._r(
+                "coluna_a_coluna: linha 1 NAO contem A, C, E",
+                "[1] A" not in linhas[1] and "[3] C" not in linhas[1]
+                and "[5] E" not in linhas[1],
+            )
+
+    def test_linha_a_linha_implementado(self):
+        chips = [
+            _chip("a", "1", "A"),
+            _chip("b", "2", "B"),
+            _chip("c", "3", "C"),
+            _chip("d", "4", "D"),
+            _chip("e", "5", "E"),
+        ]
+        dist = _dist_canonica(preenchimento="linha_a_linha")
+        bar = {"distribuicao": dist, "chips": chips}
+        linhas = _linhas_barra(bar, 20)
+        self._r(
+            "linha_a_linha K=2 -> 2 linhas (content_w=20)",
+            isinstance(linhas, list) and len(linhas) == 2,
+            "linhas={0!r}".format(linhas),
+        )
+        if isinstance(linhas, list) and len(linhas) == 2:
+            # Preenchimento linha-a-linha: line0=A,B,C; line1=D,E.
+            self._r(
+                "linha_a_linha: linha 0 contem A, B, C (linha-major)",
+                "[1] A" in linhas[0] and "[2] B" in linhas[0]
+                and "[3] C" in linhas[0],
+                "linha0={0!r}".format(linhas[0]),
+            )
+            self._r(
+                "linha_a_linha: linha 1 contem D, E (linha-major)",
+                "[4] D" in linhas[1] and "[5] E" in linhas[1],
+                "linha1={0!r}".format(linhas[1]),
+            )
+
+    def test_modo_desconhecido_erro(self):
+        chips = [_chip("chip_esc", "Esc", "Sair")]
+        dist = _dist_canonica()
+        dist["modo"] = "vertical"
+        bar = {"distribuicao": dist, "chips": chips}
+        self._espera_erro(
+            "modo desconhecido ('vertical') -> RenderizadorErro",
+            lambda: _linhas_barra(bar, 39),
+        )
+
+    def test_politica_desconhecida_erro(self):
+        chips = [_chip("chip_esc", "Esc", "Sair")]
+        dist = _dist_canonica()
+        dist["ordem"] = {"politica": "grupos_declarados", "ancoras": {}}
+        bar = {"distribuicao": dist, "chips": chips}
+        self._espera_erro(
+            "ordem.politica nao suportada ('grupos_declarados') -> "
+            "RenderizadorErro (PR-M-01)",
+            lambda: _linhas_barra(bar, 39),
+        )
+
+    def test_preenchimento_multilinha_desconhecido_erro(self):
+        chips = [_chip("chip_esc", "Esc", "Sair"), _chip("x", "?", "Aj")]
+        dist = _dist_canonica(preenchimento="outro_modo")
+        bar = {"distribuicao": dist, "chips": chips}
+        self._espera_erro(
+            "preenchimento_multilinha desconhecido -> RenderizadorErro (PR-M-02)",
+            lambda: _linhas_barra(bar, 15),
+        )
+
+    def test_linhas_minimo_invalido_erro(self):
+        chips = [_chip("chip_esc", "Esc", "Sair")]
+        dist = _dist_canonica()
+        dist["linhas"] = {"minimo": 0, "maximo": 2, "preferir_menor_numero": True}
+        bar = {"distribuicao": dist, "chips": chips}
+        self._espera_erro(
+            "linhas.minimo invalido (0) -> RenderizadorErro (PR-M-03)",
+            lambda: _linhas_barra(bar, 39),
+        )
+
+    def test_linhas_maximo_menor_que_minimo_erro(self):
+        chips = [_chip("chip_esc", "Esc", "Sair")]
+        dist = _dist_canonica()
+        dist["linhas"] = {"minimo": 3, "maximo": 2, "preferir_menor_numero": True}
+        bar = {"distribuicao": dist, "chips": chips}
+        self._espera_erro(
+            "linhas.maximo < minimo -> RenderizadorErro (PR-M-03)",
+            lambda: _linhas_barra(bar, 39),
+        )
+
+    def test_overflow_desconhecido_erro(self):
+        chips = [_chip("chip_esc", "Esc", "Sair"), _chip("x", "?", "Aj")]
+        dist = _dist_canonica()
+        dist["overflow"] = {
+            "quando_nao_couber": "omitir",
+            "nao_omitir_chips": True,
+            "nao_truncar_texto": True,
+            "nao_reordenar": True,
+        }
+        bar = {"distribuicao": dist, "chips": chips}
+        self._espera_erro(
+            "overflow.quando_nao_couber desconhecido -> RenderizadorErro (PR-M-04)",
+            lambda: _linhas_barra(bar, 39),
+        )
+
+    def test_overflow_flag_nao_booleana_erro(self):
+        chips = [_chip("chip_esc", "Esc", "Sair")]
+        dist = _dist_canonica()
+        dist["overflow"] = {
+            "quando_nao_couber": "erro_layout",
+            "nao_omitir_chips": "sim",
+            "nao_truncar_texto": True,
+            "nao_reordenar": True,
+        }
+        bar = {"distribuicao": dist, "chips": chips}
+        self._espera_erro(
+            "overflow flag nao booleana -> RenderizadorErro (PR-M-04)",
+            lambda: _linhas_barra(bar, 39),
+        )
+
+    def test_renderizar_tela_com_distribuicao_canonica(self):
+        modelo = construir_modelo(carregar_tela(_BASE_PADRAO, "orquestrador"))
+        dist = modelo.barra_de_menus.get("distribuicao")
+        self._r(
+            "JSON migrado expoe distribuicao como objeto com modo canonico",
+            isinstance(dist, dict)
+            and dist.get("modo") == "horizontal_responsiva"
+            and dist.get("ordem", {}).get("politica") == "declaracao",
+            "modo={0!r}".format(dist.get("modo") if isinstance(dist, dict) else None),
+        )
+        saida = renderizar_tela(modelo, largura=42)
+        self._r(
+            "renderizar_tela com canonico: barra em linha horizontal",
+            saida == _EXPECTED_ORQUESTRADOR,
+            "" if saida == _EXPECTED_ORQUESTRADOR else "snapshot diverge",
+        )
+
+    def test_renderizar_tela_preserva_altura_h0015(self):
+        modelo = construir_modelo(carregar_tela(_BASE_PADRAO, "orquestrador"))
+        saida_24 = renderizar_tela(modelo, largura=42, altura=24)
+        linhas = _linhas_barra(modelo.barra_de_menus, 39)
+        l_barra = len(linhas) + 2
+        self._r(
+            "altura explicita: L_barra = len(linhas_barra)+2 = 3 (1 linha horizontal)",
+            l_barra == 3 and len(linhas) == 1,
+            "l_barra={0} linhas={1}".format(l_barra, len(linhas)),
+        )
+        self._r(
+            "renderizar_tela(altura=24) -> 24 linhas (H-0015 preservado)",
+            saida_24.count("\n") == 24,
+            "count={0}".format(saida_24.count("\n")),
+        )
+
+    def test_altura_minima_com_barra_horizontal(self):
+        modelo = construir_modelo(carregar_tela(_BASE_PADRAO, "orquestrador"))
+        # H-0016: n_minimo = L_cab(3) + L_corpo(9) + L_barra(3) = 15.
+        saida_15 = renderizar_tela(modelo, largura=42, altura=15)
+        self._r(
+            "altura minima = 15 com barra horizontal (antes era 16)",
+            saida_15.count("\n") == 15
+            and saida_15 == renderizar_tela(modelo, largura=42),
+            "count={0}".format(saida_15.count("\n")),
+        )
+
+    def test_fluxo_g_d_b_esc_preservado(self):
+        # O renderer continua exibindo lancador ([d]/[g]) no corpo e os chips
+        # da barra ([Esc]/[?]) no rodape; a navegacao g/d/b/Esc (tratada pela
+        # demo) depende desses chips continuarem presentes e corretos.
+        modelo = construir_modelo(carregar_tela(_BASE_PADRAO, "orquestrador"))
+        saida = renderizar_tela(modelo, largura=42)
+        self._r(
+            "fluxo g/d/b/Esc: lancador [d]/[g] e barra [Esc]/[?] presentes",
+            "[d] Destino" in saida and "[g] Grupo Min." in saida
+            and "[Esc] Sair" in saida and "[?] Ajuda" in saida,
+        )
+
+    def run_all(self):
+        print("")
+        print("== H-0016 - distribuicao horizontal responsiva da barra_de_menus ==")
+        self.test_linha_unica_cabe()
+        self.test_linha_unica_nao_cabe_vai_para_multilinha()
+        self.test_multilinha_nao_cabe_erro_layout()
+        self.test_alias_string_horizontal_aceito()
+        self.test_distribuicao_ausente_aceito()
+        self.test_chips_vazia_retorna_lista_vazia()
+        self.test_ancora_primeiro_valida()
+        self.test_ancora_primeiro_violada()
+        self.test_ancora_ultimo_valida()
+        self.test_ancora_ultimo_violada()
+        self.test_ancora_id_inexistente()
+        self.test_ordem_preservada()
+        self.test_chips_declarados_aparecem_exatamente_uma_vez()
+        self.test_chips_do_lancador_nao_entram_na_barra()
+        self.test_coluna_a_coluna_layout()
+        self.test_linha_a_linha_implementado()
+        self.test_modo_desconhecido_erro()
+        self.test_politica_desconhecida_erro()
+        self.test_preenchimento_multilinha_desconhecido_erro()
+        self.test_linhas_minimo_invalido_erro()
+        self.test_linhas_maximo_menor_que_minimo_erro()
+        self.test_overflow_desconhecido_erro()
+        self.test_overflow_flag_nao_booleana_erro()
+        self.test_renderizar_tela_com_distribuicao_canonica()
+        self.test_renderizar_tela_preserva_altura_h0015()
+        self.test_altura_minima_com_barra_horizontal()
+        self.test_fluxo_g_d_b_esc_preservado()
 
 
 def main():
@@ -1161,6 +1647,7 @@ def main():
     teste_alternancia_borda()
     teste_largura_explicita()
     teste_altura_explicita()
+    TestLinhasBarra().run_all()
 
     print("")
     print("== Resumo ==")

@@ -249,6 +249,24 @@ def teste_modelo_orquestrador():
         and len(modelo.barra_de_menus) > 0,
     )
 
+    # H-0016: modelo expoe distribuicao como objeto canônico ao renderer.
+    dist = modelo.barra_de_menus.get("distribuicao")
+    _registrar(
+        "H-0016: modelo.barra_de_menus.distribuicao e objeto (nao string)",
+        isinstance(dist, dict),
+        "dist={0!r}".format(dist),
+    )
+    _registrar(
+        "H-0016: modelo expoe distribuicao.modo == 'horizontal_responsiva'",
+        isinstance(dist, dict) and dist.get("modo") == "horizontal_responsiva",
+        "modo={0!r}".format(dist.get("modo") if isinstance(dist, dict) else None),
+    )
+    _registrar(
+        "H-0016: modelo expoe distribuicao.ordem.politica == 'declaracao'",
+        isinstance(dist, dict)
+        and dist.get("ordem", {}).get("politica") == "declaracao",
+    )
+
     chip_estilo = None
     for chip in modelo.barra_de_menus.get("chips", []):
         if isinstance(chip, dict) and chip.get("id") == "chip_estilo":

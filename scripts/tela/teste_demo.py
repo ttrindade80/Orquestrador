@@ -121,8 +121,7 @@ _EXPECTED_CURVA = (
     "│ [g] Grupo Min.                                                               │\n"
     "╰──────────────────────────────────────────────────────────────────────────────╯\n"
     "╭ Menus ───────────────────────────────────────────────────────────────────────╮\n"
-    "│ [Esc] Sair                                                                   │\n"
-    "│ [?] Ajuda                                                                    │\n"
+    "│ [Esc] Sair  [?] Ajuda                                                        │\n"
     "╰──────────────────────────────────────────────────────────────────────────────╯\n"
 )
 
@@ -140,8 +139,7 @@ _EXPECTED_RETA = (
     "│ [g] Grupo Min.                                                               │\n"
     "└──────────────────────────────────────────────────────────────────────────────┘\n"
     "┌ Menus ───────────────────────────────────────────────────────────────────────┐\n"
-    "│ [Esc] Sair                                                                   │\n"
-    "│ [?] Ajuda                                                                    │\n"
+    "│ [Esc] Sair  [?] Ajuda                                                        │\n"
     "└──────────────────────────────────────────────────────────────────────────────┘\n"
 )
 
@@ -160,8 +158,7 @@ _EXPECTED_DIAGNOSTICO_CURVA_42 = (
     "│ [g] Grupo Min.                         │\n"
     "╰────────────────────────────────────────╯\n"
     "╭ Menus ─────────────────────────────────╮\n"
-    "│ [Esc] Sair                             │\n"
-    "│ [?] Ajuda                              │\n"
+    "│ [Esc] Sair  [?] Ajuda                  │\n"
     "╰────────────────────────────────────────╯\n"
 )
 
@@ -174,8 +171,7 @@ _EXPECTED_DESTINO_MINIMO_CURVA_80 = (
     "│ Tela de destino para teste do lancador                                       │\n"
     "╰──────────────────────────────────────────────────────────────────────────────╯\n"
     "╭ Menus ───────────────────────────────────────────────────────────────────────╮\n"
-    "│ [Esc] Voltar                                                                 │\n"
-    "│ [?] Ajuda                                                                    │\n"
+    "│ [Esc] Voltar  [?] Ajuda                                                      │\n"
     "╰──────────────────────────────────────────────────────────────────────────────╯\n"
 )
 
@@ -188,8 +184,7 @@ _EXPECTED_DESTINO_MINIMO_RETA_80 = (
     "│ Tela de destino para teste do lancador                                       │\n"
     "└──────────────────────────────────────────────────────────────────────────────┘\n"
     "┌ Menus ───────────────────────────────────────────────────────────────────────┐\n"
-    "│ [Esc] Voltar                                                                 │\n"
-    "│ [?] Ajuda                                                                    │\n"
+    "│ [Esc] Voltar  [?] Ajuda                                                      │\n"
     "└──────────────────────────────────────────────────────────────────────────────┘\n"
 )
 
@@ -202,8 +197,7 @@ _EXPECTED_GRUPO_MINIMO_CURVA_80 = (
     "│ Dashboard dentro de grupo estrutural                                         │\n"
     "╰──────────────────────────────────────────────────────────────────────────────╯\n"
     "╭ Menus ───────────────────────────────────────────────────────────────────────╮\n"
-    "│ [Esc] Voltar                                                                 │\n"
-    "│ [?] Ajuda                                                                    │\n"
+    "│ [Esc] Voltar  [?] Ajuda                                                      │\n"
     "╰──────────────────────────────────────────────────────────────────────────────╯\n"
 )
 
@@ -216,8 +210,7 @@ _EXPECTED_GRUPO_MINIMO_RETA_80 = (
     "│ Dashboard dentro de grupo estrutural                                         │\n"
     "└──────────────────────────────────────────────────────────────────────────────┘\n"
     "┌ Menus ───────────────────────────────────────────────────────────────────────┐\n"
-    "│ [Esc] Voltar                                                                 │\n"
-    "│ [?] Ajuda                                                                    │\n"
+    "│ [Esc] Voltar  [?] Ajuda                                                      │\n"
     "└──────────────────────────────────────────────────────────────────────────────┘\n"
 )
 
@@ -667,18 +660,19 @@ def teste_renderizar_estado_altura(modelo):
         "count={0}".format(res_24.count("\n") if isinstance(res_24, str) else "n/a"),
     )
 
-    # CA-01 / CA-03: altura minima (16) sem preenchimento, saida identica
-    # ao comportamento natural (sem altura).
+    # CA-01 / CA-03: altura minima (15) sem preenchimento, saida identica
+    # ao comportamento natural (sem altura). H-0016: com a barra horizontal
+    # responsiva em 1 linha, L_barra=3 e n_minimo=15.
     res_16 = renderizar_estado(
-        estado_curva, modelo, largura=42, altura=16
+        estado_curva, modelo, largura=42, altura=15
     )
     _registrar(
-        "renderizar_estado(..., altura=16) -> 16 linhas (sem fill)",
-        res_16.count("\n") == 16,
+        "renderizar_estado(..., altura=15) -> 15 linhas (sem fill)",
+        res_16.count("\n") == 15,
         "count={0}".format(res_16.count("\n")),
     )
     _registrar(
-        "renderizar_estado(..., altura=16) == renderizar_estado(..., largura=42)",
+        "renderizar_estado(..., altura=15) == renderizar_estado(..., largura=42)",
         res_16 == renderizar_estado(estado_curva, modelo, largura=42),
     )
 

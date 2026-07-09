@@ -160,6 +160,33 @@ def teste_caminho_feliz():
         "tela.barra_de_menus presente",
         isinstance(tela.get("barra_de_menus"), dict),
     )
+
+    # H-0016: distribuicao migrada para objeto canônico.
+    dist = tela.get("barra_de_menus", {}).get("distribuicao")
+    _registrar(
+        "H-0016: barra_de_menus.distribuicao e objeto (nao string)",
+        isinstance(dist, dict),
+        "dist={0!r}".format(dist),
+    )
+    _registrar(
+        "H-0016: distribuicao.modo == 'horizontal_responsiva'",
+        isinstance(dist, dict) and dist.get("modo") == "horizontal_responsiva",
+        "modo={0!r}".format(dist.get("modo") if isinstance(dist, dict) else None),
+    )
+    _registrar(
+        "H-0016: distribuicao.ordem.politica == 'declaracao'",
+        isinstance(dist, dict)
+        and dist.get("ordem", {}).get("politica") == "declaracao",
+    )
+    _registrar(
+        "H-0016: distribuicao.ordem.ancoras usa IDs reais (chip_esc/chip_ajuda)",
+        isinstance(dist, dict)
+        and dist.get("ordem", {}).get("ancoras", {}).get("primeiro") == ["chip_esc"]
+        and dist.get("ordem", {}).get("ancoras", {}).get("ultimo") == ["chip_ajuda"],
+        "ancoras={0!r}".format(
+            dist.get("ordem", {}).get("ancoras") if isinstance(dist, dict) else None
+        ),
+    )
     _registrar(
         "tela.corpo presente",
         isinstance(tela.get("corpo"), dict),
@@ -663,6 +690,34 @@ def teste_grupo_estrutural(tmp_base):
         except Exception as exc:  # pragma: no cover - diagnostico
             _registrar("lista plana '{0}' carrega sem erro".format(id_plano),
                        False, "{0}: {1}".format(type(exc).__name__, exc))
+
+    print("")
+    print("-- H-0016: os 4 JSONs ativos com distribuicao objeto canônico --")
+    for id_tela in ("orquestrador", "grupo_minimo", "destino_minimo", "stub_b"):
+        try:
+            t = carregar_tela(_BASE_PADRAO, id_tela)
+        except Exception as exc:  # pragma: no cover - diagnostico
+            _registrar(
+                "H-0016: {0} carrega (objeto canônico)".format(id_tela),
+                False, "{0}: {1}".format(type(exc).__name__, exc))
+            continue
+        d = t.get("barra_de_menus", {}).get("distribuicao")
+        chips_ids = [
+            c.get("id") for c in t.get("barra_de_menus", {}).get("chips", [])
+            if isinstance(c, dict)
+        ]
+        _registrar(
+            "H-0016: {0} distribuicao objeto com modo 'horizontal_responsiva'".format(id_tela),
+            isinstance(d, dict) and d.get("modo") == "horizontal_responsiva"
+            and d.get("ordem", {}).get("politica") == "declaracao",
+            "modo={0!r}".format(d.get("modo") if isinstance(d, dict) else None),
+        )
+        _registrar(
+            "H-0016: {0} ancora primeiro == chips[0].id".format(id_tela),
+            isinstance(d, dict)
+            and d.get("ordem", {}).get("ancoras", {}).get("primeiro")
+            == [chips_ids[0]] if chips_ids else False,
+        )
 
 
 def teste_id_incorreto_classe():

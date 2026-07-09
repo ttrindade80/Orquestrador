@@ -22,10 +22,15 @@ modelo/JSON:
     -- nunca truncar, nunca abreviar. Lista vazia produz caixa sem linhas
     de conteudo.
 - barra_de_menus: caixa com label fixo ``"Menus"`` (rotulo visual apenas,
-  sem comportamento derivado do label); para cada chip em
-  ``modelo.barra_de_menus["chips"]`` inclui linha ``"[{tecla}] {texto}"``
-  na ordem declarada. ``regra_existencia`` e ``regra_ativo`` nao sao
-  avaliadas neste ciclo -- todos os chips declarados sao renderizados.
+  sem comportamento derivado do label); os chips de
+  ``modelo.barra_de_menus["chips"]`` sao dispostos horizontalmente de
+  forma responsiva a partir de ``barra_de_menus.distribuicao`` (H-0016 /
+  ADR-0014): tenta linha unica, depois multilinha (ate
+  ``linhas.maximo``) e, se nao couber, levanta ``RenderizadorErro``
+  (``erro_layout``) -- nunca omite/trunca/reordena chips. Cada chip na
+  saida usa o formato ``"[{tecla}] {texto}"`` e aparece exatamente uma
+  vez, na ordem declarada em ``chips[]``. ``regra_existencia`` e
+  ``regra_ativo`` nao sao avaliadas neste ciclo.
 
 O renderer continua recebendo os parametros opcionais ``tipo_borda``
 (``"curva"`` default ou ``"reta"``) e ``largura`` (quando ``None``,
@@ -75,6 +80,46 @@ _TEXTO_ITEM_MAX = 15
 
 _PLACEHOLDER_CONSOLE = "(console)"
 _LABEL_BARRA = "Menus"
+
+# Defaults normativos do alias transitório ``distribuicao = "horizontal"`` e
+# de ``distribuicao`` ausente/None (H-0016 / ADR-0014). Replica o objeto
+# canônico de referência, exceto por ``ancoras`` vazio (apenas o objeto
+# canônico declarado no JSON pode definir âncoras).
+_DISTRIBUICAO_HORIZONTAL_RESPONSIVA_DEFAULT = {
+    "modo": "horizontal_responsiva",
+    "ordem": {
+        "politica": "declaracao",
+        "ancoras": {},
+    },
+    "tentativa_inicial": "linha_unica",
+    "quebra": "multilinha_quando_nao_couber",
+    "preenchimento_multilinha": "coluna_a_coluna",
+    "preenchimentos_multilinha_suportados": ["coluna_a_coluna", "linha_a_linha"],
+    "linhas": {"minimo": 1, "maximo": 2, "preferir_menor_numero": True},
+    "alinhamento_linhas": "esquerda",
+    "espacamentos": {
+        "margem_horizontal":         {"minimo": 1, "maximo": None},
+        "vao_chip_texto":            {"minimo": 1, "maximo": 3},
+        "vao_entre_chips":           {"minimo": 2, "maximo": 6},
+        "vao_entre_colunas":         {"minimo": 2, "maximo": 8},
+        "vao_vertical_entre_linhas": {"minimo": 0, "maximo": 0},
+    },
+    "colunas": {
+        "largura": "por_maior_item_da_coluna",
+        "subcolunas": {
+            "chip":  {"alinhamento": "esquerda"},
+            "texto": {"alinhamento": "esquerda"},
+        },
+    },
+    "overflow": {
+        "quando_nao_couber": "erro_layout",
+        "nao_omitir_chips":  True,
+        "nao_truncar_texto": True,
+        "nao_reordenar":     True,
+    },
+}
+
+_PREENCHIMENTOS_MULTILINHA_VALIDOS = ("coluna_a_coluna", "linha_a_linha")
 
 
 _BORDAS = {
@@ -194,25 +239,285 @@ def _linhas_lancador(elemento):
     return linhas
 
 
-def _linhas_barra(barra_de_menus):
-    """Linhas de conteudo para a caixa da barra de menus.
+def _texto_chip_barra(chip):
+    """Monta o texto de um chip da barra no formato ``"[{tecla}] {texto}"``."""
+    tecla = chip.get("tecla", "")
+    texto = chip.get("texto", "")
+    return "[{0}] {1}".format(tecla, texto)
 
-    Cada chip declarado em ``barra_de_menus["chips"]`` e renderizado como
-    ``"[{tecla}] {texto}"`` em sua propria linha, na ordem declarada.
-    ``regra_existencia`` e ``regra_ativo`` nao sao avaliadas -- todos os
-    chips declarados sao renderizados.
+
+def _normalizar_distribuicao(distribuicao):
+    """Normaliza ``barra_de_menus.distribuicao`` (H-0016 / ADR-0014).
+
+    - ``None``/ausente ou string ``"horizontal"`` -> objeto canônico default
+      (defaults normativos do ADR-0014, sem âncoras).
+    - dict -> retornado como declarado (validado depois).
+    - outros valores (string desconhecida, tipo invalido) -> ``RenderizadorErro``.
+
+    Não muta o dict recebido. O renderer é inerte.
+    """
+    if distribuicao is None:
+        return _DISTRIBUICAO_HORIZONTAL_RESPONSIVA_DEFAULT
+    if isinstance(distribuicao, str):
+        if distribuicao == "horizontal":
+            return _DISTRIBUICAO_HORIZONTAL_RESPONSIVA_DEFAULT
+        raise RenderizadorErro(
+            "modo de distribuicao desconhecido: {0!r}; valores aceitos: "
+            "objeto canônico com modo 'horizontal_responsiva' ou alias "
+            "'horizontal'".format(distribuicao)
+        )
+    if isinstance(distribuicao, dict):
+        return distribuicao
+    raise RenderizadorErro(
+        "distribuicao com tipo invalido: {0}; esperado objeto canônico, "
+        "alias 'horizontal' ou ausente".format(type(distribuicao).__name__)
+    )
+
+
+def _eh_int_nao_bool(valor):
+    """True quando ``valor`` é int mas não bool (bool é subclasse de int)."""
+    return isinstance(valor, int) and not isinstance(valor, bool)
+
+
+def _validar_distribuicao(distribuicao):
+    """Validações defensivas determinísticas da declaração (H-0016).
+
+    Segue o padrão defensivo de ``modo`` desconhecido (handoff H-0016),
+    estendido aos campos cobertos pelas notas PR-M-01 a PR-M-04 da
+    auditoria pós-revisão. Não bloqueia a migração canônica (valores
+    válidos); apenas rejeita valores inválidos de forma determinística.
+    Levanta ``RenderizadorErro`` em qualquer divergência. Não muta o dict.
+    """
+    modo = distribuicao.get("modo")
+    if modo != "horizontal_responsiva":
+        raise RenderizadorErro(
+            "modo de distribuicao desconhecido: {0!r}; unico modo suportado "
+            "neste ciclo: 'horizontal_responsiva'".format(modo)
+        )
+
+    ordem = distribuicao.get("ordem") or {}
+    politica = ordem.get("politica")
+    if politica != "declaracao":
+        raise RenderizadorErro(
+            "ordem.politica nao suportada: {0!r}; unico valor suportado "
+            "neste ciclo: 'declaracao'".format(politica)
+        )
+
+    preench = distribuicao.get("preenchimento_multilinha")
+    suportados = distribuicao.get("preenchimentos_multilinha_suportados") or []
+    if preench not in _PREENCHIMENTOS_MULTILINHA_VALIDOS:
+        raise RenderizadorErro(
+            "preenchimento_multilinha desconhecido: {0!r}; valores aceitos: "
+            "coluna_a_coluna, linha_a_linha".format(preench)
+        )
+    if preench not in suportados:
+        raise RenderizadorErro(
+            "preenchimento_multilinha {0!r} nao esta em "
+            "preenchimentos_multilinha_suportados {1!r}".format(preench, suportados)
+        )
+
+    linhas_cfg = distribuicao.get("linhas") or {}
+    minimo = linhas_cfg.get("minimo")
+    maximo = linhas_cfg.get("maximo")
+    if not _eh_int_nao_bool(minimo) or minimo < 1:
+        raise RenderizadorErro(
+            "linhas.minimo invalido: {0!r}; esperado int >= 1".format(minimo)
+        )
+    if not _eh_int_nao_bool(maximo) or maximo < 1:
+        raise RenderizadorErro(
+            "linhas.maximo invalido: {0!r}; esperado int >= 1".format(maximo)
+        )
+    if maximo < minimo:
+        raise RenderizadorErro(
+            "linhas.maximo ({0}) menor que linhas.minimo ({1})".format(
+                maximo, minimo
+            )
+        )
+
+    overflow = distribuicao.get("overflow") or {}
+    quando = overflow.get("quando_nao_couber")
+    if quando != "erro_layout":
+        raise RenderizadorErro(
+            "overflow.quando_nao_couber desconhecido: {0!r}; unico valor "
+            "aceito neste ciclo: 'erro_layout'".format(quando)
+        )
+    for flag in ("nao_omitir_chips", "nao_truncar_texto", "nao_reordenar"):
+        if not isinstance(overflow.get(flag), bool):
+            raise RenderizadorErro(
+                "overflow.{0} deve ser booleano; recebido: {1!r} "
+                "({2})".format(flag, overflow.get(flag),
+                               type(overflow.get(flag)).__name__)
+            )
+
+
+def _validar_ancoras(chips, distribuicao):
+    """Valida âncoras como restrição declarativa (H-0016 / ADR-0014).
+
+    - ``ancoras.primeiro`` valida que os ids declarados ocupam as posições
+      iniciais de ``chips[]``, na ordem declarada.
+    - ``ancoras.ultimo`` valida que os ids declarados ocupam as posições
+      finais de ``chips[]``, na ordem declarada.
+    - id declarado em âncora mas inexistente em ``chips[]`` -> erro.
+    - id existente mas em posição errada -> erro.
+
+    O renderer NÃO reordena chips para satisfazer âncoras: a violação é
+    erro determinístico, não correção silenciosa. Sem ``ancoras`` (ausente
+    ou vazio), nenhuma validação de âncora é executada.
+    """
+    ordem = distribuicao.get("ordem") or {}
+    ancora = ordem.get("ancoras") or {}
+    ids = [c.get("id") for c in chips]
+    n = len(ids)
+
+    primeiro = ancora.get("primeiro") or []
+    if primeiro:
+        for aid in primeiro:
+            if aid not in ids:
+                raise RenderizadorErro(
+                    "ancora primeiro: id {0!r} nao existe em chips[]".format(aid)
+                )
+        for i, aid in enumerate(primeiro):
+            if i >= n or ids[i] != aid:
+                raise RenderizadorErro(
+                    "ancora primeiro violada: esperado id {0!r} na posicao "
+                    "{1}, encontrado {2!r}".format(aid, i, ids[i] if i < n else None)
+                )
+
+    ultimo = ancora.get("ultimo") or []
+    if ultimo:
+        for aid in ultimo:
+            if aid not in ids:
+                raise RenderizadorErro(
+                    "ancora ultimo: id {0!r} nao existe em chips[]".format(aid)
+                )
+        k = len(ultimo)
+        for i, aid in enumerate(ultimo):
+            pos = n - k + i
+            if pos < 0 or ids[pos] != aid:
+                raise RenderizadorErro(
+                    "ancora ultimo violada: esperado id {0!r} na posicao "
+                    "final, encontrado {1!r}".format(aid, ids[pos] if pos >= 0 else None)
+                )
+
+
+def _montar_coluna_a_coluna(texto_chips, n_linhas, vao_entre_colunas):
+    """Distribui ``texto_chips`` em ``n_linhas`` no modo coluna_a_coluna.
+
+    Preenche coluna por coluna (de cima para baixo); a largura de cada
+    coluna é a do maior chip da coluna; colunas separadas por
+    ``vao_entre_colunas`` espaços. Retorna a lista de linhas (strings).
+    """
+    n = len(texto_chips)
+    n_colunas = (n + n_linhas - 1) // n_linhas
+    colunas = [[] for _ in range(n_colunas)]
+    for idx, txt in enumerate(texto_chips):
+        colunas[idx // n_linhas].append(txt)
+    larguras = [max(len(s) for s in col) for col in colunas]
+    sep = " " * vao_entre_colunas
+    linhas = []
+    for r in range(n_linhas):
+        partes = []
+        for c in range(n_colunas):
+            if r < len(colunas[c]):
+                partes.append(colunas[c][r].ljust(larguras[c]))
+        linhas.append(sep.join(partes).rstrip())
+    return linhas
+
+
+def _montar_linha_a_linha(texto_chips, n_linhas, vao_entre_chips):
+    """Distribui ``texto_chips`` em ``n_linhas`` no modo linha_a_linha.
+
+    Preenche linha por linha; cada linha recebe até ``ceil(N/K)`` chips
+    consecutivos, separados por ``vao_entre_chips`` espaços. Retorna a
+    lista de linhas (strings).
+    """
+    n = len(texto_chips)
+    chips_por_linha = (n + n_linhas - 1) // n_linhas
+    sep = " " * vao_entre_chips
+    linhas = []
+    for i in range(n_linhas):
+        chunk = texto_chips[i * chips_por_linha:(i + 1) * chips_por_linha]
+        if chunk:
+            linhas.append(sep.join(chunk))
+    return linhas
+
+
+def _linhas_barra(barra_de_menus, content_w):
+    """Linhas de conteudo para a caixa da barra de menus (H-0016).
+
+    Renderiza os chips da ``barra_de_menus`` em distribuição horizontal
+    responsiva (ADR-0014), a partir de ``barra_de_menus.distribuicao`` e
+    ``barra_de_menus.chips[]``:
+
+    1. normaliza ``distribuicao`` (alias string ``"horizontal"``/ausente ->
+       defaults normativos; objeto canônico -> usado como declarado);
+    2. valida defensivamente a declaração e as âncoras (restrição, nunca
+       reordenação);
+    3. tenta linha única; se couber em ``content_w``, retorna uma linha;
+    4. caso contrário, tenta multilinha de 2 até ``linhas.maximo`` linhas,
+       aplicando ``preenchimento_multilinha`` (``coluna_a_coluna`` ou
+       ``linha_a_linha``); retorna na primeira configuração que encaixar;
+    5. se nenhuma configuração couber, levanta ``RenderizadorErro``
+       (``overflow.quando_nao_couber = "erro_layout"``) -- nunca omite,
+       nunca trunca, nunca reordena.
+
+    Cada chip é renderizado como ``"[{tecla}] {texto}"``. A ordem de
+    saída é sempre a ordem declarada em ``chips[]``. ``regra_existencia``
+    e ``regra_ativo`` não são avaliadas neste ciclo.
+
+    ``content_w`` é a largura disponível para conteúdo dentro da caixa
+    (``total_w - 3``). Retorna lista de strings, cada uma uma linha de
+    conteúdo da caixa (invariante de ``l_barra = len(linhas_barra) + 2``
+    preservado).
     """
     if not isinstance(barra_de_menus, dict):
         return []
-    chips = barra_de_menus.get("chips", []) or []
-    linhas = []
-    for chip in chips:
-        if not isinstance(chip, dict):
-            continue
-        tecla = chip.get("tecla", "")
-        texto = chip.get("texto", "")
-        linhas.append("[{0}] {1}".format(tecla, texto))
-    return linhas
+    chips_raw = barra_de_menus.get("chips", []) or []
+    chips = [c for c in chips_raw if isinstance(c, dict)]
+    if not chips:
+        return []
+
+    distribuicao = _normalizar_distribuicao(
+        barra_de_menus.get("distribuicao")
+    )
+    _validar_distribuicao(distribuicao)
+    _validar_ancoras(chips, distribuicao)
+
+    texto_chips = [_texto_chip_barra(c) for c in chips]
+
+    esp = distribuicao.get("espacamentos") or {}
+    vao_entre_chips = (esp.get("vao_entre_chips") or {}).get("minimo", 2)
+    vao_entre_colunas = (esp.get("vao_entre_colunas") or {}).get("minimo", 2)
+
+    sep_chips = " " * vao_entre_chips
+    linha_unica = sep_chips.join(texto_chips)
+    if len(linha_unica) <= content_w:
+        return [linha_unica]
+
+    linhas_cfg = distribuicao.get("linhas") or {}
+    maximo = linhas_cfg.get("maximo", 2)
+    preenchimento = distribuicao.get("preenchimento_multilinha", "coluna_a_coluna")
+
+    for n_linhas in range(2, maximo + 1):
+        if preenchimento == "coluna_a_coluna":
+            linhas = _montar_coluna_a_coluna(
+                texto_chips, n_linhas, vao_entre_colunas
+            )
+        else:
+            linhas = _montar_linha_a_linha(
+                texto_chips, n_linhas, vao_entre_chips
+            )
+        if linhas and max(len(l) for l in linhas) <= content_w:
+            return linhas
+
+    raise RenderizadorErro(
+        "erro_layout: chips da barra_de_menus ({0}) nao cabem em {1} "
+        "caracteres com no maximo {2} linhas (preenchimento={3}); "
+        "overflow.quando_nao_couber='erro_layout' proibe omitir/truncar/"
+        "reordenar".format(
+            len(texto_chips), content_w, maximo, preenchimento
+        )
+    )
 
 
 def _caixa_de_elemento(elemento, borda, inner_w, content_w, label_max):
@@ -358,7 +663,10 @@ def renderizar_tela(
 
     # Linhas de conteudo da barra_de_menus, computadas uma vez e reutilizadas
     # tanto para a contagem de L_barra (H-0015) quanto para a caixa final.
-    linhas_barra = _linhas_barra(modelo.barra_de_menus)
+    # H-0016: distribuicao horizontal responsiva (ADR-0014) derivada de
+    # barra_de_menus.distribuicao + chips[], usando a largura de conteudo
+    # disponivel para decidir linha unica vs multilinha vs erro_layout.
+    linhas_barra = _linhas_barra(modelo.barra_de_menus, content_w)
 
     # H-0015 / ADR-0013: ocupacao vertical da janela do terminal pelo corpo.
     # Quando ``altura`` e fornecida, preenche a area do corpo entre o
