@@ -6,7 +6,7 @@ metadata:
   scope: sistema_novo
   status: parcial
   origem_especificacao: usuario_sessao_2026-07-05
-  atualizado_em: 2026-07-09
+  atualizado_em: 2026-07-10
   reaproveitado_de_legado: false
 ---
 
@@ -134,8 +134,16 @@ valores finais são `vertical` | `horizontal`. Os termos `sobreposto` e
 e `lado_a_lado → horizontal` — apenas para compatibilidade de JSONs/contratos
 legados até migração específica; não são terminologia final.
 
+**Controle de aliases (sanitização 2026-07-10)**: `sobreposto` e `lado_a_lado`
+são preservados apenas como aliases transicionais literais (entre backticks) para
+compatibilidade com JSONs/contratos legados:
+- não são terminologia final;
+- não devem ser usados como termos normativos em novos textos;
+- novos handoffs devem usar `vertical` ou `horizontal`;
+- H-0019 deve implementar `corpo.arranjo = "horizontal"`, não o alias transicional.
+
 Escolha manual do usuário, não decisão automática por largura de
-terminal. Não existe largura mínima de segurança que force sobreposto —
+terminal. Não existe largura mínima de segurança que force arranjo `vertical` —
 a preferência do usuário sempre vale quando aplicada.
 
 **Escopo**: aplica-se ao arranjo de elementos funcionais do corpo —
@@ -195,8 +203,8 @@ nomes semânticos no schema; quando decididos, entrarão em `config/estilo.json`
 Toda tela do sistema tem exatamente estas tres regioes:
 
 1. **Cabecalho**: titulo + descricao.
-2. **Corpo**: estrutura variavel — pode ter mais de um objeto, sobrepostos
-   ou lado a lado, dependendo do tamanho da tela e do tipo dos objetos.
+2. **Corpo**: estrutura variavel — pode ter mais de um objeto, em arranjo
+   vertical ou horizontal, dependendo do tipo dos objetos e da configuração da tela.
    Cada objeto do corpo tem titulo e conteudo.
 3. **barra_de_menus**: titulo fixo "Menu", contem os chips de acao (ver
    secao 5). Antes chamada de "menu" nesta conversa — esse nome esta
@@ -426,8 +434,8 @@ separada: é só o **conteúdo visual de `tg`** que muda.
 
 **Sobreposição `ec` × `tg`**: quando o cursor está na linha, `selecionado`
 ocupa `ec` normalmente — `tg` continua mostrando o estado de seleção
-daquele item (marcado ou não), os dois espaços coexistem lado a lado, não
-se sobrepõem entre si. (A sobreposição só acontecia na formulação antiga
+daquele item (marcado ou não), os dois espaços coexistem em posições distintas
+e adjacentes, não se sobrepõem entre si. (A sobreposição só acontecia na formulação antiga
 de uma coluna única — com `ec` e `tg` como espaços distintos, cada um tem
 seu próprio lugar fixo.)
 
@@ -693,12 +701,12 @@ indicador de página. Ele nunca aparece na borda do dashboard, mesmo o dashboard
 estando mais próximo da barra_de_menus. O indicador continua preso à
 borda do corpo paginado, mesmo com dashboard ocupando o espaço abaixo dele.
 
-**Lado a lado**: cada corpo exibe sua própria paginação, ancorada à
+**Arranjo horizontal**: cada corpo exibe sua própria paginação, ancorada à
 direita **dentro da própria borda**, independente de qual lado da tela
 aquele corpo ocupa fisicamente.
 
 **Ainda não definido (adiado, sem caso de uso real ainda)**: combinação de
-layout lado a lado com objeto dashboard presente ao mesmo tempo.
+`corpo.arranjo = "horizontal"` com objeto `dashboard` presente ao mesmo tempo.
 
 ---
 
@@ -929,22 +937,25 @@ incompleto, não um estado real do sistema.
 - Quantidade de corpos (1 / múltiplos) é declarada pela classe de tela
   (seção 3).
 - Se múltiplos, o **arranjo** (`vertical`/`horizontal` — terminologia final,
-  ADR-0011; `sobreposto`/`lado a lado` são aliases transicionais) pode ser
+  ADR-0011; `sobreposto`/`lado_a_lado` são aliases transicionais) pode ser
   **fixado pela própria classe** — nesse caso, a preferência global do
   usuário é ignorada para aquela tela.
 - Se a classe não fixar arranjo, usa-se o campo `tiling` do estilo (seção
   1.4) como default — escolha manual do usuário, sem largura mínima de
-  segurança que force sobreposto.
-- Em modo lado a lado (2 colunas), o espaço horizontal se distribui em 3
-  vãos, igualmente: borda↔coluna_1, coluna_1↔coluna_2, coluna_2↔borda.
+  segurança que force arranjo `vertical`.
+- Em `corpo.arranjo = "horizontal"`, o espaço horizontal é **particionado de forma
+  contígua** entre os filhos diretos do container — sem vão externo entre
+  eles (ADR-0015, 2026-07-10). A área de um filho termina imediatamente onde
+  a do próximo começa; não existe espaço entre eles. A regra anterior de
+  "3 vãos iguais" foi supersedida pela ADR-0015.
 - A posição do objeto **dashboard** é controlada pela estrutura declarativa
   geral do `corpo` (ADR-0010, 2026-07-08). `dashboard` é elemento funcional
   do corpo como `console` e `lancador`; o campo `posicao_dashboard` como
   eixo separado está descontinuado.
 - Quando há múltiplos corpos, `[⇆]` alterna o foco de interação entre eles
   (ver seção 5.1).
-- **Pendente** (já registrado seção 6.1): combinação de lado a lado com
-  objeto dashboard presente ao mesmo tempo.
+- **Pendente** (já registrado seção 6.1): combinação de `corpo.arranjo = "horizontal"`
+  com objeto `dashboard` presente ao mesmo tempo.
 
 ## 11. Pendências em aberto
 
@@ -1000,8 +1011,8 @@ Itens adiados intencionalmente (não são lacuna, são decisão de adiar):
 - Estrutura do chip "aciona processo" — ver seção 5.2, será extraída de
   `orquestrador.py` quando o primeiro caso concreto for definido,
   separando lógica de processo de código de exibição (`print`) misturado.
-- Combinação de layout lado a lado com objeto dashboard presente ao mesmo
-  tempo — ver seção 6.1, sem caso de uso real ainda.
+- Combinação de `corpo.arranjo = "horizontal"` com objeto `dashboard` presente
+  ao mesmo tempo — ver seção 6.1, sem caso de uso real ainda.
 
 ## 12. ADRs aceitas (decisões desta sessão que reabriam contratos ativos)
 
@@ -1083,3 +1094,68 @@ Concluído — DOC-0009:
 - Artefatos vigentes migrados para `lancador`; `config/lancador.json` é o
   arquivo canônico. `config/layout_menu.json` permanece apenas como artefato
   obsoleto/transicional de rastreabilidade.
+
+---
+
+## 14. Composição hierárquica e distribuição de área do corpo (ADR-0015)
+
+A ADR-0015 (2026-07-10) estabelece as definições normativas do sistema de
+composição hierárquica do corpo. Esta seção é a referência terminológica
+canônica; a especificação completa com exemplos está na ADR-0015 e no
+`contrato_composicao_corpo.md` (v0.3).
+
+1. **Corpo como árvore de composição** — o corpo é modelado como árvore, não
+   lista plana de elementos.
+2. **Corpo raiz como nível 0** — o nó raiz da árvore é o `corpo`; ele ocupa
+   o nível 0.
+3. **Filhos diretos do corpo como nível 1** — `corpo.elementos[]` define o
+   nível 1.
+4. **Filhos de grupo como nível 2** — `grupo.elementos[]` cria o nível 2.
+5. **Nível 3 proibido na versão atual** — estruturas com profundidade ≥ 3
+   são rejeitadas com erro estrutural determinístico.
+6. **Grupo como nó estrutural** — `grupo` é nó estrutural de composição;
+   não é tipo funcional.
+7. **Grupo não tem borda própria nem conteúdo próprio** — não tem título
+   visual, moldura, ação, item, origem de dados ou `tela_destino`.
+8. **Elementos funcionais** — `console`, `dashboard` e `lancador` são os três
+   tipos funcionais válidos; a lista é fechada.
+9. **Arranjo pertence ao container** — cada container (`corpo` ou `grupo`)
+   declara o `arranjo` dos seus filhos diretos.
+10. **Distribuição pertence ao container** — `distribuicao` é atributo do
+    container, não do filho.
+11. **Distribuição reparte área entre filhos diretos** — somente filhos
+    imediatos são contados; netos não entram na contagem.
+12. **Arranjo horizontal reparte largura** — `arranjo = horizontal` aloca
+    colunas de caracteres entre os filhos.
+13. **Arranjo vertical reparte altura** — `arranjo = vertical` aloca linhas
+    entre os filhos.
+14. **Distribuição aloca área, não apenas conteúdo** — a área é reservada
+    independentemente do conteúdo do filho.
+15. **Sobra horizontal vira espaços dentro da área alocada** — colunas
+    excedentes são preenchidas com espaços; a largura da faixa é preservada.
+16. **Sobra vertical vira linhas em branco dentro da área alocada** — linhas
+    excedentes são adicionadas como linhas em branco; a altura da faixa é
+    preservada.
+17. **Percentual deve somar 100** — soma diferente de 100 é erro de
+    configuração.
+18. **Fração usa pesos positivos e denominador implícito pela soma dos pesos**
+    — `[1, 1, 1]` resulta em `1/3`, `1/3`, `1/3`; `[2, 1]` resulta em
+    `2/3`, `1/3`.
+19. **Modos de distribuição previstos** — `igual`, `percentual`, `fracao`,
+    `restrito`, `dinamico`.
+20. **Arredondamento usa maiores restos, de forma determinística** — soma
+    final deve ser exatamente igual à área disponível; empates resolvidos
+    pela ordem declarada em `elementos[]`.
+21. **Contato entre áreas de filhos é contíguo, sem vão externo** — a área de
+    um filho termina imediatamente onde a do próximo começa.
+22. **`ajustado_ao_conteudo` é dimensão preferida, não dimensão mínima
+    absoluta** — permite combinar `preferido = conteudo` com `maximo`
+    sem contradição.
+23. **Paginação ocorre dentro da área alocada** — o elemento pagina
+    internamente sem transbordar para a área de outro filho.
+24. **Terminal pequeno tem política determinística futura** — não existe
+    comportamento inventado; nenhum fallback silencioso é permitido.
+25. **Sincronização automática de cortes entre grupos no mesmo nível** —
+    grupos irmãos com mesma assinatura de restrições têm cortes
+    sincronizados automaticamente (conceito ADR-0015; mecanismo explícito
+    é extensão futura).

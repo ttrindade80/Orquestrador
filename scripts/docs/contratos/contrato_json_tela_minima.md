@@ -15,6 +15,7 @@ metadata:
       - docs/adr/ADR-0009-caminho-formato-jsons-tela.md
       - docs/adr/ADR-0010-composicao-hierarquica-corpo-dashboard.md
       - docs/adr/ADR-0011-terminologia-arranjo-vertical-horizontal.md
+      - docs/adr/ADR-0015-composicao-hierarquica-distribuicao-corpo.md
     reaproveitado_de_legado: false
 ---
 
@@ -169,14 +170,49 @@ Regras complementares:
 
 ## 6. Tipos válidos em `corpo.elementos[]`
 
-Cada item de `corpo.elementos[]` deve declarar `tipo` como um dos valores
-abaixo. A lista é fechada nesta versão — extensões exigem ADR.
+`corpo.elementos[]` pode conter elementos funcionais e o nó estrutural `grupo`
+(ADR-0015, 2026-07-10).
+
+### 6.1 Tipos funcionais (taxonomia fechada)
 
 | Tipo | Contrato de referência |
 |---|---|
 | `console` | `contrato_json_console.md`, `contrato_console.md` |
 | `dashboard` | `contrato_json_dashboard.md`, `contrato_composicao_corpo.md` |
 | `lancador` | `contrato_json_lancador.md`, `contrato_lancador.md` |
+
+A lista de tipos funcionais é fechada — extensões exigem ADR.
+
+### 6.2 Nó estrutural `grupo` (ADR-0015)
+
+`grupo` é nó estrutural de composição. Não é tipo funcional. Pode aparecer em
+`corpo.elementos[]` ou em `grupo.elementos[]` (grupos aninhados, até nível 3).
+
+`grupo` não declara: borda, moldura, título, conteúdo, ação, chip, origem de
+dados nem `tela_destino`. Declara: `arranjo`, `distribuicao` e `elementos[]`.
+
+Campos mínimos de `grupo`:
+
+```json
+{
+  "id": "...",
+  "tipo": "grupo",
+  "arranjo": "horizontal",
+  "elementos": []
+}
+```
+
+`distribuicao` é opcional. Quando não declarada, o comportamento é
+equivalente ao modo `igual`.
+
+### 6.3 Distribuição por container (ADR-0015)
+
+`corpo` e `grupo` podem declarar `distribuicao`. `distribuicao` é **opcional**
+no envelope mínimo — sua ausência é válida e equivale ao modo `igual`.
+
+Quando declarada, `distribuicao` rege como a área disponível do container é
+repartida entre seus filhos diretos. Ver `contrato_composicao_corpo.md`
+seções 5.7 a 5.9 para modos e regras de arredondamento.
 
 Tipo desconhecido em `corpo.elementos[]` é erro de validação.
 

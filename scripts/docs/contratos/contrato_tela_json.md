@@ -174,7 +174,7 @@ id
 tipo
 ```
 
-Tipos inicialmente válidos de elemento:
+Tipos funcionais válidos de elemento:
 
 ```text
 console
@@ -182,33 +182,38 @@ dashboard
 lancador
 ```
 
-Essa lista é a taxonomia atual do corpo. Extensões futuras exigem ADR.
+A taxonomia de tipos funcionais é **fechada** — extensões exigem ADR.
 
-**Composição hierárquica (ADR-0010)**: `elementos[]` pode evoluir para
-admitir agrupamentos e composição hierárquica, preservando compatibilidade
-com a forma plana atual. A lista plana de elementos continua válida; o schema
-pode conter grupos que envolvem elementos conforme capacidades incrementais
-futuras, tais como:
+**Nó estrutural `grupo` (ADR-0015, 2026-07-10)**: `elementos[]` pode
+conter, além de tipos funcionais, o nó estrutural `grupo`. `grupo` não é
+tipo funcional — não tem borda, moldura, título, conteúdo, ação, chip,
+origem de dados nem `tela_destino`. Recebe área do container pai e
+redistribui entre seus filhos diretos. Declara seu próprio `arranjo` e sua
+própria `distribuicao`.
 
-- layout hierárquico vertical compatível — `elementos[]` pode conter grupos;
-  JSONs com lista plana permanecem válidos sem alteração;
-- layout horizontal plano — todos os elementos funcionais (`console`,
-  `lancador`, `dashboard`) podem participar de arranjo horizontal;
-- distribuição por percentual/fração;
-- aninhamento de grupos.
+**Composição hierárquica como árvore (ADR-0015)**: o corpo é modelado como
+árvore de composição. `corpo.elementos[]` é o nível 1. `grupo.elementos[]`
+cria o próximo nível. Profundidade máxima: 3 níveis. Estruturas com nível 4
+ou superior geram erro estrutural determinístico. A forma plana de elementos
+continua válida e equivale a nível 1.
 
-A sequência histórica registrada pela ADR-0010 foi cancelada como
-roteiro ativo: a sequência anterior (com letras) foi removida como
-planejamento vigente e não orienta novos ciclos. A partir de H-0014, a
-numeração de handoffs **não usa letras** (H-0014, H-0015, …), conforme
-estabelecido por H-0012/H-0013 e reafirmado pela ADR-0011. As
-capacidades listadas acima serão endereçadas em handoffs numerados
-posteriores, conforme decisão de planejamento futura.
+**Distribuição pertence a containers (ADR-0015)**: tanto `corpo` quanto
+`grupo` podem declarar `distribuicao`. A distribuição do container determina
+como a área disponível é repartida entre seus filhos diretos. Containers
+distintos podem ter distribuições distintas. Os modos formalizados são `igual`,
+`percentual` e `fracao`; conceitos dinâmicos (mínimo, preferido, máximo)
+estão registrados para ciclos futuros. Ver `contrato_composicao_corpo.md`
+seções 5.7 a 5.12.
 
-`console`, `lancador` e `dashboard` são elementos funcionais do corpo. O
-posicionamento de qualquer elemento é controlado pela estrutura declarada
-no `corpo` do `tela.json`, não por campo de posicionamento especial por
-tipo (ADR-0010). O compositor não conhece os campos internos de cada
+A sequência histórica registrada pela ADR-0010 foi cancelada como roteiro
+ativo. A partir de H-0014, a numeração de handoffs **não usa letras**
+(H-0014, H-0015, …), conforme estabelecido por H-0012/H-0013 e reafirmado
+pela ADR-0011.
+
+`console`, `lancador` e `dashboard` continuam sendo os tipos funcionais do
+corpo. O posicionamento de qualquer elemento é controlado pela estrutura
+declarada no `corpo` do `tela.json`, não por campo de posicionamento especial
+por tipo (ADR-0010). O compositor não conhece os campos internos de cada
 elemento — esses permanecem responsabilidade da instância declarada.
 
 ---

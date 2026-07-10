@@ -4,7 +4,7 @@ description: Schema e regras do módulo de composição de corpo — tipos de el
 metadata:
   type: contrato
   scope: scripts
-  versao: "0.2"
+  versao: "0.3"
   status: ativo
   rastreabilidade:
     origem_especificacao: "docs/NOMENCLATURA.md#3-composicao-de-corpo, #6-layout-e-largura, #8-corpo-tipo-lancador, #9-objeto-dashboard, #10-tiling"
@@ -19,6 +19,7 @@ metadata:
       - docs/adr/ADR-0010-composicao-hierarquica-corpo-dashboard.md
       - docs/adr/ADR-0011-terminologia-arranjo-vertical-horizontal.md
       - docs/adr/ADR-0013-ocupacao-vertical-janela-terminal-corpo.md
+      - docs/adr/ADR-0015-composicao-hierarquica-distribuicao-corpo.md
     reaproveitado_de_legado: false
 ---
 
@@ -27,9 +28,13 @@ metadata:
 ## 1. Objetivo
 
 Especificar a composição do corpo da tela: a taxonomia fechada dos tipos de
-elemento do corpo, os campos declarados no `tela.json`, as regras de layout
-para `lancador`, `dashboard` e `console`, a mecânica do indicador de
-paginação e as duas camadas de decisão de tiling.
+elemento do corpo (funcionais e estruturais), os campos declarados no
+`tela.json`, as regras de layout para `lancador`, `dashboard` e `console`, a
+mecânica do indicador de paginação, as camadas de decisão de tiling, e as
+regras de composição hierárquica do corpo como árvore — incluindo o nó
+estrutural `grupo`, arranjo e distribuição por container, arredondamento
+determinístico, preenchimento de área alocada, regras dinâmicas de dimensão
+e sincronização de cortes (ADR-0015, 2026-07-10).
 
 Este contrato cobre as seções 2, 3, 6, 6.1, 8, 9 e 10 de
 `docs/NOMENCLATURA.md`. Estilo universal (`contrato_estilo.md`),
@@ -66,9 +71,14 @@ Esta regra deriva da ADR-0008 e da seção 3 de `docs/NOMENCLATURA.md`.
 
 ## 3. Taxonomia de tipos de elemento do corpo
 
-O corpo de uma tela pode conter elementos de exatamente três tipos. A lista é
-**fechada** — não existe tipo de elemento fora desta taxonomia no sistema atual.
-Extensões futuras exigem ADR.
+**ADR-0015 (2026-07-10)**: o corpo é modelado como **árvore de composição**
+com dois tipos de nó: funcionais e estrutural.
+
+### 3.0 Nós funcionais (taxonomia fechada)
+
+O corpo de uma tela pode conter elementos funcionais de exatamente três tipos.
+A lista é **fechada** — não existe tipo funcional fora desta taxonomia no
+sistema atual. Extensões futuras exigem ADR.
 
 | Tipo | Função | Presença |
 |---|---|---|
@@ -98,6 +108,31 @@ Chips específicos ficam fora do corpo, na `barra_de_menus`, declarados pela
 classe de tela. O renderer de composição de corpo não decide chips específicos.
 
 A regra de `[✥]` continua restrita a `console`.
+
+### 3.2 Nó estrutural `grupo` (ADR-0015)
+
+`grupo` é o único nó estrutural do corpo. Não é tipo funcional.
+
+`grupo`:
+- não tem borda própria;
+- não tem moldura visual;
+- não tem título visual próprio;
+- não tem conteúdo próprio;
+- não é navegável por `[✥]`;
+- não possui ação, item, chip, origem de dados ou `tela_destino`;
+- recebe uma área do container pai;
+- redistribui essa área entre seus filhos diretos;
+- declara seu próprio `arranjo`;
+- declara sua própria `distribuicao`;
+- pode conter filhos funcionais (`console`, `lancador`, `dashboard`) e, em
+  ciclo futuro, grupos aninhados.
+
+**Nível** é o conjunto de filhos diretos de um mesmo container:
+- `corpo.elementos[]` é o nível 1;
+- `grupo.elementos[]` cria o próximo nível;
+- cada grupo aninhado cria um novo nível;
+- profundidade máxima: **3 níveis**;
+- nível 4 ou superior gera erro estrutural determinístico.
 
 ---
 
@@ -220,6 +255,37 @@ A representação exata das linhas de preenchimento (linha visual interna à
 caixa do corpo vs. linha física com largura total) é decisão de handoff
 futuro, desde que não seja tratada como novo arranjo nem novo tipo de
 elemento do corpo.
+
+### 4.8 Arranjo por container (ADR-0015)
+
+Cada container (`corpo` ou `grupo`) declara o **arranjo dos seus filhos diretos**.
+
+| Valor | Efeito |
+|---|---|
+| `horizontal` | reparte largura entre filhos diretos |
+| `vertical` | reparte altura entre filhos diretos |
+
+O arranjo de um container **não obriga** o arranjo dos containers filhos.
+
+### 4.9 Distribuição por container (ADR-0015)
+
+A distribuição pertence ao mesmo container que declara o arranjo.
+
+- container horizontal: distribuição reparte colunas/largura;
+- container vertical: distribuição reparte linhas/altura;
+- distribuição aloca área, não apenas conteúdo;
+- elemento funcional deve preservar a área alocada;
+- sobra horizontal vira padding/espaços em branco;
+- sobra vertical vira linhas em branco.
+
+**Regra de quantidade de valores:**
+
+```
+len(distribuicao.valores) == len(elementos)
+```
+
+Conta somente filhos diretos do container. Não conta netos, descendentes
+internos de grupo nem elementos visuais resultantes de expansão.
 
 ---
 
@@ -381,9 +447,8 @@ que todos os caracteres de borda vêm do estilo ativo.
 - **dashboard presente**: o indicador permanece na borda do elemento paginado.
   O objeto dashboard não herda, não desloca, e não recebe o indicador — mesmo
   estando fisicamente mais próximo da barra_de_menus.
-- **Layout lado a lado**: cada elemento exibe sua própria paginação, ancorada
-  à direita dentro da própria borda, independente do lado da tela.
-- **Combinação lado a lado + dashboard presente**: não definida — ver seção 9.
+- **Arranjo horizontal (`arranjo = "horizontal"`)**: cada elemento exibe sua própria paginação, ancorada à direita dentro da própria borda, independente do lado da tela.
+- **Combinação `corpo.arranjo = "horizontal"` + `dashboard` presente**: não definida — ver seção 9.
 
 ---
 
@@ -411,8 +476,158 @@ O cálculo visual permitido pelo renderer limita-se à distribuição de espaço
 dentro da regra declarada.
 
 **Distribuição de espaço em modo horizontal** (`horizontal`, ADR-0011;
-historicamente "lado a lado"): o espaço horizontal disponível é distribuído
-em **3 vãos iguais**: borda↔coluna_1, coluna_1↔coluna_2, coluna_2↔borda.
+historicamente "lado a lado"): a regra é **particionamento contíguo** da
+largura disponível entre os filhos diretos. Não existem vãos externos entre
+molduras. Molduras adjacentes ficam coladas, produzindo bordas lado a lado
+(`││`, `╮╭`, `╯╰`). A primeira moldura inicia no primeiro caractere útil;
+a última termina no último caractere útil. (ADR-0015)
+
+> **Nota**: a formulação anterior de "3 vãos iguais" registrada neste contrato
+> e em `docs/NOMENCLATURA.md` seção 10 está **supersedida** pela ADR-0015. A
+> regra correta é particionamento contíguo, conforme decisão explícita do usuário
+> na revisão pós-auditoria do H-0019 (2026-07-09). `docs/NOMENCLATURA.md`
+> seção 10 foi atualizada neste ciclo — a regra de "3 vãos iguais" consta apenas
+> como referência histórica supersedida; a regra vigente é particionamento contíguo
+> conforme ADR-0015.
+
+---
+
+### 5.7 Modos de distribuição (ADR-0015)
+
+#### Modo `igual`
+
+Divide a área disponível igualmente entre filhos diretos.
+
+#### Modo `percentual`
+
+- `distribuicao.valores[]` declara percentuais explícitos;
+- quantidade de valores deve ser igual à quantidade de filhos diretos;
+- soma dos valores deve ser exatamente 100;
+- valores devem ser positivos;
+- soma diferente de 100 é inválida.
+
+Exemplo: `[40, 20, 40]` significa 40%, 20%, 40%.
+
+#### Modo `fracao`
+
+- `distribuicao.valores[]` declara pesos relativos;
+- quantidade de valores deve ser igual à quantidade de filhos diretos;
+- todos os valores devem ser positivos;
+- denominador implícito é a soma dos pesos;
+- fração de cada filho é `valor_do_filho / soma_dos_valores`.
+
+Exemplos:
+- `[1, 1, 1]` significa `1/3`, `1/3`, `1/3`.
+- `[2, 1, 2]` significa `2/5`, `1/5`, `2/5`, equivalente a 40%, 20%, 40%.
+
+#### Distribuição restrita/dinâmica
+
+Conceitos futuros: `minimo`, `preferido`, `maximo`, `restante`, `conteudo`.
+Ver seção 5.10.
+
+---
+
+### 5.8 Arredondamento determinístico (ADR-0015)
+
+Como terminal usa células inteiras, percentuais/frações devem ser convertidos
+pelo **método dos maiores restos**.
+
+Regras:
+- soma final das áreas alocadas deve ser exatamente igual à área disponível
+  do container;
+- empates de resto são resolvidos pela ordem declarada em `elementos[]`.
+
+**Algoritmo:**
+1. calcular tamanho ideal real de cada filho;
+2. tomar a parte inteira;
+3. somar partes inteiras;
+4. calcular o resto necessário para fechar a área total;
+5. distribuir unidades restantes aos maiores restos;
+6. em empate, priorizar ordem declarada.
+
+**Exemplos:**
+- 68 linhas com `[1, 1, 1]` resulta em `[23, 23, 22]`.
+- 68 linhas com `[2, 1, 2]` resulta em `[27, 14, 27]`.
+
+---
+
+### 5.9 Preenchimento de área alocada (ADR-0015)
+
+A distribuição define **área alocada**. O renderer deve preservar a área
+alocada. Se o conteúdo não preencher a área, o restante deve ser preenchido
+com branco.
+
+- **Horizontal:** preencher com espaços; preservar largura da faixa.
+- **Vertical:** preencher com linhas em branco; preservar altura da faixa.
+
+---
+
+### 5.10 Regras dinâmicas de dimensão (ADR-0015 — conceitos futuros)
+
+Conceitos registrados para ciclos futuros:
+
+| Conceito | Significado |
+|---|---|
+| `minimo` | menor dimensão permitida |
+| `preferido` | dimensão desejada |
+| `maximo` | maior dimensão permitida |
+| `restante` | recebe espaço remanescente após alocação de outros |
+| `conteudo` | dimensão ajustada ao conteúdo renderizado |
+
+**Decisão normativa**: `ajustado ao conteúdo` deve ser tratado como
+`preferido`, não como `minimo`.
+
+Justificativa:
+- permite combinar `preferido = conteudo` com `maximo = 30%`;
+- evita contradição quando conteúdo exigiria mais espaço que o máximo;
+- se o conteúdo exceder o máximo, o elemento recebe o máximo e aplica
+  overflow/paginação.
+
+**Terminal muito pequeno**: área menor que a mínima normal deve ter política
+determinística. Representação compacta futura com `...` é política de
+overflow/compactação — não fallback de composição. Não pode haver truncamento
+silencioso nem fallback silencioso para outro arranjo.
+
+---
+
+### 5.11 Paginação dentro da área alocada (ADR-0015)
+
+A composição aloca área. A paginação acontece **dentro** da área alocada.
+
+Se um `console` recebe 10 linhas e tem conteúdo para 100 linhas, o compositor
+não aumenta automaticamente o console. O console pagina dentro das 10 linhas,
+conforme política declarada.
+
+---
+
+### 5.12 Sincronização de cortes entre grupos (ADR-0015)
+
+Sincronização automática de cortes entre grupos irmãos só é garantida quando
+os grupos possuem:
+- mesmo eixo interno de arranjo;
+- mesma quantidade de filhos diretos;
+- mesma distribuição declarada;
+- mesma dimensão disponível no eixo distribuído;
+- mesma assinatura de restrições dimensionais (`minimo`, `preferido`,
+  `maximo`, `overflow`, `restante`, `conteudo`).
+
+Se restrições diferentes alterarem os cortes, a sincronização automática
+não é garantida.
+
+**Sincronização explícita futura (conceito):**
+
+```json
+{
+  "sincronizacao": {
+    "grupo": "colunas_principais",
+    "cortes": "obrigatorio"
+  }
+}
+```
+
+Se `cortes = obrigatorio` e os grupos não puderem alinhar cortes, o renderer
+deve gerar erro determinístico — nunca ajustar silenciosamente. Schema final
+deste campo não é fechado nesta versão.
 
 ---
 
@@ -507,6 +722,46 @@ estar hardcoded no código.
 Para qualquer instância de `console`, filtros são aplicados antes de calcular a
 paginação. O conjunto paginado é sempre o resultado filtrado.
 
+**R-15. `grupo` é nó estrutural, não funcional (ADR-0015).**
+`grupo` não tem borda, moldura, título, conteúdo, ação, chip, origem de dados
+nem `tela_destino`. Não é navegável por `[✥]`. Qualquer tratamento de `grupo`
+como elemento funcional é erro estrutural.
+
+**R-16. Profundidade máxima 3 (ADR-0015).**
+Estruturas com nível 4 ou superior devem ser rejeitadas com erro estrutural
+determinístico. O renderer não tenta renderizar estruturas além do nível 3.
+
+**R-17. Arranjo por container (ADR-0015).**
+O arranjo de um container (`corpo` ou `grupo`) declara o eixo de distribuição
+dos seus filhos diretos. Um container filho pode ter arranjo diferente do
+container pai.
+
+**R-18. Distribuição aloca área, não apenas conteúdo (ADR-0015).**
+O renderer deve preservar a área alocada. Conteúdo menor que a área recebe
+preenchimento (espaços ou linhas em branco). O elemento funcional não pode
+encolher abaixo da área alocada.
+
+**R-19. Arredondamento por maiores restos (ADR-0015).**
+Toda conversão de percentual/fração para células inteiras usa o método dos
+maiores restos. A soma das áreas alocadas deve ser exatamente igual à área
+disponível do container. Empates são resolvidos pela ordem declarada.
+
+**R-20. Contato entre molduras — sem vão externo (ADR-0015).**
+Em layout horizontal, molduras adjacentes ficam coladas. Não existem vãos
+externos. Primeira moldura inicia no primeiro caractere útil; última termina
+no último caractere útil. A regra anterior de "3 vãos iguais" está supersedida
+pela ADR-0015 e não deve ser implementada.
+
+**R-21. `ajustado ao conteúdo` = `preferido` (ADR-0015).**
+O conceito `conteudo` (ajustado ao conteúdo renderizado) é tratado como
+dimensão preferida — não mínima. Quando combinado com restrição de `maximo`,
+o elemento recebe o menor entre preferido e máximo.
+
+**R-22. Sem fallback silencioso de composição (ADR-0015).**
+O renderer nunca ajusta silenciosamente arranjo, distribuição ou profundidade
+para contornar restrição. Qualquer condição inválida gera erro determinístico
+com mensagem descritiva.
+
 ---
 
 ## 8. Critérios de validação
@@ -539,17 +794,14 @@ paginação. O conjunto paginado é sempre o resultado filtrado.
       com `traco_inferior`.
 - [ ] O preenchimento da posição 4 do indicador encurta quando X/Y tem mais dígitos,
       mantendo a largura total da linha constante.
-- [ ] Em layout lado a lado, cada elemento exibe seu próprio indicador de paginação
-      dentro de sua própria borda.
+- [ ] Em arranjo horizontal (`corpo.arranjo = "horizontal"`), cada elemento exibe seu próprio indicador de paginação dentro de sua própria borda.
 - [ ] `dashboard` presente não recebe nem desloca o indicador de paginação do elemento
       paginado (R-7).
 - [ ] Com `arranjo` declarado no `tela.json`, o renderer usa o arranjo fixo e ignora
       `tiling` do estilo ativo.
 - [ ] Com `arranjo` não declarado no `tela.json`, o renderer consulta `tiling` do
       estilo ativo sem modificação, sem fallback automático baseado em largura.
-- [ ] Em modo horizontal (`horizontal`, ADR-0011; alias transicional
-      `lado_a_lado`), o espaço horizontal é dividido em 3 vãos iguais
-      (borda↔col_1, col_1↔col_2, col_2↔borda).
+- [ ] Em modo horizontal (`horizontal`, ADR-0011; alias transicional `lado_a_lado`), o espaço horizontal é distribuído por particionamento contíguo entre os filhos diretos do container: molduras adjacentes ficam coladas, sem vão externo entre elas, e a soma das larguras alocadas deve fechar exatamente a largura disponível (ADR-0015, R-20).
 - [ ] Campo do draft de dashboard do Orquestrador exibe valor numérico — nunca `—`,
       nunca vazio; `0` é exibido normalmente (R-11).
 - [ ] `lancador` não pagina; o renderer calcula `distribuicao_lancador` automaticamente.
@@ -559,6 +811,24 @@ paginação. O conjunto paginado é sempre o resultado filtrado.
       1 — não sujeita à distribuição uniforme e não comprimível.
 - [ ] O renderer insere linha em branco entre borda e conteúdo em todo elemento do
       corpo, sem exceção (R-10).
+- [ ] `grupo` em `corpo.elementos[]` ou em `grupo.elementos[]` não gera borda,
+      moldura, título, conteúdo próprio nem estrutura visual independente (R-15).
+- [ ] Estruturas com profundidade superior a 3 níveis são rejeitadas com erro
+      estrutural determinístico (R-16).
+- [ ] O arranjo declarado por cada container se aplica somente aos seus filhos
+      diretos, sem herança obrigatória para containers filhos (R-17).
+- [ ] A área alocada pela distribuição é preservada; conteúdo menor recebe
+      preenchimento de espaços ou linhas em branco (R-18).
+- [ ] `len(distribuicao.valores) == len(elementos)` para o container onde a
+      distribuição é declarada, contando somente filhos diretos (seção 4.9).
+- [ ] Arredondamento usa método dos maiores restos; soma das áreas alocadas é
+      exatamente igual à área disponível do container (R-19).
+- [ ] Em layout horizontal, molduras adjacentes ficam coladas; não há vão externo
+      entre molduras (R-20).
+- [ ] Conceito `conteudo` (dimensão ajustada ao conteúdo) é tratado como `preferido`,
+      não como `minimo` (R-21).
+- [ ] Condição que impeça composição declarada gera erro determinístico; nunca
+      fallback silencioso (R-22).
 
 ---
 
@@ -569,9 +839,9 @@ Itens adiados intencionalmente — não são lacunas de especificação:
 - **Combinação `arranjo = horizontal` + `dashboard` presente** (`horizontal`,
   ADR-0011; alias transicional `lado_a_lado`): o comportamento do indicador de
   paginação quando `dashboard` participa do arranjo horizontal será tratado em
-  handoff futuro (a partir de H-0014). ADR-0010 resolve conceitualmente que
-  `dashboard` segue a composição geral; a implementação do indicador de
-  paginação nesse contexto aguarda o handoff.
+  handoff futuro. ADR-0010 resolve conceitualmente que `dashboard` segue a
+  composição geral; a implementação do indicador de paginação nesse contexto
+  aguarda o handoff.
 - **Relação entre `filtro_de_grupo` e `formacao_de_selecao`**: coexistência,
   exclusividade ou atalho entre `[#]` (filtrar exibição por grupo) e `[␣]`
   (marcar item para seleção) — não está definida. Ver
@@ -579,13 +849,24 @@ Itens adiados intencionalmente — não são lacunas de especificação:
 - **Migração do campo `posicao_dashboard`** (ADR-0010): JSONs existentes com
   `posicao_dashboard` serão migrados/descartados em handoff futuro de migração.
   Até então, o campo pode ser honrado por compatibilidade.
-- **Schema de grupos hierárquicos no `corpo.elementos[]`**: a estrutura de
-  grupos e aninhamento será especificada em handoffs futuros (H-0014 e
-  seguintes; sem letras, conforme H-0012/H-0013) conforme cada capacidade for
-  implementada. Referências históricas a planos anteriores cancelados
-  (ADR-0010) permanecem apenas como histórico e não orientam novos ciclos
-  (ADR-0011).
-  Não criar schema completo antecipado.
+- **Implementação do `grupo` e hierarquia em 3 níveis** (ADR-0015): H-0020
+  será responsável por criar/expandir grupos conforme planejamento futuro. A
+  hierarquia em 3 níveis ocorrerá em ciclo posterior. Testes específicos de
+  verificação dos níveis serão criados depois que H-0019 e a hierarquia em
+  3 níveis estiverem implementados.
+- **H-0019 bloqueado** (ADR-0015): H-0019 não deve ser implementado na forma
+  atual. Deve ser revisado após os contratos serem atualizados. A retomada do
+  H-0019 deve citar ADR-0015 como autoridade superior e remover qualquer regra
+  conflitante.
+- **Schema de sincronização explícita entre grupos** (ADR-0015): o mecanismo
+  de `sincronizacao.cortes = "obrigatorio"` tem conceito registrado, mas o
+  schema final não foi fechado. Deve ser detalhado em ciclo futuro.
+- **Distribuição restrita/dinâmica** (ADR-0015): os conceitos `minimo`,
+  `preferido`, `maximo`, `restante`, `conteudo` estão registrados mas não
+  têm schema de declaração fechado. Detalhamento em ciclo futuro.
+- **Política de terminal muito pequeno** (ADR-0015): representação compacta
+  com `...` está conceituada mas não tem implementação especificada. Detalhar
+  em ciclo futuro.
 - **Revisão de `contrato_lancador.md` conforme ADR-0008** (DOC-0020): detalhes
   da instância de `lancador` em `tela.json` pertencem ao contrato próprio.
 - **Revisão de `console` como container genérico** (DOC-0024): contrato e
