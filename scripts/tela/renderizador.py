@@ -169,11 +169,21 @@ def _linha_conteudo(texto, borda, content_w):
     return "{v} {0}{1}{v}".format(txt, pad, v=borda["v"])
 
 
-def _caixa(label, linhas_conteudo, borda, inner_w, content_w, label_max):
-    """Monta uma caixa bordeada com label no topo e linhas de conteudo."""
+def _caixa(label, linhas_conteudo, borda, inner_w, content_w, label_max, altura_alvo=None):
+    """Monta uma caixa bordeada com label no topo e linhas de conteudo.
+
+    Quando altura_alvo e fornecida, a caixa ocupa exatamente essa altura:
+    linhas de fill bordeadas (borda["v"] + " " * inner_w + borda["v"]) sao
+    inseridas entre o conteudo e a base ate que a caixa tenha altura_alvo linhas.
+    Quando None, comportamento atual preservado (topo + conteudo + base).
+    """
     partes = [_linha_topo(label, borda, label_max)]
     for texto in linhas_conteudo:
         partes.append(_linha_conteudo(texto, borda, content_w))
+    if altura_alvo is not None:
+        linha_fill = borda["v"] + " " * inner_w + borda["v"]
+        while len(partes) < altura_alvo - 1:
+            partes.append(linha_fill)
     partes.append(_linha_base(borda, inner_w))
     return "\n".join(partes)
 
@@ -752,8 +762,23 @@ def _montar_corpo_horizontal(elementos, borda, total_w, altura_disponivel=None):
         altura_alvo = altura_max
 
     for i, linhas in enumerate(todas_as_linhas_por_area):
-        while len(linhas) < altura_alvo:
-            linhas.append(" " * larguras[i])
+        w = larguras[i]
+        if altura_disponivel is not None:
+            # H-0021: fill bordeado — extrair base, preencher com bordas, reposicionar base.
+            # A base existente (gerada por _caixa()) e temporariamente removida para que o
+            # fill bordeado seja inserido antes dela, mantendo-a na posicao altura_alvo-1.
+            if linhas:
+                base_linha = linhas.pop()
+            else:
+                base_linha = _linha_base(borda, w - 2)
+            linha_fill = borda["v"] + " " * (w - 2) + borda["v"]
+            while len(linhas) < altura_alvo - 1:
+                linhas.append(linha_fill)
+            linhas.append(base_linha)
+        else:
+            # Comportamento H-0019/H-0020 preservado: fill de espacos sem bordas.
+            while len(linhas) < altura_alvo:
+                linhas.append(" " * w)
 
     # Concatenar áreas linha a linha, sem separador externo (ADR-0015 D9).
     # Bordas adjacentes surgem naturalmente: ││ em linhas internas,

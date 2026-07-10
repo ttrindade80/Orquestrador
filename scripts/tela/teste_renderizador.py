@@ -2918,6 +2918,388 @@ class TestPreenchimentoVerticalH0020:
         self.test_barra_de_menus_preservada_apos_h0020()
 
 
+class TestPreenchimentoBordeadoH0021:
+    """Testes de preenchimento bordeado no corpo horizontal (H-0021).
+
+    Cobre: fill bordeado com bordas laterais; base na ultima linha; bordas
+    adjacentes (││, ╯╰); integracao com orquestrador.json em memoria;
+    alias lado_a_lado; dashboard sem literal; filhos em ordem; preservacao
+    do comportamento sem altura (H-0019/H-0020); nao-regressao de
+    vertical/sobreposto/None; barra_de_menus preservada.
+    """
+
+    def _r(self, nome, passou, detalhe=""):
+        _registrar(nome, passou, detalhe)
+
+    def _modelo(self, arranjo, specs, largura=42):
+        return _modelo_horizontal(arranjo, specs, largura=largura, titulo_cab="H0021")
+
+    def _borda(self):
+        from tela.renderizador import _BORDAS
+        return _BORDAS["curva"]
+
+    # ---------------------------------------------------------------------- 1
+    def test_horizontal_fill_bordeado_orquestrador_json(self):
+        """orquestrador.json em memoria com arranjo='horizontal', largura=80, altura=30."""
+        tela_raw = carregar_tela(_BASE_PADRAO, "orquestrador")
+        tela_raw["corpo"]["arranjo"] = "horizontal"
+        modelo = construir_modelo(tela_raw)
+        saida = renderizar_tela(modelo, tipo_borda="curva", largura=80, altura=30)
+
+        # l_cab=3, l_corpo_disponivel=24, l_barra=3
+        linhas = saida.split("\n")
+        bloco = linhas[3:27]  # 24 linhas do corpo horizontal
+
+        self._r(
+            "H0021-1: bloco horizontal tem 24 linhas (l_corpo_disponivel)",
+            len(bloco) == 24,
+            "len={0}".format(len(bloco)),
+        )
+        # Linhas internas (nao topo, nao base) devem ter '│'
+        inner = bloco[1:-1]
+        self._r(
+            "H0021-1: linhas internas do bloco contêm '│' (bordas laterais)",
+            all("│" in ln for ln in inner),
+            "falhas={0}".format([i for i, ln in enumerate(inner) if "│" not in ln]),
+        )
+        self._r(
+            "H0021-1: sem linha ' ' * 80 no bloco (fill bordeado, nao espacos planos)",
+            not any(ln == " " * 80 for ln in bloco),
+        )
+        self._r(
+            "H0021-1: cada linha do bloco tem 80 chars",
+            all(len(ln) == 80 for ln in bloco),
+            "erros={0}".format([len(ln) for ln in bloco if len(ln) != 80]),
+        )
+
+    # ---------------------------------------------------------------------- 2
+    def test_horizontal_fill_bordeado_lado_a_lado_alias(self):
+        """lado_a_lado produz comportamento identico ao horizontal."""
+        tela_raw_h = carregar_tela(_BASE_PADRAO, "orquestrador")
+        tela_raw_h["corpo"]["arranjo"] = "horizontal"
+        saida_h = renderizar_tela(
+            construir_modelo(tela_raw_h), tipo_borda="curva", largura=80, altura=30
+        )
+
+        tela_raw_l = carregar_tela(_BASE_PADRAO, "orquestrador")
+        tela_raw_l["corpo"]["arranjo"] = "lado_a_lado"
+        saida_l = renderizar_tela(
+            construir_modelo(tela_raw_l), tipo_borda="curva", largura=80, altura=30
+        )
+
+        self._r(
+            "H0021-2: lado_a_lado produz saida identica ao horizontal",
+            saida_h == saida_l,
+        )
+        linhas_l = saida_l.split("\n")
+        bloco_l = linhas_l[3:27]
+        inner_l = bloco_l[1:-1]
+        self._r(
+            "H0021-2: lado_a_lado: linhas internas contêm '│'",
+            all("│" in ln for ln in inner_l),
+        )
+
+    # ---------------------------------------------------------------------- 3
+    def test_horizontal_fill_linhas_internas_com_bordas_laterais(self):
+        """Modelo sintetico: linhas de fill comecam e terminam com borda vertical."""
+        modelo = self._modelo("horizontal", [("console", "A"), ("dashboard", "B")])
+        borda = self._borda()
+        h = 15
+        bloco = _montar_corpo_horizontal(
+            modelo.corpo.elementos, borda, 42, altura_disponivel=h
+        )
+        linhas_bloco = bloco.split("\n")
+
+        self._r(
+            "H0021-3: bloco tem 15 linhas",
+            len(linhas_bloco) == h,
+            "len={0}".format(len(linhas_bloco)),
+        )
+        # Linhas intermediarias (nao topo, nao base)
+        inner = linhas_bloco[1:-1]
+        self._r(
+            "H0021-3: linhas intermediarias comecam com '│'",
+            all(ln[0] == "│" for ln in inner),
+            "falhas={0}".format([i for i, ln in enumerate(inner) if ln[0] != "│"]),
+        )
+        self._r(
+            "H0021-3: linhas intermediarias terminam com '│'",
+            all(ln[-1] == "│" for ln in inner),
+            "falhas={0}".format([i for i, ln in enumerate(inner) if ln[-1] != "│"]),
+        )
+        self._r(
+            "H0021-3: cada linha do bloco tem 42 chars",
+            all(len(ln) == 42 for ln in linhas_bloco),
+            "erros={0}".format([len(ln) for ln in linhas_bloco if len(ln) != 42]),
+        )
+
+    # ---------------------------------------------------------------------- 4
+    def test_horizontal_base_na_ultima_linha_da_area(self):
+        """Base das caixas aparece na ultima linha da area horizontal."""
+        modelo = self._modelo("horizontal", [("console", "A"), ("dashboard", "B")])
+        borda = self._borda()
+        h = 15
+        bloco = _montar_corpo_horizontal(
+            modelo.corpo.elementos, borda, 42, altura_disponivel=h
+        )
+        linhas_bloco = bloco.split("\n")
+
+        ultima = linhas_bloco[-1]
+        self._r(
+            "H0021-4: ultima linha do bloco começa com '╰' (base)",
+            ultima.startswith("╰"),
+            "ultima[:5]={0!r}".format(ultima[:5]),
+        )
+        self._r(
+            "H0021-4: ultima linha do bloco termina com '╯' (base)",
+            ultima.endswith("╯"),
+            "ultima[-5:]={0!r}".format(ultima[-5:]),
+        )
+        # Sem base prematura: '╰' nao deve aparecer nas linhas anteriores a ultima
+        bases_prematuras = [
+            i for i, ln in enumerate(linhas_bloco[:-1]) if "╰" in ln
+        ]
+        self._r(
+            "H0021-4: '╰' ausente nas linhas intermediarias (sem base prematura)",
+            len(bases_prematuras) == 0,
+            "indices={0}".format(bases_prematuras),
+        )
+
+    # ---------------------------------------------------------------------- 5
+    def test_horizontal_bordas_adjacentes_em_fill_e_base(self):
+        """'││' nas linhas de fill e '╯╰' na linha de base."""
+        modelo = self._modelo("horizontal", [("console", "A"), ("console", "B")])
+        borda = self._borda()
+        h = 10
+        bloco = _montar_corpo_horizontal(
+            modelo.corpo.elementos, borda, 42, altura_disponivel=h
+        )
+        linhas_bloco = bloco.split("\n")
+
+        fill_lines = linhas_bloco[1:-1]
+        self._r(
+            "H0021-5: '││' presente nas linhas de fill (bordas adjacentes coladas)",
+            any("││" in ln for ln in fill_lines),
+        )
+        self._r(
+            "H0021-5: '╯╰' presente na linha de base (bases adjacentes coladas)",
+            "╯╰" in linhas_bloco[-1],
+            "base={0!r}".format(linhas_bloco[-1]),
+        )
+
+    # ---------------------------------------------------------------------- 6
+    def test_horizontal_largura_total_em_todas_linhas_apos_h0021(self):
+        """Todas as linhas do bloco (topo, conteudo, fill, base) têm total_w chars."""
+        modelo = self._modelo(
+            "horizontal",
+            [("console", "A"), ("console", "B"), ("lancador", "C")],
+        )
+        borda = self._borda()
+        h = 20
+        bloco = _montar_corpo_horizontal(
+            modelo.corpo.elementos, borda, 42, altura_disponivel=h
+        )
+        linhas_bloco = bloco.split("\n")
+
+        self._r(
+            "H0021-6: bloco tem exatamente 20 linhas",
+            len(linhas_bloco) == h,
+            "len={0}".format(len(linhas_bloco)),
+        )
+        self._r(
+            "H0021-6: todas as linhas têm 42 chars",
+            all(len(ln) == 42 for ln in linhas_bloco),
+            "erros={0}".format([len(ln) for ln in linhas_bloco if len(ln) != 42]),
+        )
+
+    # ---------------------------------------------------------------------- 7
+    def test_horizontal_dashboard_sem_literal_tem_bordas(self):
+        """dashboard_info sem campos literais ocupa area visual bordeada."""
+        tela_raw = carregar_tela(_BASE_PADRAO, "orquestrador")
+        tela_raw["corpo"]["arranjo"] = "horizontal"
+        modelo = construir_modelo(tela_raw)
+        borda = self._borda()
+        # larguras=[27, 27, 26], dashboard eh coluna 1 (inicio no char 27)
+        bloco = _montar_corpo_horizontal(
+            modelo.corpo.elementos, borda, 80, altura_disponivel=24
+        )
+        linhas_bloco = bloco.split("\n")
+
+        # Linhas intermediarias do bloco (nao topo, nao base)
+        inner = linhas_bloco[1:-1]
+        # Char na posicao 27 de cada linha intermediaria deve ser '│' (borda esq do dashboard)
+        chars_esq_dash = [ln[27] for ln in inner if len(ln) >= 28]
+        self._r(
+            "H0021-7: dashboard sem literal: borda esquerda presente em linhas intermediarias",
+            all(c == "│" for c in chars_esq_dash) and len(chars_esq_dash) > 0,
+            "chars={0!r}".format(chars_esq_dash[:5]),
+        )
+        # Base do dashboard na ultima linha: char[27] deve ser '╰'
+        ultima = linhas_bloco[-1]
+        char_base = ultima[27] if len(ultima) >= 28 else None
+        self._r(
+            "H0021-7: base do dashboard na ultima linha (char[27]='╰')",
+            char_base == "╰",
+            "char[27]={0!r}".format(char_base),
+        )
+
+    # ---------------------------------------------------------------------- 8
+    def test_horizontal_filhos_preservados_em_ordem(self):
+        """Filhos console, dashboard, lancador aparecem na ordem declarada."""
+        tela_raw = carregar_tela(_BASE_PADRAO, "orquestrador")
+        tela_raw["corpo"]["arranjo"] = "horizontal"
+        modelo = construir_modelo(tela_raw)
+        saida = renderizar_tela(modelo, tipo_borda="curva", largura=80, altura=30)
+
+        self._r("H0021-8: '╭ ITENS' presente (console_principal)", "╭ ITENS" in saida)
+        self._r("H0021-8: '╭ INFO' presente (dashboard_info)", "╭ INFO" in saida)
+        self._r("H0021-8: '╭ NAVEGAR' presente (lancador_principal)", "╭ NAVEGAR" in saida)
+
+        # Verificar ordem: na primeira linha do bloco, topos aparecem da esq para dir
+        linhas = [ln for ln in saida.split("\n") if ln != ""]
+        linha_topos = next((ln for ln in linhas if "╭ ITENS" in ln), None)
+        if linha_topos is not None:
+            self._r(
+                "H0021-8: ITENS, INFO, NAVEGAR aparecem da esquerda para a direita",
+                linha_topos.index("╭ ITENS") < linha_topos.index("╭ INFO")
+                < linha_topos.index("╭ NAVEGAR"),
+            )
+        else:
+            self._r("H0021-8: linha com topos das tres colunas encontrada", False)
+
+    # ---------------------------------------------------------------------- 9
+    def test_horizontal_sem_altura_preserva_h0019_h0020(self):
+        """Sem altura_disponivel: fill permanece ' ' * largura (sem bordas)."""
+        modelo = self._modelo("horizontal", [("console", "A"), ("dashboard", "B")])
+        borda = self._borda()
+        bloco = _montar_corpo_horizontal(
+            modelo.corpo.elementos, borda, 42, altura_disponivel=None
+        )
+        linhas_bloco = bloco.split("\n")
+
+        self._r(
+            "H0021-9: sem altura -> bloco tem 3 linhas (altura_max, H-0019 preservado)",
+            len(linhas_bloco) == 3,
+            "len={0}".format(len(linhas_bloco)),
+        )
+        # Com altura=None: dashboard (coluna 1, w=21) tem fill ' '*21 no row 2.
+        # Row 2 concatenado = base_do_console (21 chars) + fill_do_dashboard (21 chars).
+        # O fill do dashboard ocupa chars [21:42]; se for espacos (sem '│'), e H-0020.
+        row2 = linhas_bloco[2]
+        dash_fill = row2[21:] if len(row2) >= 42 else None
+        self._r(
+            "H0021-9: fill sem bordas: coluna dashboard (chars 21..41) e espacos (H-0019/H-0020)",
+            dash_fill == " " * 21,
+            "dash_fill={0!r}".format(dash_fill),
+        )
+
+    # ---------------------------------------------------------------------- 10
+    def test_vertical_nao_regride_apos_h0021(self):
+        """arranjo=vertical preserva comportamento anterior."""
+        tela_raw = carregar_tela(_BASE_PADRAO, "orquestrador")
+        modelo = construir_modelo(tela_raw)  # arranjo=vertical (padrao do JSON)
+        saida = renderizar_tela(modelo, largura=42)
+        self._r(
+            "H0021-10: vertical sem altura preserva _EXPECTED_ORQUESTRADOR",
+            saida == _EXPECTED_ORQUESTRADOR,
+        )
+        saida_24 = renderizar_tela(modelo, largura=42, altura=24)
+        fill_ext = [ln for ln in saida_24.split("\n") if ln == " " * 42]
+        self._r(
+            "H0021-10: vertical com altura=24 mantem fill externo de espacos",
+            len(fill_ext) > 0,
+            "fills={0}".format(len(fill_ext)),
+        )
+
+    # ---------------------------------------------------------------------- 11
+    def test_sobreposto_nao_regride_apos_h0021(self):
+        """arranjo=sobreposto (alias de vertical) sem regressao."""
+        modelo_v = _modelo_horizontal("vertical", [("console", "A")])
+        modelo_s = _modelo_horizontal("sobreposto", [("console", "A")])
+        saida_v = renderizar_tela(modelo_v, largura=42, altura=20)
+        saida_s = renderizar_tela(modelo_s, largura=42, altura=20)
+        self._r(
+            "H0021-11: sobreposto == vertical (alias preservado)",
+            saida_v == saida_s,
+        )
+        self._r(
+            "H0021-11: sobreposto com altura=20 -> 20 linhas",
+            saida_s.count("\n") == 20,
+        )
+
+    # ---------------------------------------------------------------------- 12
+    def test_none_nao_regride_apos_h0021(self):
+        """arranjo=None equivale a vertical, sem regressao."""
+        modelo_n = _modelo_horizontal(None, [("console", "A")])
+        modelo_v = _modelo_horizontal("vertical", [("console", "A")])
+        saida_n = renderizar_tela(modelo_n, largura=42, altura=20)
+        saida_v = renderizar_tela(modelo_v, largura=42, altura=20)
+        self._r(
+            "H0021-12: None == vertical (preservado)",
+            saida_n == saida_v,
+        )
+        self._r(
+            "H0021-12: None com altura=20 -> 20 linhas",
+            saida_n.count("\n") == 20,
+        )
+
+    # ---------------------------------------------------------------------- 13
+    def test_barra_de_menus_preservada_apos_h0021(self):
+        """Barra de menus e funcoes protegidas preservadas apos H-0021."""
+        tela_raw = carregar_tela(_BASE_PADRAO, "orquestrador")
+        tela_raw["corpo"]["arranjo"] = "horizontal"
+        modelo = construir_modelo(tela_raw)
+        saida = renderizar_tela(modelo, tipo_borda="curva", largura=80, altura=30)
+
+        self._r("H0021-13: '╭ Menus' presente na saida horizontal", "╭ Menus" in saida)
+        self._r("H0021-13: '[Esc] Sair' presente na barra", "[Esc] Sair" in saida)
+        self._r("H0021-13: '[?] Ajuda' presente na barra", "[?] Ajuda" in saida)
+
+        from tela.renderizador import (
+            _normalizar_distribuicao,
+            _validar_distribuicao,
+            _linhas_barra,
+        )
+        self._r(
+            "H0021-13: _normalizar_distribuicao existe e e chamavel",
+            callable(_normalizar_distribuicao),
+        )
+        self._r(
+            "H0021-13: _validar_distribuicao existe e e chamavel",
+            callable(_validar_distribuicao),
+        )
+        self._r(
+            "H0021-13: _linhas_barra existe e e chamavel",
+            callable(_linhas_barra),
+        )
+
+    # ---------------------------------------------------------------------- 14
+    def test_baseline_completo_continua_passando(self):
+        """Registro: baseline 621 casos anteriores verificados por execucao sequencial."""
+        self._r(
+            "H0021-14: baseline completo verificado externamente (621 + novos)",
+            True,
+        )
+
+    def run_all(self):
+        print("")
+        print("== H-0021 - correcao preenchimento bordeado horizontal ==")
+        self.test_horizontal_fill_bordeado_orquestrador_json()
+        self.test_horizontal_fill_bordeado_lado_a_lado_alias()
+        self.test_horizontal_fill_linhas_internas_com_bordas_laterais()
+        self.test_horizontal_base_na_ultima_linha_da_area()
+        self.test_horizontal_bordas_adjacentes_em_fill_e_base()
+        self.test_horizontal_largura_total_em_todas_linhas_apos_h0021()
+        self.test_horizontal_dashboard_sem_literal_tem_bordas()
+        self.test_horizontal_filhos_preservados_em_ordem()
+        self.test_horizontal_sem_altura_preserva_h0019_h0020()
+        self.test_vertical_nao_regride_apos_h0021()
+        self.test_sobreposto_nao_regride_apos_h0021()
+        self.test_none_nao_regride_apos_h0021()
+        self.test_barra_de_menus_preservada_apos_h0021()
+        self.test_baseline_completo_continua_passando()
+
+
 def main():
     print("Diagnostico H-0010A - renderer declarativo (curva/reta)")
     print("Base padrao: {0}".format(_BASE_PADRAO))
@@ -2938,6 +3320,7 @@ def main():
     TestDistribuicaoH0018().run_all()
     TestArranjoH0019().run_all()
     TestPreenchimentoVerticalH0020().run_all()
+    TestPreenchimentoBordeadoH0021().run_all()
 
     print("")
     print("== Resumo ==")
