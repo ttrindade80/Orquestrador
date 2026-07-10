@@ -2250,6 +2250,361 @@ class TestDistribuicaoH0018:
         self.test_tentativa_inicial_e_quebra_validos_aceitos()
 
 
+def _modelo_horizontal(arranjo, elementos_spec, largura=42, titulo_cab="H"):
+    """Cria ModeloTela sintético para testes de arranjo horizontal (H-0019).
+
+    elementos_spec: lista de tuplas (tipo, titulo) ex: [("console","A"),("dashboard","B")]
+    """
+    elementos = []
+    for tipo, titulo in elementos_spec:
+        campos_inertes = {"titulo": titulo}
+        if tipo == "lancador":
+            campos_inertes["itens"] = []
+        elementos.append(ElementoCorpo(id=titulo.lower(), tipo=tipo,
+                                       _campos_inertes=campos_inertes))
+    return ModeloTela(
+        id="teste_h0019",
+        schema="tela.v1",
+        cabecalho={"titulo": titulo_cab, "descricao": "teste h0019"},
+        corpo=Corpo(arranjo=arranjo, elementos=elementos),
+        barra_de_menus={"chips": [{"id": "c1", "tecla": "k", "texto": "Ok"}]},
+        _raw={},
+    )
+
+
+class TestArranjoH0019:
+    """Testes obrigatórios de arranjo do corpo raiz (H-0019).
+
+    Cobre: None/vertical/sobreposto preservam comportamento atual;
+    horizontal e lado_a_lado ativam particionamento contíguo;
+    bordas coladas; largura determinística; resto; padding inferior;
+    largura insuficiente; N=1; H-0015; barra preservada.
+    """
+
+    def _r(self, nome, passou, detalhe=""):
+        _registrar(nome, passou, detalhe)
+
+    def _espera_erro(self, nome, fn):
+        try:
+            fn()
+            self._r(nome, False, "nenhuma excecao levantada")
+            return None
+        except RenderizadorErro as exc:
+            self._r(nome, True, str(exc))
+            return exc
+        except Exception as exc:
+            self._r(nome, False, "excecao inesperada: {0!r}".format(exc))
+            return None
+
+    def test_arranjo_none_preserva_vertical(self):
+        """None -> comportamento vertical atual preservado."""
+        modelo_none = _modelo_horizontal(None, [("console", "A"), ("console", "B")])
+        modelo_vert = _modelo_horizontal("vertical", [("console", "A"), ("console", "B")])
+        saida_none = renderizar_tela(modelo_none, largura=42)
+        saida_vert = renderizar_tela(modelo_vert, largura=42)
+        self._r(
+            "arranjo=None -> saida identica a arranjo='vertical'",
+            saida_none == saida_vert,
+        )
+        # Elementos empilhados = 2 cabecalhos de console separados (vertical)
+        self._r(
+            "arranjo=None -> 2 caixas de console empilhadas (contagem de ╭)",
+            saida_none.count("╭ A") == 1 and saida_none.count("╭ B") == 1,
+        )
+        self._r(
+            "arranjo=None -> barra aparece ao final",
+            "╭ Menus" in saida_none,
+        )
+
+    def test_arranjo_vertical_preserva_comportamento(self):
+        """vertical -> saida identica ao None."""
+        modelo_none = _modelo_horizontal(None, [("console", "A"), ("dashboard", "B")])
+        modelo_vert = _modelo_horizontal("vertical", [("console", "A"), ("dashboard", "B")])
+        self._r(
+            "arranjo='vertical' == arranjo=None",
+            renderizar_tela(modelo_none, largura=42)
+            == renderizar_tela(modelo_vert, largura=42),
+        )
+
+    def test_arranjo_sobreposto_preserva_vertical(self):
+        """sobreposto -> alias de vertical, saida identica."""
+        modelo_vert = _modelo_horizontal("vertical", [("console", "A")])
+        modelo_sob = _modelo_horizontal("sobreposto", [("console", "A")])
+        self._r(
+            "arranjo='sobreposto' -> saida identica a 'vertical'",
+            renderizar_tela(modelo_vert, largura=42)
+            == renderizar_tela(modelo_sob, largura=42),
+        )
+
+    def test_arranjo_horizontal_dois_elementos(self):
+        """horizontal: 2 filhos diretos ficam na mesma faixa de linhas."""
+        modelo = _modelo_horizontal("horizontal", [("console", "A"), ("console", "B")])
+        saida_h = renderizar_tela(modelo, largura=42)
+        saida_v = renderizar_tela(
+            _modelo_horizontal("vertical", [("console", "A"), ("console", "B")]),
+            largura=42,
+        )
+        self._r(
+            "horizontal: A e B aparecem na saida",
+            "A" in saida_h and "B" in saida_h,
+        )
+        self._r(
+            "horizontal: saida tem menos linhas que vertical (areas lado a lado)",
+            saida_h.count("\n") < saida_v.count("\n"),
+            "h={0} v={1}".format(saida_h.count("\n"), saida_v.count("\n")),
+        )
+        self._r(
+            "horizontal: barra_de_menus aparece abaixo do bloco horizontal",
+            saida_h.index("╭ Menus") > saida_h.index("╭ A"),
+        )
+
+    def test_arranjo_lado_a_lado_alias_horizontal(self):
+        """lado_a_lado -> alias transicional de horizontal, saida identica."""
+        modelo_h = _modelo_horizontal("horizontal", [("console", "A"), ("console", "B")])
+        modelo_l = _modelo_horizontal("lado_a_lado", [("console", "A"), ("console", "B")])
+        self._r(
+            "arranjo='lado_a_lado' == arranjo='horizontal'",
+            renderizar_tela(modelo_h, largura=42)
+            == renderizar_tela(modelo_l, largura=42),
+        )
+
+    def test_arranjo_horizontal_areas_contiguas(self):
+        """horizontal: bordas adjacentes coladas (││, ╮╭, ╯╰); largura total preservada."""
+        modelo = _modelo_horizontal("horizontal", [("console", "A"), ("console", "B")],
+                                    largura=42)
+        saida = renderizar_tela(modelo, largura=42)
+        # Extrair apenas o bloco do corpo (linhas entre cabecalho e barra)
+        linhas = [ln for ln in saida.split("\n") if ln != ""]
+        linhas_corpo = [ln for ln in linhas
+                        if not ln.startswith("╭ H") and not ln.startswith("╭ Menus")
+                        and not (ln.startswith("│ teste") or ln.startswith("│ Ok"))
+                        and not ln.startswith("╰────────────────────────────────────────╯")
+                        or ln.startswith("╭ A") or ln.startswith("╭ B")
+                        or "│" == ln[0] and "A" not in ln[:5] and "B" not in ln[:5]
+                        or ln.startswith("╰───────────────────╯")]
+        self._r(
+            "horizontal: '││' aparece nas linhas internas (bordas adjacentes coladas)",
+            "││" in saida,
+            "ok" if "││" in saida else "nao encontrado",
+        )
+        self._r(
+            "horizontal: '╮╭' aparece no topo das areas adjacentes",
+            "╮╭" in saida,
+            "ok" if "╮╭" in saida else "nao encontrado",
+        )
+        self._r(
+            "horizontal: '╯╰' aparece na base das areas adjacentes",
+            "╯╰" in saida,
+            "ok" if "╯╰" in saida else "nao encontrado",
+        )
+        linhas_nao_vazias = [ln for ln in saida.split("\n") if ln != ""]
+        self._r(
+            "horizontal: cada linha tem exatamente 42 chars (largura total preservada)",
+            all(len(ln) == 42 for ln in linhas_nao_vazias),
+            "larguras={0!r}".format([len(ln) for ln in linhas_nao_vazias
+                                     if len(ln) != 42]),
+        )
+        self._r(
+            "horizontal: primeiro char de cada linha e borda esquerda da area 0",
+            all(ln[0] in ("╭", "│", "╰") for ln in linhas_nao_vazias),
+            "primeiros={0!r}".format([ln[0] for ln in linhas_nao_vazias]),
+        )
+        self._r(
+            "horizontal: ultimo char de cada linha e borda direita da area N-1",
+            all(ln[-1] in ("╮", "│", "╯") for ln in linhas_nao_vazias),
+            "ultimos={0!r}".format([ln[-1] for ln in linhas_nao_vazias]),
+        )
+
+    def test_arranjo_horizontal_resto_deterministico(self):
+        """horizontal: resto distribui deterministicamente da esquerda (maiores restos)."""
+        # 100 // 3 = 33, resto 1 -> larguras = [34, 33, 33]
+        modelo = _modelo_horizontal(
+            "horizontal",
+            [("console", "A"), ("console", "B"), ("console", "C")],
+            largura=100,
+        )
+        saida = renderizar_tela(modelo, largura=100)
+        linhas_nao_vazias = [ln for ln in saida.split("\n") if ln != ""]
+        self._r(
+            "horizontal: todas as linhas tem exatamente 100 chars (sum(larguras)==100)",
+            all(len(ln) == 100 for ln in linhas_nao_vazias),
+        )
+        # Topo da primeira caixa: area 0 tem 34 chars, area 1 começa no índice 34
+        # A linha de topo começa com "╭ A" e termina com "╮╭..." em posicao 33
+        linha_topo = next(
+            (ln for ln in linhas_nao_vazias if "╭ A" in ln), None
+        )
+        if linha_topo is not None:
+            self._r(
+                "horizontal: area 0 tem 34 chars (char[33]=='╮', char[34]=='╭')",
+                len(linha_topo) >= 35 and linha_topo[33] == "╮" and linha_topo[34] == "╭",
+                "chars[33:36]={0!r}".format(linha_topo[33:36] if len(linha_topo) >= 36 else "?"),
+            )
+            self._r(
+                "horizontal: area 1 tem 33 chars (char[66]=='╮', char[67]=='╭')",
+                len(linha_topo) >= 68 and linha_topo[66] == "╮" and linha_topo[67] == "╭",
+                "chars[66:69]={0!r}".format(linha_topo[66:69] if len(linha_topo) >= 69 else "?"),
+            )
+        else:
+            self._r("horizontal: linha_topo encontrada para verificar limites", False)
+            self._r("horizontal: area 0 tem 34 chars", False)
+            self._r("horizontal: area 1 tem 33 chars", False)
+
+    def test_arranjo_horizontal_padding_inferior(self):
+        """horizontal: alturas desiguais -> preenchimento inferior na area menor."""
+        # console: 3 linhas (topo + "(console)" + base)
+        # dashboard sem campos: 2 linhas (topo + base)
+        modelo = _modelo_horizontal(
+            "horizontal",
+            [("console", "A"), ("dashboard", "B")],
+            largura=42,
+        )
+        saida = renderizar_tela(modelo, largura=42)
+        linhas_nao_vazias = [ln for ln in saida.split("\n") if ln != ""]
+        # O bloco horizontal deve ter 3 linhas (max entre 3 e 2)
+        # e cada linha deve ter 42 chars (padding aplicado na area B)
+        self._r(
+            "horizontal: todas as linhas tem exatamente 42 chars (padding aplicado)",
+            all(len(ln) == 42 for ln in linhas_nao_vazias),
+            "larguras={0!r}".format([len(ln) for ln in linhas_nao_vazias
+                                     if len(ln) != 42]),
+        )
+        self._r(
+            "horizontal: saida renderizada sem erro (alturas desiguais tratadas)",
+            isinstance(saida, str) and len(saida) > 0,
+        )
+
+    def test_arranjo_horizontal_largura_insuficiente(self):
+        """horizontal: largura insuficiente -> RenderizadorErro determinístico sem fallback."""
+        modelo = _modelo_horizontal("horizontal",
+                                    [("console", "A"), ("console", "B")],
+                                    largura=18)
+        # 18 // 2 = 9 < 10 -> deve gerar erro
+        exc = self._espera_erro(
+            "horizontal: largura=18 para 2 elementos -> RenderizadorErro",
+            lambda: renderizar_tela(modelo, largura=18),
+        )
+        if exc is not None:
+            self._r(
+                "mensagem menciona 'arranjo horizontal'",
+                "arranjo horizontal" in str(exc),
+                str(exc),
+            )
+            # Confirmar que NAO e um fallback silencioso para vertical
+            self._r(
+                "excecao e RenderizadorErro (sem fallback silencioso para vertical)",
+                isinstance(exc, RenderizadorErro),
+            )
+
+    def test_arranjo_horizontal_tres_elementos(self):
+        """horizontal: 3 filhos diretos aparecem na mesma faixa de linhas."""
+        modelo = _modelo_horizontal(
+            "horizontal",
+            [("console", "A"), ("console", "B"), ("console", "C")],
+            largura=42,
+        )
+        saida = renderizar_tela(modelo, largura=42)
+        self._r(
+            "horizontal: 3 elementos -> '╮╭' aparece 2 vezes (3 areas contiguas)",
+            saida.count("╮╭") >= 2,
+            "count('╮╭')={0}".format(saida.count("╮╭")),
+        )
+        self._r(
+            "horizontal: todas as linhas tem exatamente 42 chars",
+            all(len(ln) == 42 for ln in saida.split("\n") if ln != ""),
+        )
+
+    def test_arranjo_horizontal_com_altura_preserva_h0015(self):
+        """horizontal: altura explícita funciona (H-0015 preservado)."""
+        modelo = _modelo_horizontal(
+            "horizontal",
+            [("console", "A"), ("console", "B")],
+            largura=42,
+        )
+        saida = renderizar_tela(modelo, largura=42, altura=40)
+        self._r(
+            "horizontal: altura=40 -> saida tem exatamente 40 linhas",
+            saida.count("\n") == 40,
+            "count={0}".format(saida.count("\n")),
+        )
+        self._r(
+            "horizontal: altura=40 -> barra_de_menus no rodape",
+            "╭ Menus" in saida,
+        )
+        self._r(
+            "horizontal: altura=40 -> cada linha tem 42 chars",
+            all(len(ln) == 42 for ln in saida.split("\n") if ln != ""),
+        )
+
+    def test_arranjo_horizontal_barra_preservada(self):
+        """horizontal: barra_de_menus permanece inalterada."""
+        modelo = _modelo_horizontal(
+            "horizontal",
+            [("console", "A"), ("console", "B")],
+            largura=42,
+        )
+        saida = renderizar_tela(modelo, largura=42)
+        self._r(
+            "horizontal: barra_de_menus aparece na saida",
+            "╭ Menus" in saida,
+        )
+        self._r(
+            "horizontal: chip [k] Ok da barra aparece",
+            "[k] Ok" in saida,
+        )
+        # Confirmacao de que nenhuma funcao da barra foi afetada: barra de menus
+        # com chips do JSON do orquestrador continua funcionando
+        tela_raw = carregar_tela(_BASE_PADRAO, "orquestrador")
+        modelo_orc = construir_modelo(tela_raw)
+        saida_orc = renderizar_tela(modelo_orc, largura=42)
+        self._r(
+            "horizontal: barra_de_menus do orquestrador inalterada pos-H0019",
+            "[Esc] Sair" in saida_orc and "[?] Ajuda" in saida_orc,
+        )
+
+    def test_arranjo_horizontal_n1(self):
+        """horizontal: N=1 -> renderizar na largura total (sem particionamento). (A-002)."""
+        modelo = _modelo_horizontal("horizontal", [("console", "A")], largura=42)
+        saida = renderizar_tela(modelo, largura=42)
+        self._r(
+            "horizontal N=1: renderiza sem erro",
+            isinstance(saida, str) and len(saida) > 0,
+        )
+        linhas_nao_vazias = [ln for ln in saida.split("\n") if ln != ""]
+        self._r(
+            "horizontal N=1: cada linha tem exatamente 42 chars (largura total)",
+            all(len(ln) == 42 for ln in linhas_nao_vazias),
+            "larguras={0!r}".format([len(ln) for ln in linhas_nao_vazias
+                                     if len(ln) != 42]),
+        )
+        self._r(
+            "horizontal N=1: elemento aparece na saida",
+            "╭ A" in saida,
+        )
+        # N=1 horizontal nao deve ter ╮╭ (nao ha duas areas)
+        self._r(
+            "horizontal N=1: sem '╮╭' (area unica, sem particao interna)",
+            "╮╭" not in saida,
+        )
+
+    def run_all(self):
+        print("")
+        print("== H-0019 - layout horizontal plano do corpo ==")
+        self.test_arranjo_none_preserva_vertical()
+        self.test_arranjo_vertical_preserva_comportamento()
+        self.test_arranjo_sobreposto_preserva_vertical()
+        self.test_arranjo_horizontal_dois_elementos()
+        self.test_arranjo_lado_a_lado_alias_horizontal()
+        self.test_arranjo_horizontal_areas_contiguas()
+        self.test_arranjo_horizontal_resto_deterministico()
+        self.test_arranjo_horizontal_padding_inferior()
+        self.test_arranjo_horizontal_largura_insuficiente()
+        self.test_arranjo_horizontal_tres_elementos()
+        self.test_arranjo_horizontal_com_altura_preserva_h0015()
+        self.test_arranjo_horizontal_barra_preservada()
+        self.test_arranjo_horizontal_n1()
+
+
 def main():
     print("Diagnostico H-0010A - renderer declarativo (curva/reta)")
     print("Base padrao: {0}".format(_BASE_PADRAO))
@@ -2268,6 +2623,7 @@ def main():
     teste_altura_explicita()
     TestLinhasBarra().run_all()
     TestDistribuicaoH0018().run_all()
+    TestArranjoH0019().run_all()
 
     print("")
     print("== Resumo ==")

@@ -34,6 +34,7 @@ sys.path.insert(0, str(_BASE_PADRAO))
 
 from tela import loader  # noqa: E402
 from tela.loader import (  # noqa: E402
+    ARRANJOS_CORPO_VALIDOS,
     TIPOS_CORPO_VALIDOS,
     TIPOS_ESTRUTURAIS_VALIDOS,
     TelaArquivoNaoEncontrado,
@@ -720,6 +721,96 @@ def teste_grupo_estrutural(tmp_base):
         )
 
 
+def teste_arranjo_corpo_h0019(tmp_base):
+    print("")
+    print("== H-0019: validacao de corpo.arranjo no loader ==")
+
+    def _tela_com_arranjo(id_tela, arranjo):
+        dados = _tela_minima(id_tela=id_tela)
+        if arranjo is _VAZIO:
+            del dados["corpo"]["arranjo"]
+        else:
+            dados["corpo"]["arranjo"] = arranjo
+        return dados
+
+    # Valores aceitos
+    for arranjo_val in ("vertical", "horizontal", "sobreposto", "lado_a_lado"):
+        nome_arquivo = "arranjo_aceito_{0}".format(arranjo_val)
+        _escrever_tela(tmp_base, nome_arquivo,
+                       _tela_com_arranjo(nome_arquivo, arranjo_val))
+        try:
+            carregar_tela(tmp_base, nome_arquivo)
+            _registrar(
+                "loader aceita arranjo {0!r} no corpo raiz".format(arranjo_val),
+                True,
+            )
+        except Exception as exc:  # pragma: no cover - diagnostico
+            _registrar(
+                "loader aceita arranjo {0!r} no corpo raiz".format(arranjo_val),
+                False,
+                "{0}: {1}".format(type(exc).__name__, exc),
+            )
+
+    # Ausencia de arranjo (None equivalente)
+    nome_sem_arranjo = "arranjo_ausente"
+    dados_sem = _tela_minima(id_tela=nome_sem_arranjo)
+    del dados_sem["corpo"]["arranjo"]
+    _escrever_tela(tmp_base, nome_sem_arranjo, dados_sem)
+    try:
+        tela = carregar_tela(tmp_base, nome_sem_arranjo)
+        _registrar(
+            "loader aceita ausencia de arranjo (None)",
+            tela.get("corpo", {}).get("arranjo") is None,
+        )
+    except Exception as exc:  # pragma: no cover - diagnostico
+        _registrar(
+            "loader aceita ausencia de arranjo (None)",
+            False,
+            "{0}: {1}".format(type(exc).__name__, exc),
+        )
+
+    # Valores rejeitados
+    nome_diagonal = "arranjo_invalido_diagonal"
+    _escrever_tela(tmp_base, nome_diagonal,
+                   _tela_com_arranjo(nome_diagonal, "diagonal"))
+    exc_diag = _espera_excecao(
+        "loader rejeita arranjo invalido 'diagonal' -> TelaEstruturaInvalida",
+        lambda: carregar_tela(tmp_base, nome_diagonal),
+        TelaEstruturaInvalida,
+    )
+    if exc_diag is not None:
+        _registrar(
+            "mensagem de erro menciona 'corpo.arranjo'",
+            "corpo.arranjo" in str(exc_diag),
+            str(exc_diag),
+        )
+
+    nome_vazia = "arranjo_invalido_vazio"
+    _escrever_tela(tmp_base, nome_vazia,
+                   _tela_com_arranjo(nome_vazia, ""))
+    _espera_excecao(
+        "loader rejeita arranjo string vazia -> TelaEstruturaInvalida",
+        lambda: carregar_tela(tmp_base, nome_vazia),
+        TelaEstruturaInvalida,
+    )
+
+    nome_inteiro = "arranjo_invalido_inteiro"
+    _escrever_tela(tmp_base, nome_inteiro,
+                   _tela_com_arranjo(nome_inteiro, 1))
+    _espera_excecao(
+        "loader rejeita arranjo tipo inteiro (1) -> TelaEstruturaInvalida",
+        lambda: carregar_tela(tmp_base, nome_inteiro),
+        TelaEstruturaInvalida,
+    )
+
+    # Constante exportada
+    _registrar(
+        "ARRANJOS_CORPO_VALIDOS contem None, vertical, horizontal, sobreposto, lado_a_lado",
+        ARRANJOS_CORPO_VALIDOS == {None, "vertical", "horizontal", "sobreposto", "lado_a_lado"},
+        "valor={0!r}".format(ARRANJOS_CORPO_VALIDOS),
+    )
+
+
 def teste_id_incorreto_classe():
     print("")
     print("== Excecao TelaIdIncorreto (verificacao de classe) ==")
@@ -747,6 +838,7 @@ def main():
         teste_erros(tmp_base)
         teste_tipos_validos(tmp_base)
         teste_grupo_estrutural(tmp_base)
+        teste_arranjo_corpo_h0019(tmp_base)
     finally:
         try:
             shutil.rmtree(tmp_base)

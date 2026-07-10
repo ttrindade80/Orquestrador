@@ -1,61 +1,127 @@
 # H-0019 — Layout horizontal plano do corpo
 
 ```text
-status:         BLOCKED_BY_ADR_0015_PENDING_REVISION
-ciclo:          H-0019
-título:         Layout horizontal plano do corpo
-depende-de:     H-0018 (implementado, IMP-0018, QA_POST_CORRECTIONS_APPROVED — commit 46e0cb9)
-commit-base:    3b98856  docs: registra levantamento pos H-0018
-data:           2026-07-09
-autor-handoff:  Claude Code
-executor:       OpenCode / GLM
+status:          HANDOFF_REVISED_READY
+ciclo:           H-0019
+título:          Layout horizontal plano do corpo
+depende-de:      H-0018 (implementado, IMP-0018, QA_POST_CORRECTIONS_APPROVED — commit 46e0cb9)
+commit-base:     9d4c74d  docs: formaliza composicao hierarquica do corpo
+data-criacao:    2026-07-09
+data-revisao:    2026-07-10
+status-anterior: BLOCKED_BY_ADR_0015_PENDING_REVISION
+autor-handoff:   Claude Code
+executor:        OpenCode / GLM
 ```
-
----
-
-## Bloqueio por ADR-0015
-
-Este handoff não deve ser implementado no estado atual.
-
-A ADR-0015 formalizou novas regras normativas para composição hierárquica do
-corpo, distribuição de área horizontal/vertical, arredondamento determinístico,
-preenchimento de área alocada, regras dinâmicas de mínimo/preferido/máximo e
-sincronização de cortes entre grupos.
-
-Como este handoff foi escrito antes da ADR-0015, ele deve ser revisado antes
-de qualquer implementação. A retomada do H-0019 deve produzir uma versão
-revisada compatível com a ADR-0015 e com os contratos atualizados.
-
-Qualquer execução baseada nesta versão deve bloquear com
-`ARCHITECTURE_REVIEW_REQUIRED`.
 
 ---
 
 ## Status
 
 ```
-BLOCKED_BY_ADR_0015_PENDING_REVISION
+HANDOFF_REVISED_READY
 ```
+
+Este handoff foi revisado após a formalização e commit da ADR-0015. A versão
+anterior estava bloqueada com `BLOCKED_BY_ADR_0015_PENDING_REVISION` e não
+devia ser implementada.
+
+A versão atual está compatível com a ADR-0015 e com os contratos atualizados
+(v0.3 de `contrato_composicao_corpo.md`, conforme commit `9d4c74d`).
+
+Implementação só pode ocorrer com base nesta versão revisada, após nova
+auditoria.
 
 ---
 
-## Revisão pós-auditoria
+## Revisão pós-ADR-0015
 
-> **Revisão**: 2026-07-09 — por decisão do usuário sobre a semântica do layout horizontal
-> do corpo.
->
-> A versão original deste handoff (auditada em 2026-07-09, resultado
-> `HANDOFF_APPROVED_WITH_NOTES`, relatório `RELATORIO_AUDITORIA_H-0019_HANDOFF.md`)
-> especificava um algoritmo de N+1 vãos iguais como regra de distribuição de espaço.
-> Essa interpretação foi rejeitada pelo usuário.
->
-> A regra correta é: **particionamento contíguo da largura disponível entre os elementos
-> diretos do corpo**. Não existem espaços vazios entre molduras. A primeira moldura
-> inicia no primeiro caractere útil da linha. A última moldura termina no último
-> caractere útil da linha. Molduras adjacentes ficam coladas, produzindo bordas lado a
-> lado (`││`). Esta não é uma regra de vãos — é consequência natural do particionamento.
->
-> Uma nova auditoria pós-revisão será realizada após esta correção.
+### Histórico do bloqueio
+
+O handoff H-0019 foi criado em 2026-07-09 com base no levantamento
+pós-H-0018 (commit `3b98856`). Foi auditado (resultado
+`HANDOFF_APPROVED_WITH_NOTES`, relatório
+`RELATORIO_AUDITORIA_H-0019_HANDOFF.md`) e então bloqueado pelo commit da
+ADR-0015 antes de qualquer implementação.
+
+Status anterior: `BLOCKED_BY_ADR_0015_PENDING_REVISION`
+
+Nenhuma linha de código foi escrita com base na versão anterior do H-0019.
+
+### Autoridade da revisão
+
+A ADR-0015 (`docs/adr/ADR-0015-composicao-hierarquica-distribuicao-corpo.md`,
+commit `9d4c74d`) é autoridade superior ao H-0019 e a todos os contratos
+de módulo anteriores. Onde a versão anterior do H-0019 contradiz a ADR-0015,
+a ADR-0015 prevalece.
+
+### Mudanças conceituais aplicadas nesta revisão
+
+**1. `grupo` NÃO é expandido no layout horizontal plano**
+
+A versão anterior do H-0019 (Passo 1 do algoritmo) "expandia" grupos
+coletando seus filhos internos como funcionais no mesmo nível:
+
+```python
+# INTERPRETAÇÃO REJEITADA — versão anterior
+if elemento.tipo == "grupo":
+    for interno in elemento.elementos:
+        funcionais.append(interno)  # ERRADO segundo ADR-0015
+```
+
+A ADR-0015 (Decisão 2) estabelece que `grupo` é nó estrutural que recebe
+área do container pai e redistribui internamente — não é transparente.
+No H-0019 "plano", cada filho direto de `corpo.elementos[]` — incluindo
+`grupo` — conta como um slot que recebe área alocada. Como `grupo` não tem
+representação visual própria (sem borda, sem moldura, sem conteúdo),
+a área alocada a um `grupo` fica visualmente vazia no H-0019. Isso é
+correto: a redistribuição interna do grupo é responsabilidade do H-0020.
+
+Consequência: o teste `test_arranjo_horizontal_grupo_estrutural` da
+versão anterior foi movido para "Fora de escopo futuro" (H-0020).
+
+**2. "lado a lado" removido como termo normativo**
+
+A expressão "lado a lado" não deve aparecer como termo normativo em texto
+livre neste handoff. Usos substituídos por:
+
+- `arranjo horizontal`
+- `particionamento contíguo da largura`
+- `filhos diretos`
+- `área alocada`
+- `bordas adjacentes coladas`
+
+O alias transitional `lado_a_lado` (entre backticks, literal) permanece
+como nome de campo aceito pelo loader — não é termo normativo em prosa.
+
+**3. N+1 vãos e 3 vãos: interpretações rejeitadas**
+
+A regra de "N+1 vãos iguais" (borda↔coluna_1, coluna_1↔coluna_2,
+coluna_2↔borda) foi adotada na primeira versão deste handoff e rejeitada
+pelo usuário na revisão pós-auditoria de 2026-07-09. Permanece registrada
+apenas como interpretação histórica rejeitada nos riscos (R-4).
+
+A regra vigente é **particionamento contíguo** da largura disponível
+entre filhos diretos — consequência natural de dividir a área entre os
+filhos sem vão externo. Formalizadapela ADR-0015 Decisão 9.
+
+**4. Distribuição: Opção A adotada**
+
+Veja seção "Política para distribuição neste ciclo".
+
+**5. Commit base atualizado**
+
+O commit base desta versão revisada é `9d4c74d` (ADR-0015 commitada),
+não `3b98856` (levantamento pós-H-0018). A implementação deve ocorrer
+a partir deste estado do repositório.
+
+### Proteção de implementações anteriores
+
+Qualquer implementação baseada na versão anterior do H-0019 (status
+`BLOCKED_BY_ADR_0015_PENDING_REVISION`) deve parar imediatamente com:
+
+```
+ARCHITECTURE_REVIEW_REQUIRED
+```
 
 ---
 
@@ -64,22 +130,17 @@ BLOCKED_BY_ADR_0015_PENDING_REVISION
 | Item | Referência |
 |------|-----------|
 | ID | H-0019 |
-| Base observada | `3b98856  docs: registra levantamento pos H-0018` |
-| Relatório auxiliar pós-H-0018 | `docs/relatorios/RELATORIO_LEVANTAMENTO_POS_H0018_PROXIMO_CORPO.md` (commitado em 3b98856) |
-| Ciclos preservados | H-0015, H-0016, H-0017, H-0018 (todos fechados, artefatos presentes) |
-| Baseline no momento do levantamento | 544/544 verificações em 6 suítes |
-| Contratos aplicáveis | `contrato_processo_desenvolvimento.md`, `contrato_tela_json.md`, `contrato_composicao_corpo.md`, `contrato_barra_de_menus.md`, `contrato_lancador.md`, `contrato_console.md`, `contrato_json_tela_minima.md`, `contrato_json_lancador.md`, `contrato_json_console.md`, `contrato_json_dashboard.md` |
-| ADRs normativas | ADR-0008, ADR-0010, ADR-0011, ADR-0013, ADR-0014, ADR-0015 (bloqueante) |
-| Relatório auditoria a gerar | `docs/relatorios/RELATORIO_AUDITORIA_H-0019_HANDOFF.md` |
+| Commit base (revisão) | `9d4c74d  docs: formaliza composicao hierarquica do corpo` |
+| Commit base (criação original) | `3b98856  docs: registra levantamento pos H-0018` |
+| Relatório levantamento pós-H-0018 | `docs/relatorios/RELATORIO_LEVANTAMENTO_POS_H0018_PROXIMO_CORPO.md` |
+| Relatório auditoria H-0019 | `docs/relatorios/RELATORIO_AUDITORIA_H-0019_HANDOFF.md` |
+| Relatório revisão pós-ADR-0015 | `docs/relatorios/RELATORIO_REVISAO_H-0019_HANDOFF_POS_ADR-0015.md` |
 | Relatório de implementação a gerar | `docs/relatorios/IMP-0019-layout-horizontal-plano-corpo.md` |
 | Relatório de QA a gerar | `docs/relatorios/RELATORIO_QA_H-0019_LAYOUT_HORIZONTAL_PLANO_CORPO.md` |
-
-**Nota sobre base observada**: O relatório auxiliar de levantamento pós-H-0018
-(`RELATORIO_LEVANTAMENTO_POS_H0018_PROXIMO_CORPO.md`) foi commitado pelo usuário
-em `3b98856` ("docs: registra levantamento pos H-0018"). O HEAD verificado no
-momento da criação deste handoff é `3b98856`, **não** `46e0cb9`. O commit `46e0cb9`
-foi a base do levantamento, mas a base real do H-0019 é `3b98856`. Workspace limpo
-(`git status --short`: sem saída). Nenhum arquivo modificado, staged ou não rastreado.
+| Ciclos preservados | H-0015, H-0016, H-0017, H-0018 (todos fechados, artefatos presentes) |
+| Baseline no momento da revisão | 544/544 verificações em 6 suítes |
+| Contratos aplicáveis | `contrato_processo_desenvolvimento.md`, `contrato_tela_json.md`, `contrato_composicao_corpo.md` (v0.3), `contrato_barra_de_menus.md`, `contrato_lancador.md`, `contrato_console.md`, `contrato_json_tela_minima.md`, `contrato_json_lancador.md`, `contrato_json_console.md`, `contrato_json_dashboard.md` |
+| ADRs normativas | ADR-0008, ADR-0010, ADR-0011, ADR-0013, ADR-0014, ADR-0015 (autoridade superior) |
 
 ---
 
@@ -87,71 +148,80 @@ foi a base do levantamento, mas a base real do H-0019 é `3b98856`. Workspace li
 
 ```
 contrato_processo_desenvolvimento.md
-  > ADRs aceitas (ADR-0008, ADR-0010, ADR-0011, ADR-0013, ADR-0014, ADR-0015)
-    > contratos de módulo (contrato_composicao_corpo.md, contrato_tela_json.md, ...)
-      > este handoff (H-0019)  [BLOQUEADO — ver seção "Bloqueio por ADR-0015"]
-        > decisões de implementação locais (IMP-0019)
+  > ADR-0015 (autoridade superior — formaliza composição hierárquica e distribuição)
+    > ADR-0008, ADR-0010, ADR-0011, ADR-0013, ADR-0014
+      > contratos de módulo (contrato_composicao_corpo.md v0.3, contrato_tela_json.md, ...)
+        > este handoff revisado (H-0019, HANDOFF_REVISED_READY)
+          > decisões de implementação locais (IMP-0019)
 ```
 
-O executor não decide arquitetura. Se qualquer item normativo estiver ausente ou conflitante,
-bloquear com `ARCHITECTURE_REVIEW_REQUIRED` antes de implementar qualquer linha de código.
-
-**Este handoff está bloqueado por ADR-0015. Qualquer execução baseada nesta versão
-deve bloquear imediatamente com `ARCHITECTURE_REVIEW_REQUIRED`.**
+O executor não decide arquitetura. Se qualquer item normativo estiver ausente
+ou conflitante, bloquear com `ARCHITECTURE_REVIEW_REQUIRED` antes de
+implementar qualquer linha de código.
 
 ---
 
 ## Contexto
 
-Os ciclos H-0015 a H-0018 estabilizaram a ocupação vertical da janela (H-0015),
-a migração e cobertura da `barra_de_menus` (H-0016, H-0017, H-0018). A `barra_de_menus`
-está protegida e não deve ser alterada neste ciclo.
+Os ciclos H-0015 a H-0018 estabilizaram a ocupação vertical da janela
+(H-0015), a migração e cobertura da `barra_de_menus` (H-0016, H-0017,
+H-0018). A `barra_de_menus` está protegida e não deve ser alterada neste
+ciclo.
 
-O contrato `contrato_composicao_corpo.md` seção 5.6 especifica o arranjo horizontal como
-composição lado a lado dos elementos diretos de `corpo.elementos[]`. A regra de layout
-adotada neste ciclo (por decisão do usuário, registrada pós-auditoria) é de
-**particionamento contíguo** da largura disponível: sem espaços vazios entre molduras,
-molduras adjacentes ficam coladas (`││`), a primeira caixa inicia no primeiro caractere
-útil da linha e a última caixa termina no último caractere útil da linha.
+A ADR-0015 (commit `9d4c74d`) formalizou o corpo como árvore de composição,
+`grupo` como nó estrutural, arranjo e distribuição por container, arredondamento
+determinístico, preenchimento de área alocada, regras dinâmicas de dimensão
+(conceituais) e sincronização de cortes (conceitual).
+
+O `contrato_composicao_corpo.md` (v0.3) foi atualizado pela ADR-0015. A seção
+5.6 registra como regra vigente o **particionamento contíguo** da largura
+disponível entre filhos diretos. A regra anterior de "3 vãos iguais" está
+explicitamente supersedida.
 
 O campo `corpo.arranjo` já é armazenado no modelo (`Corpo.arranjo: str | None`)
-mas **não é lido pelo renderer** e **não é validado pelo loader no nível da tela**.
-O renderer atual empilha todos os elementos verticalmente, ignorando o arranjo declarado.
+mas **não é lido pelo renderer** e **não é validado pelo loader no nível da
+tela**. O renderer atual empilha todos os elementos verticalmente, ignorando
+o arranjo declarado.
 
-Estado verificado no código (commit 3b98856):
+Estado verificado no código (commit `9d4c74d`):
 
-- `loader.py` linha 347: `arranjo = corpo.get("arranjo")` — aceita qualquer valor,
-  incluindo `"diagonal"`, sem erro.
-- `modelo.py`: `Corpo(arranjo=..., elementos=[...])` — armazena sem validar. OK.
-- `renderizador.py` linhas 779–795 (`renderizar_tela`): laço sequencial sobre
-  `modelo.corpo.elementos`; o campo `modelo.corpo.arranjo` **não é lido em nenhum ponto**
-  da função.
-- `destino_minimo.json` e `stub_b.json`: declaram `"arranjo": "sobreposto"` (alias
-  transicional de `"vertical"`, ADR-0011). Nenhum JSON ativo usa `"horizontal"`.
+- `loader.py` linha 347: `arranjo = corpo.get("arranjo")` — aceita qualquer
+  valor, incluindo `"diagonal"`, sem erro.
+- `modelo.py`: `Corpo(arranjo=..., elementos=[...])` — armazena sem validar.
+- `renderizador.py` (`renderizar_tela`): laço sequencial sobre
+  `modelo.corpo.elementos`; o campo `modelo.corpo.arranjo` **não é lido**.
+- JSONs ativos: `destino_minimo.json` e `stub_b.json` declaram
+  `"arranjo": "sobreposto"` (alias transitional de `"vertical"`, ADR-0011).
+  Nenhum JSON ativo usa `"horizontal"`.
 
 ---
 
 ## Problema
 
-1. **Renderer ignora `corpo.arranjo`**: telas com `arranjo = "horizontal"` são renderizadas
-   verticalmente sem erro e sem aviso — comportamento silenciosamente incorreto.
-2. **Loader não valida `arranjo` no nível da tela**: valor inválido como `"diagonal"` é
-   aceito silenciosamente.
-3. **Nenhum JSON ativo usa `horizontal`**: a funcionalidade não pode ser verificada
-   em integração sem criar ou adaptar uma fixture.
+1. **Renderer ignora `corpo.arranjo`**: telas com `arranjo = "horizontal"` são
+   renderizadas verticalmente sem erro e sem aviso — comportamento
+   silenciosamente incorreto.
+2. **Loader não valida `arranjo` no nível da tela**: valor inválido como
+   `"diagonal"` é aceito silenciosamente.
+3. **Nenhum JSON ativo usa `horizontal`**: a funcionalidade não pode ser
+   verificada em integração sem criar ou adaptar uma fixture.
 
 ---
 
 ## Objetivo
 
-Implementar suporte mínimo e verificável a `corpo.arranjo = "horizontal"` com layout
-horizontal **plano** dos elementos diretos de `corpo.elementos[]`, sem percentual/fração
-e sem aninhamento.
+Implementar suporte mínimo e verificável a `corpo.arranjo = "horizontal"` com
+**particionamento contíguo** da largura disponível entre filhos diretos de
+`corpo.elementos[]`, sem `distribuicao` explícita (modo uniforme implícito),
+sem grupos hierárquicos aninhados com redistribuição interna, sem percentual/
+fração e sem aninhamento.
 
-O escopo é o menor ciclo funcional verificável que abre o eixo de layout do corpo:
+O escopo é o menor ciclo funcional verificável que abre o eixo de layout
+horizontal do corpo:
 
 - Loader valida `arranjo` no nível da tela.
-- Renderer lê `modelo.corpo.arranjo` e aplica layout horizontal quando declarado.
+- Renderer lê `modelo.corpo.arranjo` e aplica particionamento horizontal
+  quando declarado.
 - Aliases transicionais funcionam de forma determinística.
 - Testes cobrem os novos comportamentos.
 - Baseline 544/544 continua passando.
@@ -162,35 +232,39 @@ O escopo é o menor ciclo funcional verificável que abre o eixo de layout do co
 
 O executor deve ler na íntegra antes de tocar qualquer arquivo:
 
-1. `docs/relatorios/RELATORIO_LEVANTAMENTO_POS_H0018_PROXIMO_CORPO.md`
-2. `docs/handoff/H-0018-cobertura-executavel-distribuicao-barra-de-menus.md`
-3. `docs/relatorios/RELATORIO_QA_H-0018_POS_CORRECOES.md`
-4. `docs/NOMENCLATURA.md`
-5. `docs/contratos/contrato_processo_desenvolvimento.md`
-6. `docs/contratos/contrato_tela_json.md`
-7. `docs/contratos/contrato_composicao_corpo.md`
-8. `docs/contratos/contrato_barra_de_menus.md`
-9. `docs/contratos/contrato_lancador.md`
-10. `docs/contratos/contrato_console.md`
-11. `docs/contratos/contrato_json_tela_minima.md`
-12. `docs/contratos/contrato_json_lancador.md`
-13. `docs/contratos/contrato_json_console.md`
-14. `docs/contratos/contrato_json_dashboard.md`
-15. `tela/loader.py` (integralmente)
-16. `tela/modelo.py` (integralmente)
-17. `tela/renderizador.py` (integralmente)
-18. `tela/demo.py` (integralmente)
-19. `tela/diagnostico.py` (integralmente)
-20. `tela/teste_loader.py` (integralmente)
-21. `tela/teste_modelo.py` (integralmente)
-22. `tela/teste_renderizador.py` (integralmente)
-23. `tela/teste_demo.py` (integralmente)
-24. `tela/teste_diagnostico.py` (integralmente)
-25. `config/telas/orquestrador.json`
-26. `config/telas/grupo_minimo.json`
-27. `config/telas/destino_minimo.json`
-28. `config/telas/stub_b.json`
-29. Este handoff até o final.
+1. `docs/adr/ADR-0015-composicao-hierarquica-distribuicao-corpo.md`
+2. `docs/relatorios/RELATORIO_DOCUMENTAL_ADR-0015_COMPOSICAO_HIERARQUICA_DISTRIBUICAO_CORPO.md`
+3. `docs/relatorios/RELATORIO_VERIFICACAO_DOCUMENTAL_ADR-0015_POS_CORRECAO.md`
+4. `docs/relatorios/RELATORIO_REVISAO_H-0019_HANDOFF_POS_ADR-0015.md`
+5. `docs/relatorios/RELATORIO_LEVANTAMENTO_POS_H0018_PROXIMO_CORPO.md`
+6. `docs/handoff/H-0018-cobertura-executavel-distribuicao-barra-de-menus.md`
+7. `docs/relatorios/RELATORIO_QA_H-0018_POS_CORRECOES.md`
+8. `docs/NOMENCLATURA.md`
+9. `docs/contratos/contrato_processo_desenvolvimento.md`
+10. `docs/contratos/contrato_tela_json.md`
+11. `docs/contratos/contrato_composicao_corpo.md` (v0.3)
+12. `docs/contratos/contrato_barra_de_menus.md`
+13. `docs/contratos/contrato_lancador.md`
+14. `docs/contratos/contrato_console.md`
+15. `docs/contratos/contrato_json_tela_minima.md`
+16. `docs/contratos/contrato_json_lancador.md`
+17. `docs/contratos/contrato_json_console.md`
+18. `docs/contratos/contrato_json_dashboard.md`
+19. `tela/loader.py` (integralmente)
+20. `tela/modelo.py` (integralmente)
+21. `tela/renderizador.py` (integralmente)
+22. `tela/demo.py` (integralmente)
+23. `tela/diagnostico.py` (integralmente)
+24. `tela/teste_loader.py` (integralmente)
+25. `tela/teste_modelo.py` (integralmente)
+26. `tela/teste_renderizador.py` (integralmente)
+27. `tela/teste_demo.py` (integralmente)
+28. `tela/teste_diagnostico.py` (integralmente)
+29. `config/telas/orquestrador.json`
+30. `config/telas/grupo_minimo.json`
+31. `config/telas/destino_minimo.json`
+32. `config/telas/stub_b.json`
+33. Este handoff até o final.
 
 ---
 
@@ -207,18 +281,20 @@ O H-0019 pode e deve implementar:
 
 2. renderizador.py: ler modelo.corpo.arranjo na função renderizar_tela.
    Para None, "vertical", "sobreposto": preservar comportamento atual.
-   Para "horizontal", "lado_a_lado": renderizar elementos diretos lado a lado.
+   Para "horizontal", "lado_a_lado": aplicar particionamento contíguo
+   da largura disponível entre filhos diretos de corpo.elementos[].
 
 3. Criar ou adaptar ao menos um JSON de teste com arranjo = "horizontal".
-   (Decisão explícita exigida pelo executor — ver seção "JSONs de teste")
+   (Decisão explícita exigida pelo executor — ver seção "Especificação
+   funcional por módulo / JSONs de teste")
 
 4. Adicionar testes em tela/teste_renderizador.py.
 
 5. Adicionar testes em tela/teste_loader.py.
 
-6. Migração de destino_minimo.json e stub_b.json de "sobreposto" para "vertical":
-   OPCIONAL — somente se bundled como migração declarativa acoplada à validação
-   de aliases. Ver seção "JSONs de teste" para regras.
+6. Migração de destino_minimo.json e stub_b.json de "sobreposto" para
+   "vertical": OPCIONAL — somente se bundled como migração declarativa
+   acoplada à validação de aliases. Ver seção de JSONs de teste.
 
 7. Criar docs/relatorios/IMP-0019-layout-horizontal-plano-corpo.md.
 ```
@@ -238,16 +314,19 @@ NÃO refatorar explorar_barra_de_menus.py.
 NÃO alterar teste_explorar_barra_de_menus.py.
 NÃO alterar contrato_barra_de_menus.md.
 NÃO alterar contrato_chip.md.
-NÃO implementar distribuição percentual/fração de largura.
-NÃO implementar aninhamento de grupos com arranjo próprio.
+NÃO implementar distribuição percentual de largura.
+NÃO implementar distribuição por fração/pesos.
+NÃO implementar distribuicao explícita como campo JSON neste ciclo.
+NÃO implementar redistribuição interna de grupo (H-0020).
 NÃO implementar arranjo horizontal dentro de grupo aninhado.
-NÃO implementar combinação especial horizontal + dashboard + indicador de paginação.
+NÃO implementar combinação horizontal + dashboard + indicador de paginação.
 NÃO migrar posicao_dashboard.
 NÃO implementar console real (conteúdo de dados real).
 NÃO implementar navegação por [✥].
 NÃO implementar foco entre elementos.
 NÃO implementar seleção.
-NÃO implementar paginação.
+NÃO implementar paginação real.
+NÃO implementar terminal pequeno com reticências (...).
 NÃO implementar filtros.
 NÃO alterar ações ou registry.
 NÃO criar registry novo.
@@ -255,6 +334,8 @@ NÃO alterar ADR, contrato ou NOMENCLATURA.md.
 NÃO reabrir H-0011.
 NÃO recriar H-0011A.
 NÃO usar H-0011 ou H-0011A como base implementável.
+NÃO expandir grupo em filhos funcionais no layout horizontal.
+NÃO implementar sincronização de cortes entre grupos.
 NÃO fazer commit.
 ```
 
@@ -269,12 +350,23 @@ As seguintes funções e invariantes do H-0018 **não devem ser tocadas**:
 - `_linhas_barra` (renderizador.py)
 - `_validar_ancoras` (renderizador.py)
 - Testes da classe `TestDistribuicaoH0018` (teste_renderizador.py)
-- Snapshots de `teste_demo.py` e `teste_diagnostico.py` — alterar **somente** se houver
-  mudança visual inevitável e justificada; registrar no IMP-0019 qualquer alteração.
+- Snapshots de `teste_demo.py` e `teste_diagnostico.py` — alterar **somente**
+  se houver mudança visual inevitável e justificada; registrar no IMP-0019
+  qualquer alteração.
 
-A `barra_de_menus` está estabilizada. Qualquer alteração em `_linhas_barra`,
-`_normaliza_distribuicao` ou `_validar_distribuicao` sem necessidade explícita pode
-reverter coberturas de H-0018 e é proibida neste ciclo.
+Os seguintes artefatos não devem ser alterados neste ciclo:
+
+- `tela/explorar_barra_de_menus.py`
+- `tela/teste_explorar_barra_de_menus.py`
+- `docs/contratos/contrato_barra_de_menus.md`
+- `docs/contratos/contrato_chip.md`
+- `docs/adr/` (qualquer arquivo)
+- `docs/contratos/` (exceto JSONs de teste em `config/telas/`)
+- `docs/NOMENCLATURA.md`
+
+Qualquer necessidade de alterar `_linhas_barra`, `_normaliza_distribuicao`,
+`_validar_distribuicao` ou qualquer arquivo da `barra_de_menus` deve parar
+com `ARCHITECTURE_REVIEW_REQUIRED`.
 
 ---
 
@@ -282,7 +374,8 @@ reverter coberturas de H-0018 e é proibida neste ciclo.
 
 ### `tela/loader.py`
 
-**Onde alterar**: após a linha `arranjo = corpo.get("arranjo")` (linha 347 do commit base).
+**Onde alterar**: após a linha `arranjo = corpo.get("arranjo")` (linha 347
+do commit base `9d4c74d`).
 
 **O que adicionar**: validação de que o valor lido é um dos aceitos.
 
@@ -297,36 +390,39 @@ if arranjo not in ARRANJOS_CORPO_VALIDOS:
     )
 ```
 
-A constante `ARRANJOS_CORPO_VALIDOS` pode ser definida ao nível do módulo para permitir
-importação em testes. A exceção usada deve ser `TelaEstruturaInvalida` (já existente).
+A constante `ARRANJOS_CORPO_VALIDOS` pode ser definida ao nível do módulo
+para permitir importação em testes. A exceção usada deve ser
+`TelaEstruturaInvalida` (já existente).
 
-**O que preservar**: todo o restante do loader, especialmente `_validar_grupo`, que
-já rejeita `"horizontal"` e `"lado_a_lado"` em grupos — essa validação é sobre GRUPOS,
-não sobre o nível da tela, e deve ser preservada intacta.
+**O que preservar**: todo o restante do loader, especialmente `_validar_grupo`,
+que já rejeita `"horizontal"` e `"lado_a_lado"` em grupos — essa validação
+é sobre GRUPOS, não sobre o nível da tela, e deve ser preservada intacta.
 
-**Não alterar**: `TIPOS_CORPO_VALIDOS`, `TIPOS_ESTRUTURAIS_VALIDOS`, `_validar_grupo`,
-nenhuma outra lógica de validação.
+**Não alterar**: `TIPOS_CORPO_VALIDOS`, `TIPOS_ESTRUTURAIS_VALIDOS`,
+`_validar_grupo`, nenhuma outra lógica de validação.
 
 ---
 
 ### `tela/modelo.py`
 
-**Não alterar.** `Corpo.arranjo: str | None` já armazena qualquer valor. A validação
-é responsabilidade do loader. O modelo não precisa de modificações para suportar H-0019.
+**Não alterar.** `Corpo.arranjo: str | None` já armazena qualquer valor.
+A validação é responsabilidade do loader. O modelo não precisa de
+modificações para suportar H-0019.
 
-Se o executor identificar necessidade de alterar o modelo, deve bloquear com
-`ARCHITECTURE_REVIEW_REQUIRED` e descrever a necessidade precisamente.
+Se o executor identificar necessidade de alterar o modelo, deve bloquear
+com `ARCHITECTURE_REVIEW_REQUIRED` e descrever a necessidade precisamente.
 
 ---
 
 ### `tela/renderizador.py`
 
-**Onde alterar**: apenas na função `renderizar_tela` (a partir da linha 779 do commit base),
-especificamente no trecho que percorre `modelo.corpo.elementos` para montar `partes`.
+**Onde alterar**: apenas na função `renderizar_tela`, especificamente no
+trecho que percorre `modelo.corpo.elementos` para montar `partes`.
 
-**O que NÃO alterar**: `_normaliza_distribuicao`, `_validar_distribuicao`, `_linhas_barra`,
-`_validar_ancoras`, `_montar_coluna_a_coluna`, `_montar_linha_a_linha`, `_texto_chip_barra`,
-`_caixa_de_elemento`, `_caixa`, `_linha_topo`, `_linha_base`, `_linha_conteudo`.
+**O que NÃO alterar**: `_normaliza_distribuicao`, `_validar_distribuicao`,
+`_linhas_barra`, `_validar_ancoras`, `_montar_coluna_a_coluna`,
+`_montar_linha_a_linha`, `_texto_chip_barra`, `_caixa_de_elemento`,
+`_caixa`, `_linha_topo`, `_linha_base`, `_linha_conteudo`.
 
 **O que adicionar**:
 
@@ -346,7 +442,7 @@ No laço sobre `modelo.corpo.elementos`, introduzir branch por `arranjo_corpo`:
 
 ```python
 if arranjo_corpo == "horizontal":
-    # Ver seção "Algoritmo de layout horizontal plano"
+    # Ver seção "Algoritmo de particionamento horizontal do corpo"
     bloco_horizontal = _montar_corpo_horizontal(
         modelo.corpo.elementos, borda, total_w, inner_w, content_w, label_max
     )
@@ -357,66 +453,104 @@ else:
         ...  # código existente preservado integralmente
 ```
 
-A função auxiliar `_montar_corpo_horizontal` recebe a lista de elementos e os parâmetros
-de dimensionamento. Ver algoritmo na seção seguinte. A função é interna ao módulo.
+A função auxiliar `_montar_corpo_horizontal` recebe a lista de elementos
+e os parâmetros de dimensionamento. Ver algoritmo na seção seguinte.
+A função é interna ao módulo.
 
-**Preenchimento vertical (H-0015)**: a lógica de `altura` deve continuar funcionando
-após a introdução do horizontal. O bloco horizontal é tratado como um único bloco de
-string (como qualquer outra parte de corpo), e `l_corpo_conteudo` deve contar suas
-linhas normalmente. Não alterar a lógica de preenchimento H-0015.
+**Preenchimento vertical (H-0015)**: a lógica de `altura` deve continuar
+funcionando após a introdução do horizontal. O bloco horizontal é tratado
+como um único bloco de string (como qualquer outra parte de corpo), e
+`l_corpo_conteudo` deve contar suas linhas normalmente. Não alterar a
+lógica de preenchimento H-0015.
 
 ---
 
-## Algoritmo de layout horizontal plano
+### JSONs de teste/configuração
 
-O algoritmo se aplica quando `arranjo_corpo == "horizontal"` (após normalização de aliases).
+O executor deve decidir **uma** das opções abaixo e registrar a decisão
+no IMP-0019:
 
-**Regra fundamental**: não existe espaço vazio entre molduras no layout horizontal do
-corpo. A primeira moldura começa no primeiro caractere útil da linha. A última moldura
-termina no último caractere útil da linha. Molduras adjacentes ficam coladas, produzindo
-bordas lado a lado: `││` em linhas internas, `╮╭` no topo e `╯╰` na base (conforme
-estilo ativo). Esta é consequência natural do particionamento contíguo da largura entre
-todos os elementos diretos do corpo — não é uma regra de vãos.
+**Opção A — Criar JSON mínimo novo** (`config/telas/horizontal_teste.json`):
 
-### Suporte a N
+- Tela de teste com `arranjo = "horizontal"` e dois ou mais elementos
+  funcionais diretos.
+- Não perturba JSONs de produção.
+- Referenciada apenas nos testes do renderer.
 
-Este ciclo implementa `N >= 2` por particionamento contíguo da largura. Registrar no
-IMP-0019 que isso não é regra de vãos — é consequência natural de particionar a largura
-entre todos os elementos diretos do corpo.
+**Opção B — Adaptar fixture existente no teste** (in-memory):
+
+- Construir `ModeloTela` sinteticamente no teste sem carregar JSON de disco.
+- Não cria novo arquivo JSON.
+- Mais isolado; menor superfície de mudança.
+
+**Regras independentes da opção escolhida**:
+
+- Não alterar `orquestrador.json` nem `grupo_minimo.json`.
+- Não alterar `destino_minimo.json` nem `stub_b.json` (a menos que a
+  migração opcional abaixo seja incluída).
+
+**Migração opcional de aliases** (`"sobreposto"` → `"vertical"` em
+`destino_minimo.json` e `stub_b.json`): pode ser incluída neste ciclo
+somente se declarada explicitamente no IMP-0019, a migração for pequena
+(2 arquivos, 1 campo cada), e os snapshots de `teste_demo.py` e
+`teste_diagnostico.py` não precisarem de alteração (comportamento visual
+idêntico). Se a migração NÃO for incluída, registrar como pendência
+posterior no IMP-0019.
+
+---
+
+## Algoritmo de particionamento horizontal do corpo
+
+O algoritmo se aplica quando `arranjo_corpo == "horizontal"` (após
+normalização de aliases).
+
+**Regra fundamental (ADR-0015, Decisão 9)**: o espaço horizontal é
+particionado de forma **contígua** entre filhos diretos de
+`corpo.elementos[]`. Não existem vãos externos entre áreas adjacentes.
+A primeira área começa no primeiro caractere útil da linha. A última área
+termina no último caractere útil da linha. Áreas adjacentes ficam coladas,
+produzindo bordas adjacentes: `││` em linhas internas, `╮╭` no topo e
+`╯╰` na base (conforme estilo ativo). Esta é consequência natural do
+particionamento — não é regra de vãos.
+
+### Sobre `grupo` neste algoritmo
+
+`grupo` em `corpo.elementos[]` **não é expandido** neste algoritmo
+(conforme ADR-0015, Decisão 2). Cada filho direto de `corpo.elementos[]`
+— funcional ou estrutural — conta como um slot que recebe área alocada.
+`grupo` não tem representação visual própria; sua área alocada fica
+visualmente vazia no H-0019. Suporte à redistribuição interna de `grupo`
+vai para H-0020.
 
 ### Entradas
 
-- `elementos`: lista de `ElementoCorpo` de `modelo.corpo.elementos` (todos os tipos,
-  incluindo `grupo`)
-- `borda`, `total_w`, `inner_w`, `content_w`, `label_max`: parâmetros de dimensionamento
-  da tela
+- `elementos`: lista de `ElementoCorpo` de `modelo.corpo.elementos`
+  (todos os filhos diretos do container raiz `corpo`)
+- `borda`, `total_w`, `inner_w`, `content_w`, `label_max`: parâmetros
+  de dimensionamento da tela
 
-### Passo 1 — Coletar elementos funcionais diretos
-
-Percorrer `elementos` e coletar os elementos que geram caixas visuais:
+### Passo 1 — Identificar filhos diretos
 
 ```python
-funcionais = []
-for elemento in elementos:
-    if elemento.tipo == "grupo":
-        for interno in elemento.elementos:
-            funcionais.append(interno)
-    else:
-        funcionais.append(elemento)
-# Filtrar Nones (elementos de tipo desconhecido que _caixa_de_elemento ignora)
+# Trabalha com todos os filhos diretos de corpo.elementos[]
+# Grupo: slot com área alocada, sem renderização interna no H-0019
+N = len(elementos)
+if N == 0:
+    return ""
+if N == 1:
+    # Um único filho direto: renderizar na largura total (sem particionamento)
+    caixa = _caixa_de_elemento(elementos[0], borda, inner_w, content_w, label_max)
+    return caixa if caixa else ""
 ```
 
-`N = len(funcionais)`. Se `N == 0`, retornar string vazia (nenhum elemento).
-Se `N == 1`, renderizar como vertical (apenas um elemento não justifica layout horizontal).
-
-### Passo 2 — Calcular largura de cada faixa por particionamento contíguo
+### Passo 2 — Calcular largura de cada área por particionamento contíguo
 
 ```python
-N = len(funcionais)
+# Distribuição uniforme (modo igual — Opção A, H-0019 sem distribuicao explícita)
 base_w = total_w // N
 resto = total_w % N
-# Distribuição determinística da esquerda para a direita:
-# as primeiras `resto` faixas recebem base_w + 1; as demais recebem base_w.
+# Arredondamento por maiores restos (ADR-0015, Decisão 8):
+# as primeiras `resto` áreas recebem base_w + 1; as demais recebem base_w.
 # Invariante: sum(larguras) == total_w
 larguras = [base_w + (1 if i < resto else 0) for i in range(N)]
 ```
@@ -428,13 +562,12 @@ for i, w in enumerate(larguras):
     if w < 10:
         raise RenderizadorErro(
             "arranjo horizontal: largura {0} insuficiente para {1} elementos "
-            "lado a lado (minimo 10 chars por faixa; faixa {2} calculada com {3})".format(
-                total_w, N, i, w
-            )
+            "no particionamento horizontal (minimo 10 chars por area; "
+            "area {2} calculada com {3})".format(total_w, N, i, w)
         )
 ```
 
-Parâmetros derivados para cada faixa `i` (onde `w = larguras[i]`):
+Parâmetros derivados para cada área `i` (onde `w = larguras[i]`):
 
 ```python
 inner_w_i   = w - 2
@@ -442,42 +575,43 @@ content_w_i = w - 3
 label_max_i = w - 4
 ```
 
-### Passo 3 — Renderizar cada elemento em sua faixa
+### Passo 3 — Renderizar cada filho em sua área alocada
 
-Para cada elemento em `funcionais`, renderizar com a largura de sua faixa:
+Para cada filho em `elementos`, renderizar com a largura de sua área:
 
 ```python
 caixa_str = _caixa_de_elemento(
     elemento, borda, inner_w_i, content_w_i, label_max_i
 )
 if caixa_str is None:
-    caixa_str = ""  # elemento de tipo desconhecido: vazio
+    # Elemento estrutural (grupo) ou tipo desconhecido: área vazia
+    caixa_str = ""
 ```
 
-Converter `caixa_str` em lista de linhas: `linhas_faixa = caixa_str.split("\n")`.
-Registrar `largura_faixa = larguras[i]` (largura declarada) e `altura_faixa = len(linhas_faixa)`.
+Converter `caixa_str` em lista de linhas: `linhas_area = caixa_str.split("\n")`.
 
-### Passo 4 — Normalizar altura com padding inferior
+### Passo 4 — Normalizar altura com preenchimento inferior
 
 ```python
-altura_max = max(len(linhas) for linhas in todas_as_linhas_por_faixa)
-for i, linhas in enumerate(todas_as_linhas_por_faixa):
+altura_max = max(len(linhas) for linhas in todas_as_linhas_por_area)
+for i, linhas in enumerate(todas_as_linhas_por_area):
     while len(linhas) < altura_max:
-        linhas.append(" " * larguras[i])  # padding da largura da própria faixa
+        # Preenchimento dentro da área alocada (ADR-0015, Decisão 10)
+        linhas.append(" " * larguras[i])
 ```
 
-### Passo 5 — Concatenar faixas linha a linha (sem separador)
+### Passo 5 — Concatenar áreas linha a linha (sem separador externo)
 
 ```python
 linhas_resultado = []
 for r in range(altura_max):
     linha = ""
-    for i, linhas in enumerate(todas_as_linhas_por_faixa):
+    for i, linhas in enumerate(todas_as_linhas_por_area):
         linha += linhas[r]
-    # A concatenação direta produz bordas coladas:
-    # - "││" em linhas internas (borda direita da faixa i + borda esquerda da faixa i+1)
-    # - "╮╭" no topo das faixas adjacentes
-    # - "╯╰" na base das faixas adjacentes
+    # Concatenação direta produz bordas adjacentes coladas:
+    # - "││" em linhas internas
+    # - "╮╭" no topo das áreas adjacentes
+    # - "╯╰" na base das áreas adjacentes
     # Invariante: len(linha) == total_w (garantido pelo particionamento contíguo)
     linhas_resultado.append(linha)
 resultado_str = "\n".join(linhas_resultado)
@@ -485,27 +619,17 @@ resultado_str = "\n".join(linhas_resultado)
 
 ### Passo 6 — Preservações obrigatórias
 
-- **Cabeçalho**: o cabeçalho é montado em `partes[0]` antes do laço de corpo.
-  O bloco horizontal substitui o laço, mas `partes[0]` (cabeçalho) é preservado.
-- **`barra_de_menus`**: montada e adicionada a `partes` APÓS o bloco do corpo,
-  exatamente como no fluxo atual.
-- **Preenchimento vertical (H-0015)**: o bloco horizontal resultante é uma string
-  com múltiplas linhas. `_contar_linhas(bloco_horizontal)` deve retornar
-  `len(linhas_resultado)`. O cálculo de `l_corpo_conteudo` deve somar
-  `_contar_linhas(bloco_horizontal)` (string única) em vez de somar as caixas individuais.
-  **Se `altura` for fornecido e o corpo horizontal já tiver `>= l_corpo_disponivel` linhas,
-  lançar `RenderizadorErro` (como no fluxo atual).**
-- **`altura` explícita**: quando fornecido, o total final da saída deve continuar
-  tendo exatamente `altura` linhas.
-
-### Regra de cabimento mínimo
-
-```
-Se base_w < 10 (equivalente a total_w // N < 10) → RenderizadorErro determinístico.
-Mensagem deve incluir: total_w, N, largura calculada da faixa.
-Nunca truncar silenciosamente, nunca omitir elemento, nunca reordenar elemento e
-nunca fazer fallback silencioso para vertical.
-```
+- **Cabeçalho**: montado em `partes[0]` antes do laço de corpo.
+  O bloco horizontal substitui o laço, mas `partes[0]` (cabeçalho)
+  é preservado.
+- **`barra_de_menus`**: montada e adicionada a `partes` APÓS o bloco
+  do corpo, exatamente como no fluxo atual.
+- **Preenchimento vertical (H-0015)**: o bloco horizontal resultante
+  é uma string com múltiplas linhas. `_contar_linhas(bloco_horizontal)`
+  deve retornar `len(linhas_resultado)`. O cálculo de `l_corpo_conteudo`
+  deve somar `_contar_linhas(bloco_horizontal)`.
+- **`altura` explícita**: quando fornecido, o total final da saída deve
+  continuar tendo exatamente `altura` linhas.
 
 ---
 
@@ -513,57 +637,78 @@ nunca fazer fallback silencioso para vertical.
 
 | Valor declarado no JSON | Comportamento no renderer | Comportamento no loader |
 |-------------------------|--------------------------|------------------------|
-| `"vertical"` | Renderização vertical (atual) | Aceito |
-| `"horizontal"` | Renderização horizontal plana | Aceito |
-| `"sobreposto"` | Renderização vertical (alias) | Aceito |
-| `"lado_a_lado"` | Renderização horizontal plana (alias) | Aceito |
-| `None` / ausente | Renderização vertical (default atual) | Aceito (None) |
+| `"vertical"` | Particionamento vertical (atual) | Aceito |
+| `"horizontal"` | Particionamento horizontal plano | Aceito |
+| `"sobreposto"` | Particionamento vertical (alias) | Aceito |
+| `"lado_a_lado"` | Particionamento horizontal plano (alias) | Aceito |
+| `None` / ausente | Particionamento vertical (default atual) | Aceito (None) |
 | Qualquer outro valor | — | `TelaEstruturaInvalida` |
 
-A normalização dos aliases ocorre no **renderer**, não no loader. O loader apenas aceita
-o conjunto de valores válidos; o renderer mapeia aliases para comportamento concreto.
-O modelo armazena o valor como declarado no JSON (sem normalização no modelo).
+A normalização dos aliases ocorre no **renderer**, não no loader. O loader
+apenas aceita o conjunto de valores válidos; o renderer mapeia aliases para
+comportamento concreto. O modelo armazena o valor como declarado no JSON
+(sem normalização no modelo).
 
-`destino_minimo.json` e `stub_b.json` declaram `"sobreposto"`. Com a validação do
-loader, `"sobreposto"` deve ser aceito (está no conjunto válido). Portanto esses JSONs
-continuam funcionando sem alteração.
+`destino_minimo.json` e `stub_b.json` declaram `"sobreposto"`. Com a
+validação do loader, `"sobreposto"` deve ser aceito (está no conjunto
+válido). Portanto esses JSONs continuam funcionando sem alteração.
+
+`"sobreposto"` e `"lado_a_lado"` são aliases transicionais literais —
+não são terminologia final e não devem ser usados como termos normativos
+em novos textos ou código. Novos JSONs e contratos devem usar `"vertical"`
+ou `"horizontal"`.
 
 ---
 
-## Política para JSONs de teste/configuração
+## Política para distribuição neste ciclo
 
-O executor deve decidir **uma** das opções abaixo e registrar a decisão no IMP-0019:
+**Decisão: Opção A — Sem `distribuicao` explícita neste ciclo**
 
-**Opção A — Criar JSON mínimo novo** (`config/telas/horizontal_teste.json`):
+H-0019 implementa `corpo.arranjo = "horizontal"` com distribuição uniforme
+implícita (`modo = igual`) entre filhos diretos de `corpo.elementos[]`.
+Nenhum campo `distribuicao` é lido ou exigido no JSON neste ciclo.
 
-- Tela de teste com `arranjo = "horizontal"` e dois ou mais elementos diretos.
-- Não precisa ter `barra_de_menus` sofisticada (pode ter os mesmos chips que `destino_minimo`).
-- Não perturba JSONs de produção.
-- Referenciada apenas nos testes do renderer (fixture sintética ou via `carregar_tela`).
+**Justificativa**:
 
-**Opção B — Adaptar fixture existente no teste** (in-memory):
+- `contrato_json_tela_minima.md` (v0.1, ADR-0015 aplicada) define
+  `distribuicao` como **opcional** no container.
+- ADR-0015 Decisão 6 define `modo = igual` como modo válido: divide a
+  área disponível igualmente entre filhos diretos.
+- Nenhuma regra nos contratos vigentes proíbe distribuição uniforme
+  implícita quando `distribuicao` não é declarada.
+- Os JSONs existentes (`orquestrador.json`, `destino_minimo.json`, etc.)
+  não declaram `distribuicao` no `corpo`.
 
-- Construir `ModeloTela` sinteticamente no teste sem carregar JSON de disco.
-- Não cria novo arquivo JSON.
-- Mais isolado; menor superfície de mudança.
+**O que fica fora de escopo**:
 
-**Regras independentes da opção escolhida**:
+- `distribuicao.modo = "percentual"` (H-0020 ou posterior)
+- `distribuicao.modo = "fracao"` (H-0020 ou posterior)
+- `distribuicao.valores[]` como campo JSON (H-0020 ou posterior)
+- Regras dinâmicas de mínimo/preferido/máximo (ciclo futuro)
 
-- Não alterar `orquestrador.json` nem `grupo_minimo.json`.
-- Não alterar `destino_minimo.json` nem `stub_b.json` (a menos que a migração opcional
-  abaixo seja incluída).
+**Registro obrigatório no IMP-0019**: o executor deve registrar
+explicitamente a adoção da Opção A e confirmar que os contratos vigentes
+permitem distribuição uniforme implícita.
 
-**Migração opcional de aliases** (`"sobreposto"` → `"vertical"` em `destino_minimo.json`
-e `stub_b.json`): pode ser incluída neste ciclo somente se:
+---
 
-- O handoff declarar explicitamente como migração declarativa acoplada à validação.
-- A migração for pequena (2 arquivos, 1 campo cada).
-- Os snapshots de `teste_demo.py` e `teste_diagnostico.py` não precisarem de alteração
-  (o comportamento visual é idêntico: `"sobreposto"` e `"vertical"` produzem o mesmo resultado).
-- A mudança for registrada no IMP-0019 como migração declarativa.
+## Política para largura insuficiente
 
-**Se a migração NÃO for incluída**: registrar como pendência posterior no IMP-0019.
-A presença de `"sobreposto"` continua válida pois o loader aceita o alias.
+Se `base_w < 10` (equivalente a `total_w // N < 10`):
+
+```
+→ RenderizadorErro determinístico.
+
+Mensagem deve incluir: total_w, N, largura calculada da área.
+Nunca truncar silenciosamente.
+Nunca omitir elemento.
+Nunca reordenar elemento.
+Nunca fazer fallback silencioso para arranjo vertical.
+```
+
+Política de terminal muito pequeno com reticências (`...`) está
+**explicitamente fora de escopo do H-0019** (ADR-0015 Decisão 13 registra
+como conceito futuro). O H-0019 usa apenas `RenderizadorErro` determinístico.
 
 ---
 
@@ -595,11 +740,11 @@ test_loader_arranjo_horizontal_aceito:
 
 test_loader_arranjo_sobreposto_aceito:
     arranjo = "sobreposto".
-    Confirmar sem erro (alias transicional aceito).
+    Confirmar sem erro (alias transitional aceito).
 
 test_loader_arranjo_lado_a_lado_aceito:
     arranjo = "lado_a_lado".
-    Confirmar sem erro (alias transicional aceito).
+    Confirmar sem erro (alias transitional aceito).
 
 test_loader_arranjo_none_aceito:
     arranjo ausente do JSON (None).
@@ -624,7 +769,7 @@ test_loader_arranjo_invalido_tipo_inteiro:
 ```text
 test_arranjo_none_preserva_vertical:
     Modelo com corpo.arranjo = None, 2 elementos.
-    Confirmar que a saída tem os 2 elementos empilhados verticalmente (caixas sequenciais).
+    Confirmar que a saída tem os 2 elementos empilhados (particionamento vertical).
     Confirmar que barra_de_menus aparece ao final.
 
 test_arranjo_vertical_preserva_comportamento:
@@ -637,58 +782,66 @@ test_arranjo_sobreposto_preserva_vertical:
     Confirmar saída idêntica ao caso "vertical".
     Confirmar sem erro.
 
-test_arranjo_horizontal_dois_elementos_lado_a_lado:
-    Modelo com corpo.arranjo = "horizontal", 2 elementos (ex.: lancador + dashboard).
-    Confirmar que as 2 caixas aparecem LADO A LADO na saída (na mesma faixa de linhas).
-    Confirmar que a barra_de_menus aparece ABAIXO (não junto das colunas).
-    Confirmar que o número total de linhas é menor que com arranjo vertical
-    (2 elementos lado a lado ocupam menos linhas do que 2 elementos empilhados).
+test_arranjo_horizontal_dois_elementos:
+    Modelo com corpo.arranjo = "horizontal", 2 elementos funcionais diretos
+    (ex.: lancador + dashboard).
+    Confirmar que as 2 áreas aparecem na mesma faixa de linhas na saída.
+    Confirmar que a barra_de_menus aparece ABAIXO do bloco horizontal.
+    Confirmar que o número total de linhas é menor que com arranjo vertical.
 
 test_arranjo_lado_a_lado_alias_horizontal:
     Modelo com corpo.arranjo = "lado_a_lado".
     Confirmar saída idêntica ao caso "horizontal".
     Confirmar sem erro.
 
-test_arranjo_horizontal_caixas_coladas:
+test_arranjo_horizontal_areas_contiguas:
     Modelo com corpo.arranjo = "horizontal", 2 elementos, largura=42.
-    Extrair as linhas da faixa horizontal e confirmar que:
-    - aparece "││" (duas barras verticais adjacentes) no ponto de junção das caixas
-      nas linhas internas;
-    - aparece "╮╭" (ou equivalente conforme estilo ativo) na linha de topo das caixas;
-    - aparece "╯╰" (ou equivalente conforme estilo ativo) na linha de base das caixas;
-    - o primeiro caractere de cada linha é a borda esquerda da caixa da esquerda
-      (primeira caixa inicia no primeiro caractere útil);
-    - o último caractere de cada linha é a borda direita da caixa da direita
-      (última caixa termina no último caractere útil);
-    - cada linha tem exatamente 42 caracteres (largura total disponível).
+    Extrair as linhas do bloco horizontal e confirmar que:
+    - aparece "││" (duas laterais adjacentes) nas linhas internas;
+    - aparece "╮╭" (ou equivalente conforme estilo ativo) na linha de topo;
+    - aparece "╯╰" (ou equivalente conforme estilo ativo) na linha de base;
+    - o primeiro caractere de cada linha é a lateral esquerda da primeira área
+      (primeira área começa no primeiro caractere útil);
+    - o último caractere de cada linha é a lateral direita da última área
+      (última área termina no último caractere útil);
+    - cada linha tem exatamente 42 caracteres (largura total preservada).
+
+test_arranjo_horizontal_resto_deterministico:
+    Modelo com corpo.arranjo = "horizontal", 3 elementos, largura não
+    divisível por 3 (ex.: 100).
+    Confirmar que as larguras somam exatamente 100.
+    Confirmar que as áreas com resto extra são as primeiras (índices 0, 1, ...).
+    Exemplo: 100 // 3 = 33, resto = 1 → larguras [34, 33, 33].
 
 test_arranjo_horizontal_padding_inferior:
-    Modelo com corpo.arranjo = "horizontal", 2 elementos de alturas diferentes
-    (ex.: dashboard com 5 campos vs lancador com 2 itens).
-    Confirmar que a faixa horizontal tem linhas de altura uniforme (a menor é completada).
+    Modelo com corpo.arranjo = "horizontal", 2 elementos com alturas
+    diferentes após renderização.
+    Confirmar que o bloco horizontal tem altura uniforme (a menor área
+    é preenchida com linhas de espaços dentro da sua largura alocada).
 
 test_arranjo_horizontal_largura_insuficiente:
-    Modelo com corpo.arranjo = "horizontal", 2 elementos, largura muito pequena (ex.: 20).
-    Confirmar RenderizadorErro com mensagem determinística mencionando "arranjo horizontal".
-    Confirmar que NÃO há fallback silencioso para vertical.
+    Modelo com corpo.arranjo = "horizontal", 2 elementos, largura pequena
+    (ex.: 18).
+    Confirmar RenderizadorErro com mensagem determinística mencionando
+    "arranjo horizontal".
+    Confirmar que NÃO há fallback silencioso para arranjo vertical.
 
 test_arranjo_horizontal_tres_elementos:
-    Modelo com corpo.arranjo = "horizontal", 3 elementos diretos.
-    Confirmar que os 3 aparecem lado a lado na saída.
+    Modelo com corpo.arranjo = "horizontal", 3 elementos funcionais diretos.
+    Confirmar que os 3 aparecem na mesma faixa de linhas na saída.
 
 test_arranjo_horizontal_com_altura_preserva_h0015:
-    Modelo com corpo.arranjo = "horizontal", altura=40 (ou qualquer valor suficiente).
-    Confirmar que a saída tem exatamente 40 linhas (preenchimento vertical funciona).
+    Modelo com corpo.arranjo = "horizontal", altura=40 (ou qualquer valor
+    suficiente).
+    Confirmar que a saída tem exatamente 40 linhas (preenchimento vertical
+    de H-0015 funciona com arranjo horizontal).
 
 test_arranjo_horizontal_barra_preservada:
     Modelo com corpo.arranjo = "horizontal".
-    Confirmar que _linhas_barra é chamada normalmente e a barra aparece ao rodapé.
-    (Nenhuma alteração em barra_de_menus, chips, distribuição.)
-
-test_arranjo_horizontal_grupo_estrutural:
-    Modelo com corpo.arranjo = "horizontal", corpo.elementos contendo um grupo estrutural.
-    Confirmar que o elemento interno do grupo é tratado como elemento funcional direto
-    para fins do layout horizontal plano.
+    Confirmar que _linhas_barra é chamada normalmente e a barra aparece
+    ao rodapé.
+    Confirmar que nenhuma alteração ocorreu em barra_de_menus, chips ou
+    distribuicao da barra.
 ```
 
 ### Verificação de caches
@@ -722,13 +875,15 @@ Com a seguinte estrutura:
 ## Arquivos alterados/criados
 
 ## Decisões locais
-(JSON novo vs fixture in-memory; migração de aliases bundled vs adiada)
+(JSON novo vs fixture in-memory; migração de aliases bundled vs adiada;
+ confirmação de Opção A para distribuição)
 
 ## Implementação em loader.py
 (Constante ARRANJOS_CORPO_VALIDOS; onde inserida; trecho de código)
 
 ## Implementação em renderizador.py
-(Função _montar_corpo_horizontal; onde inserida no fluxo; interação com H-0015)
+(Função _montar_corpo_horizontal; onde inserida no fluxo; interação com H-0015;
+ confirmação de que grupo não é expandido)
 
 ## Testes do loader adicionados
 
@@ -744,7 +899,8 @@ Com a seguinte estrutura:
 
 ## Confirmação de escopo negativo
 (Confirmar que barra_de_menus, _normaliza_distribuicao, _validar_distribuicao,
- _linhas_barra não foram alteradas)
+ _linhas_barra não foram alteradas; confirmar que grupo não foi expandido;
+ confirmar Opção A adotada)
 
 ## Limitações conhecidas
 
@@ -756,37 +912,39 @@ Com a seguinte estrutura:
 ## Critérios de aceite
 
 ```
- 1. corpo.arranjo = "vertical" preserva renderização vertical atual (empilhamento
-    sequencial). Saída idêntica ao comportamento pré-H-0019.
+ 1. corpo.arranjo = "vertical" preserva particionamento vertical atual
+    (empilhamento sequencial). Saída idêntica ao comportamento pré-H-0019.
 
- 2. corpo.arranjo = "sobreposto" preserva renderização vertical atual como alias
-    transicional. Saída idêntica ao caso "vertical".
+ 2. corpo.arranjo = "sobreposto" preserva particionamento vertical atual
+    como alias transitional. Saída idêntica ao caso "vertical".
 
  3. corpo.arranjo = None preserva comportamento atual (vertical por default).
 
- 4. corpo.arranjo = "horizontal" renderiza dois ou mais elementos diretos lado a lado.
-    As caixas de cada elemento aparecem na mesma faixa horizontal de linhas.
+ 4. corpo.arranjo = "horizontal" renderiza dois ou mais filhos diretos com
+    particionamento contíguo da largura disponível. As áreas de cada filho
+    aparecem na mesma faixa horizontal de linhas.
 
- 5. corpo.arranjo = "lado_a_lado" renderiza como alias transicional de horizontal.
-    Saída idêntica ao caso "horizontal".
+ 5. corpo.arranjo = "lado_a_lado" renderiza como alias transitional de
+    horizontal. Saída idêntica ao caso "horizontal".
 
- 6. O layout horizontal usa particionamento contíguo da largura disponível entre os
-    N elementos diretos do corpo. Não existem espaços vazios entre molduras.
-    Caixas adjacentes ficam coladas, produzindo bordas lado a lado: "││" nas linhas
-    internas, "╮╭" no topo e "╯╰" na base (conforme estilo ativo).
-    A primeira caixa inicia no primeiro caractere útil da linha (coluna 0).
-    A última caixa termina no último caractere útil da linha (coluna total_w-1).
-    A soma das larguras das faixas é exatamente total_w (invariante do particionamento).
+ 6. O particionamento horizontal usa distribuição uniforme implícita (Opção A)
+    entre N filhos diretos de corpo.elementos[]. Não existem vãos externos
+    entre áreas. Áreas adjacentes ficam coladas, produzindo bordas adjacentes:
+    "││" nas linhas internas, "╮╭" no topo e "╯╰" na base (conforme estilo
+    ativo). A primeira área inicia no primeiro caractere útil da linha.
+    A última área termina no último caractere útil. A soma das larguras das
+    áreas é exatamente total_w (invariante do particionamento contíguo).
     O resto da divisão inteira (total_w % N) é distribuído deterministicamente
-    da esquerda para a direita (uma unidade extra nas primeiras `resto` faixas).
+    — uma unidade extra nas primeiras `resto` áreas (maiores restos, ADR-0015
+    Decisão 8).
 
- 7. Elementos com alturas diferentes recebem padding inferior de linhas de espaços
-    para que todas as colunas tenham a mesma altura, permitindo concatenação
-    linha a linha sem mistura de conteúdo de linhas distintas.
+ 7. Filhos com alturas diferentes recebem preenchimento inferior de linhas
+    de espaços dentro da sua área alocada, de forma que todas as colunas
+    tenham a mesma altura (ADR-0015 Decisão 10).
 
- 8. Largura insuficiente para comportar N elementos com w_col >= 10 gera
+ 8. Largura insuficiente para comportar N filhos com w_area >= 10 gera
     RenderizadorErro determinístico, sem truncamento e sem fallback silencioso
-    para vertical.
+    para arranjo vertical.
 
  9. Loader rejeita corpo.arranjo inválido (ex.: "diagonal", "") com
     TelaEstruturaInvalida, sem silêncio.
@@ -803,6 +961,9 @@ Com a seguinte estrutura:
 13. Nenhum arquivo de ADR, contrato, NOMENCLATURA.md alterado.
 
 14. Nenhum cache __pycache__ nem .pyc no workspace após execução.
+
+15. `grupo` em corpo.elementos[] não é expandido; conta como slot alocado
+    com área vazia no H-0019.
 ```
 
 ---
@@ -811,124 +972,179 @@ Com a seguinte estrutura:
 
 ### R-1 — Confundir `corpo.arranjo = "horizontal"` com `barra_de_menus.distribuicao.modo = "horizontal_responsiva"`
 
-**Descrição**: os dois contextos usam a substring `"horizontal"` com semânticas completamente
-distintas. `corpo.arranjo = "horizontal"` é composição dos elementos do corpo (ADR-0011).
-`barra_de_menus.distribuicao.modo = "horizontal_responsiva"` é distribuição visual dos
-chips (ADR-0014). São módulos, regiões e contratos distintos.
+**Descrição**: os dois contextos usam a substring `"horizontal"` com semânticas
+completamente distintas. `corpo.arranjo = "horizontal"` é composição dos
+elementos do corpo (ADR-0011). `barra_de_menus.distribuicao.modo =
+"horizontal_responsiva"` é distribuição visual dos chips (ADR-0014). São
+módulos, regiões e contratos distintos.
 
-**Sintoma de confusão**: alterar `_linhas_barra`, `_normaliza_distribuicao` ou `_validar_distribuicao`
-ao trabalhar no arranjo do corpo.
+**Sintoma de confusão**: alterar `_linhas_barra`, `_normaliza_distribuicao`
+ou `_validar_distribuicao` ao trabalhar no arranjo do corpo.
 
-**Mitigação**: buscas devem usar padrões específicos: `modelo.corpo.arranjo` ou `"arranjo":`
-para o corpo; `barra_de_menus.distribuicao` para a barra. Filtros por substring `"horizontal"`
-são proibidos como critério de alteração automática (ADR-0014). O H-0019 toca apenas a função
-`renderizar_tela` e o trecho de validação do loader — não toca nenhuma função de barra.
+**Mitigação**: buscas devem usar padrões específicos: `modelo.corpo.arranjo`
+ou `"arranjo":` para o corpo; `barra_de_menus.distribuicao` para a barra.
+Filtros por substring `"horizontal"` são proibidos como critério de alteração
+automática (ADR-0014). O H-0019 toca apenas a função `renderizar_tela` e o
+trecho de validação do loader — não toca nenhuma função de barra.
 
 ---
 
 ### R-2 — Substituição por substring `"horizontal"` ou `"vertical"`
 
-**Descrição**: usar grep/replace global por `"horizontal"` ou `"vertical"` em qualquer arquivo
-pode acidentalmente alterar `_normaliza_distribuicao` (que testa a string `"horizontal"` para
-alias de `barra_de_menus.distribuicao`) ou comentários e snapshots não relacionados.
+**Descrição**: usar grep/replace global por `"horizontal"` ou `"vertical"` em
+qualquer arquivo pode acidentalmente alterar `_normaliza_distribuicao` (que
+testa a string `"horizontal"` para alias de `barra_de_menus.distribuicao`)
+ou comentários e snapshots não relacionados.
 
-**Mitigação**: toda alteração deve ser feita por localização precisa de linha/função. Nunca
-usar substituição global por substring ambígua (ADR-0014, Parte B). O executor deve identificar
-exatamente as linhas a alterar antes de escrever qualquer código.
+**Mitigação**: toda alteração deve ser feita por localização precisa de
+linha/função. Nunca usar substituição global por substring ambígua (ADR-0014,
+Parte B). O executor deve identificar exatamente as linhas a alterar antes
+de escrever qualquer código.
 
 ---
 
 ### R-3 — Reabrir H-0011 ou H-0011A
 
-**Descrição**: ao implementar layout horizontal, pode surgir tentação de referenciar ou
-reabrir H-0011 (renderização lado a lado com barra mínima — CANCELADO antes de qualquer
-implementação) ou H-0011A (REMOVIDO por granularidade excessiva) como "base histórica".
+**Descrição**: ao implementar o particionamento horizontal, pode surgir
+tentação de referenciar ou reabrir H-0011 (renderização com barra mínima —
+CANCELADO antes de qualquer implementação) ou H-0011A (REMOVIDO por
+granularidade excessiva) como "base histórica".
 
-**Mitigação**: H-0011 e H-0011A permanecem como referências históricas arquivadas.
-Nenhum código, decisão ou estrutura deste ciclo pode ser baseada nesses artefatos.
-O H-0019 é independente e se baseia nos contratos ADR-0011 e contrato_composicao_corpo.md.
-
----
-
-### R-4 — Introduzir regra de vãos ou espaçamento entre molduras
-
-**Descrição**: implementar qualquer forma de espaço vazio entre as caixas do layout
-horizontal — seja "N+1 vãos iguais", "3 vãos", vão lateral, padding entre colunas
-ou qualquer separador horizontal entre molduras adjacentes.
-
-**Por que é risco**: a regra correta (pós-auditoria) é de particionamento contíguo:
-não existe espaço entre molduras. Introduzir vãos ou separadores viola a regra e produz
-saída visual incorreta (caixas não coladas), além de contradizer o critério de aceite 6.
-
-**Interpretação rejeitada neste ciclo**: a especificação original de N+1 vãos iguais
-(borda↔coluna_1, coluna_1↔coluna_2, coluna_2↔borda) foi adotada na versão inicial do
-handoff e rejeitada pelo usuário por decisão explícita pós-auditoria. Não retomar essa
-interpretação.
-
-**Mitigação**: a largura de cada faixa é calculada por `larguras[i] = total_w // N + (1 if i < resto else 0)`,
-com `sum(larguras) == total_w`. A concatenação das faixas é direta, sem separador.
-Nenhuma lógica de vão, espaçamento ou padding lateral é introduzida.
+**Mitigação**: H-0011 e H-0011A permanecem como referências históricas
+arquivadas. Nenhum código, decisão ou estrutura deste ciclo pode ser baseada
+nesses artefatos. O H-0019 é independente e se baseia nos contratos ADR-0011,
+ADR-0015 e `contrato_composicao_corpo.md` v0.3.
 
 ---
 
-### R-5 — Misturar horizontal plano com aninhamento de grupos
+### R-4 — Introduzir vão externo ou espaçamento entre áreas
 
-**Descrição**: ao implementar o layout horizontal, incluir suporte a grupos aninhados com
-arranjos próprios ou a elementos dentro de grupo com arranjo horizontal.
+**Descrição**: implementar qualquer forma de espaço vazio entre as áreas do
+particionamento horizontal — seja "N+1 vãos iguais" (INTERPRETAÇÃO
+REJEITADA), "3 vãos" (INTERPRETAÇÃO REJEITADA), vão lateral, padding entre
+colunas ou qualquer separador entre áreas adjacentes.
 
-**Por que é risco**: o H-0019 é layout horizontal PLANO — apenas elementos diretos de
-`corpo.elementos[]`. Grupos são containers estruturais; seus elementos internos participam
-do layout horizontal como elementos funcionais diretos (não formam sub-layout separado).
+**Por que é risco**: a regra correta (ADR-0015 Decisão 9) é particionamento
+contíguo: não existe vão externo entre áreas. Introduzir separadores viola
+a regra e produz saída visual incorreta.
 
-**Mitigação**: o algoritmo (`_montar_corpo_horizontal`) percorre `elementos` e para cada
-`grupo` coleta os elementos funcionais internos. Sem recursão, sem sub-layout, sem arranjo
-dentro de grupo.
+**Interpretação rejeitada historicamente**: a especificação original de
+N+1 vãos iguais (borda↔coluna_1, coluna_1↔coluna_2, coluna_2↔borda) foi
+adotada na versão inicial do handoff e rejeitada pelo usuário por decisão
+explícita pós-auditoria (2026-07-09). Não retomar essa interpretação.
+
+**Mitigação**: a largura de cada área é calculada por
+`larguras[i] = total_w // N + (1 if i < resto else 0)`,
+com `sum(larguras) == total_w`. A concatenação das áreas é direta,
+sem separador.
+
+---
+
+### R-5 — Expandir `grupo` em filhos funcionais
+
+**Descrição**: ao implementar o particionamento horizontal, reproduzir a
+lógica da versão anterior do H-0019 (Passo 1 antigo) que expandia `grupo`
+em seus filhos internos como se fossem filhos funcionais diretos.
+
+**Por que é risco**: ADR-0015 Decisão 2 define `grupo` como nó estrutural
+que recebe área do container pai e redistribui internamente. `grupo` não
+é transparente. Expandir grupo no H-0019 antecipa comportamento que pertence
+ao H-0020 e pode gerar inconsistências com o modelo de árvore do corpo.
+
+**Mitigação**: Passo 1 do algoritmo revisado itera diretamente sobre
+`elementos` sem expansão. `_caixa_de_elemento` retorna `None` para grupo
+(sem visual); a área alocada fica visualmente vazia no H-0019.
 
 ---
 
 ### R-6 — Regressão na barra_de_menus estabilizada no H-0018
 
-**Descrição**: ao modificar `renderizar_tela` para suportar arranjo horizontal, introduzir
-inadvertidamente chamada a `_linhas_barra` com parâmetros errados ou alterar o fluxo de
-montagem da caixa da barra.
+**Descrição**: ao modificar `renderizar_tela` para suportar arranjo
+horizontal, introduzir inadvertidamente chamada a `_linhas_barra` com
+parâmetros errados ou alterar o fluxo de montagem da caixa da barra.
 
-**Sintoma**: testes de `TestDistribuicaoH0018` ou `teste_explorar_barra_de_menus.py` falham
-após as alterações.
+**Sintoma**: testes de `TestDistribuicaoH0018` ou
+`teste_explorar_barra_de_menus.py` falham após as alterações.
 
-**Mitigação**: executar `PYTHONDONTWRITEBYTECODE=1 python tela/teste_renderizador.py` e
-`PYTHONDONTWRITEBYTECODE=1 python tela/teste_explorar_barra_de_menus.py` após cada alteração
-incremental no renderer. A barra_de_menus deve ser a ÚLTIMA parte adicionada a `partes`,
+**Mitigação**: executar `PYTHONDONTWRITEBYTECODE=1 python
+tela/teste_renderizador.py` e `PYTHONDONTWRITEBYTECODE=1 python
+tela/teste_explorar_barra_de_menus.py` após cada alteração incremental
+no renderer. A barra_de_menus deve ser a ÚLTIMA parte adicionada a `partes`,
 exatamente como no fluxo atual.
 
 ---
 
 ### R-7 — Fallback silencioso de horizontal para vertical
 
-**Descrição**: implementar horizontal de forma que, se a largura for insuficiente ou houver
-erro, a saída caia silenciosamente para o layout vertical sem erro.
+**Descrição**: implementar horizontal de forma que, se a largura for
+insuficiente ou houver erro, a saída caia silenciosamente para o arranjo
+vertical sem erro.
 
-**Por que é risco**: viola o princípio de que o renderer nunca faz fallback silencioso
-(ADR-0014 generalizado). O executor não pode saber que o layout declarado não foi respeitado.
+**Por que é risco**: viola o princípio de que o renderer nunca faz fallback
+silencioso (ADR-0014/ADR-0015). O executor não pode saber que o arranjo
+declarado não foi respeitado.
 
-**Mitigação**: qualquer condição que impeça o layout horizontal deve lançar `RenderizadorErro`
-determinístico com mensagem descritiva. Nunca alterar silenciosamente o comportamento.
-O critério de aceite 8 verifica explicitamente a ausência de fallback silencioso.
+**Mitigação**: qualquer condição que impeça o particionamento horizontal
+deve lançar `RenderizadorErro` determinístico com mensagem descritiva.
+Nunca alterar silenciosamente o comportamento. O critério de aceite 8
+verifica explicitamente a ausência de fallback silencioso.
 
 ---
 
 ## Fora de escopo futuro
 
-Os itens abaixo foram identificados e **explicitamente adiados** — não são lacunas:
+Os itens abaixo foram identificados e **explicitamente adiados**:
 
-- Combinação `arranjo = "horizontal"` + `dashboard` presente com indicador de paginação
-  (especificado em `contrato_composicao_corpo.md` seção 9 como "pendente").
-- Migração do campo `posicao_dashboard` (ADR-0010).
-- Schema de grupos hierárquicos com arranjo horizontal dentro de grupo.
-- Distribuição percentual/fração de espaço entre elementos.
-- Aninhamento de grupos com arranjos próprios.
-- Implementação de console real com conteúdo de dados.
-- Navegação por `[✥]`, foco, seleção, paginação, filtros.
-- Migração formal de `destino_minimo.json` e `stub_b.json` (se não bundled neste ciclo).
+```
+Implementação completa de grupos hierárquicos com redistribuição interna (H-0020)
+Profundidade de 3 níveis
+Arranjo dentro de grupo aninhado
+Distribuição percentual de largura
+Distribuição por fração/pesos
+Distribuicao como campo JSON explícito no corpo
+Regras dinâmicas de mínimo/preferido/máximo
+Sincronização de cortes entre grupos
+Paginação real
+Terminal pequeno com reticências (...)
+Console real com conteúdo de dados
+Navegação por [✥]
+Foco entre elementos
+Seleção
+Filtros
+Ações
+Registry novo
+Alterações em barra_de_menus
+Alterações em contratos
+Alterações em ADRs
+Alterações em NOMENCLATURA
+Combinação corpo.arranjo = "horizontal" + dashboard presente (pendência de contrato)
+Migração formal de destino_minimo.json e stub_b.json (se não bundled neste ciclo)
+test_arranjo_horizontal_grupo_estrutural (redistribuição interna de grupo — H-0020)
+```
+
+---
+
+## Exigência de nova auditoria
+
+Esta versão revisada do H-0019 deve ser auditada antes de qualquer
+implementação. A nova auditoria deve:
+
+1. Confirmar que nenhuma regra ativa contradiz a ADR-0015.
+2. Confirmar que "lado a lado" não aparece como termo normativo.
+3. Confirmar que grupo não é expandido no algoritmo.
+4. Confirmar que Opção A (distribuição uniforme implícita) está compatível
+   com os contratos vigentes.
+5. Confirmar que todos os testes obrigatórios cobrem os cenários listados.
+6. Confirmar que a proteção da barra_de_menus está explícita.
+
+Relatório de auditoria deve ser criado em:
+
+```text
+docs/relatorios/RELATORIO_AUDITORIA_H-0019_POS_REVISAO_ADR-0015.md
+```
+
+O executor não deve iniciar implementação antes de receber status de auditoria
+`HANDOFF_APPROVED` ou equivalente do novo relatório.
 
 ---
 
@@ -942,7 +1158,7 @@ arquivos-alterados:
   tela/teste_loader.py
   tela/renderizador.py
   tela/teste_renderizador.py
-  [config/telas/horizontal_teste.json  ← se Opção A for escolhida]
+  [config/telas/horizontal_teste.json  ← se Opção A de JSON for escolhida]
   [config/telas/destino_minimo.json    ← se migração bundled]
   [config/telas/stub_b.json            ← se migração bundled]
   [tela/teste_demo.py                  ← somente se snapshot inevitável]

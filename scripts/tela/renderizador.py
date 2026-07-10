@@ -683,6 +683,83 @@ def _caixa_de_elemento(elemento, borda, inner_w, content_w, label_max):
     return None
 
 
+def _montar_corpo_horizontal(elementos, borda, total_w):
+    """Particionamento horizontal contíguo do corpo raiz (H-0019).
+
+    Distribuição uniforme implícita (modo igual, ADR-0015 D6) entre filhos
+    diretos de corpo.elementos[]. Grupo não é expandido (ADR-0015 D2): conta
+    como slot com área visualmente vazia. Redistribuição interna de grupo vai
+    para H-0020.
+
+    Algoritmo: ADR-0015 Decisões 8, 9, 10.
+    """
+    N = len(elementos)
+    if N == 0:
+        return ""
+
+    if N == 1:
+        # Único filho direto: renderizar na largura total (sem particionamento)
+        caixa = _caixa_de_elemento(
+            elementos[0], borda,
+            total_w - 2, total_w - 3, total_w - 4,
+        )
+        return caixa if caixa is not None else ""
+
+    # Particionamento contíguo da largura (ADR-0015 D9)
+    base_w = total_w // N
+    resto = total_w % N
+    # Maiores restos: primeiras `resto` áreas recebem base_w+1 (ADR-0015 D8).
+    # Invariante: sum(larguras) == total_w.
+    larguras = [base_w + (1 if i < resto else 0) for i in range(N)]
+
+    # Verificar cabimento mínimo antes de renderizar
+    for i, w in enumerate(larguras):
+        if w < 10:
+            raise RenderizadorErro(
+                "arranjo horizontal: largura {0} insuficiente para {1} "
+                "elementos no particionamento horizontal (minimo 10 chars "
+                "por area; area {2} calculada com {3})".format(
+                    total_w, N, i, w
+                )
+            )
+
+    # Renderizar cada filho dentro da largura de sua área alocada
+    todas_as_linhas_por_area = []
+    for i, elemento in enumerate(elementos):
+        w = larguras[i]
+        caixa_str = _caixa_de_elemento(
+            elemento, borda, w - 2, w - 3, w - 4
+        )
+        if caixa_str is None or caixa_str == "":
+            # Grupo ou tipo sem visual: área inicialmente vazia, será preenchida
+            linhas_area = []
+        else:
+            linhas_area = caixa_str.split("\n")
+        todas_as_linhas_por_area.append(linhas_area)
+
+    # Normalizar altura com preenchimento inferior (ADR-0015 D10)
+    altura_max = max(
+        (len(linhas) for linhas in todas_as_linhas_por_area), default=0
+    )
+    if altura_max == 0:
+        return ""
+    for i, linhas in enumerate(todas_as_linhas_por_area):
+        while len(linhas) < altura_max:
+            linhas.append(" " * larguras[i])
+
+    # Concatenar áreas linha a linha, sem separador externo (ADR-0015 D9).
+    # Bordas adjacentes surgem naturalmente: ││ em linhas internas,
+    # ╮╭ no topo, ╯╰ na base. Invariante: len(linha) == total_w.
+    linhas_resultado = []
+    for r in range(altura_max):
+        linha = ""
+        for linhas in todas_as_linhas_por_area:
+            linha += linhas[r]
+        linhas_resultado.append(linha)
+
+    return "\n".join(linhas_resultado)
+
+
 def renderizar_tela(
     modelo: ModeloTela,
     tipo_borda: str = "curva",
@@ -776,23 +853,41 @@ def renderizar_tela(
         )
     ]
 
-    for elemento in modelo.corpo.elementos:
-        if elemento.tipo == "grupo":
-            # Grupo estrutural (H-0012): container sem caixa visual propria.
-            # Percorre os elementos funcionais internos e os renderiza com o
-            # mesmo despacho da lista plana, sem borda/titulo/linha extra.
-            for interno in elemento.elementos:
+    # H-0019: normalizar arranjo do corpo (aliases transicionais — ADR-0011).
+    # Normalizacao local ao renderer; modelo e loader nao sao alterados.
+    arranjo_corpo = modelo.corpo.arranjo
+    if arranjo_corpo == "sobreposto":
+        arranjo_corpo = "vertical"
+    if arranjo_corpo == "lado_a_lado":
+        arranjo_corpo = "horizontal"
+
+    if arranjo_corpo == "horizontal":
+        # Particionamento horizontal contíguo entre filhos diretos (H-0019).
+        # Grupo não é expandido neste ciclo (ADR-0015 D2; redistribuição → H-0020).
+        bloco_horizontal = _montar_corpo_horizontal(
+            modelo.corpo.elementos, borda, total_w
+        )
+        if bloco_horizontal:
+            partes.append(bloco_horizontal)
+    else:
+        # Comportamento atual: vertical / None / sobreposto (normalizado).
+        for elemento in modelo.corpo.elementos:
+            if elemento.tipo == "grupo":
+                # Grupo estrutural (H-0012): container sem caixa visual propria.
+                # Percorre os elementos funcionais internos e os renderiza com o
+                # mesmo despacho da lista plana, sem borda/titulo/linha extra.
+                for interno in elemento.elementos:
+                    caixa = _caixa_de_elemento(
+                        interno, borda, inner_w, content_w, label_max
+                    )
+                    if caixa is not None:
+                        partes.append(caixa)
+            else:
                 caixa = _caixa_de_elemento(
-                    interno, borda, inner_w, content_w, label_max
+                    elemento, borda, inner_w, content_w, label_max
                 )
                 if caixa is not None:
                     partes.append(caixa)
-        else:
-            caixa = _caixa_de_elemento(
-                elemento, borda, inner_w, content_w, label_max
-            )
-            if caixa is not None:
-                partes.append(caixa)
 
     # Linhas de conteudo da barra_de_menus, computadas uma vez e reutilizadas
     # tanto para a contagem de L_barra (H-0015) quanto para a caixa final.

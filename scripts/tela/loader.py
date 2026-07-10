@@ -30,6 +30,12 @@ TIPOS_CORPO_VALIDOS = {"console", "lancador", "dashboard"}
 # navegavel e nao tem foco/chip/acao/registry.
 TIPOS_ESTRUTURAIS_VALIDOS = {"grupo"}
 
+# Arranjos validos para o container raiz corpo (H-0019 / ADR-0011 / ADR-0015).
+# Ausencia (None) e "vertical" preservam comportamento atual.
+# "horizontal" ativa particionamento contíguo da largura disponível.
+# "sobreposto" e "lado_a_lado" sao aliases transicionais literais aceitos.
+ARRANJOS_CORPO_VALIDOS = {None, "vertical", "horizontal", "sobreposto", "lado_a_lado"}
+
 _ID_TELA_RAIZ = "orquestrador"
 
 
@@ -345,6 +351,13 @@ def carregar_tela(caminho_base, id_tela):
         elementos_internos.append(elemento)
 
     arranjo = corpo.get("arranjo")
+    if arranjo not in ARRANJOS_CORPO_VALIDOS:
+        raise TelaEstruturaInvalida(
+            "corpo.arranjo invalido: {0!r}; valores aceitos: "
+            "vertical, horizontal, sobreposto (alias), lado_a_lado (alias)".format(
+                arranjo
+            )
+        )
 
     return {
         "id": id_interno,
