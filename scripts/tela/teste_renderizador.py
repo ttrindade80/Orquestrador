@@ -75,7 +75,7 @@ _EXPECTED_ORQUESTRADOR = (
     "│ [g] Grupo Min.                         │\n"
     "╰────────────────────────────────────────╯\n"
     "╭ Menus ─────────────────────────────────╮\n"
-    "│ [Esc] Sair  [?] Ajuda                  │\n"
+    "│  [Esc] Sair  [?] Ajuda                 │\n"
     "╰────────────────────────────────────────╯\n"
 )
 
@@ -94,7 +94,7 @@ _EXPECTED_ORQUESTRADOR_RETA = (
     "│ [g] Grupo Min.                         │\n"
     "└────────────────────────────────────────┘\n"
     "┌ Menus ─────────────────────────────────┐\n"
-    "│ [Esc] Sair  [?] Ajuda                  │\n"
+    "│  [Esc] Sair  [?] Ajuda                 │\n"
     "└────────────────────────────────────────┘\n"
 )
 
@@ -1404,13 +1404,13 @@ class TestLinhasBarra:
             _chip("d", "4", "D"),
             _chip("e", "5", "E"),
         ]
-        # Forca multilinha K=2: single = 5*5 + 2*4 = 33 > 20.
+        # Forca multilinha K=2: single = 5*5 + 2*4 = 33 > 23 (largura_util com margem=1).
         dist = _dist_canonica(preenchimento="coluna_a_coluna")
         dist["linhas"] = {"minimo": 1, "maximo": 2, "preferir_menor_numero": True}
         bar = {"distribuicao": dist, "chips": chips}
-        linhas = _linhas_barra(bar, 20)
+        linhas = _linhas_barra(bar, 25)
         self._r(
-            "coluna_a_coluna K=2 -> 2 linhas (content_w=20)",
+            "coluna_a_coluna K=2 -> 2 linhas (content_w=25)",
             isinstance(linhas, list) and len(linhas) == 2,
             "linhas={0!r}".format(linhas),
         )
@@ -1443,9 +1443,9 @@ class TestLinhasBarra:
         ]
         dist = _dist_canonica(preenchimento="linha_a_linha")
         bar = {"distribuicao": dist, "chips": chips}
-        linhas = _linhas_barra(bar, 20)
+        linhas = _linhas_barra(bar, 25)
         self._r(
-            "linha_a_linha K=2 -> 2 linhas (content_w=20)",
+            "linha_a_linha K=2 -> 2 linhas (content_w=25)",
             isinstance(linhas, list) and len(linhas) == 2,
             "linhas={0!r}".format(linhas),
         )
@@ -1631,6 +1631,625 @@ class TestLinhasBarra:
         self.test_fluxo_g_d_b_esc_preservado()
 
 
+class TestDistribuicaoH0018:
+    """Cobertura executavel de todos os campos de distribuicao (H-0018).
+
+    28 testes que garantem que nenhum campo de barra_de_menus.distribuicao
+    e ignorado silenciosamente: cada campo tem efeito observavel, e validado
+    ou rejeitado de forma deterministica.
+    """
+
+    def _r(self, nome, passou, detalhe=""):
+        _registrar(nome, passou, detalhe)
+
+    def _espera_erro(self, nome, fn):
+        try:
+            fn()
+            self._r(nome, False, "nenhuma excecao levantada")
+            return None
+        except RenderizadorErro as exc:
+            self._r(nome, True, str(exc))
+            return exc
+        except Exception as exc:
+            self._r(nome, False, "excecao inesperada: {0!r}".format(exc))
+            return None
+
+    # ------------------------------------------------------------------ 1-3
+    def test_vao_chip_texto_altera_distancia(self):
+        chips = [_chip("c_esc", "Esc", "Sair"), _chip("c_aj", "?", "Ajuda")]
+        dist = _dist_canonica()
+        dist["espacamentos"]["vao_chip_texto"]["minimo"] = 3
+        bar = {"distribuicao": dist, "chips": chips}
+        linhas = _linhas_barra(bar, 39)
+        self._r(
+            "vao_chip_texto=3: chip contem 3 espacos entre ] e texto",
+            isinstance(linhas, list) and any("[Esc]   Sair" in l for l in linhas),
+            "linhas={0!r}".format(linhas),
+        )
+
+    def test_vao_chip_texto_10_espaco_extra(self):
+        chips = [_chip("c_esc", "Esc", "Sair")]
+        dist = _dist_canonica()
+        dist["espacamentos"]["vao_chip_texto"]["minimo"] = 10
+        dist["espacamentos"]["vao_chip_texto"]["maximo"] = None
+        bar = {"distribuicao": dist, "chips": chips}
+        linhas = _linhas_barra(bar, 39)
+        self._r(
+            "vao_chip_texto=10: chip contem 10 espacos entre ] e texto",
+            isinstance(linhas, list) and any("[Esc]          Sair" in l for l in linhas),
+            "linhas={0!r}".format(linhas),
+        )
+
+    def test_vao_chip_texto_altera_comprimento_linha(self):
+        chips = [_chip("c_esc", "Esc", "Sair"), _chip("c_aj", "?", "Ajuda")]
+        d1 = _dist_canonica()
+        d1["espacamentos"]["vao_chip_texto"]["minimo"] = 1
+        d5 = _dist_canonica()
+        d5["espacamentos"]["vao_chip_texto"]["minimo"] = 5
+        d5["espacamentos"]["vao_chip_texto"]["maximo"] = None
+        l1 = _linhas_barra({"distribuicao": d1, "chips": chips}, 80)
+        l5 = _linhas_barra({"distribuicao": d5, "chips": chips}, 80)
+        self._r(
+            "vao_chip_texto=5 produz linha mais longa que vao=1",
+            isinstance(l1, list) and isinstance(l5, list)
+            and l5 and l1 and len(l5[0]) > len(l1[0]),
+            "vao1={0!r} vao5={1!r}".format(l1, l5),
+        )
+
+    # ------------------------------------------------------------------ 4-6
+    def test_margem_horizontal_altera_padding(self):
+        chips = [_chip("c_esc", "Esc", "Sair"), _chip("c_aj", "?", "Ajuda")]
+        dist = _dist_canonica()
+        dist["espacamentos"]["margem_horizontal"]["minimo"] = 4
+        bar = {"distribuicao": dist, "chips": chips}
+        linhas = _linhas_barra(bar, 39)
+        self._r(
+            "margem_horizontal=4: linha comeca com 4 espacos",
+            isinstance(linhas, list) and linhas and linhas[0].startswith("    "),
+            "linhas={0!r}".format(linhas),
+        )
+
+    def test_margem_horizontal_participa_do_overflow(self):
+        chips = [_chip("c_esc", "Esc", "Sair"), _chip("c_aj", "?", "Ajuda")]
+        dist = _dist_canonica()
+        dist["espacamentos"]["margem_horizontal"]["minimo"] = 50
+        bar = {"distribuicao": dist, "chips": chips}
+        exc = self._espera_erro(
+            "margem_horizontal=50 com content_w=39 -> RenderizadorErro (largura_util negativa)",
+            lambda: _linhas_barra(bar, 39),
+        )
+        if exc is not None:
+            self._r(
+                "mensagem menciona erro_layout",
+                "erro_layout" in str(exc),
+                str(exc),
+            )
+
+    def test_margem_horizontal_0_permitido(self):
+        chips = [_chip("c_esc", "Esc", "Sair"), _chip("c_aj", "?", "Ajuda")]
+        dist = _dist_canonica()
+        dist["espacamentos"]["margem_horizontal"]["minimo"] = 0
+        bar = {"distribuicao": dist, "chips": chips}
+        linhas = _linhas_barra(bar, 39)
+        self._r(
+            "margem_horizontal=0: linha comeca diretamente com [",
+            isinstance(linhas, list) and linhas and linhas[0].startswith("["),
+            "linhas={0!r}".format(linhas),
+        )
+
+    # ------------------------------------------------------------------ 7-8
+    def test_vao_entre_chips_altera_distancia(self):
+        chips = [_chip("c_esc", "Esc", "Sair"), _chip("c_aj", "?", "Ajuda")]
+        dist = _dist_canonica()
+        dist["espacamentos"]["vao_entre_chips"]["minimo"] = 6
+        bar = {"distribuicao": dist, "chips": chips}
+        linhas = _linhas_barra(bar, 80)
+        self._r(
+            "vao_entre_chips=6: linha contem 6 espacos entre chips",
+            isinstance(linhas, list) and linhas
+            and "[Esc] Sair      [?] Ajuda" in linhas[0],
+            "linhas={0!r}".format(linhas),
+        )
+
+    def test_vao_entre_colunas_altera_distancia_multilinha(self):
+        chips = [
+            _chip("c1", "1", "AAAAA"),
+            _chip("c2", "2", "BBBBB"),
+            _chip("c3", "3", "CCCCC"),
+            _chip("c4", "4", "DDDDD"),
+        ]
+        d2 = _dist_canonica(preenchimento="coluna_a_coluna")
+        d2["espacamentos"]["vao_entre_colunas"]["minimo"] = 2
+        d8 = _dist_canonica(preenchimento="coluna_a_coluna")
+        d8["espacamentos"]["vao_entre_colunas"]["minimo"] = 8
+        l2 = _linhas_barra({"distribuicao": d2, "chips": chips}, 40)
+        l8 = _linhas_barra({"distribuicao": d8, "chips": chips}, 40)
+        self._r(
+            "vao_entre_colunas=8 produz linha mais larga que vao=2 na multilinha",
+            isinstance(l2, list) and isinstance(l8, list)
+            and l2 and l8 and len(l8[0]) > len(l2[0]),
+            "vao2={0!r} vao8={1!r}".format(l2[0] if l2 else None, l8[0] if l8 else None),
+        )
+
+    # ------------------------------------------------------------------ 9-11
+    def test_vao_vertical_entre_linhas_rejeitado(self):
+        chips = [_chip("c_esc", "Esc", "Sair"), _chip("c_aj", "?", "Ajuda")]
+        dist = _dist_canonica()
+        dist["espacamentos"]["vao_vertical_entre_linhas"] = {"minimo": 1, "maximo": 1}
+        bar = {"distribuicao": dist, "chips": chips}
+        exc = self._espera_erro(
+            "vao_vertical_entre_linhas.minimo=1 -> RenderizadorErro (Option B)",
+            lambda: _linhas_barra(bar, 39),
+        )
+        if exc is not None:
+            self._r(
+                "mensagem menciona vao_vertical_entre_linhas nao suportado",
+                "vao_vertical_entre_linhas" in str(exc),
+                str(exc),
+            )
+
+    def test_alinhamento_linhas_esquerda_funciona(self):
+        chips = [_chip("c_esc", "Esc", "Sair"), _chip("c_aj", "?", "Ajuda")]
+        dist = _dist_canonica()
+        dist["alinhamento_linhas"] = "esquerda"
+        bar = {"distribuicao": dist, "chips": chips}
+        linhas = _linhas_barra(bar, 39)
+        self._r(
+            "alinhamento_linhas='esquerda': aceito sem erro",
+            isinstance(linhas, list) and len(linhas) >= 1,
+            "linhas={0!r}".format(linhas),
+        )
+
+    def test_alinhamento_linhas_nao_suportado_erro(self):
+        chips = [_chip("c_esc", "Esc", "Sair"), _chip("c_aj", "?", "Ajuda")]
+        dist = _dist_canonica()
+        dist["alinhamento_linhas"] = "centro"
+        bar = {"distribuicao": dist, "chips": chips}
+        exc = self._espera_erro(
+            "alinhamento_linhas='centro' -> RenderizadorErro (Option B)",
+            lambda: _linhas_barra(bar, 39),
+        )
+        if exc is not None:
+            self._r(
+                "mensagem menciona alinhamento_linhas nao suportado",
+                "alinhamento_linhas" in str(exc),
+                str(exc),
+            )
+
+    # ------------------------------------------------------------------ 12-15
+    def test_linhas_minimo_maior_que_1_pula_linha_unica(self):
+        chips = [_chip("c_esc", "Esc", "Sair"), _chip("c_aj", "?", "Ajuda")]
+        dist = _dist_canonica()
+        dist["linhas"] = {"minimo": 2, "maximo": 2, "preferir_menor_numero": True}
+        bar = {"distribuicao": dist, "chips": chips}
+        linhas = _linhas_barra(bar, 39)
+        self._r(
+            "linhas.minimo=2: chips que caberiam em 1 linha -> forcado 2 linhas",
+            isinstance(linhas, list) and len(linhas) == 2,
+            "linhas={0!r}".format(linhas),
+        )
+
+    def test_linhas_maximo_1_overflow_se_nao_couber(self):
+        chips = [_chip("c_esc", "Esc", "Sair"), _chip("c_aj", "?", "Ajuda")]
+        dist = _dist_canonica()
+        dist["linhas"] = {"minimo": 1, "maximo": 1, "preferir_menor_numero": True}
+        bar = {"distribuicao": dist, "chips": chips}
+        exc = self._espera_erro(
+            "linhas.maximo=1 com chips que nao cabem em linha unica -> erro_layout",
+            lambda: _linhas_barra(bar, 10),
+        )
+        if exc is not None:
+            self._r(
+                "mensagem menciona erro_layout",
+                "erro_layout" in str(exc),
+                str(exc),
+            )
+
+    def test_linhas_maximo_1_ok_se_couber(self):
+        chips = [_chip("c_esc", "Esc", "Sair"), _chip("c_aj", "?", "Ajuda")]
+        dist = _dist_canonica()
+        dist["linhas"] = {"minimo": 1, "maximo": 1, "preferir_menor_numero": True}
+        bar = {"distribuicao": dist, "chips": chips}
+        linhas = _linhas_barra(bar, 39)
+        self._r(
+            "linhas.maximo=1 com chips que cabem -> 1 linha sem erro",
+            isinstance(linhas, list) and len(linhas) == 1,
+            "linhas={0!r}".format(linhas),
+        )
+
+    def test_linhas_maximo_3_tres_linhas(self):
+        chips = [
+            _chip("a", "1", "A"),
+            _chip("b", "2", "B"),
+            _chip("c", "3", "C"),
+            _chip("d", "4", "D"),
+            _chip("e", "5", "E"),
+        ]
+        dist = _dist_canonica(preenchimento="coluna_a_coluna")
+        dist["linhas"] = {"minimo": 1, "maximo": 3, "preferir_menor_numero": True}
+        bar = {"distribuicao": dist, "chips": chips}
+        # K=2 nao cabe (19 > largura_util=18); K=3 cabe (12 <= 18)
+        linhas = _linhas_barra(bar, 20)
+        self._r(
+            "linhas.maximo=3: 5 chips que nao cabem em K=2 -> K=3 (3 linhas)",
+            isinstance(linhas, list) and len(linhas) == 3,
+            "linhas={0!r}".format(linhas),
+        )
+
+    # ------------------------------------------------------------------ 16-17
+    def test_preferir_menor_numero_false_rejeitado(self):
+        chips = [_chip("c_esc", "Esc", "Sair"), _chip("c_aj", "?", "Ajuda")]
+        dist = _dist_canonica()
+        dist["linhas"]["preferir_menor_numero"] = False
+        bar = {"distribuicao": dist, "chips": chips}
+        exc = self._espera_erro(
+            "preferir_menor_numero=false -> RenderizadorErro (Option B)",
+            lambda: _linhas_barra(bar, 39),
+        )
+        if exc is not None:
+            self._r(
+                "mensagem menciona preferir_menor_numero nao suportado",
+                "preferir_menor_numero" in str(exc),
+                str(exc),
+            )
+
+    def test_preferir_menor_numero_nao_bool_erro(self):
+        chips = [_chip("c_esc", "Esc", "Sair"), _chip("c_aj", "?", "Ajuda")]
+        dist = _dist_canonica()
+        dist["linhas"]["preferir_menor_numero"] = "sim"
+        bar = {"distribuicao": dist, "chips": chips}
+        exc = self._espera_erro(
+            "preferir_menor_numero='sim' (nao bool) -> RenderizadorErro",
+            lambda: _linhas_barra(bar, 39),
+        )
+        if exc is not None:
+            self._r(
+                "mensagem menciona preferir_menor_numero deve ser bool",
+                "preferir_menor_numero" in str(exc),
+                str(exc),
+            )
+
+    # ------------------------------------------------------------------ 18-19
+    def test_colunas_largura_invalido_erro(self):
+        chips = [_chip("c_esc", "Esc", "Sair"), _chip("c_aj", "?", "Ajuda")]
+        dist = _dist_canonica()
+        dist["colunas"]["largura"] = "por_percentual"
+        bar = {"distribuicao": dist, "chips": chips}
+        exc = self._espera_erro(
+            "colunas.largura='por_percentual' -> RenderizadorErro",
+            lambda: _linhas_barra(bar, 39),
+        )
+        if exc is not None:
+            self._r(
+                "mensagem menciona colunas.largura nao suportado",
+                "colunas.largura" in str(exc),
+                str(exc),
+            )
+
+    def test_colunas_largura_ausente_usa_default(self):
+        chips = [_chip("c_esc", "Esc", "Sair"), _chip("c_aj", "?", "Ajuda")]
+        dist = _dist_canonica()
+        del dist["colunas"]["largura"]
+        bar = {"distribuicao": dist, "chips": chips}
+        linhas = _linhas_barra(bar, 39)
+        self._r(
+            "colunas.largura ausente: aceito sem erro (usa default)",
+            isinstance(linhas, list) and len(linhas) >= 1,
+            "linhas={0!r}".format(linhas),
+        )
+
+    # ------------------------------------------------------------------ 20-21
+    def test_subcoluna_chip_alinhamento_invalido_erro(self):
+        chips = [_chip("c_esc", "Esc", "Sair"), _chip("c_aj", "?", "Ajuda")]
+        dist = _dist_canonica()
+        dist["colunas"]["subcolunas"]["chip"]["alinhamento"] = "centro"
+        bar = {"distribuicao": dist, "chips": chips}
+        exc = self._espera_erro(
+            "subcolunas.chip.alinhamento='centro' -> RenderizadorErro",
+            lambda: _linhas_barra(bar, 39),
+        )
+        if exc is not None:
+            self._r(
+                "mensagem menciona subcolunas.chip.alinhamento nao suportado",
+                "subcolunas.chip.alinhamento" in str(exc),
+                str(exc),
+            )
+
+    def test_subcoluna_texto_alinhamento_invalido_erro(self):
+        chips = [_chip("c_esc", "Esc", "Sair"), _chip("c_aj", "?", "Ajuda")]
+        dist = _dist_canonica()
+        dist["colunas"]["subcolunas"]["texto"]["alinhamento"] = "direita"
+        bar = {"distribuicao": dist, "chips": chips}
+        exc = self._espera_erro(
+            "subcolunas.texto.alinhamento='direita' -> RenderizadorErro",
+            lambda: _linhas_barra(bar, 39),
+        )
+        if exc is not None:
+            self._r(
+                "mensagem menciona subcolunas.texto.alinhamento nao suportado",
+                "subcolunas.texto.alinhamento" in str(exc),
+                str(exc),
+            )
+
+    # ------------------------------------------------------------------ 22-24
+    def test_overflow_nao_omitir_chips_false_erro(self):
+        chips = [_chip("c_esc", "Esc", "Sair"), _chip("c_aj", "?", "Ajuda")]
+        dist = _dist_canonica()
+        dist["overflow"]["nao_omitir_chips"] = False
+        bar = {"distribuicao": dist, "chips": chips}
+        exc = self._espera_erro(
+            "overflow.nao_omitir_chips=false -> RenderizadorErro",
+            lambda: _linhas_barra(bar, 39),
+        )
+        if exc is not None:
+            self._r(
+                "mensagem menciona nao_omitir_chips deve ser true",
+                "nao_omitir_chips" in str(exc),
+                str(exc),
+            )
+
+    def test_overflow_nao_truncar_texto_false_erro(self):
+        chips = [_chip("c_esc", "Esc", "Sair"), _chip("c_aj", "?", "Ajuda")]
+        dist = _dist_canonica()
+        dist["overflow"]["nao_truncar_texto"] = False
+        bar = {"distribuicao": dist, "chips": chips}
+        exc = self._espera_erro(
+            "overflow.nao_truncar_texto=false -> RenderizadorErro",
+            lambda: _linhas_barra(bar, 39),
+        )
+        if exc is not None:
+            self._r(
+                "mensagem menciona nao_truncar_texto deve ser true",
+                "nao_truncar_texto" in str(exc),
+                str(exc),
+            )
+
+    def test_overflow_nao_reordenar_false_erro(self):
+        chips = [_chip("c_esc", "Esc", "Sair"), _chip("c_aj", "?", "Ajuda")]
+        dist = _dist_canonica()
+        dist["overflow"]["nao_reordenar"] = False
+        bar = {"distribuicao": dist, "chips": chips}
+        exc = self._espera_erro(
+            "overflow.nao_reordenar=false -> RenderizadorErro",
+            lambda: _linhas_barra(bar, 39),
+        )
+        if exc is not None:
+            self._r(
+                "mensagem menciona nao_reordenar deve ser true",
+                "nao_reordenar" in str(exc),
+                str(exc),
+            )
+
+    # ------------------------------------------------------------------ 25
+    def test_preenchimentos_multilinha_suportados_valida_preenchimento(self):
+        chips = [_chip("c_esc", "Esc", "Sair"), _chip("c_aj", "?", "Ajuda")]
+        dist = _dist_canonica(preenchimento="coluna_a_coluna")
+        dist["preenchimentos_multilinha_suportados"] = ["linha_a_linha"]
+        bar = {"distribuicao": dist, "chips": chips}
+        exc = self._espera_erro(
+            "preenchimento='coluna_a_coluna' ausente em suportados -> RenderizadorErro",
+            lambda: _linhas_barra(bar, 39),
+        )
+        if exc is not None:
+            self._r(
+                "mensagem menciona preenchimento nao esta em suportados",
+                "preenchimentos_multilinha_suportados" in str(exc)
+                or "preenchimento_multilinha" in str(exc),
+                str(exc),
+            )
+
+    # ------------------------------------------------------------------ 26-28
+    def test_valores_exagerados_margem_50(self):
+        chips = [_chip("c_esc", "Esc", "Sair"), _chip("c_aj", "?", "Ajuda")]
+        dist = _dist_canonica()
+        dist["espacamentos"]["margem_horizontal"]["minimo"] = 50
+        bar = {"distribuicao": dist, "chips": chips}
+        exc = self._espera_erro(
+            "margem=50 com content_w=39 -> erro_layout (largura_util=-61)",
+            lambda: _linhas_barra(bar, 39),
+        )
+        if exc is not None:
+            self._r(
+                "erro com margem exagerada menciona erro_layout",
+                "erro_layout" in str(exc),
+                str(exc),
+            )
+
+    def test_valores_exagerados_vao_chip_texto_10(self):
+        chips = [_chip("c_esc", "Esc", "Sair"), _chip("c_aj", "?", "Ajuda")]
+        dist = _dist_canonica()
+        dist["espacamentos"]["vao_chip_texto"]["minimo"] = 10
+        dist["espacamentos"]["vao_chip_texto"]["maximo"] = None
+        bar = {"distribuicao": dist, "chips": chips}
+        # single=19+2+18=39>37 (largura_util) -> multilinha K=2: max=19<=37 -> 2 linhas
+        try:
+            linhas = _linhas_barra(bar, 39)
+            self._r(
+                "vao_chip_texto=10: resultado deterministico (multilinha, nao silencio)",
+                isinstance(linhas, list) and len(linhas) >= 1,
+                "linhas={0!r}".format(linhas),
+            )
+            self._r(
+                "vao_chip_texto=10: chip contem 10 espacos entre ] e texto",
+                any("[Esc]          Sair" in l for l in linhas),
+                "linhas={0!r}".format(linhas),
+            )
+        except RenderizadorErro as exc:
+            self._r(
+                "vao_chip_texto=10: RenderizadorErro deterministico (nao silencio)",
+                True,
+                str(exc),
+            )
+
+    def test_valores_exagerados_vao_entre_chips_20(self):
+        chips = [_chip("c_esc", "Esc", "Sair"), _chip("c_aj", "?", "Ajuda")]
+        dist = _dist_canonica()
+        dist["espacamentos"]["vao_entre_chips"]["minimo"] = 20
+        dist["espacamentos"]["vao_entre_chips"]["maximo"] = None
+        bar = {"distribuicao": dist, "chips": chips}
+        # single=10+20+9=39>18 (largura_util com content_w=20) -> multilinha K=2: max=10<=18 -> 2l
+        try:
+            linhas = _linhas_barra(bar, 20)
+            self._r(
+                "vao_entre_chips=20: resultado deterministico (multilinha, nao silencio)",
+                isinstance(linhas, list) and len(linhas) >= 1,
+                "linhas={0!r}".format(linhas),
+            )
+        except RenderizadorErro as exc:
+            self._r(
+                "vao_entre_chips=20: erro_layout deterministico (nao silencio)",
+                "erro_layout" in str(exc),
+                str(exc),
+            )
+
+    # ------------------------------------------------------------------ 29-35
+    def test_vao_entre_chips_maximo_invalido_erro(self):
+        chips = [_chip("c_esc", "Esc", "Sair"), _chip("c_aj", "?", "Ajuda")]
+        dist = _dist_canonica()
+        dist["espacamentos"]["vao_entre_chips"]["minimo"] = 4
+        dist["espacamentos"]["vao_entre_chips"]["maximo"] = 2
+        bar = {"distribuicao": dist, "chips": chips}
+        exc = self._espera_erro(
+            "vao_entre_chips.maximo < minimo -> RenderizadorErro",
+            lambda: _linhas_barra(bar, 39),
+        )
+        if exc is not None:
+            self._r(
+                "mensagem menciona vao_entre_chips.maximo invalido",
+                "vao_entre_chips.maximo" in str(exc),
+                str(exc),
+            )
+
+    def test_vao_entre_colunas_maximo_invalido_erro(self):
+        chips = [_chip("c_esc", "Esc", "Sair"), _chip("c_aj", "?", "Ajuda")]
+        dist = _dist_canonica()
+        dist["espacamentos"]["vao_entre_colunas"]["minimo"] = 4
+        dist["espacamentos"]["vao_entre_colunas"]["maximo"] = 2
+        bar = {"distribuicao": dist, "chips": chips}
+        exc = self._espera_erro(
+            "vao_entre_colunas.maximo < minimo -> RenderizadorErro",
+            lambda: _linhas_barra(bar, 39),
+        )
+        if exc is not None:
+            self._r(
+                "mensagem menciona vao_entre_colunas.maximo invalido",
+                "vao_entre_colunas.maximo" in str(exc),
+                str(exc),
+            )
+
+    def test_vao_entre_chips_maximo_nao_int_erro(self):
+        chips = [_chip("c_esc", "Esc", "Sair"), _chip("c_aj", "?", "Ajuda")]
+        dist = _dist_canonica()
+        dist["espacamentos"]["vao_entre_chips"]["maximo"] = "seis"
+        bar = {"distribuicao": dist, "chips": chips}
+        exc = self._espera_erro(
+            "vao_entre_chips.maximo nao-int -> RenderizadorErro",
+            lambda: _linhas_barra(bar, 39),
+        )
+        if exc is not None:
+            self._r(
+                "mensagem menciona vao_entre_chips.maximo invalido",
+                "vao_entre_chips.maximo" in str(exc),
+                str(exc),
+            )
+
+    def test_vao_entre_colunas_maximo_null_aceito(self):
+        chips = [_chip("c_esc", "Esc", "Sair"), _chip("c_aj", "?", "Ajuda")]
+        dist = _dist_canonica()
+        dist["espacamentos"]["vao_entre_colunas"]["maximo"] = None
+        bar = {"distribuicao": dist, "chips": chips}
+        linhas = _linhas_barra(bar, 39)
+        self._r(
+            "vao_entre_colunas.maximo=None: aceito sem erro",
+            isinstance(linhas, list) and len(linhas) >= 1,
+            "linhas={0!r}".format(linhas),
+        )
+
+    def test_tentativa_inicial_invalida_erro(self):
+        chips = [_chip("c_esc", "Esc", "Sair"), _chip("c_aj", "?", "Ajuda")]
+        dist = _dist_canonica()
+        dist["tentativa_inicial"] = "multilinha_primeiro"
+        bar = {"distribuicao": dist, "chips": chips}
+        exc = self._espera_erro(
+            "tentativa_inicial='multilinha_primeiro' -> RenderizadorErro",
+            lambda: _linhas_barra(bar, 39),
+        )
+        if exc is not None:
+            self._r(
+                "mensagem menciona tentativa_inicial nao suportado",
+                "tentativa_inicial" in str(exc),
+                str(exc),
+            )
+
+    def test_quebra_invalida_erro(self):
+        chips = [_chip("c_esc", "Esc", "Sair"), _chip("c_aj", "?", "Ajuda")]
+        dist = _dist_canonica()
+        dist["quebra"] = "truncar"
+        bar = {"distribuicao": dist, "chips": chips}
+        exc = self._espera_erro(
+            "quebra='truncar' -> RenderizadorErro",
+            lambda: _linhas_barra(bar, 39),
+        )
+        if exc is not None:
+            self._r(
+                "mensagem menciona quebra nao suportado",
+                "quebra" in str(exc),
+                str(exc),
+            )
+
+    def test_tentativa_inicial_e_quebra_validos_aceitos(self):
+        chips = [_chip("c_esc", "Esc", "Sair"), _chip("c_aj", "?", "Ajuda")]
+        dist = _dist_canonica()
+        dist["tentativa_inicial"] = "linha_unica"
+        dist["quebra"] = "multilinha_quando_nao_couber"
+        bar = {"distribuicao": dist, "chips": chips}
+        linhas = _linhas_barra(bar, 39)
+        self._r(
+            "tentativa_inicial='linha_unica' e quebra='multilinha_quando_nao_couber': aceitos",
+            isinstance(linhas, list) and len(linhas) >= 1,
+            "linhas={0!r}".format(linhas),
+        )
+
+    def run_all(self):
+        print("")
+        print("== H-0018 - cobertura executavel de todos os campos de distribuicao ==")
+        self.test_vao_chip_texto_altera_distancia()
+        self.test_vao_chip_texto_10_espaco_extra()
+        self.test_vao_chip_texto_altera_comprimento_linha()
+        self.test_margem_horizontal_altera_padding()
+        self.test_margem_horizontal_participa_do_overflow()
+        self.test_margem_horizontal_0_permitido()
+        self.test_vao_entre_chips_altera_distancia()
+        self.test_vao_entre_colunas_altera_distancia_multilinha()
+        self.test_vao_vertical_entre_linhas_rejeitado()
+        self.test_alinhamento_linhas_esquerda_funciona()
+        self.test_alinhamento_linhas_nao_suportado_erro()
+        self.test_linhas_minimo_maior_que_1_pula_linha_unica()
+        self.test_linhas_maximo_1_overflow_se_nao_couber()
+        self.test_linhas_maximo_1_ok_se_couber()
+        self.test_linhas_maximo_3_tres_linhas()
+        self.test_preferir_menor_numero_false_rejeitado()
+        self.test_preferir_menor_numero_nao_bool_erro()
+        self.test_colunas_largura_invalido_erro()
+        self.test_colunas_largura_ausente_usa_default()
+        self.test_subcoluna_chip_alinhamento_invalido_erro()
+        self.test_subcoluna_texto_alinhamento_invalido_erro()
+        self.test_overflow_nao_omitir_chips_false_erro()
+        self.test_overflow_nao_truncar_texto_false_erro()
+        self.test_overflow_nao_reordenar_false_erro()
+        self.test_preenchimentos_multilinha_suportados_valida_preenchimento()
+        self.test_valores_exagerados_margem_50()
+        self.test_valores_exagerados_vao_chip_texto_10()
+        self.test_valores_exagerados_vao_entre_chips_20()
+        self.test_vao_entre_chips_maximo_invalido_erro()
+        self.test_vao_entre_colunas_maximo_invalido_erro()
+        self.test_vao_entre_chips_maximo_nao_int_erro()
+        self.test_vao_entre_colunas_maximo_null_aceito()
+        self.test_tentativa_inicial_invalida_erro()
+        self.test_quebra_invalida_erro()
+        self.test_tentativa_inicial_e_quebra_validos_aceitos()
+
+
 def main():
     print("Diagnostico H-0010A - renderer declarativo (curva/reta)")
     print("Base padrao: {0}".format(_BASE_PADRAO))
@@ -1648,6 +2267,7 @@ def main():
     teste_largura_explicita()
     teste_altura_explicita()
     TestLinhasBarra().run_all()
+    TestDistribuicaoH0018().run_all()
 
     print("")
     print("== Resumo ==")

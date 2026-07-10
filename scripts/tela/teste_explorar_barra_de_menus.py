@@ -386,6 +386,176 @@ def teste_caso_10_exit_2_parametro_invalido():
     )
 
 
+def teste_caso_11_vao_chip_texto_3_altera_saida():
+    print("")
+    print("== Caso 11: vao_chip_texto=3 altera saida ==")
+    chips = [
+        {"id": "t11c1", "tecla": "t11k1", "texto": "Ok-T11"},
+        {"id": "t11c2", "tecla": "t11k2", "texto": "Ir-T11"},
+    ]
+    dist = _dist_canonica()
+    dist["espacamentos"]["vao_chip_texto"] = {"minimo": 3, "maximo": None}
+    bar = {"chips": chips, "distribuicao": dist}
+    linhas = _linhas_barra(bar, 80)
+    _registrar(
+        isinstance(linhas, list) and len(linhas) >= 1,
+        "vao_chip_texto=3: retorna lista com linha(s)",
+        "linhas={0!r}".format(linhas),
+    )
+    _registrar(
+        isinstance(linhas, list) and linhas
+        and "[t11k1]   Ok-T11" in linhas[0],
+        "vao_chip_texto=3: chip contem 3 espacos entre ] e texto",
+        "linhas={0!r}".format(linhas),
+    )
+
+
+def teste_caso_12_margem_horizontal_4_altera_saida():
+    print("")
+    print("== Caso 12: margem_horizontal=4 altera saida ==")
+    chips = [
+        {"id": "t12c1", "tecla": "t12k1", "texto": "Ok-T12"},
+        {"id": "t12c2", "tecla": "t12k2", "texto": "Ir-T12"},
+    ]
+    dist = _dist_canonica()
+    dist["espacamentos"]["margem_horizontal"] = {"minimo": 4, "maximo": None}
+    bar = {"chips": chips, "distribuicao": dist}
+    linhas = _linhas_barra(bar, 80)
+    _registrar(
+        isinstance(linhas, list) and linhas
+        and linhas[0].startswith("    "),
+        "margem_horizontal=4: linha comeca com 4 espacos",
+        "linhas={0!r}".format(linhas),
+    )
+
+
+def teste_caso_13_margem_horizontal_overflow():
+    print("")
+    print("== Caso 13: margem_horizontal=50 causa overflow (erro_layout) ==")
+    chips = [
+        {"id": "t13c1", "tecla": "t13k1", "texto": "Ok-T13"},
+        {"id": "t13c2", "tecla": "t13k2", "texto": "Ir-T13"},
+    ]
+    dist = _dist_canonica()
+    dist["espacamentos"]["margem_horizontal"] = {"minimo": 50, "maximo": None}
+    bar = {"chips": chips, "distribuicao": dist}
+    try:
+        linhas = _linhas_barra(bar, 39)
+        _registrar(
+            False,
+            "margem=50 com content_w=39: deveria lancar RenderizadorErro",
+            "retornou {0!r}".format(linhas),
+        )
+    except RenderizadorErro as exc:
+        _registrar(
+            "erro_layout" in str(exc),
+            "margem_horizontal=50: RenderizadorErro com erro_layout",
+            str(exc)[:120],
+        )
+
+
+def teste_caso_14_matriz_padrao_inclui_linhas_max_1():
+    print("")
+    print("== Caso 14: matriz padrao inclui linhas.maximo=1 (C15) ==")
+    code, stdout, stderr = _rodar_script()
+    _registrar(
+        code == 0,
+        "matriz padrao com C15 (linhas.maximo=1) retorna exit code 0",
+        "code={0}".format(code),
+    )
+    _registrar(
+        "1: OK=0 ERRO_ESP=1 ERRO_INESP=0" in stdout,
+        "resumo mostra linhas.maximo=1 com 1 erro esperado (C15)",
+        str([l for l in stdout.splitlines() if "1:" in l and "ERRO_ESP" in l]),
+    )
+
+
+def teste_caso_15_inv4_verifica_pares_nao_consecutivos():
+    print("")
+    print("== Caso 15: INV-4 verifica todos os pares (nao apenas consecutivos) ==")
+    src = Path(_SCRIPT).read_text(encoding="utf-8")
+    _registrar(
+        "for j in range(i + 1" in src,
+        "INV-4 usa loop duplo (for j in range(i + 1, ...)) para todos os pares i<j",
+        "inspecao do codigo fonte",
+    )
+
+
+def teste_caso_16_inv2_detecta_token_nao_declarado():
+    print("")
+    print("== Caso 16: INV-2 detecta token nao declarado na saida ==")
+    import importlib
+    mod = importlib.import_module("tela.explorar_barra_de_menus")
+    chips = [{"id": "c1", "tecla": "Esc", "texto": "Sair"}]
+    dist = _dist_canonica()
+    cenario = {"chips": chips, "distribuicao": dist, "content_w": 80}
+    # Linha sintética com token [?] que não pertence aos chips declarados
+    fake_linhas = [" [Esc] Sair  [?] Ajuda"]
+    violacoes = mod._verificar_invariantes(cenario, fake_linhas)
+    _registrar(
+        any("INV-2" in v for v in violacoes),
+        "INV-2 detecta token [?] nao declarado (apenas Esc declarado)",
+        "violacoes={0!r}".format(violacoes),
+    )
+
+
+def teste_caso_17_or_true_removido():
+    print("")
+    print("== Caso 17: 'or True' removido do explorador ==")
+    src = Path(_SCRIPT).read_text(encoding="utf-8")
+    _registrar(
+        "or True" not in src,
+        "codigo fonte nao contem 'or True' (bug QA-N-01 corrigido)",
+        "inspecao do codigo fonte",
+    )
+
+
+def teste_caso_18_cli_margens_horizontais():
+    print("")
+    print("== Caso 18: CLI --margens-horizontais ==")
+    code, stdout, stderr = _rodar_script(
+        "--modo-saida", "resumo",
+        "--larguras", "40",
+        "--chips", "3",
+        "--linhas-max", "2",
+        "--preenchimentos", "coluna_a_coluna",
+        "--margens-horizontais", "1,4",
+    )
+    _registrar(
+        code == 0,
+        "--margens-horizontais 1,4 retorna exit code 0",
+        "code={0} stderr={1!r}".format(code, (stderr or "")[:80]),
+    )
+    _registrar(
+        "RESUMO DA EXPLORACAO" in stdout,
+        "--margens-horizontais: saida contem RESUMO DA EXPLORACAO",
+        "",
+    )
+
+
+def teste_caso_19_cli_vaos_chip_texto():
+    print("")
+    print("== Caso 19: CLI --vaos-chip-texto ==")
+    code, stdout, stderr = _rodar_script(
+        "--modo-saida", "resumo",
+        "--larguras", "80",
+        "--chips", "3",
+        "--linhas-max", "2",
+        "--preenchimentos", "coluna_a_coluna",
+        "--vaos-chip-texto", "1,3",
+    )
+    _registrar(
+        code == 0,
+        "--vaos-chip-texto 1,3 retorna exit code 0",
+        "code={0} stderr={1!r}".format(code, (stderr or "")[:80]),
+    )
+    _registrar(
+        "RESUMO DA EXPLORACAO" in stdout,
+        "--vaos-chip-texto: saida contem RESUMO DA EXPLORACAO",
+        "",
+    )
+
+
 # ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
@@ -405,6 +575,15 @@ def main():
     teste_caso_8_ancora_posicao_errada()
     teste_caso_9_exit_1_violacao_inspecao()
     teste_caso_10_exit_2_parametro_invalido()
+    teste_caso_11_vao_chip_texto_3_altera_saida()
+    teste_caso_12_margem_horizontal_4_altera_saida()
+    teste_caso_13_margem_horizontal_overflow()
+    teste_caso_14_matriz_padrao_inclui_linhas_max_1()
+    teste_caso_15_inv4_verifica_pares_nao_consecutivos()
+    teste_caso_16_inv2_detecta_token_nao_declarado()
+    teste_caso_17_or_true_removido()
+    teste_caso_18_cli_margens_horizontais()
+    teste_caso_19_cli_vaos_chip_texto()
 
     print("")
     print("== Resumo ==")

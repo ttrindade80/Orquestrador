@@ -239,11 +239,11 @@ def _linhas_lancador(elemento):
     return linhas
 
 
-def _texto_chip_barra(chip):
-    """Monta o texto de um chip da barra no formato ``"[{tecla}] {texto}"``."""
+def _texto_chip_barra(chip, vao=1):
+    """Monta o texto de um chip da barra no formato ``"[{tecla}]{padding}{texto}"``."""
     tecla = chip.get("tecla", "")
     texto = chip.get("texto", "")
-    return "[{0}] {1}".format(tecla, texto)
+    return "[{0}]{1}{2}".format(tecla, " " * vao, texto)
 
 
 def _normalizar_distribuicao(distribuicao):
@@ -295,6 +295,20 @@ def _validar_distribuicao(distribuicao):
             "neste ciclo: 'horizontal_responsiva'".format(modo)
         )
 
+    tentativa = distribuicao.get("tentativa_inicial")
+    if tentativa is not None and tentativa != "linha_unica":
+        raise RenderizadorErro(
+            "tentativa_inicial {0!r} nao suportado neste ciclo; "
+            "valor aceito: 'linha_unica'".format(tentativa)
+        )
+
+    quebra_val = distribuicao.get("quebra")
+    if quebra_val is not None and quebra_val != "multilinha_quando_nao_couber":
+        raise RenderizadorErro(
+            "quebra {0!r} nao suportado neste ciclo; "
+            "valor aceito: 'multilinha_quando_nao_couber'".format(quebra_val)
+        )
+
     ordem = distribuicao.get("ordem") or {}
     politica = ordem.get("politica")
     if politica != "declaracao":
@@ -342,11 +356,124 @@ def _validar_distribuicao(distribuicao):
             "aceito neste ciclo: 'erro_layout'".format(quando)
         )
     for flag in ("nao_omitir_chips", "nao_truncar_texto", "nao_reordenar"):
-        if not isinstance(overflow.get(flag), bool):
+        val = overflow.get(flag)
+        if not isinstance(val, bool):
             raise RenderizadorErro(
                 "overflow.{0} deve ser booleano; recebido: {1!r} "
-                "({2})".format(flag, overflow.get(flag),
-                               type(overflow.get(flag)).__name__)
+                "({2})".format(flag, val, type(val).__name__)
+            )
+        if val is False:
+            raise RenderizadorErro(
+                "overflow.{0} deve ser true; recebido: false".format(flag)
+            )
+
+    preferir = linhas_cfg.get("preferir_menor_numero")
+    if preferir is not None:
+        if not isinstance(preferir, bool):
+            raise RenderizadorErro(
+                "linhas.preferir_menor_numero deve ser bool; "
+                "recebido: {0!r} ({1})".format(preferir, type(preferir).__name__)
+            )
+        if preferir is False:
+            raise RenderizadorErro(
+                "preferir_menor_numero=false nao suportado neste ciclo"
+            )
+
+    alinhamento = distribuicao.get("alinhamento_linhas")
+    if alinhamento is not None and alinhamento != "esquerda":
+        raise RenderizadorErro(
+            "alinhamento_linhas {0!r} nao suportado neste ciclo; "
+            "valor aceito: 'esquerda'".format(alinhamento)
+        )
+
+    esp = distribuicao.get("espacamentos") or {}
+
+    vao_vert_cfg = esp.get("vao_vertical_entre_linhas") or {}
+    vav_min = vao_vert_cfg.get("minimo", 0)
+    vav_max = vao_vert_cfg.get("maximo", 0)
+    if (
+        (_eh_int_nao_bool(vav_min) and vav_min > 0)
+        or (_eh_int_nao_bool(vav_max) and vav_max > 0)
+    ):
+        raise RenderizadorErro(
+            "vao_vertical_entre_linhas com valor > 0 nao suportado neste ciclo"
+        )
+
+    margem_cfg = esp.get("margem_horizontal") or {}
+    margem_min = margem_cfg.get("minimo")
+    if margem_min is not None:
+        if not _eh_int_nao_bool(margem_min) or margem_min < 0:
+            raise RenderizadorErro(
+                "margem_horizontal.minimo invalido: {0!r}; "
+                "esperado int >= 0".format(margem_min)
+            )
+        margem_max = margem_cfg.get("maximo")
+        if margem_max is not None:
+            if not _eh_int_nao_bool(margem_max) or margem_max < margem_min:
+                raise RenderizadorErro(
+                    "margem_horizontal.maximo invalido: {0!r}; "
+                    "esperado null ou int >= minimo ({1})".format(
+                        margem_max, margem_min
+                    )
+                )
+
+    vao_ct_cfg = esp.get("vao_chip_texto") or {}
+    vao_ct_min = vao_ct_cfg.get("minimo")
+    if vao_ct_min is not None:
+        if not _eh_int_nao_bool(vao_ct_min) or vao_ct_min < 1:
+            raise RenderizadorErro(
+                "vao_chip_texto.minimo invalido: {0!r}; "
+                "esperado int >= 1".format(vao_ct_min)
+            )
+        vao_ct_max = vao_ct_cfg.get("maximo")
+        if vao_ct_max is not None:
+            if not _eh_int_nao_bool(vao_ct_max) or vao_ct_max < vao_ct_min:
+                raise RenderizadorErro(
+                    "vao_chip_texto.maximo invalido: {0!r}; "
+                    "esperado null ou int >= minimo ({1})".format(
+                        vao_ct_max, vao_ct_min
+                    )
+                )
+
+    vao_chips_cfg = esp.get("vao_entre_chips") or {}
+    vao_chips_min = vao_chips_cfg.get("minimo", 1)
+    vao_chips_max = vao_chips_cfg.get("maximo")
+    if vao_chips_max is not None:
+        if not _eh_int_nao_bool(vao_chips_max) or vao_chips_max < vao_chips_min:
+            raise RenderizadorErro(
+                "vao_entre_chips.maximo invalido: {0!r}; "
+                "esperado null ou int >= minimo ({1})".format(
+                    vao_chips_max, vao_chips_min
+                )
+            )
+
+    vao_colunas_cfg = esp.get("vao_entre_colunas") or {}
+    vao_colunas_min = vao_colunas_cfg.get("minimo", 1)
+    vao_colunas_max = vao_colunas_cfg.get("maximo")
+    if vao_colunas_max is not None:
+        if not _eh_int_nao_bool(vao_colunas_max) or vao_colunas_max < vao_colunas_min:
+            raise RenderizadorErro(
+                "vao_entre_colunas.maximo invalido: {0!r}; "
+                "esperado null ou int >= minimo ({1})".format(
+                    vao_colunas_max, vao_colunas_min
+                )
+            )
+
+    colunas = distribuicao.get("colunas") or {}
+    largura_col = colunas.get("largura")
+    if largura_col is not None and largura_col != "por_maior_item_da_coluna":
+        raise RenderizadorErro(
+            "colunas.largura {0!r} nao suportado neste ciclo; "
+            "valor aceito: 'por_maior_item_da_coluna'".format(largura_col)
+        )
+
+    subcolunas = colunas.get("subcolunas") or {}
+    for sub in ("chip", "texto"):
+        alin = (subcolunas.get(sub) or {}).get("alinhamento")
+        if alin is not None and alin != "esquerda":
+            raise RenderizadorErro(
+                "subcolunas.{0}.alinhamento {1!r} nao suportado neste ciclo; "
+                "valor aceito: 'esquerda'".format(sub, alin)
             )
 
 
@@ -483,22 +610,28 @@ def _linhas_barra(barra_de_menus, content_w):
     _validar_distribuicao(distribuicao)
     _validar_ancoras(chips, distribuicao)
 
-    texto_chips = [_texto_chip_barra(c) for c in chips]
-
     esp = distribuicao.get("espacamentos") or {}
+    vao_ct = (esp.get("vao_chip_texto") or {}).get("minimo", 1)
+    margem = (esp.get("margem_horizontal") or {}).get("minimo", 0)
     vao_entre_chips = (esp.get("vao_entre_chips") or {}).get("minimo", 2)
     vao_entre_colunas = (esp.get("vao_entre_colunas") or {}).get("minimo", 2)
 
-    sep_chips = " " * vao_entre_chips
-    linha_unica = sep_chips.join(texto_chips)
-    if len(linha_unica) <= content_w:
-        return [linha_unica]
+    texto_chips = [_texto_chip_barra(c, vao=vao_ct) for c in chips]
+    prefixo = " " * margem
+    largura_util = content_w - 2 * margem
 
     linhas_cfg = distribuicao.get("linhas") or {}
+    minimo = linhas_cfg.get("minimo", 1)
     maximo = linhas_cfg.get("maximo", 2)
     preenchimento = distribuicao.get("preenchimento_multilinha", "coluna_a_coluna")
 
-    for n_linhas in range(2, maximo + 1):
+    sep_chips = " " * vao_entre_chips
+    linha_unica = sep_chips.join(texto_chips)
+    if minimo <= 1 and largura_util >= 0 and len(linha_unica) <= largura_util:
+        return [prefixo + linha_unica]
+
+    inicio_multilinha = max(2, minimo)
+    for n_linhas in range(inicio_multilinha, maximo + 1):
         if preenchimento == "coluna_a_coluna":
             linhas = _montar_coluna_a_coluna(
                 texto_chips, n_linhas, vao_entre_colunas
@@ -507,15 +640,15 @@ def _linhas_barra(barra_de_menus, content_w):
             linhas = _montar_linha_a_linha(
                 texto_chips, n_linhas, vao_entre_chips
             )
-        if linhas and max(len(l) for l in linhas) <= content_w:
-            return linhas
+        if linhas and largura_util >= 0 and max(len(l) for l in linhas) <= largura_util:
+            return [prefixo + l for l in linhas]
 
     raise RenderizadorErro(
         "erro_layout: chips da barra_de_menus ({0}) nao cabem em {1} "
-        "caracteres com no maximo {2} linhas (preenchimento={3}); "
-        "overflow.quando_nao_couber='erro_layout' proibe omitir/truncar/"
-        "reordenar".format(
-            len(texto_chips), content_w, maximo, preenchimento
+        "caracteres uteis (content_w={2}, margem={3}) com no maximo {4} linhas "
+        "(preenchimento={5}); overflow.quando_nao_couber='erro_layout' proibe "
+        "omitir/truncar/reordenar".format(
+            len(texto_chips), largura_util, content_w, margem, maximo, preenchimento
         )
     )
 

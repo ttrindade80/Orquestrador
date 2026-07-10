@@ -65,6 +65,8 @@ def _fabricar_distribuicao(
     vao_entre_chips=2,
     vao_entre_colunas=2,
     ancoras=None,
+    vao_chip_texto=1,
+    margem_horizontal=1,
 ):
     """Monta objeto distribuicao canônico com parâmetros configuráveis."""
     return {
@@ -80,10 +82,10 @@ def _fabricar_distribuicao(
         "linhas": {"minimo": 1, "maximo": linhas_maximo, "preferir_menor_numero": True},
         "alinhamento_linhas": "esquerda",
         "espacamentos": {
-            "margem_horizontal":         {"minimo": 1, "maximo": None},
-            "vao_chip_texto":            {"minimo": 1, "maximo": 3},
-            "vao_entre_chips":           {"minimo": vao_entre_chips, "maximo": 6},
-            "vao_entre_colunas":         {"minimo": vao_entre_colunas, "maximo": 8},
+            "margem_horizontal":         {"minimo": margem_horizontal, "maximo": None},
+            "vao_chip_texto":            {"minimo": vao_chip_texto, "maximo": None},
+            "vao_entre_chips":           {"minimo": vao_entre_chips, "maximo": None},
+            "vao_entre_colunas":         {"minimo": vao_entre_colunas, "maximo": None},
             "vao_vertical_entre_linhas": {"minimo": 0, "maximo": 0},
         },
         "colunas": {
@@ -306,6 +308,20 @@ def _matriz_padrao():
         perfil_texto="curto", perfil_espaco="maximo", tipo_ancora="sem_ancora",
     ))
 
+    # 15. linhas.maximo=1 com chips que nao cabem em linha unica → erro_layout
+    # Com margem=1 e content_w=20: largura_util=18.
+    # 4 chips medios: "Sair-1"(11)+"Ajuda-2"(12)+"Voltar-3"(13)+"Inicio-4"(13)
+    # single = 11+2+12+2+13+2+13=55 > 18; K=1 (range(2,2) vazio) → erro_layout
+    cenarios.append(_fabricar_cenario(
+        "C15", "linhas.maximo=1: 4 chips medios, content_w=20 -> erro_layout",
+        _fabricar_chips(4, "medio", prefixo="c15"),
+        _fabricar_distribuicao("coluna_a_coluna", linhas_maximo=1),
+        content_w=20,
+        esperado="erro_esperado",
+        tipo_erro_esperado="erro_layout",
+        perfil_texto="medio", perfil_espaco="minimo", tipo_ancora="sem_ancora",
+    ))
+
     return cenarios
 
 
@@ -322,79 +338,107 @@ def _perfil_espaco(vao_chips, vao_cols):
 
 
 def _gerar_matriz_combinatoria(larguras, qtd_chips_lista, linhas_max_lista,
-                                preenchimentos):
+                                preenchimentos, margens_horizontais=None,
+                                vaos_chip_texto_lista=None, espacamentos=None):
+    if margens_horizontais is None:
+        margens_horizontais = [1]
+    if vaos_chip_texto_lista is None:
+        vaos_chip_texto_lista = [1]
+    if espacamentos is None:
+        espacamentos = [(2, 2), (3, 4), (6, 8)]
+
     cenarios = []
     cid = 0
     for content_w in larguras:
         for n_chips in qtd_chips_lista:
             for linhas_max in linhas_max_lista:
                 for preench in preenchimentos:
-                    for vao_chips, vao_cols in [(2, 2), (3, 4), (6, 8)]:
-                        for perfil in ["curto", "misto"]:
-                            cid += 1
-                            chips = _fabricar_chips(n_chips, perfil,
-                                                    prefixo="g{0}c".format(cid))
-                            dist = _fabricar_distribuicao(
-                                preench, linhas_maximo=linhas_max,
-                                vao_entre_chips=vao_chips,
-                                vao_entre_colunas=vao_cols,
-                            )
-                            # Estima se vai caber (heurística conservadora)
-                            texto_chips = [
-                                "[{0}] {1}".format(c["tecla"], c["texto"])
-                                for c in chips
-                            ]
-                            linha_unica = (" " * vao_chips).join(texto_chips)
-                            if len(linha_unica) <= content_w:
-                                esperado = "ok"
-                                tipo_err = None
-                            else:
-                                # Verifica se multilinha vai caber
-                                vai_caber = False
-                                for nl in range(2, linhas_max + 1):
-                                    if preench == "coluna_a_coluna":
-                                        nc = (n_chips + nl - 1) // nl
-                                        cols = []
-                                        for ci in range(nc):
-                                            col = texto_chips[ci*nl:(ci+1)*nl]
-                                            cols.append(col)
-                                        largs = [max(len(s) for s in c) for c in cols]
-                                        total = sum(largs) + vao_cols * (nc - 1)
-                                        if total <= content_w:
-                                            vai_caber = True
-                                            break
+                    for margem in margens_horizontais:
+                        for vao_ct in vaos_chip_texto_lista:
+                            for vao_chips, vao_cols in espacamentos:
+                                for perfil in ["curto", "misto"]:
+                                    cid += 1
+                                    chips = _fabricar_chips(
+                                        n_chips, perfil,
+                                        prefixo="g{0}c".format(cid),
+                                    )
+                                    dist = _fabricar_distribuicao(
+                                        preench, linhas_maximo=linhas_max,
+                                        vao_entre_chips=vao_chips,
+                                        vao_entre_colunas=vao_cols,
+                                        vao_chip_texto=vao_ct,
+                                        margem_horizontal=margem,
+                                    )
+                                    texto_chips = [
+                                        "[{0}]{1}{2}".format(
+                                            c["tecla"], " " * vao_ct, c["texto"]
+                                        )
+                                        for c in chips
+                                    ]
+                                    largura_util = content_w - 2 * margem
+                                    linha_unica = (" " * vao_chips).join(texto_chips)
+                                    if largura_util <= 0:
+                                        esperado = "erro_esperado"
+                                        tipo_err = "erro_layout"
+                                    elif len(linha_unica) <= largura_util:
+                                        esperado = "ok"
+                                        tipo_err = None
                                     else:
-                                        cpl = (n_chips + nl - 1) // nl
-                                        linhas_est = []
-                                        for li in range(nl):
-                                            chunk = texto_chips[li*cpl:(li+1)*cpl]
-                                            if chunk:
-                                                linhas_est.append(
-                                                    (" " * vao_chips).join(chunk)
+                                        vai_caber = False
+                                        for nl in range(2, linhas_max + 1):
+                                            if preench == "coluna_a_coluna":
+                                                nc = (n_chips + nl - 1) // nl
+                                                cols = []
+                                                for ci in range(nc):
+                                                    col = texto_chips[ci*nl:(ci+1)*nl]
+                                                    cols.append(col)
+                                                largs = [
+                                                    max(len(s) for s in c)
+                                                    for c in cols if c
+                                                ]
+                                                total = (
+                                                    sum(largs)
+                                                    + vao_cols * (len(largs) - 1)
+                                                    if largs else 0
                                                 )
-                                        if linhas_est and max(len(l) for l in linhas_est) <= content_w:
-                                            vai_caber = True
-                                            break
-                                esperado = "ok" if vai_caber else "erro_esperado"
-                                tipo_err = None if vai_caber else "erro_layout"
+                                                if total <= largura_util:
+                                                    vai_caber = True
+                                                    break
+                                            else:
+                                                cpl = (n_chips + nl - 1) // nl
+                                                linhas_est = []
+                                                for li in range(nl):
+                                                    chunk = texto_chips[li*cpl:(li+1)*cpl]
+                                                    if chunk:
+                                                        linhas_est.append(
+                                                            (" " * vao_chips).join(chunk)
+                                                        )
+                                                if linhas_est and max(
+                                                    len(l) for l in linhas_est
+                                                ) <= largura_util:
+                                                    vai_caber = True
+                                                    break
+                                        esperado = "ok" if vai_caber else "erro_esperado"
+                                        tipo_err = None if vai_caber else "erro_layout"
 
-                            desc = (
-                                "comb: n={0} w={1} lmax={2} preench={3} "
-                                "vchip={4} vcol={5} perf={6}".format(
-                                    n_chips, content_w, linhas_max, preench,
-                                    vao_chips, vao_cols, perfil,
-                                )
-                            )
-                            cenarios.append(_fabricar_cenario(
-                                "G{0:04d}".format(cid),
-                                desc,
-                                chips, dist, content_w,
-                                esperado=esperado,
-                                tipo_erro_esperado=tipo_err,
-                                perfil_texto=perfil,
-                                perfil_espaco=_perfil_espaco(vao_chips, vao_cols),
-                                tipo_ancora="sem_ancora",
-                            ))
+                                    desc = (
+                                        "comb: n={0} w={1} lmax={2} preench={3} "
+                                        "vchip={4} vcol={5} perf={6} "
+                                        "marg={7} vct={8}".format(
+                                            n_chips, content_w, linhas_max, preench,
+                                            vao_chips, vao_cols, perfil, margem, vao_ct,
+                                        )
+                                    )
+                                    cenarios.append(_fabricar_cenario(
+                                        "G{0:04d}".format(cid),
+                                        desc,
+                                        chips, dist, content_w,
+                                        esperado=esperado,
+                                        tipo_erro_esperado=tipo_err,
+                                        perfil_texto=perfil,
+                                        perfil_espaco=_perfil_espaco(vao_chips, vao_cols),
+                                        tipo_ancora="sem_ancora",
+                                    ))
     return cenarios
 
 
@@ -415,8 +459,11 @@ def _verificar_invariantes(cenario, linhas):
     maximo = linhas_cfg.get("maximo", 2)
     preench = dist.get("preenchimento_multilinha", "coluna_a_coluna")
 
+    esp = dist.get("espacamentos") or {}
+    vao_ct = (esp.get("vao_chip_texto") or {}).get("minimo", 1)
     textos_chips = [
-        "[{0}] {1}".format(c["tecla"], c["texto"]) for c in chips
+        "[{0}]{1}{2}".format(c["tecla"], " " * vao_ct, c["texto"])
+        for c in chips
     ]
     junta = "\n".join(linhas)
 
@@ -451,23 +498,42 @@ def _verificar_invariantes(cenario, linhas):
                 )
             )
 
-    # Invariante 4: ordem preservada dentro de cada linha.
+    # Invariante 2: tokens na saída pertencem aos chips declarados
+    teclas_declaradas = {c.get("tecla", "") for c in chips}
+    for linha in linhas:
+        pos = 0
+        while True:
+            start = linha.find("[", pos)
+            if start == -1:
+                break
+            end = linha.find("]", start + 1)
+            if end == -1:
+                break
+            token = linha[start + 1:end]
+            if token not in teclas_declaradas:
+                violacoes.append(
+                    "INV-2: token [{0}] na saida nao pertence a nenhum chip "
+                    "declarado".format(token)
+                )
+            pos = end + 1
+
+    # Invariante 4: ordem preservada dentro de cada linha (todos os pares i<j).
     # Para coluna_a_coluna multilinha, a ordem é coluna-major (chip[0] e
     # chip[2] na linha 0; chip[1] e chip[3] na linha 1), portanto a posição
     # sequencial no texto juntado não reflete a ordem declarada de forma
     # linear. Verificamos ordem apenas dentro de cada linha individualmente.
     for linha in linhas:
         posicoes_linha = [linha.find(t) for t in textos_chips]
-        for i in range(len(posicoes_linha) - 1):
-            pi, pj = posicoes_linha[i], posicoes_linha[i + 1]
-            if pi == -1 or pj == -1:
-                continue
-            if pi > pj:
-                violacoes.append(
-                    "INV-4: na linha, chip {0!r} aparece apos chip {1!r}".format(
-                        chips[i]["id"], chips[i + 1]["id"]
+        for i in range(len(posicoes_linha)):
+            for j in range(i + 1, len(posicoes_linha)):
+                pi, pj = posicoes_linha[i], posicoes_linha[j]
+                if pi == -1 or pj == -1:
+                    continue
+                if pi > pj:
+                    violacoes.append(
+                        "INV-4: na linha, chip {0!r} aparece apos chip "
+                        "{1!r}".format(chips[i]["id"], chips[j]["id"])
                     )
-                )
 
     # Invariante 5: texto não truncado
     for chip, texto in zip(chips, textos_chips):
@@ -612,8 +678,11 @@ def _formatar_cenario_detalhado(cenario, resultado, mostrar_ok, mostrar_erros):
 
     if status == "OK":
         barra_linhas = resultado["linhas"]
+        _dist_det = cenario.get("distribuicao") or {}
+        _esp_det = _dist_det.get("espacamentos") or {}
+        _vao_ct_det = (_esp_det.get("vao_chip_texto") or {}).get("minimo", 1)
         textos_chips = [
-            "[{0}] {1}".format(c["tecla"], c["texto"])
+            "[{0}]{1}{2}".format(c["tecla"], " " * _vao_ct_det, c["texto"])
             for c in cenario["chips"]
         ]
         junta = "\n".join(barra_linhas)
@@ -771,6 +840,34 @@ def _construir_parser():
         help="Lista de preenchimentos. Default: matriz padrão.",
     )
     p.add_argument(
+        "--margens-horizontais",
+        metavar="N,N,...",
+        default=None,
+        dest="margens_horizontais",
+        help="Lista de margem_horizontal.minimo. Default: [1].",
+    )
+    p.add_argument(
+        "--vaos-chip-texto",
+        metavar="N,N,...",
+        default=None,
+        dest="vaos_chip_texto",
+        help="Lista de vao_chip_texto.minimo. Default: [1].",
+    )
+    p.add_argument(
+        "--vaos-entre-chips",
+        metavar="N,N,...",
+        default=None,
+        dest="vaos_entre_chips",
+        help="Lista de vao_entre_chips.minimo. Default: [2].",
+    )
+    p.add_argument(
+        "--vaos-entre-colunas",
+        metavar="N,N,...",
+        default=None,
+        dest="vaos_entre_colunas",
+        help="Lista de vao_entre_colunas.minimo. Default: [2].",
+    )
+    p.add_argument(
         "--modo-saida",
         choices=["resumo", "detalhado"],
         default="detalhado",
@@ -813,6 +910,10 @@ def _parse_args(argv=None):
     chips_lista = None
     linhas_max_lista = None
     preenchimentos = None
+    margens_horizontais = None
+    vaos_chip_texto_lista = None
+    vaos_entre_chips_lista = None
+    vaos_entre_colunas_lista = None
 
     if args.larguras is not None:
         try:
@@ -844,12 +945,54 @@ def _parse_args(argv=None):
         except argparse.ArgumentTypeError as e:
             erros.append(str(e))
 
+    if args.margens_horizontais is not None:
+        try:
+            margens_horizontais = _parse_lista_int(
+                args.margens_horizontais, "--margens-horizontais"
+            )
+            if any(m < 0 for m in margens_horizontais):
+                erros.append("--margens-horizontais: todos os valores devem ser >= 0")
+        except argparse.ArgumentTypeError as e:
+            erros.append(str(e))
+
+    if args.vaos_chip_texto is not None:
+        try:
+            vaos_chip_texto_lista = _parse_lista_int(
+                args.vaos_chip_texto, "--vaos-chip-texto"
+            )
+            if any(v < 1 for v in vaos_chip_texto_lista):
+                erros.append("--vaos-chip-texto: todos os valores devem ser >= 1")
+        except argparse.ArgumentTypeError as e:
+            erros.append(str(e))
+
+    if args.vaos_entre_chips is not None:
+        try:
+            vaos_entre_chips_lista = _parse_lista_int(
+                args.vaos_entre_chips, "--vaos-entre-chips"
+            )
+            if any(v < 1 for v in vaos_entre_chips_lista):
+                erros.append("--vaos-entre-chips: todos os valores devem ser >= 1")
+        except argparse.ArgumentTypeError as e:
+            erros.append(str(e))
+
+    if args.vaos_entre_colunas is not None:
+        try:
+            vaos_entre_colunas_lista = _parse_lista_int(
+                args.vaos_entre_colunas, "--vaos-entre-colunas"
+            )
+            if any(v < 1 for v in vaos_entre_colunas_lista):
+                erros.append("--vaos-entre-colunas: todos os valores devem ser >= 1")
+        except argparse.ArgumentTypeError as e:
+            erros.append(str(e))
+
     if erros:
         for e in erros:
             print("ERRO: {0}".format(e), file=sys.stderr)
         sys.exit(2)
 
-    return args, larguras, chips_lista, linhas_max_lista, preenchimentos
+    return (args, larguras, chips_lista, linhas_max_lista, preenchimentos,
+            margens_horizontais, vaos_chip_texto_lista,
+            vaos_entre_chips_lista, vaos_entre_colunas_lista)
 
 
 # ---------------------------------------------------------------------------
@@ -858,12 +1001,12 @@ def _parse_args(argv=None):
 
 def main(argv=None):
     try:
-        args, larguras, chips_lista, linhas_max_lista, preenchimentos = _parse_args(argv)
+        (args, larguras, chips_lista, linhas_max_lista, preenchimentos,
+         margens_horizontais, vaos_chip_texto_lista,
+         vaos_entre_chips_lista, vaos_entre_colunas_lista) = _parse_args(argv)
     except SystemExit as exc:
         return int(exc.code) if exc.code is not None else 2
 
-    # Determinar modo sem flags explícitos
-    # Se nenhum flag de mostrar foi passado, mostra o resumo no final de qualquer forma
     mostrar_ok = args.mostrar_ok
     mostrar_erros = args.mostrar_erros
     modo_saida = args.modo_saida
@@ -871,7 +1014,11 @@ def main(argv=None):
 
     # Selecionar matriz
     usar_combinatoria = any(
-        x is not None for x in [larguras, chips_lista, linhas_max_lista, preenchimentos]
+        x is not None for x in [
+            larguras, chips_lista, linhas_max_lista, preenchimentos,
+            margens_horizontais, vaos_chip_texto_lista,
+            vaos_entre_chips_lista, vaos_entre_colunas_lista,
+        ]
     )
 
     if usar_combinatoria:
@@ -879,8 +1026,19 @@ def main(argv=None):
         chips_lista = chips_lista or [3, 6, 10]
         linhas_max_lista = linhas_max_lista or [1, 2, 3]
         preenchimentos = preenchimentos or ["coluna_a_coluna", "linha_a_linha"]
+        margens = margens_horizontais or [1]
+        vaos_ct = vaos_chip_texto_lista or [1]
+        if vaos_entre_chips_lista is not None or vaos_entre_colunas_lista is not None:
+            _chips_l = vaos_entre_chips_lista or [2]
+            _cols_l = vaos_entre_colunas_lista or [2]
+            espacamentos = [(vc, vcol) for vc in _chips_l for vcol in _cols_l]
+        else:
+            espacamentos = None  # usa legado [(2,2),(3,4),(6,8)]
         cenarios = _gerar_matriz_combinatoria(
-            larguras, chips_lista, linhas_max_lista, preenchimentos
+            larguras, chips_lista, linhas_max_lista, preenchimentos,
+            margens_horizontais=margens,
+            vaos_chip_texto_lista=vaos_ct,
+            espacamentos=espacamentos,
         )
     else:
         cenarios = _matriz_padrao()
@@ -903,9 +1061,7 @@ def main(argv=None):
 
     # Resumo sempre ao final
     resumo = _formatar_resumo(resultados, cenarios)
-    if modo_saida == "resumo" or True:
-        # Sempre mostra o resumo
-        print(resumo)
+    print(resumo)
 
     # Exit code
     tem_inesperado = any(r["status"] == "ERRO_INESPERADO" for r in resultados)
