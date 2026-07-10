@@ -683,13 +683,18 @@ def _caixa_de_elemento(elemento, borda, inner_w, content_w, label_max):
     return None
 
 
-def _montar_corpo_horizontal(elementos, borda, total_w):
-    """Particionamento horizontal contíguo do corpo raiz (H-0019).
+def _montar_corpo_horizontal(elementos, borda, total_w, altura_disponivel=None):
+    """Particionamento horizontal contíguo do corpo raiz (H-0019 / H-0020).
 
     Distribuição uniforme implícita (modo igual, ADR-0015 D6) entre filhos
     diretos de corpo.elementos[]. Grupo não é expandido (ADR-0015 D2): conta
-    como slot com área visualmente vazia. Redistribuição interna de grupo vai
-    para H-0020.
+    como slot com área visualmente vazia.
+
+    altura_disponivel (H-0020): quando fornecida, cada coluna é preenchida até
+    essa altura (altura do corpo inteiro), preservando a área alocada conforme
+    ADR-0015 D5 e D10. Quando None, preserva comportamento H-0019 (normaliza
+    até altura_max). Se o conteúdo exceder altura_disponivel, mantém altura_max
+    sem truncar.
 
     Algoritmo: ADR-0015 Decisões 8, 9, 10.
     """
@@ -697,15 +702,9 @@ def _montar_corpo_horizontal(elementos, borda, total_w):
     if N == 0:
         return ""
 
-    if N == 1:
-        # Único filho direto: renderizar na largura total (sem particionamento)
-        caixa = _caixa_de_elemento(
-            elementos[0], borda,
-            total_w - 2, total_w - 3, total_w - 4,
-        )
-        return caixa if caixa is not None else ""
-
-    # Particionamento contíguo da largura (ADR-0015 D9)
+    # Particionamento contíguo da largura (ADR-0015 D9).
+    # N=1 cai no caminho geral: larguras=[total_w], resultado idêntico ao
+    # caminho especial anterior, mas agora suporta altura_disponivel.
     base_w = total_w // N
     resto = total_w % N
     # Maiores restos: primeiras `resto` áreas recebem base_w+1 (ADR-0015 D8).
@@ -737,21 +736,30 @@ def _montar_corpo_horizontal(elementos, borda, total_w):
             linhas_area = caixa_str.split("\n")
         todas_as_linhas_por_area.append(linhas_area)
 
-    # Normalizar altura com preenchimento inferior (ADR-0015 D10)
+    # Normalizar altura com preenchimento inferior (ADR-0015 D10 / H-0020)
     altura_max = max(
         (len(linhas) for linhas in todas_as_linhas_por_area), default=0
     )
     if altura_max == 0:
         return ""
+
+    # H-0020: altura_disponivel fornecida -> normalizar cada coluna até a
+    # altura total do corpo (ADR-0015 D5: área alocada preservada).
+    # None -> comportamento H-0019 (altura_alvo = altura_max).
+    # Conteúdo acima de altura_disponivel -> manter altura_max sem truncar.
+    altura_alvo = altura_disponivel if altura_disponivel is not None else altura_max
+    if altura_alvo < altura_max:
+        altura_alvo = altura_max
+
     for i, linhas in enumerate(todas_as_linhas_por_area):
-        while len(linhas) < altura_max:
+        while len(linhas) < altura_alvo:
             linhas.append(" " * larguras[i])
 
     # Concatenar áreas linha a linha, sem separador externo (ADR-0015 D9).
     # Bordas adjacentes surgem naturalmente: ││ em linhas internas,
     # ╮╭ no topo, ╯╰ na base. Invariante: len(linha) == total_w.
     linhas_resultado = []
-    for r in range(altura_max):
+    for r in range(altura_alvo):
         linha = ""
         for linhas in todas_as_linhas_por_area:
             linha += linhas[r]
@@ -861,11 +869,33 @@ def renderizar_tela(
     if arranjo_corpo == "lado_a_lado":
         arranjo_corpo = "horizontal"
 
+    # H-0020: linhas_barra inicializada antes do bloco de corpo para permitir
+    # pré-computação no modo horizontal com altura (evitar dupla chamada — R-4).
+    linhas_barra = None
+
     if arranjo_corpo == "horizontal":
         # Particionamento horizontal contíguo entre filhos diretos (H-0019).
-        # Grupo não é expandido neste ciclo (ADR-0015 D2; redistribuição → H-0020).
+        # Grupo não é expandido neste ciclo (ADR-0015 D2).
+        # H-0020: quando altura é fornecida, pré-computar linhas_barra para
+        # derivar l_barra e l_corpo_disponivel antes de _montar_corpo_horizontal.
+        if altura is not None:
+            linhas_barra = _linhas_barra(modelo.barra_de_menus, content_w)
+            l_cab = _contar_linhas(partes[0])
+            l_barra = len(linhas_barra) + 2
+            if l_cab + l_barra > altura:
+                raise RenderizadorErro(
+                    "altura insuficiente: terminal com {0} linhas nao comporta "
+                    "cabecalho ({1}) + barra_de_menus ({2})".format(
+                        altura, l_cab, l_barra
+                    )
+                )
+            _l_corpo_disponivel = altura - l_cab - l_barra
+        else:
+            _l_corpo_disponivel = None
+
         bloco_horizontal = _montar_corpo_horizontal(
-            modelo.corpo.elementos, borda, total_w
+            modelo.corpo.elementos, borda, total_w,
+            altura_disponivel=_l_corpo_disponivel,
         )
         if bloco_horizontal:
             partes.append(bloco_horizontal)
@@ -894,7 +924,9 @@ def renderizar_tela(
     # H-0016: distribuicao horizontal responsiva (ADR-0014) derivada de
     # barra_de_menus.distribuicao + chips[], usando a largura de conteudo
     # disponivel para decidir linha unica vs multilinha vs erro_layout.
-    linhas_barra = _linhas_barra(modelo.barra_de_menus, content_w)
+    # H-0020 (R-4): pular se já computada no modo horizontal com altura.
+    if linhas_barra is None:
+        linhas_barra = _linhas_barra(modelo.barra_de_menus, content_w)
 
     # H-0015 / ADR-0013: ocupacao vertical da janela do terminal pelo corpo.
     # Quando ``altura`` e fornecida, preenche a area do corpo entre o
@@ -927,12 +959,15 @@ def renderizar_tela(
                 )
             )
         l_corpo_fill = l_corpo_disponivel - l_corpo_conteudo
-        if l_corpo_fill > 0:
+        if l_corpo_fill > 0 and arranjo_corpo != "horizontal":
             # Linhas fisicas de preenchimento, cada uma com exatamente
             # ``total_w`` espacos, inseridas apos o ultimo box de elemento
             # do corpo e antes do box da barra_de_menus. Preserva os
             # invariantes: cada linha nao-vazia tem ``total_w`` chars e a
             # saida nao contem "\n\n".
+            # H-0020 (A-003): guarda explícita — modo horizontal já absorveu
+            # o fill internamente em _montar_corpo_horizontal; não inserir
+            # fill externo adicional.
             partes.append(
                 "\n".join(" " * total_w for _ in range(l_corpo_fill))
             )

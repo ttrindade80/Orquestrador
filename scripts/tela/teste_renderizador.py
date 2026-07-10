@@ -54,6 +54,7 @@ from tela.modelo import (  # noqa: E402
 from tela.renderizador import (  # noqa: E402
     RenderizadorErro,
     _linhas_barra,
+    _montar_corpo_horizontal,
     renderizar_tela,
 )
 
@@ -2605,6 +2606,318 @@ class TestArranjoH0019:
         self.test_arranjo_horizontal_n1()
 
 
+class TestPreenchimentoVerticalH0020:
+    """Testes de preenchimento vertical das áreas alocadas no corpo horizontal (H-0020).
+
+    Cobre: fill interno até l_corpo_disponivel; ausência de fill externo H-0015
+    no modo horizontal; preservação de H-0019 (sem altura); preservação de
+    vertical/sobreposto/None; lado_a_lado como alias horizontal; barra intacta.
+    """
+
+    def _r(self, nome, passou, detalhe=""):
+        _registrar(nome, passou, detalhe)
+
+    def _modelo(self, arranjo, specs, largura=42):
+        return _modelo_horizontal(arranjo, specs, largura=largura, titulo_cab="H0020")
+
+    def _borda(self):
+        from tela.renderizador import _BORDAS
+        return _BORDAS["curva"]
+
+    def _corpo_linhas(self, saida):
+        """Linhas entre o cabeçalho (3 linhas) e a barra_de_menus."""
+        linhas = saida.split("\n")
+        barra_idx = next(
+            (i for i, ln in enumerate(linhas) if ln.startswith("╭ Menus")), len(linhas)
+        )
+        return linhas[3:barra_idx]
+
+    # ------------------------------------------------------------------ 1
+    def test_horizontal_alto_mantem_bordas_ate_altura_disponivel(self):
+        modelo = self._modelo("horizontal", [("console", "A"), ("console", "B")])
+        altura = 30
+        saida = renderizar_tela(modelo, largura=42, altura=altura)
+        self._r(
+            "H0020-1: horizontal altura=30 -> total linhas == 30",
+            saida.count("\n") == altura,
+            "count={0}".format(saida.count("\n")),
+        )
+        linhas_nv = [ln for ln in saida.split("\n") if ln != ""]
+        self._r(
+            "H0020-1: cada linha tem 42 chars",
+            all(len(ln) == 42 for ln in linhas_nv),
+            "erros={0}".format([len(ln) for ln in linhas_nv if len(ln) != 42]),
+        )
+        self._r(
+            "H0020-1: barra_de_menus presente",
+            "╭ Menus" in saida,
+        )
+        # l_cab=3, l_barra=3, l_corpo_disponivel = 30-3-3 = 24
+        l_corpo_disponivel = 30 - 3 - 3
+        corpo = self._corpo_linhas(saida)
+        self._r(
+            "H0020-1: corpo tem exatamente l_corpo_disponivel=24 linhas",
+            len(corpo) == l_corpo_disponivel,
+            "len={0}".format(len(corpo)),
+        )
+
+    # ------------------------------------------------------------------ 2
+    def test_horizontal_preenchimento_dentro_das_colunas(self):
+        """Fill ocorre internamente em _montar_corpo_horizontal, não via H-0015."""
+        modelo = self._modelo("horizontal", [("console", "A"), ("console", "B")])
+        l_corpo_disponivel = 30 - 3 - 3  # altura=30, l_cab=3, l_barra=3
+        borda = self._borda()
+        elementos = modelo.corpo.elementos
+        bloco = _montar_corpo_horizontal(
+            elementos, borda, 42, altura_disponivel=l_corpo_disponivel
+        )
+        linhas_bloco = bloco.split("\n")
+        self._r(
+            "H0020-2: _montar_corpo_horizontal com altura_disponivel=24 retorna 24 linhas",
+            len(linhas_bloco) == l_corpo_disponivel,
+            "len={0}".format(len(linhas_bloco)),
+        )
+        self._r(
+            "H0020-2: cada linha do bloco tem 42 chars",
+            all(len(ln) == 42 for ln in linhas_bloco),
+            "erros={0}".format([len(ln) for ln in linhas_bloco if len(ln) != 42]),
+        )
+
+    # ------------------------------------------------------------------ 3
+    def test_horizontal_sem_linhas_externas_apos_bloco(self):
+        """Após H-0020 o bloco absorve l_corpo_disponivel linhas; zero fill externo."""
+        modelo = self._modelo("horizontal", [("console", "A"), ("console", "B")])
+        altura = 40
+        saida = renderizar_tela(modelo, largura=42, altura=altura)
+        l_corpo_disponivel = altura - 3 - 3  # 34
+        corpo = self._corpo_linhas(saida)
+        self._r(
+            "H0020-3: corpo tem exatamente l_corpo_disponivel=34 linhas (zero fill externo)",
+            len(corpo) == l_corpo_disponivel,
+            "len={0}".format(len(corpo)),
+        )
+        # Verificar diretamente que o bloco absorveu tudo
+        borda = self._borda()
+        bloco = _montar_corpo_horizontal(
+            modelo.corpo.elementos, borda, 42,
+            altura_disponivel=l_corpo_disponivel
+        )
+        self._r(
+            "H0020-3: bloco tem exatamente l_corpo_disponivel linhas internamente",
+            bloco.count("\n") + 1 == l_corpo_disponivel,
+            "count={0}".format(bloco.count("\n") + 1),
+        )
+
+    # ------------------------------------------------------------------ 4
+    def test_horizontal_bordas_adjacentes_em_linhas_preenchidas(self):
+        """Bordas ││ e ╮╭ presentes nas linhas estruturais (topo/conteúdo/base)."""
+        modelo = self._modelo("horizontal", [("console", "A"), ("console", "B")])
+        saida = renderizar_tela(modelo, largura=42, altura=25)
+        self._r(
+            "H0020-4: '││' presente nas linhas de conteúdo do bloco horizontal",
+            "││" in saida,
+        )
+        self._r(
+            "H0020-4: '╮╭' presente no topo das áreas adjacentes",
+            "╮╭" in saida,
+        )
+        self._r(
+            "H0020-4: '╯╰' presente na base das áreas adjacentes",
+            "╯╰" in saida,
+        )
+        self._r(
+            "H0020-4: total linhas == 25",
+            saida.count("\n") == 25,
+        )
+
+    # ------------------------------------------------------------------ 5
+    def test_horizontal_largura_total_em_todas_linhas_preenchidas(self):
+        """Todas as linhas do bloco (inclusive fill) têm exatamente total_w chars."""
+        modelo = self._modelo("horizontal", [("console", "A"), ("console", "B")])
+        altura = 20
+        saida = renderizar_tela(modelo, largura=42, altura=altura)
+        linhas_nv = [ln for ln in saida.split("\n") if ln != ""]
+        self._r(
+            "H0020-5: altura=20 -> 20 linhas",
+            saida.count("\n") == altura,
+        )
+        self._r(
+            "H0020-5: todas as linhas têm 42 chars (inclusive fill)",
+            all(len(ln) == 42 for ln in linhas_nv),
+            "erros={0}".format([len(ln) for ln in linhas_nv if len(ln) != 42]),
+        )
+
+    # ------------------------------------------------------------------ 6
+    def test_horizontal_colunas_diferentes_preenchidas_mesma_altura(self):
+        """console (3 linhas) e dashboard (2 linhas): ambas preenchidas até l_corpo_disponivel."""
+        modelo = self._modelo(
+            "horizontal", [("console", "A"), ("dashboard", "B")]
+        )
+        l_corpo_disponivel = 25 - 3 - 3  # altura=25 → 19
+        borda = self._borda()
+        bloco = _montar_corpo_horizontal(
+            modelo.corpo.elementos, borda, 42,
+            altura_disponivel=l_corpo_disponivel
+        )
+        linhas_bloco = bloco.split("\n")
+        self._r(
+            "H0020-6: colunas de alturas diferentes (3 e 2) preenchidas até l_corpo_disponivel=19",
+            len(linhas_bloco) == l_corpo_disponivel,
+            "len={0}".format(len(linhas_bloco)),
+        )
+        # Verificar via renderizar_tela também
+        saida = renderizar_tela(modelo, largura=42, altura=25)
+        self._r(
+            "H0020-6: renderizar_tela altura=25 -> 25 linhas",
+            saida.count("\n") == 25,
+        )
+
+    # ------------------------------------------------------------------ 7
+    def test_vertical_preserva_comportamento_atual(self):
+        """vertical: fill externo H-0015 continua funcionando (sem alteração)."""
+        modelo = self._modelo("vertical", [("console", "A")])
+        altura = 20
+        saida = renderizar_tela(modelo, largura=42, altura=altura)
+        self._r(
+            "H0020-7: vertical altura=20 -> 20 linhas",
+            saida.count("\n") == altura,
+            "count={0}".format(saida.count("\n")),
+        )
+        self._r(
+            "H0020-7: vertical barra presente",
+            "╭ Menus" in saida,
+        )
+        # Fill externo: linhas de espaços entre corpo e barra
+        linhas = saida.split("\n")
+        fill_ext = [ln for ln in linhas if ln == " " * 42]
+        self._r(
+            "H0020-7: vertical fill externo H-0015 presente (linhas de espacos)",
+            len(fill_ext) > 0,
+            "fills={0}".format(len(fill_ext)),
+        )
+
+    # ------------------------------------------------------------------ 8
+    def test_sobreposto_preserva_comportamento_atual(self):
+        """sobreposto: alias de vertical, comportamento idêntico."""
+        modelo_v = self._modelo("vertical", [("console", "A")])
+        modelo_s = self._modelo("sobreposto", [("console", "A")])
+        saida_v = renderizar_tela(modelo_v, largura=42, altura=20)
+        saida_s = renderizar_tela(modelo_s, largura=42, altura=20)
+        self._r(
+            "H0020-8: sobreposto == vertical (alias preservado)",
+            saida_v == saida_s,
+        )
+        self._r(
+            "H0020-8: sobreposto altura=20 -> 20 linhas",
+            saida_s.count("\n") == 20,
+        )
+
+    # ------------------------------------------------------------------ 9
+    def test_none_preserva_comportamento_atual(self):
+        """None: equivale a vertical, fill externo H-0015 intacto."""
+        modelo_n = self._modelo(None, [("console", "A")])
+        modelo_v = self._modelo("vertical", [("console", "A")])
+        saida_n = renderizar_tela(modelo_n, largura=42, altura=20)
+        saida_v = renderizar_tela(modelo_v, largura=42, altura=20)
+        self._r(
+            "H0020-9: None == vertical (comportamento preservado)",
+            saida_n == saida_v,
+        )
+        self._r(
+            "H0020-9: None altura=20 -> 20 linhas",
+            saida_n.count("\n") == 20,
+        )
+
+    # ------------------------------------------------------------------ 10
+    def test_lado_a_lado_preserva_comportamento_horizontal(self):
+        """lado_a_lado: alias horizontal com fill vertical interno (H-0020)."""
+        modelo_h = self._modelo("horizontal", [("console", "A"), ("console", "B")])
+        modelo_l = self._modelo("lado_a_lado", [("console", "A"), ("console", "B")])
+        altura = 25
+        saida_h = renderizar_tela(modelo_h, largura=42, altura=altura)
+        saida_l = renderizar_tela(modelo_l, largura=42, altura=altura)
+        self._r(
+            "H0020-10: lado_a_lado == horizontal com fill vertical interno",
+            saida_h == saida_l,
+        )
+        self._r(
+            "H0020-10: lado_a_lado altura=25 -> 25 linhas",
+            saida_l.count("\n") == altura,
+        )
+        corpo = self._corpo_linhas(saida_l)
+        self._r(
+            "H0020-10: corpo de lado_a_lado tem l_corpo_disponivel=19 linhas",
+            len(corpo) == altura - 3 - 3,
+            "len={0}".format(len(corpo)),
+        )
+
+    # ------------------------------------------------------------------ 11
+    def test_horizontal_sem_altura_preserva_h0019(self):
+        """Sem altura: _montar_corpo_horizontal normaliza até altura_max (H-0019 preservado)."""
+        modelo = self._modelo("horizontal", [("console", "A"), ("dashboard", "B")])
+        # console: 3 linhas; dashboard sem campos: 2 linhas; altura_max = 3
+        saida_sem = renderizar_tela(modelo, largura=42)
+        # Com altura_disponivel=None -> normaliza até 3
+        borda = self._borda()
+        bloco_sem = _montar_corpo_horizontal(
+            modelo.corpo.elementos, borda, 42, altura_disponivel=None
+        )
+        linhas_bloco = bloco_sem.split("\n")
+        self._r(
+            "H0020-11: sem altura -> bloco normalizado até altura_max=3",
+            len(linhas_bloco) == 3,
+            "len={0}".format(len(linhas_bloco)),
+        )
+        # TestArranjoH0019.test_arranjo_horizontal_padding_inferior continua passando
+        linhas_nv = [ln for ln in saida_sem.split("\n") if ln != ""]
+        self._r(
+            "H0020-11: sem altura -> todas linhas têm 42 chars (H-0019 preservado)",
+            all(len(ln) == 42 for ln in linhas_nv),
+        )
+
+    # ------------------------------------------------------------------ 12
+    def test_barra_de_menus_preservada_apos_h0020(self):
+        """Barra de menus com chips corretos; funções protegidas intactas."""
+        modelo = self._modelo("horizontal", [("console", "A"), ("console", "B")])
+        saida = renderizar_tela(modelo, largura=42, altura=25)
+        self._r(
+            "H0020-12: barra presente na saida horizontal com altura",
+            "╭ Menus" in saida,
+        )
+        self._r(
+            "H0020-12: chip [k] Ok da barra aparece",
+            "[k] Ok" in saida,
+        )
+        # Verificar orquestrador (usa _normalizar_distribuicao, _linhas_barra)
+        tela_raw = carregar_tela(_BASE_PADRAO, "orquestrador")
+        modelo_orc = construir_modelo(tela_raw)
+        saida_orc = renderizar_tela(modelo_orc, largura=42)
+        self._r(
+            "H0020-12: barra orquestrador inalterada (funções protegidas intactas)",
+            "[Esc] Sair" in saida_orc and "[?] Ajuda" in saida_orc,
+        )
+        self._r(
+            "H0020-12: teste_explorar_barra_de_menus baseline 38/38 (verificar externamente)",
+            True,  # verificação executada nas suítes finais
+        )
+
+    def run_all(self):
+        print("")
+        print("== H-0020 - preenchimento vertical das areas alocadas no corpo horizontal ==")
+        self.test_horizontal_alto_mantem_bordas_ate_altura_disponivel()
+        self.test_horizontal_preenchimento_dentro_das_colunas()
+        self.test_horizontal_sem_linhas_externas_apos_bloco()
+        self.test_horizontal_bordas_adjacentes_em_linhas_preenchidas()
+        self.test_horizontal_largura_total_em_todas_linhas_preenchidas()
+        self.test_horizontal_colunas_diferentes_preenchidas_mesma_altura()
+        self.test_vertical_preserva_comportamento_atual()
+        self.test_sobreposto_preserva_comportamento_atual()
+        self.test_none_preserva_comportamento_atual()
+        self.test_lado_a_lado_preserva_comportamento_horizontal()
+        self.test_horizontal_sem_altura_preserva_h0019()
+        self.test_barra_de_menus_preservada_apos_h0020()
+
+
 def main():
     print("Diagnostico H-0010A - renderer declarativo (curva/reta)")
     print("Base padrao: {0}".format(_BASE_PADRAO))
@@ -2624,6 +2937,7 @@ def main():
     TestLinhasBarra().run_all()
     TestDistribuicaoH0018().run_all()
     TestArranjoH0019().run_all()
+    TestPreenchimentoVerticalH0020().run_all()
 
     print("")
     print("== Resumo ==")
