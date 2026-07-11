@@ -35,6 +35,7 @@ sys.path.insert(0, str(_BASE_PADRAO))
 from tela import loader  # noqa: E402
 from tela.loader import (  # noqa: E402
     ARRANJOS_CORPO_VALIDOS,
+    MODOS_DISTRIBUICAO_CORPO_VALIDOS,
     TIPOS_CORPO_VALIDOS,
     TIPOS_ESTRUTURAIS_VALIDOS,
     TelaArquivoNaoEncontrado,
@@ -196,6 +197,15 @@ def teste_caminho_feliz():
         "tela.corpo.arranjo preservado",
         tela.get("corpo", {}).get("arranjo") == "vertical",
         "arranjo={0!r}".format(tela.get("corpo", {}).get("arranjo")),
+    )
+    # H-0025: orquestrador real declara distribuicao fracao [2,1,2].
+    dist_orq = tela.get("corpo", {}).get("distribuicao")
+    _registrar(
+        "H-0025: orquestrador declara corpo.distribuicao (fracao [2,1,2])",
+        isinstance(dist_orq, dict)
+        and dist_orq.get("modo") == "fracao"
+        and dist_orq.get("valores") == [2, 1, 2],
+        "dist={0!r}".format(dist_orq),
     )
     elementos = tela.get("corpo", {}).get("elementos", [])
     _registrar(
@@ -811,6 +821,172 @@ def teste_arranjo_corpo_h0019(tmp_base):
     )
 
 
+def teste_distribuicao_corpo_h0025(tmp_base):
+    print("")
+    print("== H-0025: validacao de corpo.distribuicao (igual/percentual/fracao) ==")
+
+    def _tela_dist(id_tela, distribuicao, n_elementos=3):
+        elementos = [
+            {"id": "e{0}".format(i), "tipo": "console"} for i in range(n_elementos)
+        ]
+        corpo = {"arranjo": "vertical", "elementos": elementos}
+        if distribuicao is not None:
+            corpo["distribuicao"] = distribuicao
+        return {
+            "schema": "tela.v1", "id": id_tela, "cabecalho": {},
+            "corpo": corpo, "barra_de_menus": {},
+        }
+
+    # --- Ausencia: nao materializa igual ---
+    _escrever_tela(tmp_base, "dist_ausente", _tela_dist("dist_ausente", None))
+    tela_aus = carregar_tela(tmp_base, "dist_ausente")
+    _registrar(
+        "ausencia de distribuicao: corpo.distribuicao is None (sem fallback igual)",
+        tela_aus["corpo"].get("distribuicao") is None,
+        "dist={0!r}".format(tela_aus["corpo"].get("distribuicao")),
+    )
+
+    # --- igual explicito (sem valores) ---
+    _escrever_tela(
+        tmp_base, "dist_igual",
+        _tela_dist("dist_igual", {"modo": "igual"}),
+    )
+    tela_igual = carregar_tela(tmp_base, "dist_igual")
+    _registrar(
+        "igual explicito declarado e preservado",
+        tela_igual["corpo"]["distribuicao"].get("modo") == "igual",
+    )
+
+    # --- percentual valido (soma 100) ---
+    _escrever_tela(
+        tmp_base, "dist_pct_ok",
+        _tela_dist("dist_pct_ok", {"modo": "percentual", "valores": [40, 20, 40]}),
+    )
+    tela_pct = carregar_tela(tmp_base, "dist_pct_ok")
+    _registrar(
+        "percentual valido (soma 100) preservado",
+        tela_pct["corpo"]["distribuicao"].get("valores") == [40, 20, 40],
+    )
+
+    # --- percentual soma invalida -> erro ---
+    _escrever_tela(
+        tmp_base, "dist_pct_soma",
+        _tela_dist("dist_pct_soma", {"modo": "percentual", "valores": [40, 20, 30]}),
+    )
+    exc_pct = _espera_excecao(
+        "percentual soma != 100 -> TelaEstruturaInvalida",
+        lambda: carregar_tela(tmp_base, "dist_pct_soma"),
+        TelaEstruturaInvalida,
+    )
+    if exc_pct is not None:
+        _registrar(
+            "mensagem menciona soma 100",
+            "100" in str(exc_pct),
+            str(exc_pct),
+        )
+
+    # --- fracao valido (pesos positivos) ---
+    _escrever_tela(
+        tmp_base, "dist_frac_ok",
+        _tela_dist("dist_frac_ok", {"modo": "fracao", "valores": [2, 1, 2]}),
+    )
+    tela_frac = carregar_tela(tmp_base, "dist_frac_ok")
+    _registrar(
+        "fracao valido (pesos positivos) preservado",
+        tela_frac["corpo"]["distribuicao"].get("valores") == [2, 1, 2],
+    )
+
+    # --- fracao peso invalido (zero) -> erro ---
+    _escrever_tela(
+        tmp_base, "dist_frac_zero",
+        _tela_dist("dist_frac_zero", {"modo": "fracao", "valores": [2, 0, 2]}),
+    )
+    _espera_excecao(
+        "fracao com peso 0 -> TelaEstruturaInvalida",
+        lambda: carregar_tela(tmp_base, "dist_frac_zero"),
+        TelaEstruturaInvalida,
+    )
+
+    # --- fracao peso negativo -> erro ---
+    _escrever_tela(
+        tmp_base, "dist_frac_neg",
+        _tela_dist("dist_frac_neg", {"modo": "fracao", "valores": [2, -1, 2]}),
+    )
+    _espera_excecao(
+        "fracao com peso negativo -> TelaEstruturaInvalida",
+        lambda: carregar_tela(tmp_base, "dist_frac_neg"),
+        TelaEstruturaInvalida,
+    )
+
+    # --- quantidade de valores incompativel -> erro ---
+    _escrever_tela(
+        tmp_base, "dist_qtd",
+        _tela_dist("dist_qtd", {"modo": "fracao", "valores": [1, 1]}),
+    )
+    exc_qtd = _espera_excecao(
+        "fracao com 2 valores para 3 filhos -> TelaEstruturaInvalida",
+        lambda: carregar_tela(tmp_base, "dist_qtd"),
+        TelaEstruturaInvalida,
+    )
+    if exc_qtd is not None:
+        _registrar(
+            "mensagem menciona quantidade de filhos",
+            "filhos" in str(exc_qtd),
+            str(exc_qtd),
+        )
+
+    # --- modo desconhecido -> erro ---
+    _escrever_tela(
+        tmp_base, "dist_modo_inv",
+        _tela_dist("dist_modo_inv", {"modo": "media", "valores": [1, 1, 1]}),
+    )
+    _espera_excecao(
+        "modo desconhecido 'media' -> TelaEstruturaInvalida",
+        lambda: carregar_tela(tmp_base, "dist_modo_inv"),
+        TelaEstruturaInvalida,
+    )
+
+    # --- distribuicao nao-dict -> erro ---
+    _escrever_tela(
+        tmp_base, "dist_nao_dict",
+        _tela_dist("dist_nao_dict", "horizontal"),
+    )
+    _espera_excecao(
+        "distribuicao como string -> TelaEstruturaInvalida",
+        lambda: carregar_tela(tmp_base, "dist_nao_dict"),
+        TelaEstruturaInvalida,
+    )
+
+    # --- constante exportada ---
+    _registrar(
+        "MODOS_DISTRIBUICAO_CORPO_VALIDOS == {igual, percentual, fracao}",
+        MODOS_DISTRIBUICAO_CORPO_VALIDOS == {"igual", "percentual", "fracao"},
+        "valor={0!r}".format(MODOS_DISTRIBUICAO_CORPO_VALIDOS),
+    )
+
+    # --- valores nao-numericos -> erro ---
+    _escrever_tela(
+        tmp_base, "dist_frac_str",
+        _tela_dist("dist_frac_str", {"modo": "fracao", "valores": [2, "x", 2]}),
+    )
+    _espera_excecao(
+        "fracao com valor nao-numerico -> TelaEstruturaInvalida",
+        lambda: carregar_tela(tmp_base, "dist_frac_str"),
+        TelaEstruturaInvalida,
+    )
+
+    # --- percentual com bool -> erro ---
+    _escrever_tela(
+        tmp_base, "dist_pct_bool",
+        _tela_dist("dist_pct_bool", {"modo": "percentual", "valores": [True, 20, 40]}),
+    )
+    _espera_excecao(
+        "percentual com bool -> TelaEstruturaInvalida",
+        lambda: carregar_tela(tmp_base, "dist_pct_bool"),
+        TelaEstruturaInvalida,
+    )
+
+
 def teste_id_incorreto_classe():
     print("")
     print("== Excecao TelaIdIncorreto (verificacao de classe) ==")
@@ -839,6 +1015,7 @@ def main():
         teste_tipos_validos(tmp_base)
         teste_grupo_estrutural(tmp_base)
         teste_arranjo_corpo_h0019(tmp_base)
+        teste_distribuicao_corpo_h0025(tmp_base)
     finally:
         try:
             shutil.rmtree(tmp_base)

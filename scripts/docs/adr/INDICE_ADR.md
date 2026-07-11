@@ -45,6 +45,7 @@ Este indice registra as ADRs aceitas do projeto.
 | ADR-0015 | Composição hierárquica e distribuição de área do corpo | aceita | 2026-07-10 |
 | ADR-0016 | Execução em tela cheia (TTY) sem cintilação, com Ctrl+C escopado | aceita | 2026-07-10 |
 | ADR-0017 | Redimensionamento reativo da TUI — SIGWINCH, ioctl(TIOCGWINSZ), cadeia de dimensões válidas e quadro mínimo de aviso (complementa ADR-0013 e ADR-0016) | aceita | 2026-07-11 |
+| ADR-0018 | Semântica da ausência de distribuição e da alocação vertical de área do corpo — distingue arranjo de distribuição; ausência de `corpo.distribuicao` deixa de equivaler ao modo `igual` e preserva a construção orientada pelo conteúdo; distribuição explícita reparte a altura útil com preenchimento interno das áreas (substitui parcialmente a ADR-0015 no ponto ausência ≡ `igual`) | aceita | 2026-07-11 |
 
 ## Exemplo de linha
 

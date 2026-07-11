@@ -1165,10 +1165,14 @@ canônica; a especificação completa com exemplos está na ADR-0015 e no
     container, não do filho.
 11. **Distribuição reparte área entre filhos diretos** — somente filhos
     imediatos são contados; netos não entram na contagem.
-12. **Arranjo horizontal reparte largura** — `arranjo = horizontal` aloca
-    colunas de caracteres entre os filhos.
-13. **Arranjo vertical reparte altura** — `arranjo = vertical` aloca linhas
-    entre os filhos.
+12. **Arranjo horizontal organiza os filhos horizontalmente** —
+    `arranjo = horizontal` dispõe os filhos no eixo horizontal; a alocação
+    proporcional de colunas de caracteres entre eles ocorre apenas quando o
+    mesmo container possui `distribuicao` explícita.
+13. **Arranjo vertical organiza os filhos verticalmente** —
+    `arranjo = vertical` dispõe os filhos no eixo vertical; a alocação
+    proporcional de linhas entre eles ocorre apenas quando o mesmo container
+    possui `distribuicao` explícita.
 14. **Distribuição aloca área, não apenas conteúdo** — a área é reservada
     independentemente do conteúdo do filho.
 15. **Sobra horizontal vira espaços dentro da área alocada** — colunas
@@ -1199,3 +1203,49 @@ canônica; a especificação completa com exemplos está na ADR-0015 e no
     grupos irmãos com mesma assinatura de restrições têm cortes
     sincronizados automaticamente (conceito ADR-0015; mecanismo explícito
     é extensão futura).
+
+### 14.1 Semântica da ausência de distribuição e alocação vertical (ADR-0018)
+
+A ADR-0018 (2026-07-11) substitui parcialmente a ADR-0015 **somente** no ponto em
+que a ausência de `distribuicao` era tratada como equivalente ao modo `igual`. A
+composição hierárquica, os modos e o arredondamento da seção 14 permanecem
+vigentes; muda apenas a semântica da ausência e a localização da sobra na
+distribuição explícita. Termos específicos completos, sem sinônimos novos:
+
+| Termo específico completo | Conceito | Não confundir com |
+|---|---|---|
+| `corpo.arranjo = "vertical"` | ordem/composição vertical dos filhos diretos do container (ADR-0011) | `ocupacao_vertical_terminal` nem `corpo.distribuicao` |
+| `ocupacao_vertical_terminal` | preenchimento da altura da janela pelo renderer (ADR-0013) | `corpo.arranjo = "vertical"` nem `corpo.distribuicao` |
+| `corpo.distribuicao` | repartição proporcional da área útil entre os filhos diretos quando declarada (ADR-0015/ADR-0018) | `corpo.arranjo` (ordem) nem `ocupacao_vertical_terminal` (preenchimento) |
+
+Regras normativas derivadas da ADR-0018:
+
+- **Arranjo não é distribuição** — `corpo.arranjo = "vertical"` ordena os filhos
+  verticalmente; por si só **não** reparte proporcionalmente a altura nem implica
+  modo `igual`. `arranjo` permanece válido sem `corpo.distribuicao`.
+- **Ausência de `corpo.distribuicao` ≠ modo `igual`** — quando `corpo.distribuicao`
+  não é declarada, cada filho usa sua **altura natural** e a sobra permanece como
+  preenchimento externo do corpo (`ocupacao_vertical_terminal`, ADR-0013); não há
+  repartição proporcional automática. A ausência **não** é fallback do modo
+  `igual`.
+- **Modo `igual` é explícito** — `igual` divide a área igualmente entre filhos
+  diretos apenas quando declarado; não é o significado implícito da ausência.
+- **Distribuição explícita aloca `área alocada`** — com `corpo.distribuicao`
+  declarada, a altura útil é repartida integralmente entre os filhos diretos; a
+  distribuição aloca **área**, não apenas o tamanho do conteúdo natural.
+- **Preenchimento interno quando há distribuição explícita** — a cota excedente ao
+  conteúdo vira linhas em branco **dentro** da moldura de cada filho; a sobra
+  **não** fica acumulada externamente abaixo do último filho.
+- **`fracao` são pesos genéricos** — qualquer vetor de pesos positivos é aceito;
+  `[1,1,1]`, `[2,1,2]`, `[1,3,1]`, `[5,2,7]` são exemplos não exaustivos; nenhum
+  vetor concreto é default ou hardcode do renderer.
+- **Conteúdo maior que a cota é lacuna externa** — altura mínima, overflow,
+  truncamento, paginação, rejeição e degradação permanecem fora de escopo da
+  ADR-0018; um vetor válido não se torna inválido porque o conteúdo não cabe em
+  altura pequena.
+
+A ADR-0013 e a ADR-0017 permanecem preservadas: a altura útil repartida pela
+distribuição é obtida pelo mecanismo da ADR-0017, e o preenchimento externo da
+ADR-0013 é o comportamento aplicável **na ausência** de distribuição. A
+especificação normativa completa está na ADR-0018 e em
+`contrato_composicao_corpo.md` seções 4.8, 4.9, 5.7 a 5.9 e 10.

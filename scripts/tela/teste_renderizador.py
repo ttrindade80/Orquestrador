@@ -53,8 +53,10 @@ from tela.modelo import (  # noqa: E402
 )
 from tela.renderizador import (  # noqa: E402
     RenderizadorErro,
+    _distribuir_alturas,
     _linhas_barra,
     _montar_corpo_horizontal,
+    _pesos_distribuicao,
     renderizar_tela,
 )
 
@@ -955,12 +957,35 @@ def teste_largura_explicita():
     )
 
 
+def _modelo_orquestrador_sem_distribuicao():
+    """Copia do modelo do orquestrador SEM corpo.distribuicao.
+
+    H-0025 / ADR-0018 D2: a ausencia de distribuicao preserva a construcao
+    orientada pelo conteudo (preenchimento externo H-0015). Usada para
+    manter a cobertura H-0015 de preenchimento externo em tela vertical sem
+    distribuicao, visto que o orquestrador real agora declara
+    distribuicao (fracao [2,1,2]) e redireciona a sobra para preenchimento
+    interno quando ha altura explicita.
+    """
+    tela_raw = carregar_tela(_BASE_PADRAO, "orquestrador")
+    corpo_sem = dict(tela_raw["corpo"])
+    corpo_sem.pop("distribuicao", None)
+    tela_raw_sem = dict(tela_raw)
+    tela_raw_sem["corpo"] = corpo_sem
+    return construir_modelo(tela_raw_sem)
+
+
 def teste_altura_explicita():
     print("")
     print("== Altura explicita (H-0015 / ADR-0013 - ocupacao vertical) ==")
 
-    tela_raw = carregar_tela(_BASE_PADRAO, "orquestrador")
-    modelo = construir_modelo(tela_raw)
+    # H-0025: usa modelo do orquestrador SEM distribuicao para preservar a
+    # cobertura H-0015 de preenchimento externo (telas sem distribuicao nao
+    # sofrem alteracao de comportamento — ADR-0018 D2). O orquestrador real
+    # agora declara distribuicao, que redireciona a sobra para preenchimento
+    # interno; a cobertura desse novo comportamento esta em
+    # TestDistribuicaoVerticalH0025.
+    modelo = _modelo_orquestrador_sem_distribuicao()
 
     # Contabilidade verificada contra o orquestrador.json real (largura=42).
     # H-0016: a barra_de_menus agora e horizontal responsiva. Com 2 chips em
@@ -1562,7 +1587,8 @@ class TestLinhasBarra:
         )
 
     def test_renderizar_tela_preserva_altura_h0015(self):
-        modelo = construir_modelo(carregar_tela(_BASE_PADRAO, "orquestrador"))
+        # H-0025: modelo sem distribuicao preserva o fill externo H-0015.
+        modelo = _modelo_orquestrador_sem_distribuicao()
         saida_24 = renderizar_tela(modelo, largura=42, altura=24)
         linhas = _linhas_barra(modelo.barra_de_menus, 39)
         l_barra = len(linhas) + 2
@@ -1578,11 +1604,15 @@ class TestLinhasBarra:
         )
 
     def test_altura_minima_com_barra_horizontal(self):
-        modelo = construir_modelo(carregar_tela(_BASE_PADRAO, "orquestrador"))
+        # H-0025: modelo sem distribuicao preserva o comportamento H-0015
+        # (preenchimento externo) em altura minima. O orquestrador real agora
+        # declara distribuicao; a cobertura de distribuicao vertical esta em
+        # TestDistribuicaoVerticalH0025.
+        modelo = _modelo_orquestrador_sem_distribuicao()
         # H-0016: n_minimo = L_cab(3) + L_corpo(9) + L_barra(3) = 15.
         saida_15 = renderizar_tela(modelo, largura=42, altura=15)
         self._r(
-            "altura minima = 15 com barra horizontal (antes era 16)",
+            "altura minima = 15 com barra horizontal (sem distribuicao)",
             saida_15.count("\n") == 15
             and saida_15 == renderizar_tela(modelo, largura=42),
             "count={0}".format(saida_15.count("\n")),
@@ -3196,6 +3226,9 @@ class TestPreenchimentoBordeadoH0021:
     # ---------------------------------------------------------------------- 10
     def test_vertical_nao_regride_apos_h0021(self):
         """arranjo=vertical preserva comportamento anterior."""
+        # H-0025: o orquestrador real declara distribuicao agora. Sem altura,
+        # a distribuicao nao se aplica (sem area distribuivel) e a saida continua
+        # igual a _EXPECTED_ORQUESTRADOR (comportamento orientado pelo conteudo).
         tela_raw = carregar_tela(_BASE_PADRAO, "orquestrador")
         modelo = construir_modelo(tela_raw)  # arranjo=vertical (padrao do JSON)
         saida = renderizar_tela(modelo, largura=42)
@@ -3203,10 +3236,12 @@ class TestPreenchimentoBordeadoH0021:
             "H0021-10: vertical sem altura preserva _EXPECTED_ORQUESTRADOR",
             saida == _EXPECTED_ORQUESTRADOR,
         )
-        saida_24 = renderizar_tela(modelo, largura=42, altura=24)
+        # H-0015 external fill e preservado para telas SEM distribuicao.
+        modelo_sd = _modelo_orquestrador_sem_distribuicao()
+        saida_24 = renderizar_tela(modelo_sd, largura=42, altura=24)
         fill_ext = [ln for ln in saida_24.split("\n") if ln == " " * 42]
         self._r(
-            "H0021-10: vertical com altura=24 mantem fill externo de espacos",
+            "H0021-10: vertical sem distribuicao com altura=24 mantem fill externo de espacos",
             len(fill_ext) > 0,
             "fills={0}".format(len(fill_ext)),
         )
@@ -3300,6 +3335,492 @@ class TestPreenchimentoBordeadoH0021:
         self.test_baseline_completo_continua_passando()
 
 
+def _alturas_caixas(saida):
+    """Alturas (em linhas) de cada caixa bordeada na saida, na ordem.
+
+    A primeira entrada e o cabecalho; a ultima e a barra_de_menus; as
+    intermediarias sao as caixas do corpo. Detecta bordas curvas (╭/╰) e
+    retas (┌/└).
+    """
+    linhas = saida.split("\n")
+    alturas = []
+    i = 0
+    while i < len(linhas):
+        ln = linhas[i]
+        if ln.startswith("╭") or ln.startswith("┌"):
+            topo = i
+            j = i + 1
+            while j < len(linhas) and not (
+                linhas[j].startswith("╰") or linhas[j].startswith("└")
+            ):
+                j += 1
+            alturas.append(j - topo + 1)
+            i = j + 1
+        else:
+            i += 1
+    return alturas
+
+
+def _corpo_alturas(saida):
+    """Alturas das caixas do corpo (exclui cabecalho e barra_de_menus)."""
+    alturas = _alturas_caixas(saida)
+    return alturas[1:-1]
+
+
+class TestDistribuicaoVerticalH0025:
+    """Cobertura da distribuicao vertical explicita do corpo (H-0025 / ADR-0018).
+
+    Cobre os minimos exigidos pelo H-0025 secao 10.2: ausencia preservada;
+    igual explicito; percentual; fracao [1,1,1], [2,1,2] e vetor generico
+    adicional; soma exata; maiores restos; desempate por ordem declarada;
+    preenchimento interno das molduras; ausencia de sobra externa; JSON real
+    do Orquestrador; redimensionamento; preservacao horizontal; telas sem
+    distribuicao inalteradas.
+    """
+
+    def _r(self, nome, passou, detalhe=""):
+        _registrar(nome, passou, detalhe)
+
+    def _espera_erro(self, nome, fn):
+        try:
+            fn()
+            self._r(nome, False, "nenhuma excecao levantada")
+            return None
+        except RenderizadorErro as exc:
+            self._r(nome, True, str(exc))
+            return exc
+        except Exception as exc:
+            self._r(nome, False, "excecao inesperada: {0!r}".format(exc))
+            return None
+
+    def _modelo_dist(self, distribuicao, n=3, titulos=None):
+        """Modelo vertical com n consoles e distribuicao declarada."""
+        if titulos is None:
+            titulos = [chr(ord("A") + i) for i in range(n)]
+        elementos = [
+            ElementoCorpo(
+                id=titulos[i].lower(), tipo="console",
+                _campos_inertes={"titulo": titulos[i]},
+            )
+            for i in range(n)
+        ]
+        return ModeloTela(
+            id="teste_h0025",
+            schema="tela.v1",
+            cabecalho={"titulo": "H0025", "descricao": "dist vertical"},
+            corpo=Corpo(
+                arranjo="vertical", elementos=elementos,
+                distribuicao=distribuicao,
+            ),
+            barra_de_menus={"chips": [{"id": "c1", "tecla": "k", "texto": "Ok"}]},
+            _raw={},
+        )
+
+    def _modelo_sem_dist(self, n=3, titulos=None):
+        """Modelo vertical sem distribuicao (orientado pelo conteudo)."""
+        return self._modelo_dist(None, n=n, titulos=titulos)
+
+    # ----------------------------------------------------------- algoritmo
+    def test_algoritmo_maiores_restos_exemplos_normativos(self):
+        # Exemplos normativos do contrato_composicao_corpo.md secao 5.8.
+        self._r(
+            "alg: 68 com [1,1,1] -> [23,23,22]",
+            _distribuir_alturas(68, [1, 1, 1]) == [23, 23, 22],
+            "obtido={0}".format(_distribuir_alturas(68, [1, 1, 1])),
+        )
+        self._r(
+            "alg: 68 com [2,1,2] -> [27,14,27]",
+            _distribuir_alturas(68, [2, 1, 2]) == [27, 14, 27],
+            "obtido={0}".format(_distribuir_alturas(68, [2, 1, 2])),
+        )
+
+    def test_algoritmo_soma_exata_invariante(self):
+        for altura, pesos in [
+            (18, [1, 1, 1]), (18, [2, 1, 2]), (18, [1, 3, 1]),
+            (18, [5, 2, 7]), (14, [1, 1, 1]), (101, [3, 5, 7, 11]),
+            (7, [1]), (66, [1, 1, 1]),
+        ]:
+            cotas = _distribuir_alturas(altura, pesos)
+            self._r(
+                "alg: soma das cotas == altura ({0}, {1})".format(altura, pesos),
+                sum(cotas) == altura,
+                "cotas={0} soma={1}".format(cotas, sum(cotas)),
+            )
+
+    def test_algoritmo_vetores_genericos_sem_codigo_especial(self):
+        # O mesmo codigo generico trata [1,1,1], [2,1,2], [1,3,1] e [5,2,7].
+        r_111 = _distribuir_alturas(30, [1, 1, 1])
+        r_212 = _distribuir_alturas(30, [2, 1, 2])
+        r_131 = _distribuir_alturas(30, [1, 3, 1])
+        r_527 = _distribuir_alturas(30, [5, 2, 7])
+        self._r(
+            "alg: [1,1,1] em 30 -> [10,10,10] (divisao exata)",
+            r_111 == [10, 10, 10],
+            "obtido={0}".format(r_111),
+        )
+        self._r(
+            "alg: [2,1,2] em 30 -> [12,6,12] (proporcao 2:1:2)",
+            r_212 == [12, 6, 12],
+            "obtido={0}".format(r_212),
+        )
+        self._r(
+            "alg: [1,3,1] em 30 -> [6,18,6] (proporcao 1:3:1)",
+            r_131 == [6, 18, 6],
+            "obtido={0}".format(r_131),
+        )
+        self._r(
+            "alg: [5,2,7] em 30 -> soma 30 (vetor generico)",
+            sum(r_527) == 30,
+            "obtido={0}".format(r_527),
+        )
+
+    def test_algoritmo_maiores_restos_distribui_residuo(self):
+        # 10 com [1,1,1]: 10/3=3.33 -> floor [3,3,3] soma 9, falta 1.
+        # Restos iguais (0.33): desempate por ordem declarada -> idx 0 recebe.
+        self._r(
+            "alg: 10 com [1,1,1] -> [4,3,3] (maiores restos)",
+            _distribuir_alturas(10, [1, 1, 1]) == [4, 3, 3],
+            "obtido={0}".format(_distribuir_alturas(10, [1, 1, 1])),
+        )
+
+    def test_algoritmo_desempate_por_ordem_declarada(self):
+        # 14 com [1,1,1]: 14/3=4.667 -> floor [4,4,4] soma 12, faltam 2.
+        # Restos iguais -> idx 0 e idx 1 recebem (ordem declarada).
+        self._r(
+            "alg: 14 com [1,1,1] -> [5,5,4] (desempate por ordem)",
+            _distribuir_alturas(14, [1, 1, 1]) == [5, 5, 4],
+            "obtido={0}".format(_distribuir_alturas(14, [1, 1, 1])),
+        )
+        # [2,2] em 5: 5*2/4=2.5 cada -> floor [2,2] soma 4, falta 1.
+        # Restos iguais (0.5) -> idx 0 recebe (ordem declarada).
+        self._r(
+            "alg: 5 com [2,2] -> [3,2] (empate: primeiro declarado)",
+            _distribuir_alturas(5, [2, 2]) == [3, 2],
+            "obtido={0}".format(_distribuir_alturas(5, [2, 2])),
+        )
+
+    def test_pesos_distribuicao_por_modo(self):
+        self._r(
+            "pesos: igual -> [1,1,1]",
+            _pesos_distribuicao({"modo": "igual"}, 3) == [1, 1, 1],
+        )
+        self._r(
+            "pesos: fracao -> valores declarados",
+            _pesos_distribuicao(
+                {"modo": "fracao", "valores": [2, 1, 2]}, 3) == [2, 1, 2],
+        )
+        self._r(
+            "pesos: percentual -> valores declarados",
+            _pesos_distribuicao(
+                {"modo": "percentual", "valores": [40, 20, 40]}, 3) == [40, 20, 40],
+        )
+
+    # ----------------------------------------------------- ausencia (D2)
+    def test_ausencia_preserva_altura_natural_sem_cota(self):
+        modelo = self._modelo_sem_dist()
+        saida_none = renderizar_tela(modelo, largura=42)
+        corpo_none = _corpo_alturas(saida_none)
+        # Cada console natural = 3 linhas (topo + "(console)" + base).
+        self._r(
+            "ausencia: sem altura, cada filho usa altura natural (3)",
+            corpo_none == [3, 3, 3],
+            "corpo={0}".format(corpo_none),
+        )
+        # Com altura suficiente, ausencia NAO distribui cota: preenchimento
+        # externo H-0015 (linhas de espacos abaixo do ultimo filho).
+        saida_24 = renderizar_tela(modelo, largura=42, altura=24)
+        corpo_24 = _corpo_alturas(saida_24)
+        self._r(
+            "ausencia: com altura=24, filhos permanecem com altura natural",
+            corpo_24 == [3, 3, 3],
+            "corpo={0}".format(corpo_24),
+        )
+        fill_ext = [ln for ln in saida_24.split("\n") if ln == " " * 42]
+        self._r(
+            "ausencia: preenchimento externo H-0015 presente (sem distribuicao)",
+            len(fill_ext) == 9,
+            "fills={0}".format(len(fill_ext)),
+        )
+
+    def test_ausencia_nao_materializa_igual_no_modelo(self):
+        modelo = self._modelo_sem_dist()
+        self._r(
+            "ausencia: modelo.corpo.distribuicao is None (sem fallback igual)",
+            modelo.corpo.distribuicao is None,
+        )
+
+    # -------------------------------------------------------- modos (D5-D7)
+    def test_igual_explicito_divide_igualmente(self):
+        modelo = self._modelo_dist({"modo": "igual"})
+        # l_cab=3, l_barra=3, l_corpo_disponivel = 24-3-3 = 18 -> [6,6,6].
+        saida = renderizar_tela(modelo, largura=42, altura=24)
+        corpo = _corpo_alturas(saida)
+        self._r(
+            "igual explicito em altura=24 -> [6,6,6]",
+            corpo == [6, 6, 6],
+            "corpo={0}".format(corpo),
+        )
+
+    def test_igual_explicito_maiores_restos(self):
+        modelo = self._modelo_dist({"modo": "igual"})
+        # altura=16 -> l_corpo=10 -> [4,3,3] (maiores restos + ordem).
+        saida = renderizar_tela(modelo, largura=42, altura=16)
+        corpo = _corpo_alturas(saida)
+        self._r(
+            "igual explicito em altura=16 -> [4,3,3] (maiores restos)",
+            corpo == [4, 3, 3],
+            "corpo={0}".format(corpo),
+        )
+
+    def test_percentual_explicito(self):
+        modelo = self._modelo_dist(
+            {"modo": "percentual", "valores": [40, 20, 40]}
+        )
+        saida = renderizar_tela(modelo, largura=42, altura=24)
+        corpo = _corpo_alturas(saida)
+        self._r(
+            "percentual [40,20,40] em altura=24 -> [7,4,7] (proporcao)",
+            corpo == [7, 4, 7],
+            "corpo={0}".format(corpo),
+        )
+
+    def test_fracao_111(self):
+        modelo = self._modelo_dist({"modo": "fracao", "valores": [1, 1, 1]})
+        saida = renderizar_tela(modelo, largura=42, altura=24)
+        corpo = _corpo_alturas(saida)
+        self._r(
+            "fracao [1,1,1] em altura=24 -> [6,6,6] (pesos iguais)",
+            corpo == [6, 6, 6],
+            "corpo={0}".format(corpo),
+        )
+
+    def test_fracao_212(self):
+        modelo = self._modelo_dist({"modo": "fracao", "valores": [2, 1, 2]})
+        saida = renderizar_tela(modelo, largura=42, altura=24)
+        corpo = _corpo_alturas(saida)
+        self._r(
+            "fracao [2,1,2] em altura=24 -> [7,4,7] (proporcao 2:1:2)",
+            corpo == [7, 4, 7],
+            "corpo={0}".format(corpo),
+        )
+
+    def test_fracao_vetor_generico_adicional(self):
+        # [1,3,1] e [5,2,7] pelo mesmo codigo generico (sem especializacao).
+        modelo_131 = self._modelo_dist({"modo": "fracao", "valores": [1, 3, 1]})
+        corpo_131 = _corpo_alturas(
+            renderizar_tela(modelo_131, largura=42, altura=24)
+        )
+        self._r(
+            "fracao [1,3,1] em altura=24 -> [4,11,3] soma 18",
+            corpo_131 == [4, 11, 3] and sum(corpo_131) == 18,
+            "corpo={0}".format(corpo_131),
+        )
+        modelo_527 = self._modelo_dist({"modo": "fracao", "valores": [5, 2, 7]})
+        corpo_527 = _corpo_alturas(
+            renderizar_tela(modelo_527, largura=42, altura=24)
+        )
+        self._r(
+            "fracao [5,2,7] em altura=24 -> soma 18",
+            sum(corpo_527) == 18,
+            "corpo={0}".format(corpo_527),
+        )
+
+    # --------------------------------------------- soma exata / sem sobra
+    def test_soma_das_cotas_igual_area_distribuivel(self):
+        for dist in [
+            {"modo": "igual"},
+            {"modo": "fracao", "valores": [1, 1, 1]},
+            {"modo": "fracao", "valores": [2, 1, 2]},
+            {"modo": "fracao", "valores": [1, 3, 1]},
+            {"modo": "percentual", "valores": [40, 20, 40]},
+        ]:
+            modelo = self._modelo_dist(dist)
+            saida = renderizar_tela(modelo, largura=42, altura=24)
+            corpo = _corpo_alturas(saida)
+            self._r(
+                "soma cotas == l_corpo_disponivel (18) para {0}".format(dist),
+                sum(corpo) == 18,
+                "corpo={0} soma={1}".format(corpo, sum(corpo)),
+            )
+
+    def test_sem_sobra_externa_abaixo_do_ultimo_filho(self):
+        modelo = self._modelo_dist({"modo": "fracao", "valores": [2, 1, 2]})
+        saida = renderizar_tela(modelo, largura=42, altura=24)
+        linhas = saida.split("\n")
+        # Localizar a ultima caixa do corpo (C) e a caixa Menus.
+        idx_ultimo_topo = max(i for i, ln in enumerate(linhas) if ln.startswith("╭ C"))
+        idx_menus = next(i for i, ln in enumerate(linhas) if ln.startswith("╭ Menus"))
+        entre = linhas[idx_ultimo_topo:idx_menus]
+        # Nenhuma linha de preenchimento externo (" "*42) entre as duas caixas.
+        fill_externo = [ln for ln in entre if ln == " " * 42]
+        self._r(
+            "distribuicao: sem sobra externa entre ultimo filho e barra",
+            len(fill_externo) == 0,
+            "fills={0}".format(len(fill_externo)),
+        )
+
+    # -------------------------------------------------- preenchimento interno
+    def test_preenchimento_interno_moldura_ocupa_cota(self):
+        modelo = self._modelo_dist({"modo": "fracao", "valores": [2, 1, 2]})
+        saida = renderizar_tela(modelo, largura=42, altura=24)
+        corpo = _corpo_alturas(saida)
+        # cota do primeiro filho (7) > altura natural do console (3).
+        self._r(
+            "preenchimento interno: primeiro filho ocupa cota (7 > natural 3)",
+            corpo[0] == 7,
+            "corpo={0}".format(corpo),
+        )
+        # As linhas internas do primeiro filho sao bordeadas (│ ... │).
+        linhas = saida.split("\n")
+        idx_topo_a = next(i for i, ln in enumerate(linhas) if ln.startswith("╭ A"))
+        idx_base_a = idx_topo_a + corpo[0] - 1
+        internas = linhas[idx_topo_a + 1:idx_base_a]
+        self._r(
+            "preenchimento interno: linhas internas bordeadas (│ ... │)",
+            len(internas) == corpo[0] - 2
+            and all(ln.startswith("│") and ln.endswith("│") for ln in internas),
+            "internas={0}".format(internas[:2]),
+        )
+        # Cada linha nao-vazia tem exatamente 42 chars.
+        self._r(
+            "preenchimento interno: cada linha tem 42 chars",
+            all(len(ln) == 42 for ln in linhas if ln != ""),
+        )
+
+    # ------------------------------------------------------ JSON real (D9)
+    def test_json_real_orquestrador_distribui_212(self):
+        modelo = construir_modelo(carregar_tela(_BASE_PADRAO, "orquestrador"))
+        self._r(
+            "JSON real: orquestrador declara fracao [2,1,2]",
+            isinstance(modelo.corpo.distribuicao, dict)
+            and modelo.corpo.distribuicao.get("valores") == [2, 1, 2],
+        )
+        saida = renderizar_tela(modelo, largura=42, altura=24)
+        corpo = _corpo_alturas(saida)
+        # l_corpo_disponivel=18 -> [7,4,7] para ITENS/INFO/NAVEGAR.
+        self._r(
+            "JSON real: altura=24 distribui [7,4,7] entre ITENS/INFO/NAVEGAR",
+            corpo == [7, 4, 7],
+            "corpo={0}".format(corpo),
+        )
+        # Sem preenchimento externo (sobra absorvida internamente).
+        fill_ext = [ln for ln in saida.split("\n") if ln == " " * 42]
+        self._r(
+            "JSON real: sem preenchimento externo (sobra interna nas molduras)",
+            len(fill_ext) == 0,
+            "fills={0}".format(len(fill_ext)),
+        )
+        self._r(
+            "JSON real: total de linhas == 24",
+            saida.count("\n") == 24,
+            "count={0}".format(saida.count("\n")),
+        )
+
+    def test_json_real_sem_altura_preserva_conteudo_natural(self):
+        modelo = construir_modelo(carregar_tela(_BASE_PADRAO, "orquestrador"))
+        saida = renderizar_tela(modelo, largura=42)
+        self._r(
+            "JSON real: sem altura preserva _EXPECTED_ORQUESTRADOR (natural)",
+            saida == _EXPECTED_ORQUESTRADOR,
+        )
+
+    # ----------------------------------------------------- redimensionamento
+    def test_redimensionamento_recalcula_cotas(self):
+        modelo = self._modelo_dist({"modo": "fracao", "valores": [2, 1, 2]})
+        saida_24 = renderizar_tela(modelo, largura=42, altura=24)
+        saida_30 = renderizar_tela(modelo, largura=42, altura=30)
+        corpo_24 = _corpo_alturas(saida_24)
+        corpo_30 = _corpo_alturas(saida_30)
+        # altura=24 -> l_corpo=18 -> [7,4,7]; altura=30 -> l_corpo=24 -> [10,5,9]?
+        # 24*2/5=9.6, 24*1/5=4.8, 24*2/5=9.6 -> floor [9,4,9] soma 22, faltam 2.
+        # restos [0.6,0.8,0.6] -> idx1, depois idx0 (ordem) -> [10,5,9].
+        self._r(
+            "redimensionamento: altura=24 -> [7,4,7]",
+            corpo_24 == [7, 4, 7],
+            "corpo={0}".format(corpo_24),
+        )
+        self._r(
+            "redimensionamento: altura=30 -> [10,5,9] (recalculado)",
+            corpo_30 == [10, 5, 9],
+            "corpo={0}".format(corpo_30),
+        )
+        self._r(
+            "redimensionamento: soma cotas acompanha altura (18 e 24)",
+            sum(corpo_24) == 18 and sum(corpo_30) == 24,
+        )
+
+    # ------------------------------------------- preservacao sem distribuicao
+    def test_telas_sem_distribuicao_nao_mudam(self):
+        # destino_minimo e grupo_minimo nao declaram distribuicao.
+        for id_tela in ("destino_minimo", "grupo_minimo", "stub_b"):
+            modelo = construir_modelo(carregar_tela(_BASE_PADRAO, id_tela))
+            self._r(
+                "{0}: sem distribuicao (distribuicao is None)".format(id_tela),
+                modelo.corpo.distribuicao is None,
+                "dist={0!r}".format(modelo.corpo.distribuicao),
+            )
+
+    # ------------------------------------------------- arranjo horizontal (D1)
+    def test_arranjo_horizontal_nao_regride_com_distribuicao(self):
+        # distribuicao declarada em arranjo horizontal: o ciclo H-0025 nao
+        # implementa distribuicao horizontal; o comportamento horizontal
+        # existente (H-0019/H-0020/H-0021) deve permanecer sem regressao.
+        modelo_h = ModeloTela(
+            id="teste_h0025_h",
+            schema="tela.v1",
+            cabecalho={"titulo": "H0025H", "descricao": "horizontal"},
+            corpo=Corpo(
+                arranjo="horizontal",
+                elementos=[
+                    ElementoCorpo(id="a", tipo="console", _campos_inertes={"titulo": "A"}),
+                    ElementoCorpo(id="b", tipo="console", _campos_inertes={"titulo": "B"}),
+                ],
+                distribuicao={"modo": "fracao", "valores": [1, 1]},
+            ),
+            barra_de_menus={"chips": [{"id": "c1", "tecla": "k", "texto": "Ok"}]},
+            _raw={},
+        )
+        saida = renderizar_tela(modelo_h, largura=42)
+        self._r(
+            "horizontal + distribuicao declarada: renderiza sem erro",
+            isinstance(saida, str) and len(saida) > 0,
+        )
+        self._r(
+            "horizontal + distribuicao: '╮╭' presente (particionamento contiguo)",
+            "╮╭" in saida,
+        )
+        self._r(
+            "horizontal + distribuicao: cada linha tem 42 chars",
+            all(len(ln) == 42 for ln in saida.split("\n") if ln != ""),
+        )
+
+    def run_all(self):
+        print("")
+        print("== H-0025 - distribuicao vertical explicita da area do corpo ==")
+        self.test_algoritmo_maiores_restos_exemplos_normativos()
+        self.test_algoritmo_soma_exata_invariante()
+        self.test_algoritmo_vetores_genericos_sem_codigo_especial()
+        self.test_algoritmo_maiores_restos_distribui_residuo()
+        self.test_algoritmo_desempate_por_ordem_declarada()
+        self.test_pesos_distribuicao_por_modo()
+        self.test_ausencia_preserva_altura_natural_sem_cota()
+        self.test_ausencia_nao_materializa_igual_no_modelo()
+        self.test_igual_explicito_divide_igualmente()
+        self.test_igual_explicito_maiores_restos()
+        self.test_percentual_explicito()
+        self.test_fracao_111()
+        self.test_fracao_212()
+        self.test_fracao_vetor_generico_adicional()
+        self.test_soma_das_cotas_igual_area_distribuivel()
+        self.test_sem_sobra_externa_abaixo_do_ultimo_filho()
+        self.test_preenchimento_interno_moldura_ocupa_cota()
+        self.test_json_real_orquestrador_distribui_212()
+        self.test_json_real_sem_altura_preserva_conteudo_natural()
+        self.test_redimensionamento_recalcula_cotas()
+        self.test_telas_sem_distribuicao_nao_mudam()
+        self.test_arranjo_horizontal_nao_regride_com_distribuicao()
+
+
 def main():
     print("Diagnostico H-0010A - renderer declarativo (curva/reta)")
     print("Base padrao: {0}".format(_BASE_PADRAO))
@@ -3321,6 +3842,7 @@ def main():
     TestArranjoH0019().run_all()
     TestPreenchimentoVerticalH0020().run_all()
     TestPreenchimentoBordeadoH0021().run_all()
+    TestDistribuicaoVerticalH0025().run_all()
 
     print("")
     print("== Resumo ==")

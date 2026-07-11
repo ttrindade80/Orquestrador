@@ -200,6 +200,60 @@ def _contar_linhas(caixa_str):
     return caixa_str.count("\n") + 1
 
 
+def _pesos_distribuicao(distribuicao, n_filhos):
+    """Devolve a lista de pesos positivos a partir da declaracao de distribuicao.
+
+    - ``igual``: pesos equivalentes (``[1] * n_filhos``) — ADR-0018 D5.
+    - ``percentual``/``fracao``: os proprios valores declarados, associados
+      posicionalmente a ordem declarada dos filhos — ADR-0018 D6/D7.
+
+    O algoritmo e generico: nenhum vetor concreto e hardcoded. O dict ja
+    validado pelo loader e usado como-esta, sem substituir seus valores.
+    """
+    modo = distribuicao.get("modo")
+    if modo == "igual":
+        return [1] * n_filhos
+    return list(distribuicao.get("valores", []))
+
+
+def _distribuir_alturas(altura_disponivel, pesos):
+    """Reparte ``altura_disponivel`` entre os pesos pelo metodo dos maiores
+    restos (ADR-0015 secao 5.8; ADR-0018 D6/D7).
+
+    Invariantes:
+    - ``sum(cotas) == altura_disponivel`` (soma exata);
+    - cada cota e inteira nao negativa;
+    - empates de resto fracionario sao resolvidos pela ORDEM DECLARADA
+      (menor indice prevalece).
+
+    Algoritmo:
+    1. cota ideal real de cada filho = ``altura_disponivel * peso / soma``;
+    2. parte inteira (floor) de cada cota;
+    3. ``faltam = altura_disponivel - sum(partes_inteiras)``;
+    4. ordenar filhos por resto fracionario decrescente, desempatando por
+       indice crescente (ordem declarada);
+    5. atribuir uma unidade aos ``faltam`` maiores restos.
+    """
+    n = len(pesos)
+    if n == 0:
+        return []
+    soma = float(sum(pesos))
+    if soma <= 0:
+        raise RenderizadorErro(
+            "distribuicao: soma de pesos nao e positiva: {0}".format(soma)
+        )
+    ideais = [altura_disponivel * p / soma for p in pesos]
+    cotas = [int(x) for x in ideais]  # floor (valores >= 0)
+    faltam = altura_disponivel - sum(cotas)
+    restos = sorted(
+        range(n),
+        key=lambda i: (-ideais[i] + int(ideais[i]), i),
+    )
+    for k in range(faltam):
+        cotas[restos[k]] += 1
+    return cotas
+
+
 def _linhas_console(elemento):
     """Linhas de conteudo para elemento console (placeholder de escopo)."""
     return [_PLACEHOLDER_CONSOLE]
@@ -663,7 +717,7 @@ def _linhas_barra(barra_de_menus, content_w):
     )
 
 
-def _caixa_de_elemento(elemento, borda, inner_w, content_w, label_max):
+def _caixa_de_elemento(elemento, borda, inner_w, content_w, label_max, altura_alvo=None):
     """Despacha um elemento funcional para sua caixa bordeada.
 
     Retorna a string da caixa do elemento (console/dashboard/lancador) ou
@@ -671,24 +725,30 @@ def _caixa_de_elemento(elemento, borda, inner_w, content_w, label_max):
     diretos de ``corpo.elementos[]`` (lista plana) quanto para os elementos
     funcionais internos de um grupo estrutural (H-0012) -- o despacho e
     identico nos dois casos.
+
+    ``altura_alvo`` (H-0025 / ADR-0018 D4): quando fornecida, a moldura do
+    elemento ocupa exatamente essa altura, preenchendo internamente com
+    linhas em branco bordeadas quando o conteudo natural e menor que a cota.
+    Quando ``None``, preserva o comportamento anterior (topo + conteudo +
+    base, sem preenchimento interno).
     """
     if elemento.tipo == "console":
         titulo_el = elemento._campos_inertes.get("titulo", "CONSOLE")
         return _caixa(
             titulo_el.upper(), _linhas_console(elemento),
-            borda, inner_w, content_w, label_max,
+            borda, inner_w, content_w, label_max, altura_alvo,
         )
     if elemento.tipo == "dashboard":
         titulo_el = elemento._campos_inertes.get("titulo", "DASHBOARD")
         return _caixa(
             titulo_el.upper(), _linhas_dashboard(elemento),
-            borda, inner_w, content_w, label_max,
+            borda, inner_w, content_w, label_max, altura_alvo,
         )
     if elemento.tipo == "lancador":
         titulo_el = elemento._campos_inertes.get("titulo", "LANCADOR")
         return _caixa(
             titulo_el.upper(), _linhas_lancador(elemento),
-            borda, inner_w, content_w, label_max,
+            borda, inner_w, content_w, label_max, altura_alvo,
         )
     return None
 
@@ -898,6 +958,14 @@ def renderizar_tela(
     # pré-computação no modo horizontal com altura (evitar dupla chamada — R-4).
     linhas_barra = None
 
+    # H-0025 / ADR-0018: distribuicao vertical explicita. So ativa quando o
+    # container declara ``distribuicao`` (ausencia NAO equivale a ``igual``),
+    # o arranjo e vertical (None/sobreposto normalizados inclusive) e uma
+    # ``altura`` util foi fornecida. Sem ``altura`` nao ha area distribuivel e
+    # o caminho orientado pelo conteudo e tomado integralmente.
+    distribuicao_corpo = modelo.corpo.distribuicao
+    _corpo_vertical_distribuido = False
+
     if arranjo_corpo == "horizontal":
         # Particionamento horizontal contíguo entre filhos diretos (H-0019).
         # Grupo não é expandido neste ciclo (ADR-0015 D2).
@@ -924,8 +992,56 @@ def renderizar_tela(
         )
         if bloco_horizontal:
             partes.append(bloco_horizontal)
+    elif (
+        distribuicao_corpo is not None
+        and altura is not None
+    ):
+        # H-0025 / ADR-0018 D3/D4: distribuicao vertical explicita. Reparte a
+        # altura util integral entre os filhos diretos (maiores restos,
+        # desempate por ordem declarada). Cada moldura ocupa sua cota e a
+        # sobra vira preenchimento INTERNO (linhas em branco bordeadas dentro
+        # da moldura), nunca acumulada externamente abaixo do ultimo filho.
+        if linhas_barra is None:
+            linhas_barra = _linhas_barra(modelo.barra_de_menus, content_w)
+        l_cab = _contar_linhas(partes[0])
+        l_barra = len(linhas_barra) + 2
+        if l_cab + l_barra > altura:
+            raise RenderizadorErro(
+                "altura insuficiente: terminal com {0} linhas nao comporta "
+                "cabecalho ({1}) + barra_de_menus ({2})".format(
+                    altura, l_cab, l_barra
+                )
+            )
+        l_corpo_disponivel = altura - l_cab - l_barra
+
+        filhos_diretos = list(modelo.corpo.elementos)
+        pesos = _pesos_distribuicao(distribuicao_corpo, len(filhos_diretos))
+        cotas = _distribuir_alturas(l_corpo_disponivel, pesos)
+
+        for indice, elemento in enumerate(filhos_diretos):
+            cota = cotas[indice]
+            if elemento.tipo == "grupo":
+                # Grupo estrutural (H-0012): aplica a cota do slot ao elemento
+                # funcional interno (mesmo despacho da lista plana).
+                for interno in elemento.elementos:
+                    caixa = _caixa_de_elemento(
+                        interno, borda, inner_w, content_w, label_max,
+                        altura_alvo=cota,
+                    )
+                    if caixa is not None:
+                        partes.append(caixa)
+            else:
+                caixa = _caixa_de_elemento(
+                    elemento, borda, inner_w, content_w, label_max,
+                    altura_alvo=cota,
+                )
+                if caixa is not None:
+                    partes.append(caixa)
+        _corpo_vertical_distribuido = True
     else:
         # Comportamento atual: vertical / None / sobreposto (normalizado).
+        # Sem distribuicao declarada, preserva a construcao orientada pelo
+        # conteudo (cada filho usa sua altura natural) — ADR-0018 D2.
         for elemento in modelo.corpo.elementos:
             if elemento.tipo == "grupo":
                 # Grupo estrutural (H-0012): container sem caixa visual propria.
@@ -984,7 +1100,7 @@ def renderizar_tela(
                 )
             )
         l_corpo_fill = l_corpo_disponivel - l_corpo_conteudo
-        if l_corpo_fill > 0 and arranjo_corpo != "horizontal":
+        if l_corpo_fill > 0 and arranjo_corpo != "horizontal" and not _corpo_vertical_distribuido:
             # Linhas fisicas de preenchimento, cada uma com exatamente
             # ``total_w`` espacos, inseridas apos o ultimo box de elemento
             # do corpo e antes do box da barra_de_menus. Preserva os
@@ -993,6 +1109,9 @@ def renderizar_tela(
             # H-0020 (A-003): guarda explícita — modo horizontal já absorveu
             # o fill internamente em _montar_corpo_horizontal; não inserir
             # fill externo adicional.
+            # H-0025 (D4): guarda explícita — distribuicao vertical explicita
+            # absorve toda a area util internamente nas molduras dos filhos;
+            # nao inserir fill externo adicional abaixo do ultimo filho.
             partes.append(
                 "\n".join(" " * total_w for _ in range(l_corpo_fill))
             )

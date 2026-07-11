@@ -16,6 +16,7 @@ metadata:
       - docs/adr/ADR-0010-composicao-hierarquica-corpo-dashboard.md
       - docs/adr/ADR-0011-terminologia-arranjo-vertical-horizontal.md
       - docs/adr/ADR-0015-composicao-hierarquica-distribuicao-corpo.md
+      - docs/adr/ADR-0018-semantica-ausencia-distribuicao-alocacao-vertical.md
     reaproveitado_de_legado: false
 ---
 
@@ -202,17 +203,32 @@ Campos mínimos de `grupo`:
 }
 ```
 
-`distribuicao` é opcional. Quando não declarada, o comportamento é
-equivalente ao modo `igual`.
+`distribuicao` é opcional. Sua ausência **não** equivale ao modo `igual`
+(ADR-0018, 2026-07-11): quando `distribuicao` não é declarada, o container
+preserva a construção orientada pelo conteúdo — cada filho usa sua altura/largura
+natural e a sobra permanece como preenchimento externo do container, conforme a
+ocupação já normatizada (ADR-0013), sem repartição proporcional automática. `igual`
+permanece modo válido apenas quando declarado explicitamente. Ver
+`contrato_composicao_corpo.md` seção 5.7 e a ADR-0018.
 
 ### 6.3 Distribuição por container (ADR-0015)
 
 `corpo` e `grupo` podem declarar `distribuicao`. `distribuicao` é **opcional**
-no envelope mínimo — sua ausência é válida e equivale ao modo `igual`.
+no envelope mínimo — sua ausência é válida.
+
+**Ausência de `distribuicao` não é modo `igual` (ADR-0018, 2026-07-11)**: a
+ausência **deixou de** equivaler ao modo `igual`. Quando `distribuicao` não é
+declarada, o container preserva a construção orientada pelo conteúdo — cada filho
+usa sua dimensão natural e a sobra permanece como preenchimento externo do
+container (ADR-0013), sem repartição proporcional automática de toda a área útil.
 
 Quando declarada, `distribuicao` rege como a área disponível do container é
-repartida entre seus filhos diretos. Ver `contrato_composicao_corpo.md`
-seções 5.7 a 5.9 para modos e regras de arredondamento.
+repartida entre seus filhos diretos e **aloca área**, não apenas o tamanho do
+conteúdo natural. Os modos explícitos válidos são `igual`, `percentual` e
+`fracao`; `igual` só se aplica quando declarado, não como default implícito da
+ausência. Ver `contrato_composicao_corpo.md` seções 5.7 a 5.9 para modos e regras
+de arredondamento, e a ADR-0018 para a semântica de ausência × distribuição
+explícita.
 
 Tipo desconhecido em `corpo.elementos[]` é erro de validação.
 

@@ -21,6 +21,7 @@ metadata:
       - docs/adr/ADR-0013-ocupacao-vertical-janela-terminal-corpo.md
       - docs/adr/ADR-0015-composicao-hierarquica-distribuicao-corpo.md
       - docs/adr/ADR-0017-redimensionamento-reativo-tui.md
+      - docs/adr/ADR-0018-semantica-ausencia-distribuicao-alocacao-vertical.md
     reaproveitado_de_legado: false
 ---
 
@@ -276,6 +277,16 @@ Cada container (`corpo` ou `grupo`) declara o **arranjo dos seus filhos diretos*
 
 O arranjo de um container **não obriga** o arranjo dos containers filhos.
 
+**Arranjo e distribuição são distintos (ADR-0018, 2026-07-11)**: `arranjo`
+declara a **ordem/composição** dos filhos diretos no eixo; ele **não** determina
+sozinho a repartição proporcional de toda a área do container. Em particular,
+`corpo.arranjo = "vertical"` ordena os filhos verticalmente, mas **não** implica
+automaticamente o modo `igual` nem obriga repartir proporcionalmente toda a altura
+disponível. `arranjo` permanece válido sem `distribuicao`. A repartição
+proporcional de área só ocorre quando o container declara `distribuicao`
+(seção 4.9). A tabela acima descreve o eixo repartido **quando há distribuição
+explícita**; sem distribuição, ver a semântica de ausência na seção 5.7.
+
 ### 4.9 Distribuição por container (ADR-0015)
 
 A distribuição pertence ao mesmo container que declara o arranjo.
@@ -286,6 +297,17 @@ A distribuição pertence ao mesmo container que declara o arranjo.
 - elemento funcional deve preservar a área alocada;
 - sobra horizontal vira padding/espaços em branco;
 - sobra vertical vira linhas em branco.
+
+**Ausência × distribuição explícita (ADR-0018, 2026-07-11)**: a `distribuicao`
+é **opcional**. Sua ausência **não** equivale ao modo `igual` e **não** dispara
+repartição proporcional automática da área útil (ver seção 5.7). Quando um
+container **declara** `distribuicao`, a área útil disponível — no eixo do arranjo —
+é repartida integralmente entre os filhos diretos: a soma das cotas ocupa **toda**
+a área distribuível, descontadas apenas as linhas/colunas estruturais externas
+definidas pelos contratos aplicáveis. A distribuição aloca área (não somente o
+tamanho natural do conteúdo), e a cota excedente ao conteúdo vira preenchimento
+**interno** da moldura do elemento (seção 5.9), nunca sobra acumulada fora do
+último filho.
 
 **Regra de quantidade de valores:**
 
@@ -506,11 +528,32 @@ a última termina no último caractere útil. (ADR-0015)
 
 ---
 
-### 5.7 Modos de distribuição (ADR-0015)
+### 5.7 Modos de distribuição (ADR-0015, ADR-0018)
 
-#### Modo `igual`
+#### Ausência de `distribuicao` — construção orientada pelo conteúdo (ADR-0018)
 
-Divide a área disponível igualmente entre filhos diretos.
+Quando um container **não** declara `distribuicao`:
+
+- preserva-se a construção orientada pelo conteúdo;
+- cada filho direto usa sua **dimensão natural** conforme o conteúdo e as regras
+  próprias do tipo;
+- a ausência **não** equivale ao modo `igual` e **não** é fallback implícito de
+  nenhum modo;
+- **não** se reparte automaticamente toda a área útil entre os filhos;
+- a sobra no eixo do arranjo pode permanecer como **preenchimento externo** do
+  container, conforme o mecanismo de ocupação já existente (ADR-0013) — no eixo
+  vertical, linhas em branco acumuladas entre o último filho e a região seguinte.
+
+Esta é a substituição normativa introduzida pela ADR-0018 (2026-07-11) sobre o
+ponto em que a ausência de `distribuicao` era tratada como equivalente ao modo
+`igual`. Ver seção 10 (relação ADR-0015 × ADR-0018).
+
+#### Modo `igual` (explícito)
+
+Divide a área disponível igualmente entre filhos diretos, com pesos iguais,
+aplicando arredondamento e resíduos conforme a seção 5.8. `igual` é um modo
+**válido apenas quando declarado explicitamente**; **não** é o significado
+implícito da ausência de `distribuicao` (ADR-0018).
 
 #### Modo `percentual`
 
@@ -530,9 +573,40 @@ Exemplo: `[40, 20, 40]` significa 40%, 20%, 40%.
 - denominador implícito é a soma dos pesos;
 - fração de cada filho é `valor_do_filho / soma_dos_valores`.
 
-Exemplos:
-- `[1, 1, 1]` significa `1/3`, `1/3`, `1/3`.
-- `[2, 1, 2]` significa `2/5`, `1/5`, `2/5`, equivalente a 40%, 20%, 40%.
+**Genericidade (ADR-0018)**: qualquer vetor válido de pesos positivos deve ser
+suportado. O renderer **não** pode ser especializado para um vetor concreto nem
+hardcodar valores. Os vetores abaixo são **exemplos não exaustivos**, não
+defaults nem regras internas:
+
+- `[1, 1, 1]` significa `1/3`, `1/3`, `1/3` (pesos iguais);
+- `[2, 1, 2]` significa `2/5`, `1/5`, `2/5`, equivalente a 40%, 20%, 40%;
+- `[1, 3, 1]` e `[5, 2, 7]` são igualmente válidos.
+
+`[2, 1, 2]` é apenas uma possível configuração concreta de tela — não é regra
+interna do renderer. Um vetor matematicamente válido não se torna inválido
+apenas porque o conteúdo natural de um elemento não cabe na cota em terminal
+pequeno; esse caso é lacuna externa à ADR-0018 (ver seção 5.7.1).
+
+#### 5.7.1 Conteúdo maior que a cota — lacuna externa à ADR-0018
+
+Quando uma cota atribuída for menor que a altura/largura natural do conteúdo de
+um elemento (por exemplo, em terminal muito pequeno), o tratamento **não** está
+decidido por esta versão. Ficam explicitamente **fora de escopo** da ADR-0018,
+sem política escolhida aqui:
+
+- altura mínima;
+- overflow;
+- truncamento;
+- paginação de `lancador`;
+- rejeição;
+- degradação;
+- redistribuição baseada no conteúdo natural;
+- prioridade por tipo de elemento.
+
+Um vetor válido continua válido; a insuficiência de cota é problema normativo
+separado (conteúdo que não cabe) e não bloqueia a distribuição geral em alturas
+onde o conteúdo cabe. Ver também a seção 5.10 (conceitos dinâmicos futuros) e a
+política de terminal pequeno da ADR-0017.
 
 #### Distribuição restrita/dinâmica
 
@@ -573,6 +647,16 @@ com branco.
 
 - **Horizontal:** preencher com espaços; preservar largura da faixa.
 - **Vertical:** preencher com linhas em branco; preservar altura da faixa.
+
+**Preenchimento interno quando há distribuição explícita (ADR-0018, 2026-07-11)**:
+quando a cota atribuída for maior que o conteúdo natural do elemento, a moldura
+do elemento ocupa a **cota completa** e a sobra vira linhas em branco (ou espaços,
+no eixo horizontal) **dentro** da moldura desse elemento. A sobra **não** fica
+acumulada externamente abaixo do último filho. No eixo vertical com distribuição
+explícita, o espaço entre a borda inferior do último elemento e a região seguinte
+(por exemplo, a `barra_de_menus`) é incorporado às áreas dos filhos. A distinção
+é normativa: **sem** `distribuicao`, a sobra pode permanecer externa (seção 5.7,
+ADR-0013); **com** `distribuicao`, a sobra é interna às molduras.
 
 ---
 
@@ -749,10 +833,15 @@ como elemento funcional é erro estrutural.
 Estruturas com nível 4 ou superior devem ser rejeitadas com erro estrutural
 determinístico. O renderer não tenta renderizar estruturas além do nível 3.
 
-**R-17. Arranjo por container (ADR-0015).**
-O arranjo de um container (`corpo` ou `grupo`) declara o eixo de distribuição
-dos seus filhos diretos. Um container filho pode ter arranjo diferente do
-container pai.
+**R-17. Arranjo por container (ADR-0015; ADR-0018).**
+O arranjo de um container (`corpo` ou `grupo`) define o eixo de composição dos
+seus filhos diretos: `arranjo = horizontal` organiza os filhos no eixo
+horizontal; `arranjo = vertical` organiza os filhos no eixo vertical. O arranjo,
+sozinho, não reparte nem aloca a dimensão disponível: sem `distribuicao`, ele
+apenas organiza os filhos conforme suas dimensões orientadas pelo conteúdo.
+A repartição da dimensão é feita somente pela `distribuicao` explícita — quando
+declarada, ela reparte a largura no arranjo horizontal ou a altura no arranjo
+vertical. Um container filho pode ter arranjo diferente do container pai.
 
 **R-18. Distribuição aloca área, não apenas conteúdo (ADR-0015).**
 O renderer deve preservar a área alocada. Conteúdo menor que a área recebe
@@ -849,6 +938,20 @@ mantidas sem que o redesenho seja acionado.
       diretos, sem herança obrigatória para containers filhos (R-17).
 - [ ] A área alocada pela distribuição é preservada; conteúdo menor recebe
       preenchimento de espaços ou linhas em branco (R-18).
+- [ ] `corpo.arranjo = "vertical"` sozinho não dispara repartição proporcional da
+      altura nem modo `igual`; a repartição só ocorre com `distribuicao` declarada
+      (seção 4.8, ADR-0018).
+- [ ] A ausência de `distribuicao` preserva a construção orientada pelo conteúdo
+      (dimensão natural + preenchimento externo da ADR-0013) e não equivale ao
+      modo `igual` (seção 5.7, ADR-0018).
+- [ ] `igual` só reparte área igualmente quando declarado explicitamente; não é
+      fallback implícito da ausência (seção 5.7, ADR-0018).
+- [ ] Com `distribuicao` explícita, a soma das cotas ocupa toda a área
+      distribuível e a cota excedente ao conteúdo vira preenchimento interno da
+      moldura do elemento, não sobra acumulada abaixo do último filho
+      (seções 4.9 e 5.9, ADR-0018).
+- [ ] `fracao`/`percentual` aceitam qualquer vetor válido de valores positivos;
+      nenhum vetor concreto é hardcodado (seção 5.7, ADR-0018).
 - [ ] `len(distribuicao.valores) == len(elementos)` para o container onde a
       distribuição é declarada, contando somente filhos diretos (seção 4.9).
 - [ ] Arredondamento usa método dos maiores restos; soma das áreas alocadas é
@@ -909,3 +1012,37 @@ Itens adiados intencionalmente — não são lacunas de especificação:
   da instância de `lancador` em `tela.json` pertencem ao contrato próprio.
 - **Revisão de `console` como container genérico** (DOC-0024): contrato e
   classes de tipos internos de item de `console` são pendência DOC-B008.
+
+---
+
+## 10. Relação normativa entre ADR-0015 e ADR-0018
+
+A ADR-0015 permanece a autoridade da composição hierárquica do corpo: árvore de
+composição, nó `grupo`, arranjo e distribuição por container, associação a filhos
+diretos, modos `igual`/`percentual`/`fracao`, arredondamento por maiores restos,
+desempate pela ordem declarada e preenchimento de área alocada. Todos esses
+pontos continuam vigentes.
+
+A ADR-0018 (2026-07-11) **substitui parcialmente** a ADR-0015 **somente** no ponto
+em que a ausência de `distribuicao` era tratada como equivalente ao modo `igual`.
+A partir da ADR-0018:
+
+- `arranjo` e `distribuicao` são conceitos distintos: arranjo é ordem de
+  composição; distribuição é repartição de área (seção 4.8);
+- a ausência de `distribuicao` preserva a construção orientada pelo conteúdo e
+  **não** equivale ao modo `igual` (seção 5.7);
+- `igual` permanece modo válido apenas quando declarado explicitamente e não é
+  fallback implícito da ausência (seção 5.7);
+- a distribuição explícita reparte integralmente a altura/largura útil e a sobra
+  vira preenchimento interno das molduras dos filhos (seções 4.9 e 5.9);
+- `percentual` e `fracao` permanecem genéricos; nenhum vetor concreto pode ser
+  hardcodado (seção 5.7);
+- conteúdo maior que a cota é lacuna externa à ADR-0018 e não é decidido aqui
+  (seção 5.7.1).
+
+A ADR-0015 histórica **não** é reescrita por este contrato; registra-se apenas
+que o ponto conflitante foi substituído pela ADR-0018. A ADR-0013 (ocupação
+vertical) e a ADR-0017 (redimensionamento reativo) permanecem preservadas: a
+altura útil repartida pela distribuição é obtida pelo mecanismo da ADR-0017, e o
+preenchimento externo da ADR-0013 é o comportamento aplicável **na ausência** de
+distribuição.

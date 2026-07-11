@@ -22,6 +22,10 @@
   },
   "corpo": {
     "arranjo": "vertical",
+    "distribuicao": {
+      "modo": "fracao",
+      "valores": [2, 1, 2]
+    },
     "elementos": [
       {
         "id": "console_principal",

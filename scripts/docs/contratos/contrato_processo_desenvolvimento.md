@@ -152,6 +152,29 @@ sobre se o suporte existe, tratar como ciclo formal até confirmar.
 A regra acima foi formalizada a partir da validação declarativa com `stub_b`
 registrada em `f41bd2f`.
 
+### 10.1 JSON necessário a um handoff que também altera código (ADR-0018)
+
+A distinção da seção 10 é preservada: mudança **puramente** declarativa em JSON,
+com suporte completo já existente (todas as condições da seção 10 satisfeitas),
+pode continuar **sem handoff próprio**. Esta subseção não transforma toda
+alteração JSON em ciclo de implementação.
+
+Porém, quando uma alteração de JSON for **necessária para implementar, demonstrar
+ou validar um handoff que também altera código** (ADR-0018, 2026-07-11), essa
+alteração declarativa deve integrar o **próprio handoff**. Nesse caso, o handoff
+deve:
+
+- listar o caminho do arquivo JSON alterável;
+- especificar a alteração declarativa exigida;
+- registrar os valores concretos já decididos;
+- incluir a validação sintática do JSON;
+- incluir os critérios de aceite e os testes correspondentes.
+
+O implementador **não** pode introduzir alteração de JSON omitida pelo handoff.
+Esta regra **não** autoriza o renderer a hardcodar valores do JSON: a
+configuração concreta pertence ao JSON da tela; o algoritmo genérico pertence ao
+código.
+
 ## 11. Alteração por termo específico completo (ADR-0014)
 
 Substrings ambíguas circulam no sistema com significados distintos. Por

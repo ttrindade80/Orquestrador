@@ -205,6 +205,27 @@ distintos podem ter distribuições distintas. Os modos formalizados são `igual
 estão registrados para ciclos futuros. Ver `contrato_composicao_corpo.md`
 seções 5.7 a 5.12.
 
+**Semântica de `corpo.distribuicao` — ausência × explícita (ADR-0018,
+2026-07-11)**: `corpo.distribuicao` é campo **opcional**. Sua ausência **não**
+equivale ao modo `igual` e **não** dispara repartição proporcional automática da
+altura útil: sem `distribuicao`, o corpo preserva a construção orientada pelo
+conteúdo — cada filho usa sua dimensão natural e a sobra permanece como
+preenchimento externo, conforme a ocupação vertical da ADR-0013. Quando
+`corpo.distribuicao` é declarada em container vertical, a altura útil disponível
+(região entre `cabecalho` e `barra_de_menus`, descontadas as linhas estruturais
+dos contratos) é repartida **integralmente** entre os filhos diretos: a
+distribuição **aloca área**, não apenas o tamanho do conteúdo, e a sobra vira
+preenchimento **interno** das molduras dos filhos, nunca acumulada abaixo do
+último elemento. `corpo.arranjo = "vertical"` declara ordem/composição e, por si
+só, **não** implica distribuição nem modo `igual`. Os modos explícitos válidos são
+`igual`, `percentual` e `fracao`, todos genéricos — nenhum vetor concreto é
+hardcodado. O valor concreto de distribuição de uma tela é **configuração da
+tela** (declaração no `tela.json`), distinta do **algoritmo genérico** do
+renderer, que deve suportar qualquer vetor válido. Conteúdo maior que a cota é
+lacuna externa à ADR-0018 (altura mínima, overflow, truncamento, paginação,
+rejeição, degradação — nenhuma decidida aqui). Ver `contrato_composicao_corpo.md`
+seções 4.8, 4.9, 5.7 a 5.9 e a ADR-0018.
+
 A sequência histórica registrada pela ADR-0010 foi cancelada como roteiro
 ativo. A partir de H-0014, a numeração de handoffs **não usa letras**
 (H-0014, H-0015, …), conforme estabelecido por H-0012/H-0013 e reafirmado

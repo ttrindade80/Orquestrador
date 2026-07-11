@@ -695,17 +695,33 @@ def teste_renderizar_estado_altura(modelo):
     # CA-01 / CA-03: altura minima (15) sem preenchimento, saida identica
     # ao comportamento natural (sem altura). H-0016: com a barra horizontal
     # responsiva em 1 linha, L_barra=3 e n_minimo=15.
+    #
+    # H-0025 secao 11.5 (item 1): o orquestrador real agora declara
+    # distribuicao (fracao [2,1,2]); em altura=15 essa distribuicao produz
+    # uma cota menor que a altura natural de algum filho — terminal
+    # insuficiente, caso explicitamente fora de escopo (ADR-0018 D8). Para
+    # preservar a cobertura "altura minima sem fill = saida natural", o
+    # sub-cenario usa um modelo SEM distribuicao (ausencia preserva o
+    # preenchimento externo H-0013/ADR-0018 D2). altura=15 nao e altura
+    # suportada normativa do produto; e apenas o minimo natural desta tela.
+    tela_raw_sd = carregar_tela(_BASE_PADRAO, "orquestrador")
+    corpo_sd = dict(tela_raw_sd["corpo"])
+    corpo_sd.pop("distribuicao", None)
+    tela_raw_sd = dict(tela_raw_sd)
+    tela_raw_sd["corpo"] = corpo_sd
+    modelo_sd = construir_modelo(tela_raw_sd)
     res_16 = renderizar_estado(
-        estado_curva, modelo, largura=42, altura=15
+        estado_curva, modelo_sd, largura=42, altura=15
     )
     _registrar(
-        "renderizar_estado(..., altura=15) -> 15 linhas (sem fill)",
+        "renderizar_estado(..., altura=15, sem distribuicao) -> 15 linhas (sem fill)",
         res_16.count("\n") == 15,
         "count={0}".format(res_16.count("\n")),
     )
     _registrar(
-        "renderizar_estado(..., altura=15) == renderizar_estado(..., largura=42)",
-        res_16 == renderizar_estado(estado_curva, modelo, largura=42),
+        "renderizar_estado(..., altura=15, sem distribuicao) == "
+        "renderizar_estado(..., largura=42) [sem altura]",
+        res_16 == renderizar_estado(estado_curva, modelo_sd, largura=42),
     )
 
     # altura=None preserva o comportamento atual.

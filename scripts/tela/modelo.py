@@ -56,10 +56,18 @@ class ElementoCorpo:
 
 @dataclass
 class Corpo:
-    """Corpo da tela: arranjo declarativo e lista de elementos."""
+    """Corpo da tela: arranjo declarativo e lista de elementos.
+
+    ``distribuicao`` (H-0025 / ADR-0018) e OPCIONAL: ``None`` significa
+    ausencia declarada, que preserva a construcao orientada pelo conteudo
+    (cada filho usa sua dimensao natural). Quando declarado, transporta o
+    dict validado ``{"modo": ..., "valores": ...}`` sem conversao implicita
+    de valores e sem materializar ``igual`` na ausencia.
+    """
 
     arranjo: str | None
     elementos: list  # lista de ElementoCorpo
+    distribuicao: dict | None = None
 
 
 @dataclass
@@ -260,7 +268,11 @@ def construir_modelo(tela_raw: dict) -> ModeloTela:
                 )
             )
 
-    corpo = Corpo(arranjo=corpo_raw.get("arranjo"), elementos=elementos)
+    corpo = Corpo(
+        arranjo=corpo_raw.get("arranjo"),
+        elementos=elementos,
+        distribuicao=corpo_raw.get("distribuicao"),
+    )
 
     return ModeloTela(
         id=tela_raw["id"],

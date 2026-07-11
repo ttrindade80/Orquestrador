@@ -120,6 +120,15 @@ def teste_modelo_orquestrador():
         modelo.corpo.arranjo == "vertical",
         "arranjo={0!r}".format(modelo.corpo.arranjo),
     )
+    # H-0025 / ADR-0018: modelo preserva distribuicao declarada sem conversao.
+    dist_modelo = modelo.corpo.distribuicao
+    _registrar(
+        "H-0025: modelo.corpo.distribuicao preserva fracao [2,1,2]",
+        isinstance(dist_modelo, dict)
+        and dist_modelo.get("modo") == "fracao"
+        and dist_modelo.get("valores") == [2, 1, 2],
+        "dist={0!r}".format(dist_modelo),
+    )
     _registrar(
         "modelo.corpo.elementos e lista com 3 itens",
         isinstance(modelo.corpo.elementos, list)
@@ -340,6 +349,13 @@ def teste_modelo_grupo_minimo():
         "modelo.id == 'grupo_minimo'",
         modelo.id == "grupo_minimo",
         "id={0!r}".format(modelo.id),
+    )
+    # H-0025 / ADR-0018 D2: ausencia de distribuicao e preservada como None
+    # (nao vira "igual" implicito).
+    _registrar(
+        "H-0025: grupo_minimo sem distribuicao -> modelo.corpo.distribuicao is None",
+        modelo.corpo.distribuicao is None,
+        "dist={0!r}".format(modelo.corpo.distribuicao),
     )
     _registrar(
         "modelo.corpo.elementos e lista com 1 item",

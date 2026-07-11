@@ -36,6 +36,11 @@ TIPOS_ESTRUTURAIS_VALIDOS = {"grupo"}
 # "sobreposto" e "lado_a_lado" sao aliases transicionais literais aceitos.
 ARRANJOS_CORPO_VALIDOS = {None, "vertical", "horizontal", "sobreposto", "lado_a_lado"}
 
+# Modos validos de corpo.distribuicao (H-0025 / ADR-0018). A ausencia de
+# corpo.distribuicao NAO equivale a "igual": preserva a construcao orientada
+# pelo conteudo (ADR-0018 D2). "igual" so existe quando declarado.
+MODOS_DISTRIBUICAO_CORPO_VALIDOS = {"igual", "percentual", "fracao"}
+
 _ID_TELA_RAIZ = "orquestrador"
 
 
@@ -133,6 +138,82 @@ class TelaGrupoInvalido(TelaErro):
 def _caminho_padrao_base():
     """Diretorio raiz do repositorio de scripts (pai de tela/)."""
     return Path(__file__).resolve().parent.parent
+
+
+def _eh_numero_nao_bool(valor):
+    """True quando valor e int/float mas nao bool (bool e subclasse de int)."""
+    return isinstance(valor, (int, float)) and not isinstance(valor, bool)
+
+
+def _validar_distribuicao_corpo(distribuicao, n_elementos):
+    """Valida corpo.distribuicao declarado (H-0025 / ADR-0018).
+
+    A distribuicao e OPCIONAL. Esta funcao so e chamada quando o campo existe.
+    A ausencia de distribuicao preserva a construcao orientada pelo conteudo
+    (ADR-0018 D2) e nao e tratada aqui.
+
+    Regras (H-0025 secao 2; contrato_composicao_corpo.md secao 5.7):
+
+    - deve ser um objeto;
+    - ``modo`` em {igual, percentual, fracao};
+    - ``igual``: nao exige ``valores`` (pesos equivalentes entre os filhos
+      diretos); nao e fallback da ausencia;
+    - ``percentual``: um valor por filho direto, todos positivos, soma
+      exatamente 100, associacao posicional;
+    - ``fracao``: um peso por filho direto, todos estritamente positivos,
+      denominador igual a soma dos pesos, associacao posicional;
+    - ``len(valores) == n_elementos`` (filhos diretos do container).
+
+    Erros sao levantados como ``TelaEstruturaInvalida`` (categoria ja usada
+    para corpo.arranjo), de forma deterministica, sem fallback silencioso.
+    Nao muta o dict recebido.
+    """
+    if not isinstance(distribuicao, dict):
+        raise TelaEstruturaInvalida(
+            "corpo.distribuicao deve ser um objeto; recebido: {0}".format(
+                type(distribuicao).__name__
+            )
+        )
+
+    modo = distribuicao.get("modo")
+    if modo not in MODOS_DISTRIBUICAO_CORPO_VALIDOS:
+        raise TelaEstruturaInvalida(
+            "corpo.distribuicao.modo invalido: {0!r}; valores aceitos: "
+            "igual, percentual, fracao".format(modo)
+        )
+
+    if modo == "igual":
+        # igual nao exige vetor concreto (H-0025 secao 2). Pesos equivalentes
+        # sao derivados no renderer ([1]*n). Nao ha validacao de valores aqui.
+        return
+
+    valores = distribuicao.get("valores")
+    if not isinstance(valores, list):
+        raise TelaEstruturaInvalida(
+            "corpo.distribuicao.valores invalido para modo {0!r}: "
+            "esperado lista".format(modo)
+        )
+
+    if len(valores) != n_elementos:
+        raise TelaEstruturaInvalida(
+            "corpo.distribuicao.valores com quantidade {0} divergente da "
+            "quantidade de filhos diretos ({1})".format(
+                len(valores), n_elementos
+            )
+        )
+
+    for indice, valor in enumerate(valores):
+        if not _eh_numero_nao_bool(valor) or valor <= 0:
+            raise TelaEstruturaInvalida(
+                "corpo.distribuicao.valores[{0}] invalido: {1!r}; esperado "
+                "numero estritamente positivo".format(indice, valor)
+            )
+
+    if modo == "percentual" and sum(valores) != 100:
+        raise TelaEstruturaInvalida(
+            "corpo.distribuicao percentual exige soma igual a 100; soma "
+            "encontrada: {0}".format(sum(valores))
+        )
 
 
 def _para_base(caminho_base):
@@ -359,12 +440,20 @@ def carregar_tela(caminho_base, id_tela):
             )
         )
 
+    # H-0025 / ADR-0018: corpo.distribuicao e OPCIONAL. A ausencia preserva
+    # a construcao orientada pelo conteudo (nao materializa "igual"). Quando
+    # declarada, e validada e preservada no dict de saida sem conversao.
+    distribuicao = corpo.get("distribuicao")
+    if distribuicao is not None:
+        _validar_distribuicao_corpo(distribuicao, len(elementos_internos))
+
     return {
         "id": id_interno,
         "schema": dados.get("schema"),
         "cabecalho": dados.get("cabecalho"),
         "corpo": {
             "arranjo": arranjo,
+            "distribuicao": distribuicao,
             "elementos": elementos_internos,
         },
         "barra_de_menus": dados.get("barra_de_menus"),
