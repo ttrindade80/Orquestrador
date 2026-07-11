@@ -94,6 +94,7 @@ from pathlib import Path
 _BASE_PADRAO = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(_BASE_PADRAO))
 
+import signal  # noqa: E402
 import subprocess  # noqa: E402
 import os  # noqa: E402
 
@@ -106,9 +107,22 @@ from tela.demo import (  # noqa: E402
     renderizar_estado,
     _iniciar_sessao_tui,
     _encerrar_sessao_tui,
+    _restaurar_efeitos_visuais_tui,
     _apresentar_quadro,
     _ler_tecla_sessao,
     captura_interrupcao_de_script,
+    _par_dimensoes_valido,
+    _obter_dimensoes_ioctl,
+    _obter_dimensoes_env,
+    _obter_dimensoes_iniciais,
+    _obter_dimensoes_apos_sigwinch,
+    _instalar_handler_sigwinch,
+    _restaurar_handler_sigwinch,
+    _tela_pequena_demais,
+    _quadro_minimo_aviso,
+    _resolver_conteudo,
+    LARGURA_MINIMA_TELA,
+    ALTURA_MINIMA_TELA,
 )
 from tela.diagnostico import gerar_diagnostico_tela  # noqa: E402
 
@@ -1657,12 +1671,11 @@ def teste_sessao_tui_h0022():
             raise KeyboardInterrupt("simulado durante processamento")
         return _ESTADO_SAINDO_7H
 
-    class _FakeTamanho7H:
-        columns = 80
-        lines = 24
-
     _ki_propagou_7h = [False]
     _resultado_7h = [-1]
+    # Com o novo main() TTY: select duplo, wakeup pipe e handler de SIGWINCH.
+    # Mockar select.select para retornar fd imediatamente (sem bloqueio) e
+    # mockar instalacao/restauracao do handler para evitar efeitos colaterais.
     try:
         with _patch("tela.demo.processar_comando", side_effect=_processar_com_ki), \
              _patch("tela.demo._ler_tecla_sessao", return_value="x"), \
@@ -1671,7 +1684,9 @@ def teste_sessao_tui_h0022():
              _patch("tela.demo._encerrar_sessao_tui"), \
              _patch("tela.demo._carregar_modelo_por_id", return_value=object()), \
              _patch("tela.demo.renderizar_estado", return_value=""), \
-             _patch("shutil.get_terminal_size", return_value=_FakeTamanho7H()), \
+             _patch("tela.demo._instalar_handler_sigwinch", return_value=signal.SIG_DFL), \
+             _patch("tela.demo._restaurar_handler_sigwinch"), \
+             _patch("select.select", return_value=([0], [], [])), \
              _patch("sys.stdin") as _stdin_7h, \
              _patch("sys.stdout") as _stdout_7h:
             _stdin_7h.isatty.return_value = True
@@ -1696,6 +1711,1250 @@ def teste_sessao_tui_h0022():
         _resultado_7h[0] == 0,
         "resultado={0!r}".format(_resultado_7h[0]),
     )
+
+
+def teste_redimensionamento_reativo_h0023():
+    print("")
+    print("== Secao 8 - Redimensionamento reativo (H-0023 / ADR-0017) ==")
+
+    import struct as _struct
+    import io as _io
+    from unittest.mock import patch as _patch, MagicMock, call as _call
+    import tela.demo as _demo_mod
+
+    # --- 8.1: _par_dimensoes_valido ---
+    print("")
+    print("-- 8.1: _par_dimensoes_valido --")
+
+    _registrar("8.1: (80, 24) valido", _par_dimensoes_valido(80, 24))
+    _registrar("8.1: (0, 24) invalido (zero)", not _par_dimensoes_valido(0, 24))
+    _registrar("8.1: (80, 0) invalido (zero)", not _par_dimensoes_valido(80, 0))
+    _registrar("8.1: (-1, 24) invalido (negativo)", not _par_dimensoes_valido(-1, 24))
+    _registrar("8.1: ('abc', 24) invalido (nao inteiro)", not _par_dimensoes_valido("abc", 24))
+    _registrar("8.1: (None, 24) invalido (ausente)", not _par_dimensoes_valido(None, 24))
+    _registrar("8.1: (80, None) invalido (ausente)", not _par_dimensoes_valido(80, None))
+    _registrar("8.1: ('80', '24') valido (string inteira)", _par_dimensoes_valido("80", "24"))
+
+    # --- 8.2: _obter_dimensoes_ioctl ---
+    print("")
+    print("-- 8.2: _obter_dimensoes_ioctl --")
+
+    import fcntl as _fcntl
+    import termios as _termios
+
+    buf_valido = _struct.pack("HHHH", 24, 80, 0, 0)
+    with _patch("fcntl.ioctl", return_value=buf_valido):
+        r_ioctl = _obter_dimensoes_ioctl(0)
+    _registrar("8.2: ioctl valido retorna (80, 24)", r_ioctl == (80, 24))
+
+    buf_zero = _struct.pack("HHHH", 0, 0, 0, 0)
+    with _patch("fcntl.ioctl", return_value=buf_zero):
+        r_ioctl_zero = _obter_dimensoes_ioctl(0)
+    _registrar("8.2: ioctl (0,0) retorna None (par invalido)", r_ioctl_zero is None)
+
+    with _patch("fcntl.ioctl", side_effect=OSError("ioctl failed")):
+        r_ioctl_err = _obter_dimensoes_ioctl(0)
+    _registrar("8.2: ioctl OSError retorna None", r_ioctl_err is None)
+
+    # --- 8.3: _obter_dimensoes_env ---
+    print("")
+    print("-- 8.3: _obter_dimensoes_env --")
+
+    with _patch.dict(os.environ, {"LINES": "24", "COLUMNS": "80"}, clear=False):
+        r_env = _obter_dimensoes_env()
+    _registrar("8.3: LINES=24 COLUMNS=80 retorna (80, 24)", r_env == (80, 24))
+
+    env_sem_cols = {k: v for k, v in os.environ.items() if k not in ("COLUMNS", "LINES")}
+    env_sem_cols["LINES"] = "24"
+    with _patch.dict(os.environ, env_sem_cols, clear=True):
+        r_env_sem_cols = _obter_dimensoes_env()
+    _registrar("8.3: LINES sem COLUMNS retorna None", r_env_sem_cols is None)
+
+    with _patch.dict(os.environ, {"LINES": "24", "COLUMNS": "0"}, clear=False):
+        r_env_zero = _obter_dimensoes_env()
+    _registrar("8.3: COLUMNS=0 retorna None (zero invalido)", r_env_zero is None)
+
+    with _patch.dict(os.environ, {"LINES": "abc", "COLUMNS": "80"}, clear=False):
+        r_env_inv = _obter_dimensoes_env()
+    _registrar("8.3: LINES='abc' retorna None (nao inteiro)", r_env_inv is None)
+
+    # --- 8.4: _obter_dimensoes_iniciais ---
+    print("")
+    print("-- 8.4: _obter_dimensoes_iniciais --")
+
+    buf_100_50 = _struct.pack("HHHH", 50, 100, 0, 0)
+    with _patch("fcntl.ioctl", return_value=buf_100_50), \
+         _patch.dict(os.environ, {"LINES": "24", "COLUMNS": "80"}, clear=False):
+        r_ini_ioctl = _obter_dimensoes_iniciais(0)
+    _registrar("8.4: ioctl prevalece sobre env: (100,50)", r_ini_ioctl == (100, 50))
+
+    env_vals = {k: v for k, v in os.environ.items() if k not in ("COLUMNS", "LINES")}
+    env_vals.update({"LINES": "24", "COLUMNS": "80"})
+    with _patch("fcntl.ioctl", side_effect=OSError), \
+         _patch.dict(os.environ, env_vals, clear=True):
+        r_ini_env = _obter_dimensoes_iniciais(0)
+    _registrar("8.4: ioctl None, env valido: retorna par env", r_ini_env == (80, 24))
+
+    env_so_lines = {k: v for k, v in os.environ.items() if k not in ("COLUMNS", "LINES")}
+    env_so_lines["LINES"] = "24"
+    with _patch("fcntl.ioctl", side_effect=OSError), \
+         _patch.dict(os.environ, env_so_lines, clear=True):
+        r_ini_fallback = _obter_dimensoes_iniciais(0)
+    _registrar("8.4: ioctl None, env invalido: retorna (80,24)", r_ini_fallback == (80, 24))
+
+    env_vazio = {k: v for k, v in os.environ.items() if k not in ("COLUMNS", "LINES")}
+    with _patch("fcntl.ioctl", side_effect=OSError), \
+         _patch.dict(os.environ, env_vazio, clear=True):
+        r_ini_nada = _obter_dimensoes_iniciais(0)
+    _registrar("8.4: ioctl None, env None: retorna (80,24)", r_ini_nada == (80, 24))
+
+    # --- 8.5: _obter_dimensoes_apos_sigwinch ---
+    print("")
+    print("-- 8.5: _obter_dimensoes_apos_sigwinch --")
+
+    buf_120_40 = _struct.pack("HHHH", 40, 120, 0, 0)
+    with _patch("fcntl.ioctl", return_value=buf_120_40):
+        r_sw_ioctl = _obter_dimensoes_apos_sigwinch(0, (80, 24))
+    _registrar("8.5: ioctl valido retorna par ioctl (120,40)", r_sw_ioctl == (120, 40))
+
+    env_sw = {k: v for k, v in os.environ.items() if k not in ("COLUMNS", "LINES")}
+    env_sw.update({"LINES": "30", "COLUMNS": "100"})
+    with _patch("fcntl.ioctl", side_effect=OSError), \
+         _patch.dict(os.environ, env_sw, clear=True):
+        r_sw_env = _obter_dimensoes_apos_sigwinch(0, (80, 24))
+    _registrar("8.5: ioctl None, env valido: retorna par env", r_sw_env == (100, 30))
+
+    env_sw_vazio = {k: v for k, v in os.environ.items() if k not in ("COLUMNS", "LINES")}
+    with _patch("fcntl.ioctl", side_effect=OSError), \
+         _patch.dict(os.environ, env_sw_vazio, clear=True):
+        r_sw_ultimas = _obter_dimensoes_apos_sigwinch(0, (120, 40))
+    _registrar("8.5: todas fontes falham: retorna ultimas_validas", r_sw_ultimas == (120, 40))
+    _registrar("8.5: (80,24) nao aparece com ultimas_validas=(120,40)", r_sw_ultimas != (80, 24))
+
+    # --- 8.6: Handler de SIGWINCH ---
+    print("")
+    print("-- 8.6: Handler de SIGWINCH --")
+
+    with _patch("signal.signal") as _mock_signal_install:
+        _mock_signal_install.return_value = signal.SIG_DFL
+        h_ant_test = _instalar_handler_sigwinch(99, [False])
+    _registrar(
+        "8.6: _instalar_handler_sigwinch chama signal.signal com SIGWINCH",
+        _mock_signal_install.called and _mock_signal_install.call_args[0][0] == signal.SIGWINCH,
+    )
+    _registrar("8.6: retorna handler anterior", h_ant_test == signal.SIG_DFL)
+
+    # Verificar que chamadas efetivas a _instalar_handler_sigwinch ocorrem
+    # apenas no ramo TTY (inspecao de codigo-fonte)
+    _texto_demo_8 = (_BASE_PADRAO / "tela" / "demo.py").read_text(encoding="utf-8")
+    _linhas_demo_8 = _texto_demo_8.split("\n")
+    _chamadas_efetivas_h = [
+        l for l in _linhas_demo_8
+        if "_instalar_handler_sigwinch(" in l and not l.strip().startswith("def ")
+    ]
+    _registrar(
+        "8.6: _instalar_handler_sigwinch chamado exatamente uma vez (no ramo TTY)",
+        len(_chamadas_efetivas_h) == 1,
+        "chamadas={0}".format(len(_chamadas_efetivas_h)),
+    )
+
+    # --- 8.7: Flag, pipe e coalescencia ---
+    print("")
+    print("-- 8.7: Flag, pipe e coalescencia --")
+
+    # Pipe nao bloqueante
+    r_nb, w_nb = os.pipe()
+    try:
+        os.set_blocking(r_nb, False)
+        os.set_blocking(w_nb, False)
+        _registrar("8.7: r_wakeup nao bloqueante", not os.get_blocking(r_nb))
+        _registrar("8.7: w_wakeup nao bloqueante", not os.get_blocking(w_nb))
+    finally:
+        try:
+            os.close(r_nb)
+        except OSError:
+            pass
+        try:
+            os.close(w_nb)
+        except OSError:
+            pass
+
+    # Handler escreve no pipe e define flag
+    r_h, w_h = os.pipe()
+    try:
+        os.set_blocking(r_h, False)
+        os.set_blocking(w_h, False)
+        pend_h = [False]
+        h_ant_h = _instalar_handler_sigwinch(w_h, pend_h)
+        try:
+            handler_atual = signal.getsignal(signal.SIGWINCH)
+            handler_atual(signal.SIGWINCH, None)
+            _registrar("8.7: handler define resize_pendente[0]=True", pend_h[0])
+            dados_h = os.read(r_h, 64)
+            _registrar("8.7: handler escreve pelo menos um byte no pipe", len(dados_h) >= 1)
+        finally:
+            _restaurar_handler_sigwinch(h_ant_h)
+    finally:
+        try:
+            os.close(r_h)
+        except OSError:
+            pass
+        try:
+            os.close(w_h)
+        except OSError:
+            pass
+
+    # Pipe cheio: BlockingIOError silenciada, flag permanece True
+    r_pf, w_pf = os.pipe()
+    try:
+        os.set_blocking(r_pf, False)
+        os.set_blocking(w_pf, False)
+        pend_pf = [False]
+        h_ant_pf = _instalar_handler_sigwinch(w_pf, pend_pf)
+        _exc_pf_propagou = [False]
+        try:
+            with _patch("os.write", side_effect=BlockingIOError("pipe cheio")):
+                try:
+                    handler_pf = signal.getsignal(signal.SIGWINCH)
+                    handler_pf(signal.SIGWINCH, None)
+                except Exception:
+                    _exc_pf_propagou[0] = True
+            _registrar("8.7: pipe cheio: nenhuma excecao propaga do handler", not _exc_pf_propagou[0])
+            _registrar("8.7: pipe cheio: resize_pendente[0] permanece True", pend_pf[0])
+        finally:
+            _restaurar_handler_sigwinch(h_ant_pf)
+    finally:
+        try:
+            os.close(r_pf)
+        except OSError:
+            pass
+        try:
+            os.close(w_pf)
+        except OSError:
+            pass
+
+    # Coalescencia: multiplos sinais -> apenas uma notificacao
+    r_co, w_co = os.pipe()
+    try:
+        os.set_blocking(r_co, False)
+        os.set_blocking(w_co, False)
+        pend_co = [False]
+        h_ant_co = _instalar_handler_sigwinch(w_co, pend_co)
+        try:
+            handler_co = signal.getsignal(signal.SIGWINCH)
+            # Primeira chamada: escreve no pipe
+            handler_co(signal.SIGWINCH, None)
+            # Chamadas subsequentes: pipe cheio (simulado)
+            with _patch("os.write", side_effect=BlockingIOError("pipe cheio")):
+                handler_co(signal.SIGWINCH, None)
+                handler_co(signal.SIGWINCH, None)
+            _registrar("8.7: coalescencia: flag permanece True apos multiplos sinais", pend_co[0])
+            # Drena o pipe
+            total_co = b""
+            while True:
+                try:
+                    chunk = os.read(r_co, 64)
+                    if not chunk:
+                        break
+                    total_co += chunk
+                except BlockingIOError:
+                    break
+            _registrar("8.7: coalescencia: drenagem le bytes disponiveis", len(total_co) >= 1)
+        finally:
+            _restaurar_handler_sigwinch(h_ant_co)
+    finally:
+        try:
+            os.close(r_co)
+        except OSError:
+            pass
+        try:
+            os.close(w_co)
+        except OSError:
+            pass
+
+    # Drenagem nao bloqueante
+    r_dr, w_dr = os.pipe()
+    try:
+        os.set_blocking(r_dr, False)
+        os.write(w_dr, b"abc")
+        total_dr = b""
+        while True:
+            try:
+                chunk = os.read(r_dr, 64)
+                if not chunk:
+                    break
+                total_dr += chunk
+            except BlockingIOError:
+                break
+            except OSError:
+                break
+        _registrar("8.7: drenagem: le todos os bytes e termina", len(total_dr) == 3)
+        # Pipe vazio deve retornar EAGAIN
+        try:
+            os.read(r_dr, 64)
+            _registrar("8.7: drenagem: pipe vazio -> vazio ou EAGAIN", True)
+        except BlockingIOError:
+            _registrar("8.7: drenagem: pipe vazio -> BlockingIOError (EAGAIN)", True)
+    finally:
+        try:
+            os.close(r_dr)
+        except OSError:
+            pass
+        try:
+            os.close(w_dr)
+        except OSError:
+            pass
+
+    # --- 8.8: Loop com select (integracao via mock) ---
+    print("")
+    print("-- 8.8: Loop com select (integracao via mock) --")
+
+    # Resize valido: _apresentar_quadro chamado com nova largura
+    # Estrategia: interceptar os.pipe() para capturar o r_wakeup real que
+    # main() cria; usar esse fd no mock de select.select para simular wakeup.
+    _pq_calls_8 = []
+    _estado_saindo_8 = {
+        "tipo_borda": "curva", "saindo": True,
+        "tela_atual": "orquestrador", "pilha_telas": [],
+    }
+    _estado_normal_8 = {
+        "tipo_borda": "curva", "saindo": False,
+        "tela_atual": "orquestrador", "pilha_telas": [],
+    }
+
+    _captured_r_wakeup = [None]
+    _select_calls_8 = [0]
+    _orig_os_pipe = os.pipe
+
+    def _pipe_capture_8():
+        r, w = _orig_os_pipe()
+        _captured_r_wakeup[0] = r
+        return r, w
+
+    def _select_side_8(rlist, wlist, xlist, *args):
+        _select_calls_8[0] += 1
+        r_wp = _captured_r_wakeup[0]
+        if r_wp is not None and _select_calls_8[0] == 1 and r_wp in rlist:
+            # Primeira chamada: simular wakeup pipe pronto + fd pronto
+            return ([rlist[0], r_wp], [], [])
+        return ([rlist[0]], [], [])
+
+    def _pq_side_8(conteudo, largura=None):
+        _pq_calls_8.append(largura)
+
+    _sw_calls_8 = [0]
+    def _sw_side_8(fd, ultimas):
+        _sw_calls_8[0] += 1
+        return (100, 30)
+
+    _loop_cmd_8 = [0]
+    def _processar_8(estado, ch, modelo=None):
+        _loop_cmd_8[0] += 1
+        if _loop_cmd_8[0] >= 2:
+            return _estado_saindo_8
+        return _estado_normal_8
+
+    with _patch("tela.demo._apresentar_quadro", side_effect=_pq_side_8), \
+         _patch("tela.demo.processar_comando", side_effect=_processar_8), \
+         _patch("tela.demo._ler_tecla_sessao", return_value="x"), \
+         _patch("tela.demo._iniciar_sessao_tui", return_value=[0, 0, 0, 0, 0, 0, []]), \
+         _patch("tela.demo._encerrar_sessao_tui"), \
+         _patch("tela.demo._carregar_modelo_por_id", return_value=object()), \
+         _patch("tela.demo._obter_dimensoes_apos_sigwinch", side_effect=_sw_side_8), \
+         _patch("tela.demo._instalar_handler_sigwinch", return_value=signal.SIG_DFL), \
+         _patch("tela.demo._restaurar_handler_sigwinch"), \
+         _patch("os.pipe", side_effect=_pipe_capture_8), \
+         _patch("select.select", side_effect=_select_side_8), \
+         _patch("sys.stdin") as _stdin_8, \
+         _patch("sys.stdout") as _stdout_8:
+        _stdin_8.isatty.return_value = True
+        _stdin_8.fileno.return_value = 0
+        _stdout_8.isatty.return_value = True
+        _demo_mod.main()
+
+    _registrar(
+        "8.8: resize valido: _apresentar_quadro chamado com nova largura (100)",
+        100 in _pq_calls_8,
+        "larguras={0}".format(_pq_calls_8),
+    )
+    _registrar(
+        "8.8: resize: _obter_dimensoes_apos_sigwinch chamado apos wakeup",
+        _sw_calls_8[0] >= 1,
+    )
+
+    # Handler restaurado ao final (saida normal)
+    _sig_rest_calls = []
+    _SAINDO_8b = {
+        "tipo_borda": "curva", "saindo": True,
+        "tela_atual": "orquestrador", "pilha_telas": [],
+    }
+    with _patch("tela.demo.processar_comando", return_value=_SAINDO_8b), \
+         _patch("tela.demo._ler_tecla_sessao", return_value="x"), \
+         _patch("tela.demo._apresentar_quadro"), \
+         _patch("tela.demo._iniciar_sessao_tui", return_value=[0, 0, 0, 0, 0, 0, []]), \
+         _patch("tela.demo._encerrar_sessao_tui"), \
+         _patch("tela.demo._carregar_modelo_por_id", return_value=object()), \
+         _patch("tela.demo._instalar_handler_sigwinch", return_value=signal.SIG_DFL), \
+         _patch("tela.demo._restaurar_handler_sigwinch",
+                side_effect=lambda h: _sig_rest_calls.append(h)), \
+         _patch("select.select", return_value=([0], [], [])), \
+         _patch("sys.stdin") as _stdin_8b, \
+         _patch("sys.stdout") as _stdout_8b:
+        _stdin_8b.isatty.return_value = True
+        _stdin_8b.fileno.return_value = 0
+        _stdout_8b.isatty.return_value = True
+        _demo_mod.main()
+    _registrar(
+        "8.8: handler restaurado apos saida normal por Esc",
+        len(_sig_rest_calls) == 1 and _sig_rest_calls[0] == signal.SIG_DFL,
+    )
+
+    # Handler restaurado apos excecao no loop
+    _sig_rest_exc = []
+    with _patch("tela.demo.processar_comando", side_effect=RuntimeError("loop fail")), \
+         _patch("tela.demo._ler_tecla_sessao", return_value="x"), \
+         _patch("tela.demo._apresentar_quadro"), \
+         _patch("tela.demo._iniciar_sessao_tui", return_value=[0, 0, 0, 0, 0, 0, []]), \
+         _patch("tela.demo._encerrar_sessao_tui"), \
+         _patch("tela.demo._carregar_modelo_por_id", return_value=object()), \
+         _patch("tela.demo._instalar_handler_sigwinch", return_value=signal.SIG_DFL), \
+         _patch("tela.demo._restaurar_handler_sigwinch",
+                side_effect=lambda h: _sig_rest_exc.append(h)), \
+         _patch("select.select", return_value=([0], [], [])), \
+         _patch("sys.stdin") as _stdin_8c, \
+         _patch("sys.stdout") as _stdout_8c:
+        _stdin_8c.isatty.return_value = True
+        _stdin_8c.fileno.return_value = 0
+        _stdout_8c.isatty.return_value = True
+        try:
+            _demo_mod.main()
+        except RuntimeError:
+            pass
+    _registrar(
+        "8.8: handler restaurado apos excecao no loop",
+        len(_sig_rest_exc) >= 1,
+    )
+
+    # Handler restaurado ANTES do fechamento de w_wakeup
+    _order_calls = []
+    _orig_close = os.close
+    def _close_track(fd):
+        _order_calls.append(("close", fd))
+        _orig_close(fd)
+
+    with _patch("tela.demo.processar_comando", return_value=_SAINDO_8b), \
+         _patch("tela.demo._ler_tecla_sessao", return_value="x"), \
+         _patch("tela.demo._apresentar_quadro"), \
+         _patch("tela.demo._iniciar_sessao_tui", return_value=[0, 0, 0, 0, 0, 0, []]), \
+         _patch("tela.demo._encerrar_sessao_tui"), \
+         _patch("tela.demo._carregar_modelo_por_id", return_value=object()), \
+         _patch("tela.demo._instalar_handler_sigwinch", return_value=signal.SIG_DFL), \
+         _patch("tela.demo._restaurar_handler_sigwinch",
+                side_effect=lambda h: _order_calls.append(("restore_handler", h))), \
+         _patch("os.close", side_effect=_close_track), \
+         _patch("select.select", return_value=([0], [], [])), \
+         _patch("sys.stdin") as _stdin_8d, \
+         _patch("sys.stdout") as _stdout_8d:
+        _stdin_8d.isatty.return_value = True
+        _stdin_8d.fileno.return_value = 0
+        _stdout_8d.isatty.return_value = True
+        _demo_mod.main()
+
+    _handler_before_close = False
+    _handler_idx = next(
+        (i for i, e in enumerate(_order_calls) if e[0] == "restore_handler"), None
+    )
+    _w_close_idx = next(
+        (i for i, e in enumerate(_order_calls) if e[0] == "close"), None
+    )
+    if _handler_idx is not None and _w_close_idx is not None:
+        _handler_before_close = _handler_idx < _w_close_idx
+    _registrar(
+        "8.8: handler restaurado antes do fechamento do pipe",
+        _handler_before_close,
+    )
+
+    # --- 8.9: _quadro_minimo_aviso ---
+    print("")
+    print("-- 8.9: _quadro_minimo_aviso --")
+
+    q80_24 = _quadro_minimo_aviso(80, 24)
+    _registrar("8.9: (80,24): count newlines == 24", q80_24.count("\n") == 24)
+    _registrar("8.9: (80,24): primeira linha comeca com 'terminal pequeno demais'",
+               q80_24.split("\n")[0].startswith("terminal pequeno demais"))
+
+    q9_3 = _quadro_minimo_aviso(9, 3)
+    _registrar("8.9: (9,3): primeira linha comeca com 'tela peq.'",
+               q9_3.split("\n")[0].startswith("tela peq."))
+
+    q5_2 = _quadro_minimo_aviso(5, 2)
+    _registrar("8.9: (5,2): primeira linha tem exatamente 5 chars antes do newline",
+               len(q5_2.split("\n")[0]) == 5)
+    _registrar("8.9: (5,2): primeira linha preenchida com espacos (limite fisico)",
+               q5_2.split("\n")[0] == "     ")
+    _registrar("8.9: (5,2): '!' nao aparece como mensagem normativa",
+               "!" not in q5_2)
+
+    q23_1 = _quadro_minimo_aviso(23, 1)
+    _registrar("8.9: (23,1): count newlines == 1", q23_1.count("\n") == 1)
+    _registrar("8.9: (23,1): unica linha tem exatamente 23 chars",
+               len(q23_1.split("\n")[0]) == 23)
+
+    for _ql, _qa in [(1, 1), (3, 5), (10, 6), (80, 24), (200, 50)]:
+        _qr = _quadro_minimo_aviso(_ql, _qa)
+        _registrar(
+            "8.9: ({0},{1}) count newlines == altura".format(_ql, _qa),
+            _qr.count("\n") == _qa,
+        )
+        _max_len = max(len(ln) for ln in _qr.split("\n") if ln != "")
+        _registrar(
+            "8.9: ({0},{1}) nenhuma linha excede largura".format(_ql, _qa),
+            _max_len <= _ql,
+        )
+
+    # --- 8.10: _tela_pequena_demais ---
+    print("")
+    print("-- 8.10: _tela_pequena_demais --")
+
+    _registrar("8.10: (9,24) -> True", _tela_pequena_demais(9, 24))
+    _registrar("8.10: (10,24) -> False", not _tela_pequena_demais(10, 24))
+    _registrar("8.10: (80,5) -> True", _tela_pequena_demais(80, 5))
+    _registrar("8.10: (80,6) -> False", not _tela_pequena_demais(80, 6))
+    _registrar("8.10: (10,6) -> False", not _tela_pequena_demais(10, 6))
+    _registrar("8.10: constantes: LARGURA_MINIMA_TELA=10", LARGURA_MINIMA_TELA == 10)
+    _registrar("8.10: constantes: ALTURA_MINIMA_TELA=6", ALTURA_MINIMA_TELA == 6)
+
+    # --- 8.11: _apresentar_quadro com parametro largura ---
+    print("")
+    print("-- 8.11: _apresentar_quadro com parametro largura --")
+
+    _escritas_com_l = []
+    _shutil_chamado = [False]
+
+    class _MockOut11:
+        def write(self, s):
+            _escritas_com_l.append(s)
+        def flush(self):
+            pass
+
+    class _FakeTermSize11:
+        columns = 99
+        lines = 99
+
+    def _shutil_track(*a, **kw):
+        _shutil_chamado[0] = True
+        return _FakeTermSize11()
+
+    with _patch("sys.stdout", _MockOut11()), \
+         _patch("shutil.get_terminal_size", side_effect=_shutil_track):
+        _apresentar_quadro("AB\nCD\n", largura=20)
+
+    _registrar("8.11: com largura=20: shutil.get_terminal_size nao chamado",
+               not _shutil_chamado[0])
+    _conteudo_20 = _escritas_com_l[0] if _escritas_com_l else ""
+    _registrar("8.11: com largura=20: linha preenchida a 20 chars",
+               "AB" + " " * 18 in _conteudo_20)
+
+    _escritas_sem_l = []
+    _shutil_chamado2 = [False]
+    _shutil_cols = [0]
+
+    class _MockOut11b:
+        def write(self, s):
+            _escritas_sem_l.append(s)
+        def flush(self):
+            pass
+
+    class _FakeTermSize11b:
+        columns = 15
+        lines = 15
+
+    def _shutil_track2(*a, **kw):
+        _shutil_chamado2[0] = True
+        return _FakeTermSize11b()
+
+    with _patch("sys.stdout", _MockOut11b()), \
+         _patch("shutil.get_terminal_size", side_effect=_shutil_track2):
+        _apresentar_quadro("AB\nCD\n")
+
+    _registrar("8.11: sem largura: shutil.get_terminal_size chamado",
+               _shutil_chamado2[0])
+
+    # --- 8.12: _resolver_conteudo ---
+    print("")
+    print("-- 8.12: _resolver_conteudo --")
+
+    _estado_rc = {"tipo_borda": "curva", "saindo": False,
+                  "tela_atual": "orquestrador", "pilha_telas": []}
+    _modelo_rc = _carregar_modelo_por_id("orquestrador")
+
+    r_rc_peq = _resolver_conteudo(_estado_rc, _modelo_rc, 5, 3)
+    _registrar("8.12: terminal pequeno (5,3): retorna quadro minimo",
+               r_rc_peq.count("\n") == 3)
+
+    r_rc_ok = _resolver_conteudo(_estado_rc, _modelo_rc, 80, 24)
+    _registrar("8.12: dimensoes normais (80,24): retorna render normal",
+               "ORQUESTRADOR" in r_rc_ok)
+    _registrar("8.12: corpo.arranjo nao alterado apos resolver_conteudo",
+               _modelo_rc.corpo.arranjo is not None)
+
+    from tela.renderizador import RenderizadorErro as _RenderizadorErro
+    with _patch("tela.demo.renderizar_estado", side_effect=_RenderizadorErro("r")):
+        r_rc_err = _resolver_conteudo(_estado_rc, _modelo_rc, 80, 24)
+    _registrar("8.12: RenderizadorErro: retorna quadro minimo",
+               r_rc_err.count("\n") == 24)
+
+    # --- 8.13: Falhas parciais na inicializacao e cleanup ---
+    print("")
+    print("-- 8.13: Falhas parciais --")
+
+    # _iniciar_sessao_tui: rollback quando write falha
+    _writes_rb = []
+    def _write_rb(s):
+        _writes_rb.append(s)
+        if len(_writes_rb) == 1:
+            raise ValueError("write falhou")
+
+    _tsa_rb_calls = []
+    with _patch("termios.tcgetattr", return_value=[0, 0, 0, 0, 0, 0, []]), \
+         _patch("tty.setcbreak"), \
+         _patch("termios.tcsetattr",
+                side_effect=lambda *a: _tsa_rb_calls.append(a)), \
+         _patch("sys.stdout") as _mock_out_rb:
+        _mock_out_rb.write.side_effect = _write_rb
+        _mock_out_rb.flush.return_value = None
+        _exc_rb = None
+        try:
+            _iniciar_sessao_tui(0)
+        except ValueError as e:
+            _exc_rb = e
+
+    _registrar("8.13: write falha: excecao original propagada", _exc_rb is not None)
+    _registrar("8.13: write falha: tentativa de restauracao visual",
+               len(_writes_rb) >= 2 and
+               any("\x1b[?7h\x1b[?25h\x1b[?1049l" in w for w in _writes_rb[1:]))
+    _registrar("8.13: write falha: termios restaurado apos rollback visual",
+               len(_tsa_rb_calls) >= 1)
+    _registrar("8.13: write falha: nao ha \\x1b[2J no rollback",
+               all("\x1b[2J" not in w for w in _writes_rb[1:]))
+
+    # _iniciar_sessao_tui: rollback quando flush falha
+    _writes_fl = []
+    def _write_fl(s):
+        _writes_fl.append(s)
+
+    _flush_fl_calls = [0]
+    def _flush_fl():
+        _flush_fl_calls[0] += 1
+        if _flush_fl_calls[0] == 1:
+            raise ValueError("flush falhou")
+
+    _tsa_fl_calls = []
+    with _patch("termios.tcgetattr", return_value=[0, 0, 0, 0, 0, 0, []]), \
+         _patch("tty.setcbreak"), \
+         _patch("termios.tcsetattr",
+                side_effect=lambda *a: _tsa_fl_calls.append(a)), \
+         _patch("sys.stdout") as _mock_out_fl:
+        _mock_out_fl.write.side_effect = _write_fl
+        _mock_out_fl.flush.side_effect = _flush_fl
+        _exc_fl = None
+        try:
+            _iniciar_sessao_tui(0)
+        except ValueError as e:
+            _exc_fl = e
+
+    _registrar("8.13: flush falha: excecao original propagada", _exc_fl is not None)
+    _registrar("8.13: flush falha: termios restaurado", len(_tsa_fl_calls) >= 1)
+
+    # _iniciar_sessao_tui: tcgetattr falha -> sem rollback visual
+    _writes_tga = []
+    _tsa_tga_calls = []
+    with _patch("termios.tcgetattr", side_effect=OSError("tcgetattr failed")), \
+         _patch("tty.setcbreak"), \
+         _patch("sys.stdout") as _mock_out_tga:
+        _mock_out_tga.write.side_effect = lambda s: _writes_tga.append(s)
+        _mock_out_tga.flush.return_value = None
+        _exc_tga = None
+        try:
+            _iniciar_sessao_tui(0)
+        except OSError as e:
+            _exc_tga = e
+
+    _registrar("8.13: tcgetattr falha: excecao propagada", _exc_tga is not None)
+    _registrar("8.13: tcgetattr falha: nenhuma escrita visual (nenhuma modificacao aplicada)",
+               len(_writes_tga) == 0)
+
+    # _restaurar_efeitos_visuais_tui: nao lanca excecao propria quando write/flush falham
+    _exc_rev = None
+    with _patch("sys.stdout") as _mock_out_rev:
+        _mock_out_rev.write.side_effect = Exception("write fail")
+        _mock_out_rev.flush.side_effect = Exception("flush fail")
+        try:
+            _restaurar_efeitos_visuais_tui()
+        except Exception as e:
+            _exc_rev = e
+    _registrar("8.13: _restaurar_efeitos_visuais_tui nao propaga excecao",
+               _exc_rev is None)
+
+    # Rollback interno: write do rollback falha -> termios ainda tentado
+    _writes_rb2 = []
+    _tsa_rb2_calls = []
+    _write_rb2_count = [0]
+    def _write_rb2(s):
+        _write_rb2_count[0] += 1
+        _writes_rb2.append(s)
+        raise ValueError("write fail")
+
+    with _patch("termios.tcgetattr", return_value=[0, 0, 0, 0, 0, 0, []]), \
+         _patch("tty.setcbreak"), \
+         _patch("termios.tcsetattr",
+                side_effect=lambda *a: _tsa_rb2_calls.append(a)), \
+         _patch("sys.stdout") as _mock_out_rb2:
+        _mock_out_rb2.write.side_effect = _write_rb2
+        _mock_out_rb2.flush.return_value = None
+        _exc_rb2 = None
+        try:
+            _iniciar_sessao_tui(0)
+        except ValueError as e:
+            _exc_rb2 = e
+
+    _registrar("8.13: rollback visual falha: termios ainda tentado", len(_tsa_rb2_calls) >= 1)
+    _registrar("8.13: rollback visual falha: excecao original preservada", _exc_rb2 is not None)
+
+    # Coerencia: rollback e encerramento normal usam a mesma sequencia visual
+    _writes_enc = []
+    _tsa_enc_calls = []
+    with _patch("termios.tcsetattr", side_effect=lambda *a: _tsa_enc_calls.append(a)), \
+         _patch("sys.stdout") as _mock_enc:
+        _mock_enc.write.side_effect = lambda s: _writes_enc.append(s)
+        _mock_enc.flush.return_value = None
+        _encerrar_sessao_tui(0, [0, 0, 0, 0, 0, 0, []])
+
+    _seq_enc = next((w for w in _writes_enc if "\x1b[?7h" in w), None)
+    _registrar("8.13: _encerrar_sessao_tui usa _restaurar_efeitos_visuais_tui",
+               _seq_enc is not None and "\x1b[?7h\x1b[?25h\x1b[?1049l" in _seq_enc)
+    _registrar("8.13: _encerrar_sessao_tui: \\x1b[2J nao presente na restauracao",
+               all("\x1b[2J" not in w for w in _writes_enc))
+
+    # Falha em os.pipe(): _iniciar_sessao_tui e _encerrar_sessao_tui nao chamados
+    with _patch("os.pipe", side_effect=OSError("pipe fail")), \
+         _patch("tela.demo._iniciar_sessao_tui") as _mock_init_fp, \
+         _patch("tela.demo._encerrar_sessao_tui") as _mock_enc_fp, \
+         _patch("tela.demo._carregar_modelo_por_id", return_value=object()), \
+         _patch("sys.stdin") as _mock_stdin_fp, \
+         _patch("sys.stdout") as _mock_stdout_fp:
+        _mock_stdin_fp.isatty.return_value = True
+        _mock_stdin_fp.fileno.return_value = 0
+        _mock_stdout_fp.isatty.return_value = True
+        _exc_fp = None
+        try:
+            _demo_mod.main()
+        except OSError as e:
+            _exc_fp = e
+    _registrar("8.13: os.pipe() falha: excecao propagada", _exc_fp is not None)
+    _registrar("8.13: os.pipe() falha: _iniciar_sessao_tui nao chamado",
+               not _mock_init_fp.called)
+    _registrar("8.13: os.pipe() falha: _encerrar_sessao_tui nao chamado",
+               not _mock_enc_fp.called)
+
+    # Falha em set_blocking(r_wakeup): ambos os fds fechados pelo finally
+    _fds_sb = []
+    _orig_pipe_sb = os.pipe
+    def _pipe_sb_track():
+        r, w = _orig_pipe_sb()
+        _fds_sb.extend([r, w])
+        return r, w
+
+    with _patch("os.pipe", side_effect=_pipe_sb_track), \
+         _patch("os.set_blocking", side_effect=OSError("set_blocking fail")), \
+         _patch("tela.demo._iniciar_sessao_tui") as _mock_init_sb, \
+         _patch("tela.demo._encerrar_sessao_tui") as _mock_enc_sb, \
+         _patch("tela.demo._carregar_modelo_por_id", return_value=object()), \
+         _patch("sys.stdin") as _mock_stdin_sb, \
+         _patch("sys.stdout") as _mock_stdout_sb:
+        _mock_stdin_sb.isatty.return_value = True
+        _mock_stdin_sb.fileno.return_value = 0
+        _mock_stdout_sb.isatty.return_value = True
+        try:
+            _demo_mod.main()
+        except OSError:
+            pass
+
+    _registrar("8.13: set_blocking falha: _iniciar_sessao_tui nao chamado",
+               not _mock_init_sb.called)
+    if len(_fds_sb) >= 2:
+        _r_sb, _w_sb = _fds_sb[0], _fds_sb[1]
+        try:
+            os.fstat(_r_sb)
+            _r_closed = False
+        except OSError:
+            _r_closed = True
+        try:
+            os.fstat(_w_sb)
+            _w_closed = False
+        except OSError:
+            _w_closed = True
+        _registrar("8.13: set_blocking falha: r_wakeup fechado", _r_closed)
+        _registrar("8.13: set_blocking falha: w_wakeup fechado", _w_closed)
+    else:
+        _registrar("8.13: set_blocking falha: fds fechados (pipe nao criado)", False)
+
+    # _iniciar_sessao_tui falha: sessao_iniciada permanece False, pipe fechado
+    _fds_it = []
+    def _pipe_it_track():
+        r, w = _orig_pipe_sb()
+        _fds_it.extend([r, w])
+        return r, w
+
+    with _patch("os.pipe", side_effect=_pipe_it_track), \
+         _patch("tela.demo._iniciar_sessao_tui",
+                side_effect=RuntimeError("init fail")), \
+         _patch("tela.demo._encerrar_sessao_tui") as _mock_enc_it, \
+         _patch("tela.demo._carregar_modelo_por_id", return_value=object()), \
+         _patch("sys.stdin") as _mock_stdin_it, \
+         _patch("sys.stdout") as _mock_stdout_it:
+        _mock_stdin_it.isatty.return_value = True
+        _mock_stdin_it.fileno.return_value = 0
+        _mock_stdout_it.isatty.return_value = True
+        _exc_it = None
+        try:
+            _demo_mod.main()
+        except RuntimeError as e:
+            _exc_it = e
+    _registrar("8.13: _iniciar_sessao_tui falha: excecao propagada", _exc_it is not None)
+    _registrar("8.13: _iniciar_sessao_tui falha: _encerrar_sessao_tui nao chamado",
+               not _mock_enc_it.called)
+    if len(_fds_it) >= 2:
+        _r_it, _w_it = _fds_it[0], _fds_it[1]
+        try:
+            os.fstat(_r_it)
+            _r_it_closed = False
+        except OSError:
+            _r_it_closed = True
+        try:
+            os.fstat(_w_it)
+            _w_it_closed = False
+        except OSError:
+            _w_it_closed = True
+        _registrar("8.13: _iniciar_sessao_tui falha: r_wakeup fechado", _r_it_closed)
+        _registrar("8.13: _iniciar_sessao_tui falha: w_wakeup fechado", _w_it_closed)
+    else:
+        _registrar("8.13: _iniciar_sessao_tui falha: fds fechados (pipe nao criado)", False)
+
+    # _instalar_handler_sigwinch falha: handler_instalado permanece False
+    with _patch("tela.demo._instalar_handler_sigwinch",
+                side_effect=OSError("signal fail")), \
+         _patch("tela.demo._iniciar_sessao_tui", return_value=[0, 0, 0, 0, 0, 0, []]), \
+         _patch("tela.demo._encerrar_sessao_tui") as _mock_enc_sig, \
+         _patch("tela.demo._restaurar_handler_sigwinch") as _mock_rest_sig, \
+         _patch("tela.demo._carregar_modelo_por_id", return_value=object()), \
+         _patch("select.select", return_value=([0], [], [])), \
+         _patch("sys.stdin") as _mock_stdin_sig, \
+         _patch("sys.stdout") as _mock_stdout_sig:
+        _mock_stdin_sig.isatty.return_value = True
+        _mock_stdin_sig.fileno.return_value = 0
+        _mock_stdout_sig.isatty.return_value = True
+        _exc_sig = None
+        try:
+            _demo_mod.main()
+        except OSError as e:
+            _exc_sig = e
+    _registrar("8.13: signal.signal falha: excecao propagada", _exc_sig is not None)
+    _registrar("8.13: signal.signal falha: _restaurar_handler_sigwinch nao chamado",
+               not _mock_rest_sig.called)
+    _registrar("8.13: signal.signal falha: _encerrar_sessao_tui chamado (sessao foi iniciada)",
+               _mock_enc_sig.called)
+
+    # _restaurar_handler_sigwinch silencia erros internamente (nao propaga)
+    # Portanto falha interna nunca bloqueia _encerrar_sessao_tui no finally
+    _cleanup_seq = []
+    with _patch("tela.demo.processar_comando", return_value=_SAINDO_8b), \
+         _patch("tela.demo._ler_tecla_sessao", return_value="x"), \
+         _patch("tela.demo._apresentar_quadro"), \
+         _patch("tela.demo._iniciar_sessao_tui", return_value=[0, 0, 0, 0, 0, 0, []]), \
+         _patch("tela.demo._encerrar_sessao_tui",
+                side_effect=lambda *a: _cleanup_seq.append("encerrar")), \
+         _patch("tela.demo._carregar_modelo_por_id", return_value=object()), \
+         _patch("tela.demo._instalar_handler_sigwinch", return_value=signal.SIG_DFL), \
+         _patch("tela.demo._restaurar_handler_sigwinch",
+                side_effect=lambda *a: _cleanup_seq.append("restore_handler")), \
+         _patch("select.select", return_value=([0], [], [])), \
+         _patch("sys.stdin") as _mock_stdin_cl, \
+         _patch("sys.stdout") as _mock_stdout_cl:
+        _mock_stdin_cl.isatty.return_value = True
+        _mock_stdin_cl.fileno.return_value = 0
+        _mock_stdout_cl.isatty.return_value = True
+        _demo_mod.main()
+
+    _registrar(
+        "8.13: _restaurar_handler_sigwinch chamado antes de _encerrar_sessao_tui",
+        "restore_handler" in _cleanup_seq and "encerrar" in _cleanup_seq and
+        _cleanup_seq.index("restore_handler") < _cleanup_seq.index("encerrar"),
+    )
+
+    # _restaurar_handler_sigwinch silencia excecoes internas (signal.signal falhando)
+    _exc_sig_rest = None
+    try:
+        with _patch("signal.signal", side_effect=OSError("signal.signal fail")):
+            _restaurar_handler_sigwinch(signal.SIG_DFL)
+    except Exception as _e:
+        _exc_sig_rest = _e
+    _registrar(
+        "8.13: _restaurar_handler_sigwinch silencia OSError de signal.signal",
+        _exc_sig_rest is None,
+    )
+
+    # Excecao original preservada mesmo quando signal.signal falha no restore
+    # _restaurar_handler_sigwinch tem try/except interno, logo nunca propaga;
+    # a excecao original do loop (RuntimeError) e sempre preservada.
+    _exc_primary = None
+    with _patch("tela.demo.processar_comando",
+                side_effect=RuntimeError("primary error")), \
+         _patch("tela.demo._ler_tecla_sessao", return_value="x"), \
+         _patch("tela.demo._apresentar_quadro"), \
+         _patch("tela.demo._iniciar_sessao_tui", return_value=[0, 0, 0, 0, 0, 0, []]), \
+         _patch("tela.demo._encerrar_sessao_tui"), \
+         _patch("tela.demo._carregar_modelo_por_id", return_value=object()), \
+         _patch("tela.demo._instalar_handler_sigwinch", return_value=signal.SIG_DFL), \
+         _patch("signal.signal", side_effect=OSError("signal fail during restore")), \
+         _patch("select.select", return_value=([0], [], [])), \
+         _patch("sys.stdin") as _mock_stdin_ep, \
+         _patch("sys.stdout") as _mock_stdout_ep:
+        _mock_stdin_ep.isatty.return_value = True
+        _mock_stdin_ep.fileno.return_value = 0
+        _mock_stdout_ep.isatty.return_value = True
+        try:
+            _demo_mod.main()
+        except RuntimeError as e:
+            _exc_primary = e
+        except Exception:
+            pass  # outras excecoes nao sao o foco aqui
+    _registrar(
+        "8.13: excecao original (RuntimeError) preservada mesmo com signal.signal falhando",
+        isinstance(_exc_primary, RuntimeError) and "primary error" in str(_exc_primary),
+    )
+
+    # Nao-TTY: handler de SIGWINCH nao instalado
+    _sigwinch_installed_notty = [False]
+    def _track_sigwinch_install(*a, **kw):
+        _sigwinch_installed_notty[0] = True
+        return signal.SIG_DFL
+
+    env_notty = {k: v for k, v in os.environ.items() if k not in ("COLUMNS", "LINES")}
+    with _patch("tela.demo._instalar_handler_sigwinch",
+                side_effect=_track_sigwinch_install), \
+         _patch("sys.stdin") as _mock_stdin_nt, \
+         _patch("sys.stdout") as _mock_stdout_nt:
+        _mock_stdin_nt.isatty.return_value = False
+        _mock_stdout_nt.isatty.return_value = False
+        _mock_stdin_nt.__iter__ = lambda self: iter([])
+        _demo_mod.main()
+    _registrar("8.13: nao-TTY: _instalar_handler_sigwinch nao chamado",
+               not _sigwinch_installed_notty[0])
+
+    # --- 8.14: Regressao fluxo nao-TTY ---
+    print("")
+    print("-- 8.14: Regressao nao-TTY --")
+
+    env_sem_dims = {k: v for k, v in os.environ.items() if k not in ("COLUMNS", "LINES")}
+    proc_notty = subprocess.run(
+        [sys.executable, "tela/demo.py"],
+        cwd=str(_BASE_PADRAO),
+        input="b\ns\n",
+        capture_output=True,
+        text=True,
+        env=env_sem_dims,
+    )
+    _registrar("8.14: nao-TTY subprocess 'b\\ns\\n' encerra com codigo 0",
+               proc_notty.returncode == 0)
+    _registrar("8.14: nao-TTY stdout nao contem \\x1b[?1049h",
+               "\x1b[?1049h" not in proc_notty.stdout)
+    _registrar("8.14: nao-TTY stdout nao contem sequencias SIGWINCH",
+               "SIGWINCH" not in proc_notty.stdout)
+    _registrar("8.14: nao-TTY stderr vazio", proc_notty.stderr == "")
+
+    # --- 8.15: Inspecao: \x1b[2J somente na entrada ---
+    print("")
+    print("-- 8.15: Inspecao de codigo --")
+
+    _texto_demo_insp = (_BASE_PADRAO / "tela" / "demo.py").read_text(encoding="utf-8")
+    _count_2j = _texto_demo_insp.count("\\x1b[2J")
+    _registrar("8.15: \\x1b[2J aparece exatamente uma vez no codigo",
+               _count_2j == 1, "count={0}".format(_count_2j))
+    _registrar("8.15: 'fcntl' importado no demo.py",
+               "import fcntl" in _texto_demo_insp)
+    _registrar("8.15: 'struct' importado no demo.py",
+               "import struct" in _texto_demo_insp)
+    _registrar("8.15: 'signal' importado no demo.py",
+               "import signal" in _texto_demo_insp)
+    _registrar("8.15: RenderizadorErro importado no demo.py",
+               "RenderizadorErro" in _texto_demo_insp)
+    _registrar("8.15: LARGURA_MINIMA_TELA = 10 no codigo",
+               "LARGURA_MINIMA_TELA = 10" in _texto_demo_insp)
+    _registrar("8.15: ALTURA_MINIMA_TELA = 6 no codigo",
+               "ALTURA_MINIMA_TELA = 6" in _texto_demo_insp)
+    _registrar("8.15: select.select com dois descritores (select duplo)",
+               "select.select([fd, r_wakeup]" in _texto_demo_insp)
+
+    # --- 8.16: Pseudo-TTY: redimensionamento reativo completo ---
+    print("")
+    print("-- 8.16: Pseudo-TTY (pty.openpty): reducao -> redraw -> ampliacao --")
+
+    def _ler_pty_ate_ocioso(fd_master, timeout_total, ocioso):
+        """Le do master PTY com deadline explicito, ate ficar ocioso.
+
+        Usa ``select`` com deadline (nao depende apenas de ``time.sleep``).
+        Drena todos os bytes disponiveis e encerra quando nao chega dado novo
+        por ``ocioso`` segundos apos algum dado, ou quando ``timeout_total``
+        expira. Retorna os bytes acumulados. Nunca fica pendurado: o laco e
+        limitado por ``timeout_total``.
+        """
+        import select as _sel
+        import time as _t
+        dados = b""
+        fim = _t.monotonic() + timeout_total
+        ultimo_dado = None
+        while _t.monotonic() < fim:
+            restante = fim - _t.monotonic()
+            prontos, _, _ = _sel.select(
+                [fd_master], [], [], min(0.1, max(0.0, restante))
+            )
+            if prontos:
+                try:
+                    chunk = os.read(fd_master, 4096)
+                except (BlockingIOError, OSError):
+                    chunk = b""
+                if chunk:
+                    dados += chunk
+                    ultimo_dado = _t.monotonic()
+                    continue
+            if ultimo_dado is not None and (_t.monotonic() - ultimo_dado) >= ocioso:
+                break
+        return dados
+
+    def _linhas_ultimo_quadro(saida_bytes):
+        """Extrai as linhas visiveis do ultimo quadro synchronized-output.
+
+        Localiza o ultimo bloco entre ``ESC[?2026h`` e ``ESC[?2026l``, separa
+        por marcadores de posicionamento absoluto ``ESC[<n>;1H`` e remove as
+        demais sequencias ANSI de cada segmento. Retorna a lista de linhas de
+        texto visivel do quadro (uma por posicionamento), permitindo medir
+        numero de linhas e largura apos remocao controlada das sequencias.
+        """
+        import re as _re
+        _esc = "\x1b"
+        texto = saida_bytes.decode("utf-8", errors="replace")
+        inicio = texto.rfind(_esc + "[?2026h")
+        if inicio == -1:
+            return []
+        fim = texto.find(_esc + "[?2026l", inicio)
+        bloco = texto[inicio:fim] if fim != -1 else texto[inicio:]
+        partes = _re.split(_esc + r"\[\d+;1H", bloco)
+        linhas = []
+        for parte in partes[1:]:
+            limpa = _re.sub(_esc + r"\[[0-9;?]*[A-Za-z]", "", parte)
+            linhas.append(limpa)
+        return linhas
+
+    _pseudo_pty_executado = [False]
+    _pseudo_pty_limitacoes = []
+
+    try:
+        import pty as _pty
+        import struct as _struct_pty
+
+        _master_fd = None
+        _slave_fd = None
+        _proc_pty = None
+
+        # Dimensoes deterministas:
+        #   normal   40x20 -> tela normal (contem "ORQUESTRADOR")
+        #   reduzido 30x5  -> quadro minimo ("terminal pequeno demais"): altura < 6
+        #   ampliado 40x20 -> tela normal restaurada
+        _COLS_NORM, _LINS_NORM = 40, 20
+        _COLS_RED, _LINS_RED = 30, 5
+
+        try:
+            import fcntl as _fcntl_pty
+            import termios as _termios_pty
+
+            _master_fd, _slave_fd = _pty.openpty()
+
+            _win_ini = _struct_pty.pack("HHHH", _LINS_NORM, _COLS_NORM, 0, 0)
+            _fcntl_pty.ioctl(_slave_fd, _termios_pty.TIOCSWINSZ, _win_ini)
+
+            _proc_pty = subprocess.Popen(
+                [sys.executable, "tela/demo.py"],
+                stdin=_slave_fd,
+                stdout=_slave_fd,
+                stderr=_slave_fd,
+                cwd=str(_BASE_PADRAO),
+                close_fds=True,
+            )
+
+            os.close(_slave_fd)
+            _slave_fd = None
+            os.set_blocking(_master_fd, False)
+
+            # --- Fase 1: estado normal inicial ---
+            _saida_inicial = _ler_pty_ate_ocioso(_master_fd, 3.0, 0.3)
+            _vivo_inicial = _proc_pty.poll() is None
+            _quadro_inicial_ok = (
+                _vivo_inicial
+                and len(_saida_inicial) > 0
+                and b"\x1b[?2026h" in _saida_inicial
+                and b"ORQUESTRADOR" in _saida_inicial
+            )
+            _registrar(
+                "PTY: quadro inicial capturado (processo ativo, quadro TUI, conteudo normal)",
+                _quadro_inicial_ok,
+                "vivo={0} bytes={1}".format(_vivo_inicial, len(_saida_inicial)),
+            )
+
+            # --- Fase 2: reducao -> quadro minimo ---
+            _win_red = _struct_pty.pack("HHHH", _LINS_RED, _COLS_RED, 0, 0)
+            _fcntl_pty.ioctl(_master_fd, _termios_pty.TIOCSWINSZ, _win_red)
+            os.kill(_proc_pty.pid, signal.SIGWINCH)
+            _saida_reducao = _ler_pty_ate_ocioso(_master_fd, 3.0, 0.3)
+            _vivo_reducao = _proc_pty.poll() is None
+
+            _redraw_reducao = (
+                len(_saida_reducao) > 0 and b"\x1b[?2026h" in _saida_reducao
+            )
+            _registrar(
+                "PTY: reducao produziu redraw (novo quadro apos SIGWINCH, nao apenas processo ativo)",
+                _redraw_reducao,
+                "bytes={0}".format(len(_saida_reducao)),
+            )
+
+            _registrar(
+                "PTY: quadro minimo apareceu na reducao ('terminal pequeno demais')",
+                b"terminal pequeno demais" in _saida_reducao
+                and b"ORQUESTRADOR" not in _saida_reducao,
+            )
+
+            _linhas_red = _linhas_ultimo_quadro(_saida_reducao)
+            _maxw_red = max((len(l) for l in _linhas_red), default=0)
+            _registrar(
+                "PTY: quadro reduzido respeita dimensoes (<= {0} colunas e <= {1} linhas, sem linha extra)".format(
+                    _COLS_RED, _LINS_RED
+                ),
+                len(_linhas_red) > 0
+                and len(_linhas_red) <= _LINS_RED
+                and _maxw_red <= _COLS_RED,
+                "nlinhas={0} maxw={1}".format(len(_linhas_red), _maxw_red),
+            )
+
+            _registrar(
+                "PTY: redraw de resize sem clear total (ESC[2J ausente na reducao)",
+                b"\x1b[2J" not in _saida_reducao,
+            )
+
+            # --- Fase 3: ampliacao -> conteudo normal restaurado ---
+            _win_amp = _struct_pty.pack("HHHH", _LINS_NORM, _COLS_NORM, 0, 0)
+            _fcntl_pty.ioctl(_master_fd, _termios_pty.TIOCSWINSZ, _win_amp)
+            os.kill(_proc_pty.pid, signal.SIGWINCH)
+            _saida_ampliacao = _ler_pty_ate_ocioso(_master_fd, 3.0, 0.3)
+            _vivo_ampliacao = _proc_pty.poll() is None
+
+            _redraw_ampliacao = (
+                len(_saida_ampliacao) > 0 and b"\x1b[?2026h" in _saida_ampliacao
+            )
+            _registrar(
+                "PTY: ampliacao produziu redraw (novo quadro apos segundo SIGWINCH)",
+                _redraw_ampliacao,
+                "bytes={0}".format(len(_saida_ampliacao)),
+            )
+
+            _registrar(
+                "PTY: conteudo normal retornou apos ampliacao ('ORQUESTRADOR' presente, quadro minimo ausente)",
+                b"ORQUESTRADOR" in _saida_ampliacao
+                and b"terminal pequeno demais" not in _saida_ampliacao,
+            )
+
+            _linhas_amp = _linhas_ultimo_quadro(_saida_ampliacao)
+            _maxw_amp = max((len(l) for l in _linhas_amp), default=0)
+            _registrar(
+                "PTY: quadro ampliado usa novas dimensoes (<= {0} colunas e <= {1} linhas)".format(
+                    _COLS_NORM, _LINS_NORM
+                ),
+                len(_linhas_amp) > 0
+                and len(_linhas_amp) <= _LINS_NORM
+                and _maxw_amp <= _COLS_NORM,
+                "nlinhas={0} maxw={1}".format(len(_linhas_amp), _maxw_amp),
+            )
+
+            _registrar(
+                "PTY: processo permaneceu ativo nos dois resizes",
+                _vivo_reducao and _vivo_ampliacao,
+                "reducao={0} ampliacao={1}".format(_vivo_reducao, _vivo_ampliacao),
+            )
+
+            # --- Fase 4: Esc e encerramento ---
+            try:
+                os.write(_master_fd, b"\x1b")
+            except OSError:
+                pass
+
+            _encerrou_ok = True
+            try:
+                _proc_pty.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                _encerrou_ok = False
+                _proc_pty.kill()
+                _proc_pty.wait()
+
+            _registrar(
+                "PTY: Esc encerrou o processo dentro do timeout",
+                _encerrou_ok,
+            )
+            _registrar(
+                "PTY: codigo de saida 0 apos Esc",
+                _proc_pty.returncode == 0,
+                "returncode={0}".format(_proc_pty.returncode),
+            )
+            _pseudo_pty_executado[0] = True
+
+        except Exception as _pty_exc:
+            _registrar("PTY: execucao sem excecao fatal", False,
+                       "{0}".format(_pty_exc))
+            _pseudo_pty_limitacoes.append(str(_pty_exc))
+        finally:
+            _cleanup_ok = True
+            if _slave_fd is not None:
+                try:
+                    os.close(_slave_fd)
+                except OSError:
+                    _cleanup_ok = False
+            if _master_fd is not None:
+                try:
+                    os.close(_master_fd)
+                except OSError:
+                    _cleanup_ok = False
+            if _proc_pty is not None and _proc_pty.poll() is None:
+                _proc_pty.kill()
+                try:
+                    _proc_pty.wait(timeout=2)
+                except Exception:
+                    _cleanup_ok = False
+            _registrar("PTY: cleanup concluido (descritores fechados e processo finalizado)",
+                       _cleanup_ok)
+
+    except ImportError:
+        _registrar("PTY: modulo pty disponivel", False, "import pty falhou")
+        _pseudo_pty_limitacoes.append("modulo pty nao disponivel")
+
+    print("")
+    print("-- Validacao humana TTY real: PENDENTE --")
+    print("VALIDACAO_HUMANA_TTY_REAL: PENDENTE")
+    print("Criterios pendentes: reducao, ampliacao, resize rapido, residuos,")
+    print("scroll, linha adicional, flicker, quadro pequeno, recuperacao,")
+    print("echo, navegacao, restauracao apos Esc, estado final do terminal.")
+    print("Pseudo-TTY executado: {0}".format(
+        "sim" if _pseudo_pty_executado[0] else "nao (ver limitacoes)"
+    ))
+    if _pseudo_pty_limitacoes:
+        print("Limitacoes pseudo-TTY: {0}".format("; ".join(_pseudo_pty_limitacoes)))
 
 
 def _finalizar():
@@ -1736,6 +2995,7 @@ def main():
     teste_proibicoes_importacao_demo()
     teste_inspecao_codigo_demo()
     teste_sessao_tui_h0022()
+    teste_redimensionamento_reativo_h0023()
 
     return _finalizar()
 

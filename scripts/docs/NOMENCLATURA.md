@@ -6,7 +6,7 @@ metadata:
   scope: sistema_novo
   status: parcial
   origem_especificacao: usuario_sessao_2026-07-05
-  atualizado_em: 2026-07-10
+  atualizado_em: 2026-07-11
   reaproveitado_de_legado: false
 ---
 
@@ -651,9 +651,11 @@ telas, mas classificado como específico, não como canônico da ordem fixa
   do terminal — sem perfis fixos pré-definidos. Sustentável porque nenhuma
   regra de composição (colunas, quebra de texto, padding, paginação)
   depende de largura fixa.
-- **Redimensionamento reativo**: o sistema reage a mudança de tamanho do
-  terminal em tempo real — não lê a largura uma vez na inicialização e
-  guarda; a tela se ajusta enquanto está aberta, sem precisar reiniciar.
+- **Redimensionamento reativo da TUI (ADR-0017)**: o sistema detecta mudança de
+  tamanho da janela do terminal via `SIGWINCH` e reage atualizando dimensões e
+  redesenhando o quadro — sem reiniciar a sessão, sem usar `ncurses`/`curses`.
+  A política normativa completa está em `contrato_tela_json.md` seção 24. Os
+  termos específicos estão definidos na seção 6.2 abaixo.
 - **Organização horizontal por tipo de conteúdo do corpo** (revisado):
   - `lancador`: **pode ser linha única horizontal (fila) ou matriz de múltiplas
     colunas**, calculado automaticamente pela largura real do terminal
@@ -707,6 +709,44 @@ aquele corpo ocupa fisicamente.
 
 **Ainda não definido (adiado, sem caso de uso real ainda)**: combinação de
 `corpo.arranjo = "horizontal"` com objeto `dashboard` presente ao mesmo tempo.
+
+### 6.2 Termos do redimensionamento reativo da TUI (ADR-0017, 2026-07-11)
+
+Os termos abaixo são a autoridade terminológica para contratos, handoffs e
+código relacionados ao redimensionamento reativo. A política normativa completa
+está em `contrato_tela_json.md` seção 24.
+
+| Termo | Definição |
+|---|---|
+| `redimensionamento reativo da TUI` | Capacidade de detectar mudança de tamanho da janela do terminal em sessão TTY ativa (via `SIGWINCH`), obter novo par válido de dimensões e redesenhar o quadro sem encerrar a sessão |
+| `SIGWINCH` | Sinal POSIX recebido quando a janela do terminal muda de tamanho; gatilho normativo do redimensionamento reativo em sessão TTY ativa |
+| `ioctl(TIOCGWINSZ)` | Chamada de sistema que obtém as dimensões atuais da janela do terminal; fonte primária normativa de largura e altura durante sessão TTY |
+| `par de dimensões válido` | Par (largura, altura) em que ambos os valores estão presentes, podem ser interpretados como inteiros e são maiores que zero; único estado que pode ser aplicado ao renderer |
+| `últimas dimensões válidas` | O par (largura, altura) mais recente que satisfez os critérios de validade; conservado quando a obtenção pós-`SIGWINCH` não produz par válido; não é substituído pelo fallback fixo durante sessão já ativa |
+| `quadro mínimo de terminal pequeno` | Quadro substituto exibido quando as dimensões são válidas mas insuficientes para a tela normal; comunica inequivocamente "terminal pequeno demais"; cabe nas dimensões atuais; é substituído automaticamente pela tela normal quando dimensões suficientes forem restauradas |
+
+**Distinções obrigatórias (não colapsam)**:
+
+| Termo específico | Significado | Não confundir com |
+|---|---|---|
+| `redimensionamento reativo da TUI` | Detecção de `SIGWINCH` e redesenho com novo par válido em sessão TTY | `corpo.arranjo` ou `tiling` (composição declarativa, não sessão TTY) |
+| `par de dimensões válido` | Par (largura > 0, altura > 0) de fonte normativa | Par parcial ou zerado — não aplicável ao renderer |
+| `últimas dimensões válidas` | Par conservado durante sessão quando nova obtenção falha | Fallback fixo `(80, 24)` — este só se aplica na inicialização sem fontes válidas |
+| `ocupacao_vertical_terminal` | Preenchimento da altura disponível pelo renderer (ADR-0013) | `corpo.arranjo = "vertical"` (composição dos elementos do corpo, ADR-0011) |
+| `corpo.arranjo` | Ordem/composição dos elementos do corpo declarada no `tela.json` | Resultado visual do redimensionamento — o redimensionamento não altera `corpo.arranjo` |
+| `tiling` | Preferência de arranjo do estilo ou fixação pela classe de tela | Resultado de redimensionamento — o redimensionamento não altera `tiling` |
+| `quadro mínimo de terminal pequeno` | Aviso exibido quando tela não cabe mas sessão permanece ativa | Encerramento da sessão TUI ou propagação de classe de erro como saída normal |
+
+**Regras normativas derivadas da ADR-0017**:
+
+- Redimensionamento não altera `corpo.arranjo`, `tiling`, chips nem elementos declarados.
+- Redimensionamento não cria fallback de composição baseado em largura ou altura.
+- Par inválido não é aplicado ao renderer; `últimas dimensões válidas` são mantidas.
+- Fallback fixo `(80, 24)` somente na inicialização sem fontes válidas; nunca substitui
+  `últimas dimensões válidas` durante sessão ativa.
+- `quadro mínimo de terminal pequeno` não encerra a sessão; recuperação é automática.
+- Comportamento não-TTY permanece inalterado; `SIGWINCH` não é tratado fora de sessão TTY.
+- `ncurses`, `curses`, `textual` e `rich` permanecem proibidos para esta capacidade.
 
 ---
 

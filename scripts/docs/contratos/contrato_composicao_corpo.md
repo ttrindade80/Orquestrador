@@ -20,6 +20,7 @@ metadata:
       - docs/adr/ADR-0011-terminologia-arranjo-vertical-horizontal.md
       - docs/adr/ADR-0013-ocupacao-vertical-janela-terminal-corpo.md
       - docs/adr/ADR-0015-composicao-hierarquica-distribuicao-corpo.md
+      - docs/adr/ADR-0017-redimensionamento-reativo-tui.md
     reaproveitado_de_legado: false
 ---
 
@@ -256,6 +257,14 @@ caixa do corpo vs. linha física com largura total) é decisão de handoff
 futuro, desde que não seja tratada como novo arranjo nem novo tipo de
 elemento do corpo.
 
+**Mecanismo de obtenção de dimensões (ADR-0017, 2026-07-11)**: a política
+normativa de obtenção, validação e atualização de largura e altura durante a
+sessão TTY é definida pela ADR-0017. A cadeia de obtenção — `ioctl(TIOCGWINSZ)`
+→ `LINES`/`COLUMNS` → fallback ou últimas dimensões válidas — e a política de
+redimensionamento reativo estão registradas em `contrato_tela_json.md` seção 24.
+A `altura_disponivel` é obtida por esse mecanismo durante a sessão TTY. O
+redimensionamento não altera `corpo.arranjo` nem `tiling`.
+
 ### 4.8 Arranjo por container (ADR-0015)
 
 Cada container (`corpo` ou `grupo`) declara o **arranjo dos seus filhos diretos**.
@@ -299,8 +308,13 @@ internos de grupo nem elementos visuais resultantes de expansão.
 | `console` | `normal` | Colunar: `n_col` colunas, valor ajustável |
 | `console` | `verboso` | Tabular: largura de coluna calculada por conteúdo; texto longo quebra dentro da célula |
 
-**Largura sempre dinâmica**: calculada a partir da largura real do terminal em
-tempo real (redimensionamento reativo). Sem perfis fixos pré-definidos.
+**Largura e altura dinâmicas (ADR-0017)**: calculadas a partir das dimensões
+reais do terminal em sessão TTY ativa. A cadeia normativa de obtenção e
+validação do par largura/altura, a política de `SIGWINCH` e a cadeia de fallback
+são definidas pela ADR-0017 e registradas em `contrato_tela_json.md` seção 24.
+Sem perfis fixos pré-definidos. O redimensionamento não altera `corpo.arranjo`
+nem `tiling`; somente distribuições visuais já autorizadas e dependentes da
+dimensão real são recalculadas.
 
 **Overflow**: nunca existe scroll. Conteúdo que excede o espaço disponível
 sempre pagina, exceto `lancador`. Espaço sobrando é preenchido (padding), nunca
@@ -583,10 +597,14 @@ Justificativa:
 - se o conteúdo exceder o máximo, o elemento recebe o máximo e aplica
   overflow/paginação.
 
-**Terminal muito pequeno**: área menor que a mínima normal deve ter política
-determinística. Representação compacta futura com `...` é política de
-overflow/compactação — não fallback de composição. Não pode haver truncamento
-silencioso nem fallback silencioso para outro arranjo.
+**Terminal pequeno demais (ADR-0017)**: quando as dimensões forem válidas mas
+insuficientes para a tela normal, a sessão TUI exibe quadro mínimo de aviso
+("terminal pequeno demais") e recupera automaticamente quando dimensões
+suficientes forem restauradas — ver `contrato_tela_json.md` seção 24. Área
+menor que a mínima normal deve ter política determinística. Representação
+compacta futura com `...` é política de overflow/compactação — não fallback de
+composição. Não pode haver truncamento silencioso nem fallback silencioso para
+outro arranjo.
 
 ---
 
@@ -762,6 +780,18 @@ O renderer nunca ajusta silenciosamente arranjo, distribuição ou profundidade
 para contornar restrição. Qualquer condição inválida gera erro determinístico
 com mensagem descritiva.
 
+**R-23. Redimensionamento não altera composição declarativa (ADR-0017).**
+O redimensionamento reativo (por `SIGWINCH`) não modifica `corpo.arranjo`,
+`tiling`, presença de elementos, chips ou qualquer outra decisão declarativa de
+composição. Somente distribuições visuais já autorizadas e dependentes da dimensão
+real podem ser recalculadas.
+
+**R-24. Novo par de dimensões válido aciona recálculo de áreas (ADR-0017).**
+Quando a sessão TTY receber novo par válido de largura/altura, o renderer deve
+recalcular áreas, paginação e distribuições visuais dependentes, e redesenhar o
+quadro completo. Par inválido não é aplicado; as últimas dimensões válidas são
+mantidas sem que o redesenho seja acionado.
+
 ---
 
 ## 8. Critérios de validação
@@ -829,6 +859,11 @@ com mensagem descritiva.
       não como `minimo` (R-21).
 - [ ] Condição que impeça composição declarada gera erro determinístico; nunca
       fallback silencioso (R-22).
+- [ ] O redimensionamento reativo não altera `corpo.arranjo`, `tiling`, presença
+      de elementos nem chips — somente distribuições visuais dependentes de dimensão
+      são recalculadas (R-23, ADR-0017).
+- [ ] Par inválido de dimensões não é aplicado ao renderer; as últimas dimensões
+      válidas são mantidas e não provocam redesenho por si sós (R-24, ADR-0017).
 
 ---
 
@@ -864,9 +899,12 @@ Itens adiados intencionalmente — não são lacunas de especificação:
 - **Distribuição restrita/dinâmica** (ADR-0015): os conceitos `minimo`,
   `preferido`, `maximo`, `restante`, `conteudo` estão registrados mas não
   têm schema de declaração fechado. Detalhamento em ciclo futuro.
-- **Política de terminal muito pequeno** (ADR-0015): representação compacta
-  com `...` está conceituada mas não tem implementação especificada. Detalhar
-  em ciclo futuro.
+- **Política de terminal pequeno demais** (ADR-0015, ADR-0017): a ADR-0017
+  estabelece que terminal com dimensões válidas mas insuficientes deve exibir
+  quadro mínimo de aviso e recuperar automaticamente quando dimensões suficientes
+  forem restauradas — ver `contrato_tela_json.md` seção 24. A representação
+  compacta com `...` para overflow/compactação é política complementar a ser
+  detalhada em ciclo futuro.
 - **Revisão de `contrato_lancador.md` conforme ADR-0008** (DOC-0020): detalhes
   da instância de `lancador` em `tela.json` pertencem ao contrato próprio.
 - **Revisão de `console` como container genérico** (DOC-0024): contrato e

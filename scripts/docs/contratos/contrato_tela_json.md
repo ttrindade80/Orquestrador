@@ -691,16 +691,156 @@ Regras normativas da sessão TUI:
 - atributos `termios` originais, autowrap, cursor e alternate screen devem ser
   restaurados em `finally` que protege lexicalmente o loop completo da sessão
   TUI e executa quando o loop efetivamente termina;
-- a política não acrescenta redimensionamento reativo da janela, reserva de
-  handoff futuro, suporte Windows, detecção por `terminfo`, nem uso de
-  `curses`, `textual` ou `rich`;
+- o redimensionamento reativo da janela é normatizado pela seção 24
+  (ADR-0017); suporte Windows, detecção por `terminfo` e uso de `curses`,
+  `textual` ou `rich` permanecem fora do escopo desta seção e da seção 24;
 - suporte a terminais não compatíveis com ANSI/VT/xterm e tratamento de
   navegação por setas fora das regras já contratadas permanecem fora do escopo
   desta política.
 
 ---
 
-## 24. Validação obrigatória
+## 24. Redimensionamento reativo da sessão TUI (ADR-0017)
+
+Quando a sessão TTY estiver ativa (condição da seção 23), o redimensionamento
+reativo da janela obedece à política da ADR-0017. O comportamento não-TTY
+permanece inalterado; nenhuma regra desta seção se aplica ao fluxo não-TTY.
+
+### Gatilho
+
+Em sessão TTY ativa, `SIGWINCH` é o gatilho de redimensionamento. O recebimento
+do sinal deve provocar a obtenção de novas dimensões e, quando houver par válido,
+o redesenho correspondente. O detalhe de onde o trabalho é executado — dentro do
+manipulador de sinal ou diferido para o loop principal — não é normativo por esta
+política; o resultado obrigatório descrito abaixo deve ser respeitado.
+
+### Fonte primária e par coerente
+
+A fonte primária de largura e altura é `ioctl(fd, TIOCGWINSZ, ...)`. O resultado
+prevalece quando ambas as dimensões forem válidas (ver "Validade" abaixo). Largura
+e altura formam um único estado coerente de janela; é proibido combinar largura de
+uma fonte com altura de outra na mesma atualização.
+
+### Validade de um par de dimensões
+
+Um par de dimensões somente é válido quando:
+
+- largura e altura estão presentes;
+- ambas podem ser interpretadas como inteiros;
+- largura é maior que zero;
+- altura é maior que zero.
+
+Dimensões ausentes, inválidas ou zeradas não podem ser aplicadas ao renderer.
+
+### Cadeia de obtenção na inicialização
+
+```text
+ioctl(TIOCGWINSZ)
+→ LINES e COLUMNS
+→ fallback fixo (80, 24)
+```
+
+`LINES` e `COLUMNS` somente são aceitas quando ambas formarem um par válido.
+Variáveis de ambiente nunca prevalecem sobre resultado válido de `ioctl`. O
+fallback fixo normativo é `largura = 80`, `altura = 24`.
+
+### Cadeia de obtenção após SIGWINCH
+
+Durante a sessão TTY, após `SIGWINCH`:
+
+```text
+ioctl(TIOCGWINSZ)
+→ LINES e COLUMNS
+→ últimas dimensões válidas
+```
+
+`LINES` e `COLUMNS` somente são aceitas quando ambas formarem um par válido.
+
+Quando nenhuma fonte produzir par válido:
+
+- conservar as últimas dimensões válidas;
+- não aplicar dimensões inválidas ao renderer;
+- não redesenhar como se o tamanho tivesse mudado;
+- aguardar futura atualização válida.
+
+O fallback fixo `(80, 24)` aplica-se exclusivamente à inicialização sem fontes
+válidas; não substitui as últimas dimensões válidas durante sessão já ativa.
+
+### Redesenho após par válido
+
+Quando for obtido novo par válido de dimensões:
+
+- atualizar largura e altura da sessão;
+- recalcular integralmente a tela;
+- recalcular regiões e áreas dependentes das novas dimensões;
+- recalcular paginação e distribuições visuais já autorizadas e dependentes da
+  dimensão real;
+- redesenhar o quadro completo.
+
+A política aplica-se tanto a redução quanto a ampliação. Depois de cada
+atualização válida:
+
+- nenhum resíduo do quadro anterior pode permanecer visível;
+- não pode haver scroll acidental;
+- o quadro não pode escrever além da altura atual;
+- o quadro não pode continuar usando dimensões antigas;
+- o conteúdo deve ser recalculado, não apenas recortado.
+
+### Preservação da composição declarativa
+
+O redimensionamento não altera decisões declarativas:
+
+- não modifica `corpo.arranjo`;
+- não modifica o `tiling` escolhido pelo usuário;
+- não inventa ou remove chips;
+- não cria fallback de composição baseado em largura ou altura;
+- não transforma automaticamente composição declarada em outra.
+
+Somente distribuições visuais que os contratos já definam como dependentes da
+largura ou da altura real podem ser recalculadas.
+
+### Terminal pequeno demais
+
+Quando as dimensões forem válidas mas insuficientes para a tela normal, a sessão
+TUI deve:
+
+- manter a sessão TUI ativa;
+- substituir o quadro anterior por um quadro mínimo que comunique inequivocamente
+  "terminal pequeno demais" (formulação adequável à largura disponível,
+  preservando o significado);
+- não escrever além da largura ou da altura atuais;
+- não gerar scroll;
+- não deixar resíduos do quadro anterior;
+- não exigir ação do usuário.
+
+O quadro mínimo deve ser substituído automaticamente pela tela normal quando
+dimensões suficientes forem restauradas. Nenhuma classe ou nome de exceção é
+normativo por esta política.
+
+### Preservações da seção 23
+
+Toda a política da seção 23 (ADR-0016) permanece vigente durante o
+redimensionamento reativo:
+
+- alternate screen, cursor oculto, autowrap desativado: mantidos;
+- posicionamento absoluto linha a linha com `CSI <linha>;1H`: mantido;
+- preenchimento de cada linha até a largura atual: mantido;
+- escrita atômica (uma chamada `write()` + um `flush()`) por quadro: mantido;
+- synchronized output (`\x1b[?2026h/l`) em toda atualização de quadro: mantido;
+- `\x1b[2J` não é repetido a cada redesenho por redimensionamento;
+- restauração do terminal em `finally`: mantida.
+
+### Plataforma e exclusões
+
+Permanecem no escopo: sistema compatível com `termios`, sinais POSIX, `ioctl` e
+terminal ANSI/VT/xterm.
+
+Permanecem fora do escopo: suporte Windows, detecção por `terminfo`, `ncurses`,
+`curses`, `textual`, `rich`.
+
+---
+
+## 25. Validação obrigatória
 
 Toda tela deve ser validada antes de renderizar.
 
@@ -724,7 +864,7 @@ Critérios mínimos de validação:
 
 ---
 
-## 25. Erro, vazio e ausência de dados
+## 26. Erro, vazio e ausência de dados
 
 Cada elemento deve ter política para:
 
@@ -740,7 +880,7 @@ declarados ou receber default contratual.
 
 ---
 
-## 26. Hierarquia de defaults e sobrescritas
+## 27. Hierarquia de defaults e sobrescritas
 
 Hierarquia inicial:
 
@@ -756,7 +896,7 @@ estilo.json global
 
 ---
 
-## 27. Limite declarativo do JSON
+## 28. Limite declarativo do JSON
 
 `tela.json` pode declarar:
 
@@ -774,7 +914,7 @@ livres ou scripts não registrados.
 
 ---
 
-## 28. Pendências derivadas
+## 29. Pendências derivadas
 
 Pendências obrigatórias derivadas deste contrato:
 

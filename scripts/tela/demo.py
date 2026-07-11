@@ -1,5 +1,5 @@
 """Aplicacao demonstravel minima com borda/sair e navegacao minima
-(H-0008 / H-0009 / H-0010A / H-0022).
+(H-0008 / H-0009 / H-0010A / H-0022 / H-0023).
 
 Ponto de entrada executavel local que exercita a API entregue pelo
 renderer (``renderizar_tela``) sobre a tela raiz do Orquestrador e a tela
@@ -78,6 +78,21 @@ ADICOES DO H-0022 (correcao da sessao TUI conforme ADR-0016):
   e ignorado silenciosamente: sessao TUI permanece ativa.
 - ``finally`` cobre restauracao completa em toda saida do loop principal.
 
+ADICOES DO H-0023 (redimensionamento reativo -- ADR-0017):
+- SIGWINCH em sessao TTY ativa detecta alteracao de tamanho da janela.
+- Wakeup pipe: handler minimo escreve um byte; loop principal usa
+  select duplo (stdin + pipe) para acordar sem bloquear.
+- Cadeia de obtencao: ioctl(TIOCGWINSZ) -> LINES/COLUMNS -> fallback
+  fixo (80,24) na inicializacao; ultimas dimensoes validas apos resize.
+- Par valido: ambos inteiros positivos; largura e altura sempre atualizados
+  juntos; fontes nunca misturadas.
+- Redesenho somente quando novo par valido difere do estado atual.
+- Quadro minimo de aviso quando terminal pequeno demais; recuperacao
+  automatica sem acao do usuario quando dimensoes voltam a ser suficientes.
+- ``_iniciar_sessao_tui`` com rollback interno completo (auxiliar visual
+  ``_restaurar_efeitos_visuais_tui`` reutilizada no encerramento normal).
+- Sentinelas de aquisicao; cleanup condicional; excecao primaria preservada.
+
 A apenas biblioteca padrao do Python.
 """
 
@@ -90,15 +105,21 @@ if __name__ == "__main__":
     if _raiz_scripts and _raiz_scripts not in sys.path:
         sys.path.insert(0, _raiz_scripts)
 
+import fcntl
 import os
-import shutil
 import select
+import shutil
+import signal
+import struct
 import termios
 import tty
 
 from tela.loader import carregar_tela
 from tela.modelo import construir_modelo, ModeloTela
-from tela.renderizador import renderizar_tela
+from tela.renderizador import renderizar_tela, RenderizadorErro
+
+LARGURA_MINIMA_TELA = 10
+ALTURA_MINIMA_TELA = 6
 
 
 def criar_estado_inicial():
@@ -262,38 +283,195 @@ class captura_interrupcao_de_script:
         return exc_type is KeyboardInterrupt
 
 
+def _restaurar_efeitos_visuais_tui():
+    """Emite sequencias de restauracao do terminal de forma defensiva.
+
+    Usada tanto no rollback interno de ``_iniciar_sessao_tui`` quanto no
+    encerramento normal via ``_encerrar_sessao_tui``. Silencia erros
+    internamente; nunca lanca excecao propria.
+    """
+    try:
+        sys.stdout.write("\x1b[?7h\x1b[?25h\x1b[?1049l")
+    except Exception:
+        pass
+    try:
+        sys.stdout.flush()
+    except Exception:
+        pass
+
+
 def _iniciar_sessao_tui(fd_stdin):
     """Salva estado TTY, ativa cbreak mode e entra em alternate screen.
 
     Usa ``tty.setcbreak`` (preserva OPOST e ISIG; rejeita modo raw).
     Desativa autowrap (ESC[?7l) e limpa a tela uma unica vez (ESC[2J).
     Retorna os atributos originais do terminal para restauracao posterior.
+
+    Em caso de falha de ``write`` ou ``flush`` apos ``setcbreak``,
+    executa rollback interno completo (restauracao visual + termios) e
+    propaga a excecao original. ``sessao_iniciada`` permanece ``False``
+    no chamador.
     """
     atributos_originais = termios.tcgetattr(fd_stdin)
     tty.setcbreak(fd_stdin)
-    sys.stdout.write("\x1b[?1049h\x1b[?25l\x1b[?7l\x1b[2J\x1b[H")
-    sys.stdout.flush()
+    try:
+        sys.stdout.write("\x1b[?1049h\x1b[?25l\x1b[?7l\x1b[2J\x1b[H")
+        sys.stdout.flush()
+    except Exception:
+        _restaurar_efeitos_visuais_tui()
+        try:
+            termios.tcsetattr(fd_stdin, termios.TCSADRAIN, atributos_originais)
+        except Exception:
+            pass
+        raise
     return atributos_originais
 
 
 def _encerrar_sessao_tui(fd_stdin, atributos_originais):
     """Restaura atributos TTY, autowrap, cursor e encerra alternate screen.
 
-    Executa cada passo em bloco try separado para garantir restauracao
+    Executa cada passo de forma defensiva para garantir restauracao
     mesmo que uma das etapas falhe.
     """
     try:
         termios.tcsetattr(fd_stdin, termios.TCSADRAIN, atributos_originais)
     except Exception:
         pass
+    _restaurar_efeitos_visuais_tui()
+
+
+def _par_dimensoes_valido(largura, altura):
+    """Retorna True se e somente se largura e altura sao inteiros positivos."""
     try:
-        sys.stdout.write("\x1b[?7h\x1b[?25h\x1b[?1049l")
-        sys.stdout.flush()
+        l = int(largura)
+        a = int(altura)
+        return l > 0 and a > 0
+    except (TypeError, ValueError):
+        return False
+
+
+def _obter_dimensoes_ioctl(fd):
+    """Consulta dimensoes do terminal via ioctl(TIOCGWINSZ).
+
+    Retorna ``(largura, altura)`` quando o par e valido, ``None``
+    caso contrario.
+    """
+    try:
+        buf = struct.pack("HHHH", 0, 0, 0, 0)
+        buf = fcntl.ioctl(fd, termios.TIOCGWINSZ, buf)
+        rows, cols, _, _ = struct.unpack("HHHH", buf)
+        if _par_dimensoes_valido(cols, rows):
+            return int(cols), int(rows)
+        return None
+    except (OSError, struct.error):
+        return None
+
+
+def _obter_dimensoes_env():
+    """Obtem dimensoes das variaveis de ambiente LINES e COLUMNS.
+
+    Aceita somente quando ambas estao presentes e formam par valido.
+    Retorna ``(largura, altura)`` ou ``None``.
+    """
+    try:
+        cols = int(os.environ["COLUMNS"])
+        rows = int(os.environ["LINES"])
+        if _par_dimensoes_valido(cols, rows):
+            return cols, rows
+        return None
+    except (KeyError, ValueError):
+        return None
+
+
+def _obter_dimensoes_iniciais(fd):
+    """Cadeia de obtencao na inicializacao: ioctl -> env -> (80, 24)."""
+    par = _obter_dimensoes_ioctl(fd)
+    if par is not None:
+        return par
+    par = _obter_dimensoes_env()
+    if par is not None:
+        return par
+    return 80, 24
+
+
+def _obter_dimensoes_apos_sigwinch(fd, ultimas_validas):
+    """Cadeia de obtencao apos SIGWINCH: ioctl -> env -> ultimas_validas.
+
+    O fallback fixo (80, 24) nao aparece aqui; em sessao ativa, fontes
+    invalidas preservam as ultimas dimensoes validas conhecidas.
+    """
+    par = _obter_dimensoes_ioctl(fd)
+    if par is not None:
+        return par
+    par = _obter_dimensoes_env()
+    if par is not None:
+        return par
+    return ultimas_validas
+
+
+def _instalar_handler_sigwinch(w_wakeup, resize_pendente):
+    """Instala handler de SIGWINCH que escreve no wakeup pipe.
+
+    O handler executa somente operacoes async-signal-safe: atribuicao e
+    ``os.write``. Pipe cheio e tratado silenciosamente. Retorna o
+    handler anterior.
+    """
+    def _handler(signum, frame):
+        resize_pendente[0] = True
+        try:
+            os.write(w_wakeup, b"\x00")
+        except OSError:
+            pass
+    handler_anterior = signal.signal(signal.SIGWINCH, _handler)
+    return handler_anterior
+
+
+def _restaurar_handler_sigwinch(handler_anterior):
+    """Restaura o handler de SIGWINCH anterior de forma defensiva."""
+    try:
+        signal.signal(signal.SIGWINCH, handler_anterior)
     except Exception:
         pass
 
 
-def _apresentar_quadro(conteudo):
+def _tela_pequena_demais(largura, altura):
+    """Retorna True quando as dimensoes sao insuficientes para a tela normal."""
+    return largura < LARGURA_MINIMA_TELA or altura < ALTURA_MINIMA_TELA
+
+
+def _quadro_minimo_aviso(largura, altura):
+    """Gera quadro de aviso para terminal pequeno demais.
+
+    Retorna string com exatamente ``altura`` linhas terminadas por ``\\n``,
+    cada linha com exatamente ``largura`` caracteres antes do ``\\n``.
+    """
+    if largura >= 23:
+        msg = "terminal pequeno demais"
+    elif largura >= 9:
+        msg = "tela peq."
+    else:
+        msg = ""
+    linha_aviso = msg[:largura].ljust(largura)
+    linha_vazia = " " * largura
+    linhas = [linha_aviso] + [linha_vazia] * (altura - 1)
+    return "\n".join(linhas) + "\n"
+
+
+def _resolver_conteudo(estado, modelo, largura, altura):
+    """Resolve o conteudo a apresentar para as dimensoes correntes.
+
+    Retorna quadro minimo de aviso quando terminal pequeno demais ou
+    quando o renderer levanta ``RenderizadorErro``.
+    """
+    if _tela_pequena_demais(largura, altura):
+        return _quadro_minimo_aviso(largura, altura)
+    try:
+        return renderizar_estado(estado, modelo, largura, altura=altura)
+    except RenderizadorErro:
+        return _quadro_minimo_aviso(largura, altura)
+
+
+def _apresentar_quadro(conteudo, largura=None):
     """Apresenta um quadro completo por posicionamento absoluto linha a linha.
 
     Cada linha e precedida por CSI n;1H (posicionamento absoluto na coluna 1)
@@ -301,8 +479,12 @@ def _apresentar_quadro(conteudo):
     emitido em uma unica chamada write() seguida de uma unica flush().
     Synchronized output (ESC[?2026h/l) envolve o conteudo de cada quadro.
     Nao usa \\n como mecanismo de quebra de linha (ADR-0016 item 5).
+
+    ``largura``: quando fornecida, usa esse valor; caso contrario, consulta
+    ``shutil.get_terminal_size`` como fallback (compatibilidade com chamadas
+    existentes sem o parametro).
     """
-    w = shutil.get_terminal_size(fallback=(80, 24)).columns
+    w = largura if largura is not None else shutil.get_terminal_size(fallback=(80, 24)).columns
     linhas = conteudo.split("\n")
     if linhas and linhas[-1] == "":
         linhas = linhas[:-1]
@@ -321,29 +503,65 @@ def _apresentar_quadro(conteudo):
 def main():
     """Entrada principal da aplicacao demonstravel.
 
-    Renderiza com a largura e altura reais do terminal. Em TTY interativo
-    (stdin e stdout sao TTY), ativa alternate screen, oculta cursor,
-    desativa autowrap e entra em cbreak mode para a duracao da sessao;
-    cada quadro e apresentado por posicionamento absoluto linha a linha
-    com escrita atomica (synchronized output); KeyboardInterrupt no loop
-    principal e capturado e ignorado silenciosamente (sessao continua);
-    o terminal e restaurado em ``finally``. Fora de TTY (pipe/teste),
-    usa leitura linha a linha e ``print`` normal. Retorna 0 (saida limpa).
+    Em TTY interativo (stdin e stdout sao TTY), ativa alternate screen,
+    oculta cursor, desativa autowrap e entra em cbreak mode. Dimensoes
+    obtidas por ioctl(TIOCGWINSZ) na inicializacao. SIGWINCH e tratado
+    via wakeup pipe e select duplo; cada redesenho usa as dimensoes
+    correntes. Terminal pequeno demais exibe quadro de aviso com
+    recuperacao automatica. Restauracao completa em ``finally`` com
+    cleanup condicional por sentinelas. Fora de TTY (pipe/teste), usa
+    leitura linha a linha e ``print`` normal. Retorna 0 (saida limpa).
     """
     estado = criar_estado_inicial()
-    tamanho_terminal = shutil.get_terminal_size(fallback=(80, 24))
-    largura = tamanho_terminal.columns
-    altura = tamanho_terminal.lines
     modelo = _carregar_modelo_por_id(estado["tela_atual"])
 
     if sys.stdin.isatty() and sys.stdout.isatty():
         fd = sys.stdin.fileno()
-        atributos_originais = _iniciar_sessao_tui(fd)
+        largura, altura = _obter_dimensoes_iniciais(fd)
+        resize_pendente = [False]
+        r_wakeup = None
+        w_wakeup = None
+        sessao_iniciada = False
+        handler_instalado = False
+        handler_anterior = None
+        atributos_originais = None
         try:
-            _apresentar_quadro(renderizar_estado(estado, modelo, largura, altura=altura))
+            r_wakeup, w_wakeup = os.pipe()
+            os.set_blocking(r_wakeup, False)
+            os.set_blocking(w_wakeup, False)
+            atributos_originais = _iniciar_sessao_tui(fd)
+            sessao_iniciada = True
+            handler_anterior = _instalar_handler_sigwinch(w_wakeup, resize_pendente)
+            handler_instalado = True
+            _apresentar_quadro(
+                _resolver_conteudo(estado, modelo, largura, altura), largura
+            )
             while True:
                 try:
-                    ch = _ler_tecla_sessao()
+                    prontos, _, _ = select.select([fd, r_wakeup], [], [])
+                    if r_wakeup in prontos:
+                        while True:
+                            try:
+                                dados = os.read(r_wakeup, 64)
+                                if not dados:
+                                    break
+                            except BlockingIOError:
+                                break
+                            except OSError:
+                                break
+                        resize_pendente[0] = False
+                        nova_l, nova_a = _obter_dimensoes_apos_sigwinch(
+                            fd, (largura, altura)
+                        )
+                        if nova_l != largura or nova_a != altura:
+                            largura, altura = nova_l, nova_a
+                            _apresentar_quadro(
+                                _resolver_conteudo(estado, modelo, largura, altura),
+                                largura,
+                            )
+                        if fd not in prontos:
+                            continue
+                    ch = _ler_tecla_sessao(fd=fd)
                     tela_antes = estado["tela_atual"]
                     estado = processar_comando(estado, ch, modelo)
                     if estado["saindo"]:
@@ -351,12 +569,31 @@ def main():
                     if estado["tela_atual"] != tela_antes:
                         modelo = _carregar_modelo_por_id(estado["tela_atual"])
                     if ch == "b" or estado["tela_atual"] != tela_antes:
-                        _apresentar_quadro(renderizar_estado(estado, modelo, largura, altura=altura))
+                        _apresentar_quadro(
+                            _resolver_conteudo(estado, modelo, largura, altura),
+                            largura,
+                        )
                 except KeyboardInterrupt:
                     continue
         finally:
-            _encerrar_sessao_tui(fd, atributos_originais)
+            if handler_instalado:
+                _restaurar_handler_sigwinch(handler_anterior)
+            if r_wakeup is not None:
+                try:
+                    os.close(r_wakeup)
+                except OSError:
+                    pass
+            if w_wakeup is not None:
+                try:
+                    os.close(w_wakeup)
+                except OSError:
+                    pass
+            if sessao_iniciada:
+                _encerrar_sessao_tui(fd, atributos_originais)
     else:
+        tamanho_terminal = shutil.get_terminal_size(fallback=(80, 24))
+        largura = tamanho_terminal.columns
+        altura = tamanho_terminal.lines
         print(renderizar_estado(estado, modelo, largura, altura=altura), end="")
         for linha in sys.stdin:
             comando = linha.strip()
