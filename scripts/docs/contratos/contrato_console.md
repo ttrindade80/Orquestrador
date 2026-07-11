@@ -96,7 +96,7 @@ Semântica de cada campo:
 | `politica_composicao` | Define como os itens são organizados visualmente — alinhamento, fluxo, espaçamento e regras de overflow. Ver seção 5. |
 | `politica_navegacao` | Define se o `console` é navegável, como o cursor se move entre itens e o comportamento de wrap. Ver seção 7. |
 | `politica_selecao` | Define a política de seleção: `nenhuma`, `unica` ou `multipla`. Ver seção 8. |
-| `politica_paginacao` | Define se a instância pagina, o que ocorre quando o conteúdo não cabe e como os chips `[<][>]` são acionados. Ver seção 11. |
+| `politica_paginacao` | Define se a instância pagina, o que ocorre quando o conteúdo não cabe e como os chips `[<][>]` são acionados. Ver seção 12. |
 | `politica_exibicao` | Define se a instância aceita modo verboso, qual é o modo inicial e as regras de overflow em modo normal. Ver seção 6. |
 
 ---
@@ -132,7 +132,7 @@ Semântica de cada campo:
 | `navegavel` | `true` \| `false`. Determina se o cursor do `console` pode entrar neste item. Item com `navegavel: false` é ignorado pelo ciclo de navegação. |
 | `selecionavel` | `true` \| `false`. Determina se este item participa do toggle de seleção `[␣]`. Só relevante quando `politica_selecao = multipla`. |
 | `acao_enter` | Ação declarada e registrada que é executada quando `[⏎]` é acionado com este item em foco. Ausência significa que `[⏎]` fica inativo ao focar este item. |
-| `politica_quebra` | Define o comportamento de quebra de página: `evitar_quebra`, `permitir_quebra` ou `permitir_quebra_somente_se_maior_que_pagina`. Ver seção 11. |
+| `politica_quebra` | Define o comportamento de quebra de página: `evitar_quebra`, `permitir_quebra` ou `permitir_quebra_somente_se_maior_que_pagina`. Ver seção 12. |
 | `politica_exibicao` | Regras internas de renderização do item em modo normal e verboso. |
 
 Regras dos itens internos:
@@ -281,7 +281,25 @@ Regras:
 
 ---
 
-## 10. Filtros
+## 10. Ctrl+C em execução interna (ADR-0016)
+
+`ISIG` permanece habilitado na sessão TUI. Durante execução futura de script
+ou processo interno disparado pela aplicação a partir de ação registrada do
+`console`, `KeyboardInterrupt` deve ser capturado no escopo dessa chamada e
+interromper somente essa execução; a sessão TUI deve permanecer ativa.
+
+Fora desse escopo de execução interna, `KeyboardInterrupt` deve ser ignorado
+silenciosamente. Esc continua sendo a única saída normatizada da sessão TUI.
+O mecanismo pode existir antes de haver fluxo real de execução interna, mas
+não deve ser criada execução de script apenas para consumi-lo.
+
+Esta regra é uma política de comportamento de execução. Ela não transfere para
+este contrato as regras de renderização terminal, escape codes, buffer,
+refresh, alternate screen, autowrap ou desenho de quadro da ADR-0016.
+
+---
+
+## 11. Filtros
 
 Filtros reduzem o conjunto de itens exibidos antes da paginação.
 
@@ -303,7 +321,7 @@ Regras:
 
 ---
 
-## 11. Paginação
+## 12. Paginação
 
 Paginação é consequência automática do conteúdo renderizado que não cabe na
 área disponível.
@@ -330,7 +348,7 @@ Regras:
 
 ---
 
-## 12. Colunas
+## 13. Colunas
 
 A quantidade de colunas é uma política declarada pela instância.
 
@@ -349,7 +367,7 @@ Regras:
 
 ---
 
-## 13. Relação com `chip` e `barra_de_menus`
+## 14. Relação com `chip` e `barra_de_menus`
 
 O `console` **não desenha** a `barra_de_menus`. A `barra_de_menus` é uma
 região fixa da tela, declarada separadamente no `tela.json`.
@@ -372,7 +390,7 @@ O `console` não cria, não ordena e não distribui chips.
 
 ---
 
-## 14. Relação com `dashboard` e `lancador`
+## 15. Relação com `dashboard` e `lancador`
 
 - `console` pode **coexistir com `dashboard`** no corpo quando o `tela.json`
   assim declara;
@@ -389,7 +407,7 @@ O `console` não cria, não ordena e não distribui chips.
 
 ---
 
-## 15. Regras de uso
+## 16. Regras de uso
 
 **R-1. Instância obrigatoriamente declarada no `tela.json`.**
 Nenhum `console` existe sem declaração em `corpo.elementos[]` do `tela.json`.
@@ -427,7 +445,7 @@ Comando arbitrário é proibido.
 
 ---
 
-## 16. Critérios de validação
+## 17. Critérios de validação
 
 - [ ] Instância de `console` sem `id` é inválida.
 - [ ] Instância de `console` sem `tipo` é inválida.
@@ -465,7 +483,7 @@ Comando arbitrário é proibido.
 
 ---
 
-## 17. Pendências fora de escopo
+## 18. Pendências fora de escopo
 
 Os itens abaixo estão fora do escopo deste contrato:
 

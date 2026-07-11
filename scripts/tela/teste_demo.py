@@ -1,10 +1,11 @@
-"""Diagnostico da aplicacao demonstravel H-0008/H-0009/H-0010A (tela/demo.py).
+"""Diagnostico da aplicacao demonstravel H-0008/H-0009/H-0010A/H-0022 (tela/demo.py).
 
 Executavel via:
     python tela/teste_demo.py
 
-Cobre os criterios de aceite testaveis dos handoffs H-0008, H-0009 e
-H-0010A (navegacao minima com tela destino).
+Cobre os criterios de aceite testaveis dos handoffs H-0008, H-0009,
+H-0010A (navegacao minima com tela destino) e H-0022 (sessao TUI corrigida
+conforme ADR-0016).
 
 Secao 1 - Estado inicial:
 - criar_estado_inicial() retorna dict;
@@ -66,6 +67,18 @@ Secao 6 - Inspecao de codigo para modo sem echo (H-0009):
 - demo.py contem termios, tty, shutil.get_terminal_size, isatty;
 - demo.py nao contem input(, curses, textual, rich.
 
+Secao 7 - Sessao TUI (H-0022 / ADR-0016):
+- 7A: Inspecao de codigo (setcbreak, sem setraw, sequencias obrigatorias,
+      \x1b[2J exatamente uma vez, synchronized output, captura KI, finally).
+- 7B: _iniciar_sessao_tui (setcbreak, sequencias de entrada, atributos).
+- 7C: _encerrar_sessao_tui (tcsetattr, \x1b[?7h, \x1b[?25h, \x1b[?1049l).
+- 7D: _apresentar_quadro (escrita atomica, posicionamento absoluto,
+      synchronized output, sem newline, preenchimento ate largura).
+- 7E: captura_interrupcao_de_script (captura KI, nao interfere em execucao
+      normal, nao suprime outras excecoes).
+- 7F: Restauracao por excecao (tcsetattr + sequencias apos RuntimeError).
+- 7G: Fallback nao-TTY sem sequencias TUI via subprocess (item 11).
+
 Alem disso, verifica proibicoes de importacao em tela/demo.py e o
 comportamento de EOF sem "s" (encerra com codigo 0).
 
@@ -91,6 +104,11 @@ from tela.demo import (  # noqa: E402
     criar_estado_inicial,
     processar_comando,
     renderizar_estado,
+    _iniciar_sessao_tui,
+    _encerrar_sessao_tui,
+    _apresentar_quadro,
+    _ler_tecla_sessao,
+    captura_interrupcao_de_script,
 )
 from tela.diagnostico import gerar_diagnostico_tela  # noqa: E402
 
@@ -1123,8 +1141,8 @@ def teste_proibicoes_importacao_demo():
         "import json" not in texto_mod,
     )
     _registrar(
-        "demo.py nao importa 'os'",
-        "import os" not in texto_mod,
+        "demo.py importa 'os' (necessario para os.read em _ler_tecla_sessao)",
+        "import os" in texto_mod,
     )
     _registrar(
         "demo.py nao importa 'pathlib'",
@@ -1186,6 +1204,500 @@ def teste_inspecao_codigo_demo():
     )
 
 
+def teste_sessao_tui_h0022():
+    print("")
+    print("== Secao 7 - Sessao TUI (H-0022 / ADR-0016) ==")
+
+    import io
+    from unittest.mock import patch
+
+    caminho_mod = _BASE_PADRAO / "tela" / "demo.py"
+    texto_mod = caminho_mod.read_text(encoding="utf-8")
+
+    # --- 7A: Inspecao de codigo ---
+    print("")
+    print("-- 7A: Inspecao de codigo --")
+
+    _registrar(
+        "H-0022 item 2: 'setcbreak' presente no codigo",
+        "setcbreak" in texto_mod,
+    )
+    _registrar(
+        "H-0022 item 2: 'setraw' ausente no codigo",
+        "setraw" not in texto_mod,
+    )
+    _registrar(
+        "H-0022 item 3: alternate screen ativado (\\x1b[?1049h) presente",
+        "\\x1b[?1049h" in texto_mod,
+    )
+    _registrar(
+        "H-0022 item 3: cursor ocultado (\\x1b[?25l) presente",
+        "\\x1b[?25l" in texto_mod,
+    )
+    _registrar(
+        "H-0022 item 3: cursor restaurado (\\x1b[?25h) presente",
+        "\\x1b[?25h" in texto_mod,
+    )
+    _registrar(
+        "H-0022 item 3: alternate screen encerrado (\\x1b[?1049l) presente",
+        "\\x1b[?1049l" in texto_mod,
+    )
+    _registrar(
+        "H-0022 item 4: autowrap desativado (\\x1b[?7l) presente",
+        "\\x1b[?7l" in texto_mod,
+    )
+    _registrar(
+        "H-0022 item 4: autowrap restaurado (\\x1b[?7h) presente",
+        "\\x1b[?7h" in texto_mod,
+    )
+    _registrar(
+        "H-0022 item 6: 'shutil.get_terminal_size' presente",
+        "shutil.get_terminal_size" in texto_mod,
+    )
+    contagem_2j = texto_mod.count("\\x1b[2J")
+    _registrar(
+        "H-0022 item 7: \\x1b[2J aparece exatamente uma vez no codigo",
+        contagem_2j == 1,
+        "count={0}".format(contagem_2j),
+    )
+    _registrar(
+        "H-0022 item 8: synchronized output on (\\x1b[?2026h) presente",
+        "\\x1b[?2026h" in texto_mod,
+    )
+    _registrar(
+        "H-0022 item 8: synchronized output off (\\x1b[?2026l) presente",
+        "\\x1b[?2026l" in texto_mod,
+    )
+    _registrar(
+        "H-0022 item 9: 'captura_interrupcao_de_script' definido no codigo",
+        "captura_interrupcao_de_script" in texto_mod,
+    )
+    _registrar(
+        "H-0022 item 9: 'except KeyboardInterrupt' presente no codigo",
+        "except KeyboardInterrupt" in texto_mod,
+    )
+    _registrar(
+        "H-0022 item 10: bloco 'finally:' presente no codigo",
+        "finally:" in texto_mod,
+    )
+
+    # --- 7B: _iniciar_sessao_tui ---
+    print("")
+    print("-- 7B: _iniciar_sessao_tui --")
+
+    atributos_fake = [0, 0, 0, 0, 0, 0, [b"\x03", b"\x1c", b"\x7f"]]
+    fd_fake = 0
+    buf_init = io.StringIO()
+
+    with patch("termios.tcgetattr", return_value=atributos_fake) as mock_tga, \
+         patch("tty.setcbreak") as mock_sc, \
+         patch("sys.stdout", buf_init):
+        buf_init.flush = lambda: None
+        resultado_attrs = _iniciar_sessao_tui(fd_fake)
+
+    conteudo_init = buf_init.getvalue()
+    _registrar(
+        "7B: tcgetattr chamado com fd_stdin",
+        mock_tga.called and mock_tga.call_args[0][0] == fd_fake,
+    )
+    _registrar(
+        "7B: tty.setcbreak chamado (nao setraw)",
+        mock_sc.called,
+    )
+    _registrar(
+        "7B: atributos originais retornados",
+        resultado_attrs == atributos_fake,
+    )
+    _registrar(
+        "7B: alternate screen ativado (\\x1b[?1049h) na inicializacao",
+        "\x1b[?1049h" in conteudo_init,
+    )
+    _registrar(
+        "7B: cursor ocultado (\\x1b[?25l) na inicializacao",
+        "\x1b[?25l" in conteudo_init,
+    )
+    _registrar(
+        "7B: autowrap desativado (\\x1b[?7l) na inicializacao",
+        "\x1b[?7l" in conteudo_init,
+    )
+    _registrar(
+        "7B: tela limpa (\\x1b[2J) na inicializacao",
+        "\x1b[2J" in conteudo_init,
+    )
+    _registrar(
+        "7B: cursor no topo (\\x1b[H) na inicializacao",
+        "\x1b[H" in conteudo_init,
+    )
+
+    # _ler_tecla_sessao: testa via pipe real para reproduzir fielmente o
+    # cenario de buffering (TextIOWrapper vs. descritor do SO) que causava
+    # sequencias de escape serem tratadas como Esc isolado.
+    #
+    # Caso 1: sequencia completa (seta para cima). Os tres bytes sao escritos
+    # de uma vez no pipe, simulando a rajada unica que o terminal entrega.
+    fd_r, fd_w = os.pipe()
+    try:
+        os.write(fd_w, b"\x1b[A")
+        tecla_scroll = _ler_tecla_sessao(fd=fd_r)
+    finally:
+        try:
+            os.close(fd_r)
+        except OSError:
+            pass
+        try:
+            os.close(fd_w)
+        except OSError:
+            pass
+    estado_apos_scroll = processar_comando(criar_estado_inicial(), tecla_scroll)
+    _registrar(
+        "7B: sequencia de seta para cima retorna sequencia completa via pipe real",
+        tecla_scroll == "\x1b[A",
+        "tecla={0!r}".format(tecla_scroll),
+    )
+    _registrar(
+        "7B: sequencia de seta para cima nao encerra a sessao",
+        estado_apos_scroll["saindo"] is False,
+        "tecla={0!r} saindo={1!r}".format(tecla_scroll, estado_apos_scroll["saindo"]),
+    )
+
+    # Caso 2: Esc realmente isolado. Apenas b"\x1b" escrito; lado de escrita
+    # permanece aberto (sem EOF), forcando o timeout de 0.03 s do select.
+    fd_r2, fd_w2 = os.pipe()
+    try:
+        os.write(fd_w2, b"\x1b")
+        tecla_esc = _ler_tecla_sessao(fd=fd_r2)
+    finally:
+        try:
+            os.close(fd_r2)
+        except OSError:
+            pass
+        try:
+            os.close(fd_w2)
+        except OSError:
+            pass
+    estado_apos_esc = processar_comando(criar_estado_inicial(), tecla_esc)
+    _registrar(
+        "7B: Esc isolado via pipe retorna Esc apos timeout (sem travar)",
+        tecla_esc == "\x1b",
+        "tecla={0!r}".format(tecla_esc),
+    )
+    _registrar(
+        "7B: Esc isolado sem bytes subsequentes encerra a sessao",
+        tecla_esc == "\x1b" and estado_apos_esc["saindo"] is True,
+        "tecla={0!r} saindo={1!r}".format(tecla_esc, estado_apos_esc["saindo"]),
+    )
+
+    # --- 7C: _encerrar_sessao_tui ---
+    print("")
+    print("-- 7C: _encerrar_sessao_tui --")
+
+    atributos_fake2 = [0, 0, 0, 0, 0, 0, [b"\x03"]]
+    fd_fake2 = 1
+    buf_enc = io.StringIO()
+    tsa_args = []
+
+    with patch("termios.tcsetattr", side_effect=lambda *a: tsa_args.append(a)), \
+         patch("sys.stdout", buf_enc):
+        buf_enc.flush = lambda: None
+        _encerrar_sessao_tui(fd_fake2, atributos_fake2)
+
+    conteudo_enc = buf_enc.getvalue()
+    _registrar(
+        "7C: tcsetattr chamado com atributos originais",
+        len(tsa_args) > 0 and tsa_args[0][2] == atributos_fake2,
+    )
+    _registrar(
+        "7C: autowrap restaurado (\\x1b[?7h) na restauracao",
+        "\x1b[?7h" in conteudo_enc,
+    )
+    _registrar(
+        "7C: cursor mostrado (\\x1b[?25h) na restauracao",
+        "\x1b[?25h" in conteudo_enc,
+    )
+    _registrar(
+        "7C: alternate screen encerrado (\\x1b[?1049l) na restauracao",
+        "\x1b[?1049l" in conteudo_enc,
+    )
+
+    # --- 7D: _apresentar_quadro ---
+    print("")
+    print("-- 7D: _apresentar_quadro --")
+
+    escritas = []
+    flush_count = [0]
+
+    class _MockOut:
+        def write(self, s):
+            escritas.append(s)
+        def flush(self):
+            flush_count[0] += 1
+
+    class _FakeTermSize:
+        columns = 10
+        lines = 5
+
+    with patch("sys.stdout", _MockOut()), \
+         patch("shutil.get_terminal_size", return_value=_FakeTermSize()):
+        _apresentar_quadro("AB\nCD\n")
+
+    _registrar(
+        "7D: exatamente uma chamada write() por quadro (escrita atomica)",
+        len(escritas) == 1,
+        "count={0}".format(len(escritas)),
+    )
+    _registrar(
+        "7D: exatamente uma chamada flush() por quadro",
+        flush_count[0] == 1,
+        "count={0}".format(flush_count[0]),
+    )
+
+    conteudo_quadro = escritas[0] if escritas else ""
+    _registrar(
+        "7D: synchronized output on (\\x1b[?2026h) no inicio do quadro",
+        conteudo_quadro.startswith("\x1b[?2026h"),
+    )
+    _registrar(
+        "7D: synchronized output off (\\x1b[?2026l) no fim do quadro",
+        conteudo_quadro.endswith("\x1b[?2026l"),
+    )
+    _registrar(
+        "7D: posicionamento absoluto linha 1 (\\x1b[1;1H) presente",
+        "\x1b[1;1H" in conteudo_quadro,
+    )
+    _registrar(
+        "7D: posicionamento absoluto linha 2 (\\x1b[2;1H) presente",
+        "\x1b[2;1H" in conteudo_quadro,
+    )
+    _registrar(
+        "7D: sem '\\n' no conteudo do quadro (nao usa newline para quebra de linha)",
+        "\n" not in conteudo_quadro,
+    )
+    _registrar(
+        "7D: linha 1 preenchida ate largura do terminal (pad a 10 chars)",
+        "AB        " in conteudo_quadro,
+    )
+    _registrar(
+        "7D: linha 2 preenchida ate largura do terminal (pad a 10 chars)",
+        "CD        " in conteudo_quadro,
+    )
+
+    # Segundo quadro: verifica escrita atomica independente
+    escritas2 = []
+    flush_count2 = [0]
+
+    class _MockOut2:
+        def write(self, s):
+            escritas2.append(s)
+        def flush(self):
+            flush_count2[0] += 1
+
+    with patch("sys.stdout", _MockOut2()), \
+         patch("shutil.get_terminal_size", return_value=_FakeTermSize()):
+        _apresentar_quadro("XY\n")
+
+    _registrar(
+        "7D: segundo quadro tambem tem exatamente uma write() e uma flush()",
+        len(escritas2) == 1 and flush_count2[0] == 1,
+        "write={0} flush={1}".format(len(escritas2), flush_count2[0]),
+    )
+
+    # --- 7E: captura_interrupcao_de_script ---
+    print("")
+    print("-- 7E: captura_interrupcao_de_script --")
+
+    resultado_ki = []
+    with captura_interrupcao_de_script():
+        raise KeyboardInterrupt
+    resultado_ki.append("pos-ki")
+    _registrar(
+        "7E: captura_interrupcao_de_script suprime KeyboardInterrupt",
+        resultado_ki == ["pos-ki"],
+    )
+
+    resultado_normal = []
+    with captura_interrupcao_de_script():
+        resultado_normal.append("dentro")
+    resultado_normal.append("fora")
+    _registrar(
+        "7E: captura_interrupcao_de_script nao interfere em execucao normal",
+        resultado_normal == ["dentro", "fora"],
+    )
+
+    excecao_propagada = []
+    try:
+        with captura_interrupcao_de_script():
+            raise ValueError("outro erro")
+    except ValueError:
+        excecao_propagada.append("ValueError")
+    _registrar(
+        "7E: captura_interrupcao_de_script nao suprime outras excecoes",
+        excecao_propagada == ["ValueError"],
+    )
+
+    # --- 7F: Restauracao por excecao ---
+    print("")
+    print("-- 7F: Restauracao por excecao --")
+
+    atributos_fake3 = [0, 0, 0, 0, 0, 0, [b"\x03"]]
+    fd_fake3 = 0
+    buf_exc = io.StringIO()
+    tsa_args3 = []
+
+    with patch("termios.tcgetattr", return_value=atributos_fake3), \
+         patch("termios.tcsetattr", side_effect=lambda *a: tsa_args3.append(a)), \
+         patch("tty.setcbreak"), \
+         patch("sys.stdout", buf_exc):
+        buf_exc.flush = lambda: None
+        try:
+            attrs3 = _iniciar_sessao_tui(fd_fake3)
+            try:
+                raise RuntimeError("excecao simulada")
+            finally:
+                _encerrar_sessao_tui(fd_fake3, attrs3)
+        except RuntimeError:
+            pass
+
+    conteudo_exc = buf_exc.getvalue()
+    _registrar(
+        "7F: tcsetattr chamado apos excecao",
+        len(tsa_args3) > 0,
+    )
+    _registrar(
+        "7F: cursor mostrado apos excecao (\\x1b[?25h)",
+        "\x1b[?25h" in conteudo_exc,
+    )
+    _registrar(
+        "7F: alternate screen encerrado apos excecao (\\x1b[?1049l)",
+        "\x1b[?1049l" in conteudo_exc,
+    )
+    _registrar(
+        "7F: autowrap restaurado apos excecao (\\x1b[?7h)",
+        "\x1b[?7h" in conteudo_exc,
+    )
+
+    # --- 7G: Fallback nao-TTY via subprocess ---
+    print("")
+    print("-- 7G: Fallback nao-TTY --")
+
+    env_sem_dimensoes = {
+        k: v for k, v in os.environ.items() if k not in ("COLUMNS", "LINES")
+    }
+    proc_pipe = subprocess.run(
+        [sys.executable, "tela/demo.py"],
+        cwd=str(_BASE_PADRAO),
+        input="b\ns\n",
+        capture_output=True,
+        text=True,
+        env=env_sem_dimensoes,
+    )
+    _registrar(
+        "7G: printf 'b\\ns\\n' | demo.py encerra com codigo 0",
+        proc_pipe.returncode == 0,
+        "returncode={0}".format(proc_pipe.returncode),
+    )
+    _registrar(
+        "7G: saida pipe nao contem \\x1b[?1049h (alternate screen)",
+        "\x1b[?1049h" not in proc_pipe.stdout,
+    )
+    _registrar(
+        "7G: saida pipe nao contem \\x1b[?25l (cursor)",
+        "\x1b[?25l" not in proc_pipe.stdout,
+    )
+    _registrar(
+        "7G: saida pipe nao contem \\x1b[?7l (autowrap)",
+        "\x1b[?7l" not in proc_pipe.stdout,
+    )
+    _registrar(
+        "7G: saida pipe nao contem \\x1b[?2026h (synchronized output)",
+        "\x1b[?2026h" not in proc_pipe.stdout,
+    )
+    _registrar(
+        "7G: stderr vazio em modo pipe",
+        proc_pipe.stderr == "",
+        "stderr={0!r}".format(proc_pipe.stderr),
+    )
+
+    # Item 11: printf 'b\n\x1b\n' deve ser identico a 'b\ns\n'
+    proc_pipe_esc = subprocess.run(
+        [sys.executable, "tela/demo.py"],
+        cwd=str(_BASE_PADRAO),
+        input="b\n\x1b\n",
+        capture_output=True,
+        text=True,
+        env=env_sem_dimensoes,
+    )
+    _registrar(
+        "7G (item 11): printf 'b\\n\\x1b\\n' | demo.py encerra com codigo 0",
+        proc_pipe_esc.returncode == 0,
+        "returncode={0}".format(proc_pipe_esc.returncode),
+    )
+    _registrar(
+        "7G (item 11): saida 'b\\n\\x1b\\n' identica a 'b\\ns\\n'",
+        proc_pipe_esc.stdout == proc_pipe.stdout,
+    )
+
+    # --- 7H: KI durante processamento/renderizacao (ACH-BLOQ-01) ---
+    print("")
+    print("-- 7H: KeyboardInterrupt durante processamento/renderizacao (ACH-BLOQ-01) --")
+
+    import tela.demo as _demo_mod_ref
+    from unittest.mock import patch as _patch
+
+    _chamadas_7h = [0]
+    _ESTADO_SAINDO_7H = {
+        "tipo_borda": "curva",
+        "saindo": True,
+        "tela_atual": "orquestrador",
+        "pilha_telas": [],
+    }
+
+    def _processar_com_ki(estado, ch, modelo=None):
+        _chamadas_7h[0] += 1
+        if _chamadas_7h[0] == 1:
+            raise KeyboardInterrupt("simulado durante processamento")
+        return _ESTADO_SAINDO_7H
+
+    class _FakeTamanho7H:
+        columns = 80
+        lines = 24
+
+    _ki_propagou_7h = [False]
+    _resultado_7h = [-1]
+    try:
+        with _patch("tela.demo.processar_comando", side_effect=_processar_com_ki), \
+             _patch("tela.demo._ler_tecla_sessao", return_value="x"), \
+             _patch("tela.demo._apresentar_quadro"), \
+             _patch("tela.demo._iniciar_sessao_tui", return_value=[0, 0, 0, 0, 0, 0, []]), \
+             _patch("tela.demo._encerrar_sessao_tui"), \
+             _patch("tela.demo._carregar_modelo_por_id", return_value=object()), \
+             _patch("tela.demo.renderizar_estado", return_value=""), \
+             _patch("shutil.get_terminal_size", return_value=_FakeTamanho7H()), \
+             _patch("sys.stdin") as _stdin_7h, \
+             _patch("sys.stdout") as _stdout_7h:
+            _stdin_7h.isatty.return_value = True
+            _stdin_7h.fileno.return_value = 0
+            _stdout_7h.isatty.return_value = True
+            _resultado_7h[0] = _demo_mod_ref.main()
+    except KeyboardInterrupt:
+        _ki_propagou_7h[0] = True
+
+    _registrar(
+        "7H: KI durante processar_comando nao propaga para fora do loop",
+        not _ki_propagou_7h[0],
+        "propagou={0}".format(_ki_propagou_7h[0]),
+    )
+    _registrar(
+        "7H: loop continua apos KI (processar_comando chamado 2 vezes)",
+        _chamadas_7h[0] >= 2,
+        "chamadas={0}".format(_chamadas_7h[0]),
+    )
+    _registrar(
+        "7H: main() retorna 0 apos KI silencioso",
+        _resultado_7h[0] == 0,
+        "resultado={0!r}".format(_resultado_7h[0]),
+    )
+
+
 def _finalizar():
     print("")
     print("== Resumo ==")
@@ -1205,7 +1717,7 @@ def _finalizar():
 
 
 def main():
-    print("Diagnostico H-0010A - aplicacao demonstravel com borda/sair/navegacao")
+    print("Diagnostico H-0010A/H-0022 - aplicacao demonstravel com borda/sair/navegacao/TUI")
     print("Base padrao: {0}".format(_BASE_PADRAO))
     print("Python: {0}".format(sys.version.split()[0]))
 
@@ -1223,6 +1735,7 @@ def main():
     teste_preservacao_diagnostico()
     teste_proibicoes_importacao_demo()
     teste_inspecao_codigo_demo()
+    teste_sessao_tui_h0022()
 
     return _finalizar()
 

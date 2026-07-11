@@ -63,7 +63,21 @@ Se um artefato inferior contradiz um superior, prevalece o superior.
 Nenhuma mudanca de contrato pode ser escondida em implementacao. Se a tarefa
 exigir nova regra, criar RFC ou ADR antes de continuar.
 
-## 7. Criterios de aceite
+## 7. Precedente de violação dupla do ciclo
+
+Uma implementação que introduza decisão arquitetural sem ADR precedente viola
+o ciclo padrão. Uma implementação iniciada sem handoff precedente também viola
+o ciclo padrão.
+
+Quando as duas violações ocorrerem na mesma tentativa, a aceitação deve ser
+interrompida: a decisão deve ser registrada por ADR, o handoff correto deve
+ser criado e as etapas posteriores devem passar por QAs separados.
+Implementação e autoavaliação no mesmo prompt ou execução não substituem QA
+separado.
+
+O caso `IMP-0022` é a referência histórica concreta dessa violação dupla.
+
+## 8. Criterios de aceite
 
 Todo handoff deve conter criterios:
 
@@ -80,7 +94,7 @@ Exemplo:
 - [ ] Nenhum arquivo fora de `scripts/modulo_exemplo/` e modificado.
 ```
 
-## 8. Bloqueio
+## 9. Bloqueio
 
 O executor deve bloquear quando:
 
@@ -93,7 +107,7 @@ O executor deve bloquear quando:
 Status recomendado: `ARCHITECTURE_REVIEW_REQUIRED` para lacuna estrutural ou
 `BLOCKED` para impedimento operacional.
 
-## 9. Mudanças declarativas em JSON
+## 10. Mudanças declarativas em JSON
 
 Mudança puramente declarativa em JSON não exige handoff próprio quando
 **todas** as condições abaixo são satisfeitas simultaneamente:
@@ -138,7 +152,7 @@ sobre se o suporte existe, tratar como ciclo formal até confirmar.
 A regra acima foi formalizada a partir da validação declarativa com `stub_b`
 registrada em `f41bd2f`.
 
-## 10. Alteração por termo específico completo (ADR-0014)
+## 11. Alteração por termo específico completo (ADR-0014)
 
 Substrings ambíguas circulam no sistema com significados distintos. Por
 exemplo, `vertical` e `horizontal` aparecem em `corpo.arranjo` (ADR-0011),
@@ -166,7 +180,7 @@ A busca por substring é etapa de levantamento; a alteração é etapa normativa
 distinta e exige confirmação termo a termo. Esta regra vale para ADRs
 futuras, handoffs, implementações, migrações e QAs.
 
-## 11. Exemplos neutros de nomes
+## 12. Exemplos neutros de nomes
 
 ```text
 docs/contratos/contrato_modulo_exemplo.md

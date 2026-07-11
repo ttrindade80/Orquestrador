@@ -650,7 +650,57 @@ Filtro vem antes da paginação.
 
 ---
 
-## 23. Validação obrigatória
+## 23. Execução TTY da sessão TUI (ADR-0016)
+
+Quando `sys.stdin.isatty() and sys.stdout.isatty()` for verdadeiro, a execução
+interativa da tela deve usar sessão TUI em tela cheia conforme a ADR-0016.
+Quando essa condição não for verdadeira, o comportamento não-TTY permanece
+preservado: leitura linha a linha de `sys.stdin`, `print(..., end="")` e
+nenhuma sequência ANSI de sessão.
+
+Regras normativas da sessão TUI:
+
+- a sessão TUI é ativada somente quando stdin e stdout forem TTY;
+- o modo de entrada deve ser `cbreak`, nunca `raw`; `OPOST` e `ISIG` devem
+  permanecer preservados dos atributos originais do terminal;
+- `tty.setraw()` é comportamento rejeitado por esta política;
+- na entrada da sessão devem ser emitidos alternate screen (`\x1b[?1049h`) e
+  cursor oculto (`\x1b[?25l`);
+- na saída da sessão devem ser restaurados cursor visível (`\x1b[?25h`) e
+  saída do alternate screen (`\x1b[?1049l`);
+- autowrap/DECAWM deve ser desativado na entrada (`\x1b[?7l`) e restaurado na
+  saída (`\x1b[?7h`);
+- cada linha lógica de quadro deve ser escrita por posicionamento absoluto em
+  coluna 1, com `CSI <linha>;1H`, sem depender de `\n` para retorno de coluna;
+- cada linha escrita deve ser preenchida com espaços até a largura atual do
+  terminal;
+- cada quadro deve ser montado integralmente em memória e emitido por uma
+  única chamada de `write()` seguida de uma única `flush()`;
+- a limpeza `\x1b[2J` deve ocorrer uma única vez, na entrada da sessão, e não
+  deve ser repetida a cada quadro;
+- cada atualização de quadro deve usar synchronized output, emitindo
+  `\x1b[?2026h` antes do conteúdo do quadro e `\x1b[?2026l` depois;
+- `ISIG` permanece habilitado; durante execução futura de script ou processo
+  interno disparado pela aplicação, `KeyboardInterrupt` deve ser capturado no
+  escopo da chamada e interromper somente essa execução, mantendo a sessão TUI
+  ativa;
+- fora do escopo de execução interna, `KeyboardInterrupt` deve ser capturado e
+  ignorado silenciosamente; Esc permanece a única saída normatizada da sessão;
+- Ctrl+C ignorado no loop mantém a sessão ativa e não executa imediatamente a
+  restauração do terminal;
+- atributos `termios` originais, autowrap, cursor e alternate screen devem ser
+  restaurados em `finally` que protege lexicalmente o loop completo da sessão
+  TUI e executa quando o loop efetivamente termina;
+- a política não acrescenta redimensionamento reativo da janela, reserva de
+  handoff futuro, suporte Windows, detecção por `terminfo`, nem uso de
+  `curses`, `textual` ou `rich`;
+- suporte a terminais não compatíveis com ANSI/VT/xterm e tratamento de
+  navegação por setas fora das regras já contratadas permanecem fora do escopo
+  desta política.
+
+---
+
+## 24. Validação obrigatória
 
 Toda tela deve ser validada antes de renderizar.
 
@@ -674,7 +724,7 @@ Critérios mínimos de validação:
 
 ---
 
-## 24. Erro, vazio e ausência de dados
+## 25. Erro, vazio e ausência de dados
 
 Cada elemento deve ter política para:
 
@@ -690,7 +740,7 @@ declarados ou receber default contratual.
 
 ---
 
-## 25. Hierarquia de defaults e sobrescritas
+## 26. Hierarquia de defaults e sobrescritas
 
 Hierarquia inicial:
 
@@ -706,7 +756,7 @@ estilo.json global
 
 ---
 
-## 26. Limite declarativo do JSON
+## 27. Limite declarativo do JSON
 
 `tela.json` pode declarar:
 
@@ -724,7 +774,7 @@ livres ou scripts não registrados.
 
 ---
 
-## 27. Pendências derivadas
+## 28. Pendências derivadas
 
 Pendências obrigatórias derivadas deste contrato:
 
