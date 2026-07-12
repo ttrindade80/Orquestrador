@@ -54,6 +54,7 @@ from tela.modelo import (  # noqa: E402
 from tela.renderizador import (  # noqa: E402
     RenderizadorErro,
     _distribuir_alturas,
+    _distribuir_larguras,
     _linhas_barra,
     _montar_corpo_horizontal,
     _pesos_distribuicao,
@@ -3762,9 +3763,10 @@ class TestDistribuicaoVerticalH0025:
 
     # ------------------------------------------------- arranjo horizontal (D1)
     def test_arranjo_horizontal_nao_regride_com_distribuicao(self):
-        # distribuicao declarada em arranjo horizontal: o ciclo H-0025 nao
-        # implementa distribuicao horizontal; o comportamento horizontal
-        # existente (H-0019/H-0020/H-0021) deve permanecer sem regressao.
+        # H-0026: distribuicao declarada em arranjo horizontal agora ALTERA as
+        # larguras conforme os valores (antes do H-0026 o renderizador ignorava
+        # a distribuicao e mantinha particionamento uniforme). Com fracao [1,1]
+        # em total_w=42, cada area deve ter exatamente 21 colunas.
         modelo_h = ModeloTela(
             id="teste_h0025_h",
             schema="tela.v1",
@@ -3793,6 +3795,33 @@ class TestDistribuicaoVerticalH0025:
             "horizontal + distribuicao: cada linha tem 42 chars",
             all(len(ln) == 42 for ln in saida.split("\n") if ln != ""),
         )
+        # H-0026: fracao [1,1] em 42 -> cada area tem 21 colunas. A transicao
+        # entre as duas areas na linha de topo ocorre na coluna 21 (char[20]=='╮'
+        # da area A, char[21]=='╭' da area B).
+        linha_topo_corpo = next(
+            (ln for ln in saida.split("\n") if "╭ A" in ln), None
+        )
+        if linha_topo_corpo is not None:
+            self._r(
+                "horizontal + fracao[1,1]: area A tem 21 colunas (char[20]=='╮')",
+                len(linha_topo_corpo) >= 22 and linha_topo_corpo[20] == "╮",
+                "char[20]={0!r}".format(
+                    linha_topo_corpo[20] if len(linha_topo_corpo) > 20 else "?"
+                ),
+            )
+            self._r(
+                "horizontal + fracao[1,1]: area B inicia na coluna 21 (char[21]=='╭')",
+                len(linha_topo_corpo) >= 22 and linha_topo_corpo[21] == "╭",
+                "char[21]={0!r}".format(
+                    linha_topo_corpo[21] if len(linha_topo_corpo) > 21 else "?"
+                ),
+            )
+        else:
+            self._r(
+                "horizontal + fracao[1,1]: linha de topo do corpo encontrada", False
+            )
+            self._r("horizontal + fracao[1,1]: area A tem 21 colunas", False)
+            self._r("horizontal + fracao[1,1]: area B inicia na coluna 21", False)
 
     def run_all(self):
         print("")
@@ -3821,6 +3850,454 @@ class TestDistribuicaoVerticalH0025:
         self.test_arranjo_horizontal_nao_regride_com_distribuicao()
 
 
+class TestDistribuicaoHorizontalH0026:
+    """Cobertura da distribuicao horizontal explicita do corpo (H-0026).
+
+    Cobre os minimos exigidos pelo H-0026 secao 16: percentual [50,50] e
+    assimetrico [60,40]; fracao [1,1], [2,1] e equivalencia por escala [4,2];
+    maiores restos T06 (largura 100 -> [34,33,33]) e T07 (largura 101 ->
+    [34,34,33]); soma das larguras igual a distribuivel; bordas em contato;
+    largura total preservada; preenchimento interno quando conteudo menor que
+    a cota; ausencia de distribuicao sem regressao; preservacao vertical
+    H-0025; rejeicoes do loader preservadas.
+    """
+
+    def _r(self, nome, passou, detalhe=""):
+        _registrar(nome, passou, detalhe)
+
+    def _modelo_dist_h(self, distribuicao, n=2, titulos=None):
+        """Modelo horizontal com n consoles e distribuicao declarada."""
+        if titulos is None:
+            titulos = [chr(ord("A") + i) for i in range(n)]
+        elementos = [
+            ElementoCorpo(
+                id=titulos[i].lower(), tipo="console",
+                _campos_inertes={"titulo": titulos[i]},
+            )
+            for i in range(n)
+        ]
+        return ModeloTela(
+            id="teste_h0026",
+            schema="tela.v1",
+            cabecalho={"titulo": "H0026", "descricao": "dist horizontal"},
+            corpo=Corpo(
+                arranjo="horizontal", elementos=elementos,
+                distribuicao=distribuicao,
+            ),
+            barra_de_menus={"chips": [{"id": "c1", "tecla": "k", "texto": "Ok"}]},
+            _raw={},
+        )
+
+    def _larguras_das_areas(self, saida, titulos):
+        """Extrai a largura de cada area a partir da linha de topo do corpo.
+
+        Localiza a linha que contem o topo da primeira area (``╭ {titulo0}``)
+        e devolve as larguras detectando as transicoes ``╮╭`` entre areas
+        adjacentes. Retorna lista de inteiros (largura de cada area).
+        """
+        linhas = [ln for ln in saida.split("\n") if ln != ""]
+        linha_topo = next(
+            (ln for ln in linhas if "╭ {0}".format(titulos[0]) in ln), None
+        )
+        if linha_topo is None:
+            return None
+        # As areas sao contiguas: cada area inicia com ╭ e termina com ╮ (na
+        # linha de topo). As transicoes internas produzem ╮╭. Dividir a linha
+        # pelos pontos de transicao ╮╭ mantendo as bordas.
+        larguras = []
+        inicio = 0
+        i = 0
+        while i < len(linha_topo) - 1:
+            if linha_topo[i] == "╮" and linha_topo[i + 1] == "╭":
+                larguras.append(i + 1 - inicio)
+                inicio = i + 1
+            i += 1
+        # Ultima area: do ultimo inicio ate o final da linha
+        larguras.append(len(linha_topo) - inicio)
+        return larguras
+
+    # ------------------------------------ algoritmo de maiores restos (helper)
+    def test_algoritmo_distribuir_larguras_soma_exata(self):
+        # Invariante: sum(cotas) == largura_disponivel para varios pares.
+        for largura, pesos in [
+            (42, [1, 1]), (42, [2, 1]), (42, [50, 50]), (42, [60, 40]),
+            (100, [1, 1, 1]), (101, [1, 1, 1]), (100, [2, 1, 2]),
+            (99, [3, 5, 7]), (7, [1]), (17, [1, 3, 1]),
+        ]:
+            cotas = _distribuir_larguras(largura, pesos)
+            self._r(
+                "alg larg: soma das cotas == largura ({0}, {1})".format(
+                    largura, pesos
+                ),
+                sum(cotas) == largura,
+                "cotas={0} soma={1}".format(cotas, sum(cotas)),
+            )
+
+    def test_algoritmo_distribuir_larguras_exemplos_normativos(self):
+        self._r(
+            "alg larg: 100 com [1,1,1] -> [34,33,33] (T06)",
+            _distribuir_larguras(100, [1, 1, 1]) == [34, 33, 33],
+            "obtido={0}".format(_distribuir_larguras(100, [1, 1, 1])),
+        )
+        self._r(
+            "alg larg: 101 com [1,1,1] -> [34,34,33] (T07)",
+            _distribuir_larguras(101, [1, 1, 1]) == [34, 34, 33],
+            "obtido={0}".format(_distribuir_larguras(101, [1, 1, 1])),
+        )
+
+    # ------------------------------------------------------------- T01 percentual [50,50]
+    def test_percentual_simetrico_50_50(self):
+        modelo = self._modelo_dist_h(
+            {"modo": "percentual", "valores": [50, 50]}
+        )
+        saida = renderizar_tela(modelo, largura=42)
+        larguras = self._larguras_das_areas(saida, ["A", "B"])
+        if larguras is None:
+            self._r("T01: larguras detectadas", False, "linha de topo nao achada")
+            return
+        self._r("T01: percentual [50,50] -> [21,21]", larguras == [21, 21],
+                "larguras={0}".format(larguras))
+        self._r("T01: soma das larguras == 42", sum(larguras) == 42,
+                "soma={0}".format(sum(larguras)))
+        self._r("T01: '╮╭' presente (bordas coladas)", "╮╭" in saida)
+
+    # ------------------------------------------------------ T02 percentual [60,40]
+    def test_percentual_assimetrico_60_40(self):
+        modelo = self._modelo_dist_h(
+            {"modo": "percentual", "valores": [60, 40]}
+        )
+        saida = renderizar_tela(modelo, largura=42)
+        larguras = self._larguras_das_areas(saida, ["A", "B"])
+        if larguras is None:
+            self._r("T02: larguras detectadas", False, "linha de topo nao achada")
+            return
+        # 42*0.6=25.2 -> 25 ; 42*0.4=16.8 -> 16+1 (resto 0.8) = 17
+        self._r("T02: percentual [60,40] -> [25,17]", larguras == [25, 17],
+                "larguras={0}".format(larguras))
+        self._r("T02: soma das larguras == 42", sum(larguras) == 42,
+                "soma={0}".format(sum(larguras)))
+
+    # ------------------------------------------------------------- T03 fracao [1,1]
+    def test_fracao_simetrico_1_1(self):
+        modelo = self._modelo_dist_h({"modo": "fracao", "valores": [1, 1]})
+        saida = renderizar_tela(modelo, largura=42)
+        larguras = self._larguras_das_areas(saida, ["A", "B"])
+        if larguras is None:
+            self._r("T03: larguras detectadas", False, "linha de topo nao achada")
+            return
+        self._r("T03: fracao [1,1] -> [21,21]", larguras == [21, 21],
+                "larguras={0}".format(larguras))
+        self._r("T03: soma das larguras == 42", sum(larguras) == 42,
+                "soma={0}".format(sum(larguras)))
+
+    # ------------------------------------------------------------- T04 fracao [2,1]
+    def test_fracao_assimetrico_2_1(self):
+        modelo = self._modelo_dist_h({"modo": "fracao", "valores": [2, 1]})
+        saida = renderizar_tela(modelo, largura=42)
+        larguras = self._larguras_das_areas(saida, ["A", "B"])
+        if larguras is None:
+            self._r("T04: larguras detectadas", False, "linha de topo nao achada")
+            return
+        # 42*2/3=28 ; 42*1/3=14
+        self._r("T04: fracao [2,1] -> [28,14]", larguras == [28, 14],
+                "larguras={0}".format(larguras))
+        self._r("T04: soma das larguras == 42", sum(larguras) == 42,
+                "soma={0}".format(sum(larguras)))
+
+    # ---------------------------------------- T05 equivalencia por escala [2,1]/[4,2]
+    def test_fracao_equivalencia_por_escala(self):
+        modelo_21 = self._modelo_dist_h({"modo": "fracao", "valores": [2, 1]})
+        modelo_42 = self._modelo_dist_h({"modo": "fracao", "valores": [4, 2]})
+        saida_21 = renderizar_tela(modelo_21, largura=42)
+        saida_42 = renderizar_tela(modelo_42, largura=42)
+        larguras_21 = self._larguras_das_areas(saida_21, ["A", "B"])
+        larguras_42 = self._larguras_das_areas(saida_42, ["A", "B"])
+        if larguras_21 is None or larguras_42 is None:
+            self._r("T05: larguras detectadas", False,
+                    "21={0} 42={1}".format(larguras_21, larguras_42))
+            return
+        self._r(
+            "T05: fracao [2,1] e [4,2] produzem larguras identicas",
+            larguras_21 == larguras_42,
+            "[2,1]={0} [4,2]={1}".format(larguras_21, larguras_42),
+        )
+        self._r("T05: ambas produzem [28,14]",
+                larguras_21 == [28, 14] and larguras_42 == [28, 14],
+                "21={0} 42={1}".format(larguras_21, larguras_42))
+
+    # --------------------------------------------------- T06 maiores restos larg=100
+    def test_t06_maiores_restos_largura_100(self):
+        modelo = self._modelo_dist_h(
+            {"modo": "fracao", "valores": [1, 1, 1]}, n=3, titulos=["A", "B", "C"],
+        )
+        saida = renderizar_tela(modelo, largura=100)
+        larguras = self._larguras_das_areas(saida, ["A", "B", "C"])
+        if larguras is None:
+            self._r("T06: larguras detectadas", False, "linha de topo nao achada")
+            return
+        self._r("T06: fracao [1,1,1] em 100 -> [34,33,33]", larguras == [34, 33, 33],
+                "larguras={0}".format(larguras))
+        self._r("T06: soma das larguras == 100", sum(larguras) == 100,
+                "soma={0}".format(sum(larguras)))
+
+    # ---------------------------------------- T07 empate de restos resolvido por ordem
+    def test_t07_empate_restos_resolvido_por_ordem_declarada(self):
+        modelo = self._modelo_dist_h(
+            {"modo": "fracao", "valores": [1, 1, 1]}, n=3, titulos=["A", "B", "C"],
+        )
+        saida = renderizar_tela(modelo, largura=101)
+        larguras = self._larguras_das_areas(saida, ["A", "B", "C"])
+        if larguras is None:
+            self._r("T07: larguras detectadas", False, "linha de topo nao achada")
+            return
+        # Partes inteiras [33,33,33]; faltam 2; restos empatados -> posicoes 0 e 1.
+        self._r("T07: fracao [1,1,1] em 101 -> [34,34,33]", larguras == [34, 34, 33],
+                "larguras={0}".format(larguras))
+        self._r("T07: soma das larguras == 101", sum(larguras) == 101,
+                "soma={0}".format(sum(larguras)))
+
+    # ---------------------------------- T08 soma das larguras == largura distribuivel
+    def test_t08_soma_larguras_igual_distribuivel(self):
+        casos = [
+            ({"modo": "percentual", "valores": [50, 50]}, 42, ["A", "B"]),
+            ({"modo": "percentual", "valores": [60, 40]}, 42, ["A", "B"]),
+            ({"modo": "fracao", "valores": [1, 1]}, 42, ["A", "B"]),
+            ({"modo": "fracao", "valores": [2, 1]}, 42, ["A", "B"]),
+            ({"modo": "fracao", "valores": [1, 1, 1]}, 100, ["A", "B", "C"]),
+            ({"modo": "fracao", "valores": [1, 1, 1]}, 101, ["A", "B", "C"]),
+        ]
+        for dist, largura, titulos in casos:
+            modelo = self._modelo_dist_h(dist, n=len(titulos), titulos=titulos)
+            saida = renderizar_tela(modelo, largura=largura)
+            larguras = self._larguras_das_areas(saida, titulos)
+            if larguras is None:
+                self._r(
+                    "T08: soma == {0} ({1})".format(largura, dist),
+                    False, "larguras nao detectadas",
+                )
+                continue
+            self._r(
+                "T08: soma das larguras == {0} ({1})".format(largura, dist),
+                sum(larguras) == largura,
+                "larguras={0} soma={1}".format(larguras, sum(larguras)),
+            )
+
+    # ------------------------------------------------- T09 bordas horizontais em contato
+    def test_t09_bordas_em_contato(self):
+        modelo = self._modelo_dist_h(
+            {"modo": "fracao", "valores": [1, 1, 1]}, n=3, titulos=["A", "B", "C"],
+        )
+        saida = renderizar_tela(modelo, largura=101)
+        self._r("T09: '╮╭' presente no topo", "╮╭" in saida)
+        self._r("T09: '╯╰' presente na base", "╯╰" in saida)
+        self._r("T09: '││' presente em linhas internas", "││" in saida)
+
+    # -------------------------------------------- T10 largura total da saida preservada
+    def test_t10_largura_total_preservada(self):
+        for dist in [
+            {"modo": "percentual", "valores": [50, 50]},
+            {"modo": "fracao", "valores": [2, 1]},
+        ]:
+            modelo = self._modelo_dist_h(dist)
+            saida = renderizar_tela(modelo, largura=42)
+            linhas_nv = [ln for ln in saida.split("\n") if ln != ""]
+            self._r(
+                "T10: todas as linhas com 42 chars ({0})".format(dist),
+                all(len(ln) == 42 for ln in linhas_nv),
+                "invalidas={0}".format(
+                    [(i, len(ln)) for i, ln in enumerate(linhas_nv)
+                     if len(ln) != 42]
+                ),
+            )
+
+    # ----------------------------- T11 preenchimento interno quando conteudo < cota
+    def test_t11_preenchimento_interno_conteudo_menor_que_cota(self):
+        # Console com uma linha de conteudo ("(console)") numa area larga deve
+        # manter a linha de conteudo com largura total da area (preenchida com
+        # espacos ate a borda direita). Verifica que a area A (cota 28) preenche
+        # sua linha de conteudo ate completar 28 colunas.
+        modelo = self._modelo_dist_h({"modo": "fracao", "valores": [2, 1]})
+        saida = renderizar_tela(modelo, largura=42)
+        linhas = [ln for ln in saida.split("\n") if ln != ""]
+        linha_console = next(
+            (ln for ln in linhas if "(console)" in ln), None
+        )
+        if linha_console is None:
+            self._r("T11: linha de conteudo '(console)' encontrada", False)
+            return
+        # A area A ocupa as primeiras 28 colunas (cota 28). A linha de conteudo
+        # da area A termina com '|' na coluna 27 (borda direita da area A).
+        self._r(
+            "T11: conteudo da area A preenchido ate borda (char[27]=='│')",
+            len(linha_console) >= 28 and linha_console[27] == "│",
+            "char[27]={0!r}".format(
+                linha_console[27] if len(linha_console) > 27 else "?"
+            ),
+        )
+        # E nao ha espaco externo entre as areas: char[28] e a borda esquerda
+        # da area B.
+        self._r(
+            "T11: area B inicia imediatamente apos (char[28]=='│')",
+            len(linha_console) >= 29 and linha_console[28] == "│",
+            "char[28]={0!r}".format(
+                linha_console[28] if len(linha_console) > 28 else "?"
+            ),
+        )
+
+    # ------------------------------- T-NR01 ausencia de distribuicao sem regressao
+    def test_ausencia_distribuicao_preserva_uniforme(self):
+        # Sem distribuicao, o particionamento uniforme (base_w, resto da esquerda)
+        # deve permanecer: ausencia NAO equivale a igual e nao dispara proporcao.
+        modelo_sem = _modelo_horizontal(
+            "horizontal", [("console", "A"), ("console", "B")], largura=42,
+        )
+        saida_sem = renderizar_tela(modelo_sem, largura=42)
+        larguras_sem = self._larguras_das_areas(saida_sem, ["A", "B"])
+        if larguras_sem is None:
+            self._r("T-NR01: larguras (sem dist) detectadas", False)
+            return
+        # Uniforme: 42//2=21, resto 0 -> [21,21] (coincide com [1,1] neste caso,
+        # mas o caminho percorrido e o uniforme, nao o de distribuicao).
+        self._r(
+            "T-NR01: ausencia -> particionamento uniforme [21,21]",
+            larguras_sem == [21, 21],
+            "larguras={0}".format(larguras_sem),
+        )
+        # 3 elementos em largura 100: uniforme [34,33,33] (da esquerda).
+        modelo_sem3 = _modelo_horizontal(
+            "horizontal",
+            [("console", "A"), ("console", "B"), ("console", "C")],
+            largura=100,
+        )
+        saida_sem3 = renderizar_tela(modelo_sem3, largura=100)
+        larguras_sem3 = self._larguras_das_areas(saida_sem3, ["A", "B", "C"])
+        if larguras_sem3 is None:
+            self._r("T-NR01: larguras 3 (sem dist) detectadas", False)
+            return
+        self._r(
+            "T-NR01: ausencia 3 elem 100 -> [34,33,33] (uniforme da esquerda)",
+            larguras_sem3 == [34, 33, 33],
+            "larguras={0}".format(larguras_sem3),
+        )
+
+    # ------------------------------- T-NR02 distribuicao vertical H-0025 sem regressao
+    def test_distribuicao_vertical_h0025_nao_regride(self):
+        # Re-verifica que o helper vertical continua produzindo os exemplos
+        # normativos aprovados pelo H-0025.
+        self._r(
+            "T-NR02: vertical 68 com [1,1,1] -> [23,23,22]",
+            _distribuir_alturas(68, [1, 1, 1]) == [23, 23, 22],
+            "obtido={0}".format(_distribuir_alturas(68, [1, 1, 1])),
+        )
+        self._r(
+            "T-NR02: vertical 68 com [2,1,2] -> [27,14,27]",
+            _distribuir_alturas(68, [2, 1, 2]) == [27, 14, 27],
+            "obtido={0}".format(_distribuir_alturas(68, [2, 1, 2])),
+        )
+
+    # ------------------------------- T-NR03 rejeicoes do loader preservadas
+    def test_rejeicoes_loader_preservadas(self):
+        # O loader (arquivo somente leitura neste ciclo) rejeita soma percentual
+        # != 100 e pesos nao positivos para corpo horizontal. Esta verificacao
+        # confirma que o loader continua rejeitando valores invalidos quando o
+        # arranjo e horizontal, exercitando o mesmo caminho de validacao que
+        # existe para o eixo vertical. Usa infraestrutura minima de escrita em
+        # diretorio temporario, sem duplicar a suite completa de loader.
+        import json
+        import tempfile
+        from pathlib import Path
+        from tela.loader import (
+            TelaEstruturaInvalida,
+            carregar_tela as _carregar_tela_loader,
+        )
+
+        def _escrever(base_dir, id_tela, conteudo):
+            dir_telas = Path(base_dir) / "config" / "telas"
+            dir_telas.mkdir(parents=True, exist_ok=True)
+            arquivo = dir_telas / "{0}.json".format(id_tela)
+            arquivo.write_text(
+                json.dumps(conteudo, ensure_ascii=False), encoding="utf-8",
+            )
+
+        def _tela_horizontal(id_tela, distribuicao):
+            return {
+                "schema": "tela.v1", "id": id_tela,
+                "cabecalho": {"titulo": "T", "descricao": "D"},
+                "corpo": {
+                    "arranjo": "horizontal",
+                    "elementos": [
+                        {"id": "a", "tipo": "console"},
+                        {"id": "b", "tipo": "console"},
+                    ],
+                    "distribuicao": distribuicao,
+                },
+                "barra_de_menus": {"distribuicao": "horizontal", "chips": []},
+            }
+
+        tmp_base = tempfile.mkdtemp(prefix="teste_h0026_loader_")
+        try:
+            def _espera_rejeicao(nome, fn):
+                try:
+                    fn()
+                    self._r(nome, False, "nenhuma excecao levantada")
+                except TelaEstruturaInvalida as exc:
+                    self._r(nome, True, str(exc))
+                except Exception as exc:  # pragma: no cover - diagnostico
+                    self._r(
+                        nome, False,
+                        "excecao inesperada: {0!r}".format(exc),
+                    )
+
+            # soma percentual != 100 em horizontal -> rejeicao
+            _escrever(
+                tmp_base, "pct_inv",
+                _tela_horizontal("pct_inv",
+                                 {"modo": "percentual", "valores": [50, 30]}),
+            )
+            _espera_rejeicao(
+                "T-NR03: loader rejeita percentual soma != 100 em horizontal",
+                lambda: _carregar_tela_loader(tmp_base, "pct_inv"),
+            )
+            # peso nao positivo (zero) em horizontal -> rejeicao
+            _escrever(
+                tmp_base, "frac_zero",
+                _tela_horizontal("frac_zero",
+                                 {"modo": "fracao", "valores": [0, 1]}),
+            )
+            _espera_rejeicao(
+                "T-NR03: loader rejeita fracao com peso zero em horizontal",
+                lambda: _carregar_tela_loader(tmp_base, "frac_zero"),
+            )
+            # referencia simbolica para garantir import valido
+            self._r(
+                "T-NR03: TelaEstruturaInvalida importado do loader",
+                TelaEstruturaInvalida is not None,
+            )
+        finally:
+            import shutil
+            shutil.rmtree(tmp_base, ignore_errors=True)
+
+    def run_all(self):
+        print("")
+        print("== H-0026 - distribuicao horizontal explicita do corpo ==")
+        self.test_algoritmo_distribuir_larguras_soma_exata()
+        self.test_algoritmo_distribuir_larguras_exemplos_normativos()
+        self.test_percentual_simetrico_50_50()
+        self.test_percentual_assimetrico_60_40()
+        self.test_fracao_simetrico_1_1()
+        self.test_fracao_assimetrico_2_1()
+        self.test_fracao_equivalencia_por_escala()
+        self.test_t06_maiores_restos_largura_100()
+        self.test_t07_empate_restos_resolvido_por_ordem_declarada()
+        self.test_t08_soma_larguras_igual_distribuivel()
+        self.test_t09_bordas_em_contato()
+        self.test_t10_largura_total_preservada()
+        self.test_t11_preenchimento_interno_conteudo_menor_que_cota()
+        self.test_ausencia_distribuicao_preserva_uniforme()
+        self.test_distribuicao_vertical_h0025_nao_regride()
+        self.test_rejeicoes_loader_preservadas()
+
+
 def main():
     print("Diagnostico H-0010A - renderer declarativo (curva/reta)")
     print("Base padrao: {0}".format(_BASE_PADRAO))
@@ -3843,6 +4320,7 @@ def main():
     TestPreenchimentoVerticalH0020().run_all()
     TestPreenchimentoBordeadoH0021().run_all()
     TestDistribuicaoVerticalH0025().run_all()
+    TestDistribuicaoHorizontalH0026().run_all()
 
     print("")
     print("== Resumo ==")

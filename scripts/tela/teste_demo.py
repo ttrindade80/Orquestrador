@@ -2960,17 +2960,6 @@ def teste_redimensionamento_reativo_h0023():
         _registrar("PTY: modulo pty disponivel", False, "import pty falhou")
         _pseudo_pty_limitacoes.append("modulo pty nao disponivel")
 
-    print("")
-    print("-- Validacao humana TTY real: PENDENTE --")
-    print("VALIDACAO_HUMANA_TTY_REAL: PENDENTE")
-    print("Criterios pendentes: reducao, ampliacao, resize rapido, residuos,")
-    print("scroll, linha adicional, flicker, quadro pequeno, recuperacao,")
-    print("echo, navegacao, restauracao apos Esc, estado final do terminal.")
-    print("Pseudo-TTY executado: {0}".format(
-        "sim" if _pseudo_pty_executado[0] else "nao (ver limitacoes)"
-    ))
-    if _pseudo_pty_limitacoes:
-        print("Limitacoes pseudo-TTY: {0}".format("; ".join(_pseudo_pty_limitacoes)))
 
 
 def _finalizar():

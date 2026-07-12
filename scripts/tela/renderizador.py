@@ -254,6 +254,41 @@ def _distribuir_alturas(altura_disponivel, pesos):
     return cotas
 
 
+def _distribuir_larguras(largura_disponivel, pesos):
+    """Reparte ``largura_disponivel`` entre os pesos pelo metodo dos maiores
+    restos no eixo horizontal (H-0026 / ADR-0015 D5-D8; ADR-0018 D6/D7).
+
+    Analogico a ``_distribuir_alturas``: o algoritmo de maiores restos e
+    identico para qualquer eixo. Esta e uma rotina LOCAL ao calculo de cotas
+    horizontais, independente do helper vertical, para preservar sem risco o
+    comportamento aprovado pelo H-0025.
+
+    Invariantes:
+    - ``sum(cotas) == largura_disponivel`` (soma exata);
+    - cada cota e inteira nao negativa;
+    - empates de resto fracionario sao resolvidos pela ORDEM DECLARADA
+      (menor indice prevalece).
+    """
+    n = len(pesos)
+    if n == 0:
+        return []
+    soma = float(sum(pesos))
+    if soma <= 0:
+        raise RenderizadorErro(
+            "distribuicao: soma de pesos nao e positiva: {0}".format(soma)
+        )
+    ideais = [largura_disponivel * p / soma for p in pesos]
+    cotas = [int(x) for x in ideais]  # floor (valores >= 0)
+    faltam = largura_disponivel - sum(cotas)
+    restos = sorted(
+        range(n),
+        key=lambda i: (-ideais[i] + int(ideais[i]), i),
+    )
+    for k in range(faltam):
+        cotas[restos[k]] += 1
+    return cotas
+
+
 def _linhas_console(elemento):
     """Linhas de conteudo para elemento console (placeholder de escopo)."""
     return [_PLACEHOLDER_CONSOLE]
@@ -753,12 +788,25 @@ def _caixa_de_elemento(elemento, borda, inner_w, content_w, label_max, altura_al
     return None
 
 
-def _montar_corpo_horizontal(elementos, borda, total_w, altura_disponivel=None):
-    """Particionamento horizontal contíguo do corpo raiz (H-0019 / H-0020).
+def _montar_corpo_horizontal(elementos, borda, total_w, altura_disponivel=None,
+                             larguras=None):
+    """Particionamento horizontal contíguo do corpo raiz (H-0019 / H-0020 / H-0026).
 
-    Distribuição uniforme implícita (modo igual, ADR-0015 D6) entre filhos
-    diretos de corpo.elementos[]. Grupo não é expandido (ADR-0015 D2): conta
-    como slot com área visualmente vazia.
+    Quando ``larguras`` e ``None`` (ausência de ``corpo.distribuicao``):
+    distribuição uniforme implícita entre filhos diretos de corpo.elementos[],
+    com ``base_w = total_w // N`` e ``resto = total_w % N`` distribuido da
+    esquerda (maiores restos por ordem declarada, ADR-0015 D8). Este e o
+    comportamento operacional existente (H-0019/H-0020/H-0021), preservado
+    integralmente quando ``corpo.distribuicao`` esta ausente (ADR-0018 D2).
+
+    Quando ``larguras`` e fornecida (lista de inteiros com soma == ``total_w``,
+    ja calculada externamente via ``_distribuir_larguras`` a partir dos pesos
+    declarados em ``corpo.distribuicao``): usa essas larguras explicitas em
+    vez do particionamento uniforme, implementando os modos ``percentual`` e
+    ``fracao`` no arranjo horizontal (H-0026 / ADR-0015 D5-D8, ADR-0018 D6/D7).
+
+    Grupo não é expandido (ADR-0015 D2): conta como slot com área visualmente
+    vazia.
 
     altura_disponivel (H-0020): quando fornecida, cada coluna é preenchida até
     essa altura (altura do corpo inteiro), preservando a área alocada conforme
@@ -772,14 +820,15 @@ def _montar_corpo_horizontal(elementos, borda, total_w, altura_disponivel=None):
     if N == 0:
         return ""
 
-    # Particionamento contíguo da largura (ADR-0015 D9).
-    # N=1 cai no caminho geral: larguras=[total_w], resultado idêntico ao
-    # caminho especial anterior, mas agora suporta altura_disponivel.
-    base_w = total_w // N
-    resto = total_w % N
-    # Maiores restos: primeiras `resto` áreas recebem base_w+1 (ADR-0015 D8).
-    # Invariante: sum(larguras) == total_w.
-    larguras = [base_w + (1 if i < resto else 0) for i in range(N)]
+    if larguras is None:
+        # Particionamento contíguo uniforme da largura (ADR-0015 D9).
+        # N=1 cai no caminho geral: larguras=[total_w], resultado idêntico ao
+        # caminho especial anterior, mas agora suporta altura_disponivel.
+        base_w = total_w // N
+        resto = total_w % N
+        # Maiores restos: primeiras `resto` áreas recebem base_w+1 (ADR-0015 D8).
+        # Invariante: sum(larguras) == total_w.
+        larguras = [base_w + (1 if i < resto else 0) for i in range(N)]
 
     # Verificar cabimento mínimo antes de renderizar
     for i, w in enumerate(larguras):
@@ -986,9 +1035,22 @@ def renderizar_tela(
         else:
             _l_corpo_disponivel = None
 
+        # H-0026 / ADR-0015 D5-D8: distribuicao horizontal explicita. So ativa
+        # quando o container declara ``corpo.distribuicao`` nos modos
+        # ``percentual`` ou ``fracao``. Ausencia (None) preserva o particionamento
+        # uniforme existente (H-0019/H-0020/H-0021); modo ``igual`` e equivalente
+        # matematico ao uniforme e tambem preserva o caminho existente.
+        larguras_corpo = None
+        if distribuicao_corpo is not None:
+            pesos_corpo = _pesos_distribuicao(
+                distribuicao_corpo, len(modelo.corpo.elementos)
+            )
+            larguras_corpo = _distribuir_larguras(total_w, pesos_corpo)
+
         bloco_horizontal = _montar_corpo_horizontal(
             modelo.corpo.elementos, borda, total_w,
             altura_disponivel=_l_corpo_disponivel,
+            larguras=larguras_corpo,
         )
         if bloco_horizontal:
             partes.append(bloco_horizontal)
