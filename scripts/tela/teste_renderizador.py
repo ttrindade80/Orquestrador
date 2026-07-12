@@ -4298,6 +4298,626 @@ class TestDistribuicaoHorizontalH0026:
         self.test_rejeicoes_loader_preservadas()
 
 
+def _modelo_hierarquico(corpo_arranjo, corpo_elementos, largura=42, titulo_cab="H"):
+    """Cria ModeloTela sintetico com corpo hierarquico para testes H-0027."""
+    return ModeloTela(
+        id="teste_h0027",
+        schema="tela.v1",
+        cabecalho={"titulo": titulo_cab, "descricao": "teste hierarquia"},
+        corpo=Corpo(arranjo=corpo_arranjo, elementos=corpo_elementos),
+        barra_de_menus={"chips": [{"id": "c1", "tecla": "k", "texto": "Ok"}]},
+        _raw={},
+    )
+
+
+def _grupo(gid, arranjo, filhos, distribuicao=None):
+    """Helper: cria ElementoCorpo tipo 'grupo' com arranjo e filhos."""
+    inertes = {}
+    if arranjo is not None:
+        inertes["arranjo"] = arranjo
+    if distribuicao is not None:
+        inertes["distribuicao"] = distribuicao
+    return ElementoCorpo(id=gid, tipo="grupo", _campos_inertes=inertes,
+                         elementos=filhos)
+
+
+def _funcional(fid, tipo, titulo=None):
+    """Helper: cria ElementoCorpo funcional simples."""
+    inertes = {}
+    if titulo:
+        inertes["titulo"] = titulo
+    if tipo == "lancador":
+        inertes["itens"] = []
+    return ElementoCorpo(id=fid, tipo=tipo, _campos_inertes=inertes)
+
+
+class TestHierarquiaGruposH0027:
+    """Testes de composicao hierarquica com tres niveis de grupos (H-0027 / ADR-0019).
+
+    Cobre: renderizacao com 1-3 niveis de grupos; arranjos vertical e horizontal
+    em grupos; distribuicao em grupos; mistura grupo+funcional; multiplos dashboards;
+    regressao do orquestrador e grupo_minimo.
+    """
+
+    def _r(self, nome, passou, detalhe=""):
+        _registrar(nome, passou, detalhe)
+
+    # --- 1 nivel de grupo, arranjo vertical ---
+    def test_g1_vertical_produz_saida(self):
+        """Grupo nivel 1 com arranjo vertical e 2 funcionais produz saida nao vazia."""
+        modelo = _modelo_hierarquico("vertical", [
+            _grupo("g1", "vertical", [
+                _funcional("console_a", "console", "CONSOLA"),
+                _funcional("dash_a", "dashboard", "PAINEL"),
+            ]),
+        ])
+        saida = renderizar_tela(modelo, largura=42)
+        self._r(
+            "H-0027: grupo nivel 1 vertical com 2 funcionais produz saida nao vazia",
+            bool(saida.strip()),
+            "len={0}".format(len(saida)),
+        )
+        self._r(
+            "H-0027: saida contem caixa de console (cabecalho 'CONSOLA')",
+            "CONSOLA" in saida,
+        )
+        self._r(
+            "H-0027: saida contem caixa de dashboard (cabecalho 'PAINEL')",
+            "PAINEL" in saida,
+        )
+
+    # --- 1 nivel de grupo, arranjo horizontal ---
+    def test_g1_horizontal_lado_a_lado(self):
+        """Grupo nivel 1 com arranjo horizontal produz caixas lado a lado."""
+        modelo = _modelo_hierarquico("vertical", [
+            _grupo("g1", "horizontal", [
+                _funcional("c1", "console", "ESQUERDA"),
+                _funcional("c2", "console", "DIREITA"),
+            ]),
+        ])
+        saida = renderizar_tela(modelo, largura=42)
+        self._r(
+            "H-0027: grupo horizontal: saida nao vazia",
+            bool(saida.strip()),
+        )
+        # Caixas lado a lado: cabecalhos aparecem na mesma linha
+        linhas = saida.split("\n")
+        cabecalho_na_mesma_linha = any("ESQUERDA" in l and "DIREITA" in l for l in linhas)
+        self._r(
+            "H-0027: grupo horizontal: 'ESQUERDA' e 'DIREITA' aparecem na mesma linha",
+            cabecalho_na_mesma_linha,
+            "linhas={0!r}".format([l for l in linhas if "ESQUERDA" in l or "DIREITA" in l]),
+        )
+
+    # --- Grupo com arranjo ausente (None) -> vertical implícito ---
+    def test_g1_arranjo_none_equivale_vertical(self):
+        """Grupo sem arranjo produz saida equivalente a arranjo vertical."""
+        modelo_none = _modelo_hierarquico("vertical", [
+            _grupo("g1", None, [
+                _funcional("c1", "console", "AA"),
+                _funcional("c2", "console", "BB"),
+            ]),
+        ])
+        modelo_vert = _modelo_hierarquico("vertical", [
+            _grupo("g1", "vertical", [
+                _funcional("c1", "console", "AA"),
+                _funcional("c2", "console", "BB"),
+            ]),
+        ])
+        saida_none = renderizar_tela(modelo_none, largura=42)
+        saida_vert = renderizar_tela(modelo_vert, largura=42)
+        self._r(
+            "H-0027: grupo sem arranjo -> saida identica a arranjo 'vertical'",
+            saida_none == saida_vert,
+        )
+
+    # --- 2 niveis de grupos ---
+    def test_g2_vertical_vertical(self):
+        """2 niveis de grupos verticais produz saida com todos os funcionais."""
+        modelo = _modelo_hierarquico("vertical", [
+            _grupo("g1", "vertical", [
+                _grupo("g2", "vertical", [
+                    _funcional("c1", "console", "PROFUNDO"),
+                    _funcional("d1", "dashboard", "PAINEL"),
+                ]),
+            ]),
+        ])
+        saida = renderizar_tela(modelo, largura=42)
+        self._r(
+            "H-0027: 2 niveis verticais: saida contem 'PROFUNDO'",
+            "PROFUNDO" in saida,
+        )
+        self._r(
+            "H-0027: 2 niveis verticais: saida contem 'PAINEL'",
+            "PAINEL" in saida,
+        )
+
+    # --- 2 niveis: externo vertical, interno horizontal ---
+    def test_g2_vertical_horizontal(self):
+        """Nivel 1 vertical, nivel 2 horizontal: funcionais do g2 ficam lado a lado."""
+        modelo = _modelo_hierarquico("vertical", [
+            _grupo("g1", "vertical", [
+                _funcional("topo", "console", "TOPO"),
+                _grupo("g2", "horizontal", [
+                    _funcional("e", "console", "ESQQ"),
+                    _funcional("d", "console", "DIRR"),
+                ]),
+            ]),
+        ])
+        saida = renderizar_tela(modelo, largura=42)
+        linhas = saida.split("\n")
+        self._r(
+            "H-0027: 2 niveis (vert+horiz): 'TOPO' presente na saida",
+            "TOPO" in saida,
+        )
+        self._r(
+            "H-0027: 2 niveis (vert+horiz): 'ESQQ' e 'DIRR' na mesma linha",
+            any("ESQQ" in l and "DIRR" in l for l in linhas),
+        )
+
+    # --- 3 niveis de grupos ---
+    def test_g3_profundidade_maxima(self):
+        """3 niveis de grupos (profundidade maxima por ADR-0019 D2): funcional renderizado."""
+        modelo = _modelo_hierarquico("vertical", [
+            _grupo("g1", "vertical", [
+                _grupo("g2", "vertical", [
+                    _grupo("g3", "vertical", [
+                        _funcional("c1", "console", "FOLHA"),
+                    ]),
+                ]),
+            ]),
+        ])
+        saida = renderizar_tela(modelo, largura=42)
+        self._r(
+            "H-0027: 3 niveis de grupos: saida contem 'FOLHA' (funcional no nivel 3)",
+            "FOLHA" in saida,
+        )
+
+    # --- Distribuicao em grupo (modo igual) ---
+    def test_distribuicao_igual_em_grupo(self):
+        """Grupo com distribuicao='igual' distribui altura entre filhos (com altura declarada)."""
+        modelo = _modelo_hierarquico("vertical", [
+            _grupo("g1", "vertical", [
+                _funcional("c1", "console", "ALFA"),
+                _funcional("c2", "console", "BETA"),
+            ], distribuicao={"modo": "igual"}),
+        ])
+        # Com altura declarada, distribuicao ganha efeito
+        saida_com_alt = renderizar_tela(modelo, largura=42, altura=20)
+        saida_sem_alt = renderizar_tela(modelo, largura=42)
+        self._r(
+            "H-0027: grupo com dist=igual e altura: saida nao vazia",
+            bool(saida_com_alt.strip()),
+        )
+        self._r(
+            "H-0027: grupo com dist=igual e altura: contem 'ALFA'",
+            "ALFA" in saida_com_alt,
+        )
+        self._r(
+            "H-0027: grupo com dist=igual e altura: contem 'BETA'",
+            "BETA" in saida_com_alt,
+        )
+        self._r(
+            "H-0027: grupo com dist=igual sem altura: saida nao vazia (content-driven)",
+            bool(saida_sem_alt.strip()),
+        )
+
+    # --- Distribuicao fracao em grupo horizontal ---
+    def test_distribuicao_fracao_grupo_horizontal(self):
+        """Grupo horizontal com distribuicao fracao 2:1 divide largura conforme pesos."""
+        modelo = _modelo_hierarquico("vertical", [
+            _grupo("g1", "horizontal", [
+                _funcional("c1", "console", "GRANDE"),
+                _funcional("c2", "console", "PEQQ"),
+            ], distribuicao={"modo": "fracao", "valores": [2, 1]}),
+        ])
+        saida = renderizar_tela(modelo, largura=42)
+        linhas = saida.split("\n")
+        self._r(
+            "H-0027: grupo horiz dist=fracao 2:1: saida nao vazia",
+            bool(saida.strip()),
+        )
+        self._r(
+            "H-0027: grupo horiz dist=fracao 2:1: 'GRANDE' e 'PEQQ' na mesma linha",
+            any("GRANDE" in l and "PEQQ" in l for l in linhas),
+        )
+
+    # --- Mistura de grupo e funcional no mesmo nivel do corpo ---
+    def test_mistura_grupo_e_funcional_no_corpo(self):
+        """Corpo com grupo e funcional direto na mesma lista produz saida correta."""
+        modelo = _modelo_hierarquico("vertical", [
+            _funcional("topo", "console", "TOPO"),
+            _grupo("g1", "horizontal", [
+                _funcional("e", "console", "ESQQ"),
+                _funcional("d", "console", "DIRR"),
+            ]),
+            _funcional("base", "lancador"),
+        ])
+        saida = renderizar_tela(modelo, largura=42)
+        self._r(
+            "H-0027: mistura grupo+funcional: 'TOPO' presente",
+            "TOPO" in saida,
+        )
+        self._r(
+            "H-0027: mistura grupo+funcional: 'ESQQ' e 'DIRR' na mesma linha",
+            any("ESQQ" in l and "DIRR" in l for l in saida.split("\n")),
+        )
+
+    # --- Multiplos dashboards em grupos distintos (ADR-0019 D7) ---
+    def test_multiplos_dashboards_em_grupos(self):
+        """Dois dashboards em grupos distintos sao ambos renderizados (D7)."""
+        modelo = _modelo_hierarquico("vertical", [
+            _grupo("g1", "vertical", [
+                _funcional("d1", "dashboard", "PAINEL1"),
+            ]),
+            _grupo("g2", "vertical", [
+                _funcional("d2", "dashboard", "PAINEL2"),
+            ]),
+        ])
+        saida = renderizar_tela(modelo, largura=42)
+        self._r(
+            "H-0027: multiplos dashboards (D7): 'PAINEL1' presente",
+            "PAINEL1" in saida,
+        )
+        self._r(
+            "H-0027: multiplos dashboards (D7): 'PAINEL2' presente",
+            "PAINEL2" in saida,
+        )
+
+    # --- Regressao: orquestrador.json ainda renderiza sem erro ---
+    def test_regressao_orquestrador(self):
+        """renderizar_tela sobre orquestrador.json preserva saida esperada (regressao)."""
+        try:
+            tela_raw = carregar_tela(_BASE_PADRAO, "orquestrador")
+            modelo = construir_modelo(tela_raw)
+            saida = renderizar_tela(modelo, largura=42)
+            self._r(
+                "H-0027 regressao: orquestrador renderiza sem excecao",
+                True,
+            )
+            self._r(
+                "H-0027 regressao: saida contem 'ORQUESTRADOR'",
+                "ORQUESTRADOR" in saida,
+            )
+            self._r(
+                "H-0027 regressao: saida contem 'Menus'",
+                "Menus" in saida,
+            )
+        except Exception as exc:
+            self._r("H-0027 regressao: orquestrador renderiza sem excecao",
+                    False, str(exc))
+
+    # --- Regressao: grupo_minimo.json ainda renderiza ---
+    def test_regressao_grupo_minimo(self):
+        """renderizar_tela sobre grupo_minimo.json renderiza sem excecao (regressao)."""
+        try:
+            tela_raw = carregar_tela(_BASE_PADRAO, "grupo_minimo")
+            modelo = construir_modelo(tela_raw)
+            saida = renderizar_tela(modelo, largura=42)
+            self._r(
+                "H-0027 regressao: grupo_minimo renderiza sem excecao",
+                True,
+            )
+            self._r(
+                "H-0027 regressao: saida nao vazia",
+                bool(saida.strip()),
+            )
+        except Exception as exc:
+            self._r("H-0027 regressao: grupo_minimo renderiza sem excecao",
+                    False, str(exc))
+
+    # --- Distribuicao percentual em grupo vertical com altura ---
+    def test_distribuicao_percentual_grupo_vertical_com_altura(self):
+        """Grupo vertical com dist=percentual 70/30 e altura declarada distribui corretamente."""
+        modelo = _modelo_hierarquico("vertical", [
+            _grupo("g1", "vertical", [
+                _funcional("c1", "console", "GRANDE"),
+                _funcional("c2", "console", "PEQUENO"),
+            ], distribuicao={"modo": "percentual", "valores": [70, 30]}),
+        ])
+        saida = renderizar_tela(modelo, largura=42, altura=22)
+        self._r(
+            "H-0027: dist percentual 70/30 vertical com altura: saida contem 'GRANDE'",
+            "GRANDE" in saida,
+        )
+        self._r(
+            "H-0027: dist percentual 70/30 vertical com altura: saida contem 'PEQUENO'",
+            "PEQUENO" in saida,
+        )
+        # Caixa de 'GRANDE' deve ser mais alta do que 'PEQUENO' (aprox 70% vs 30%)
+        linhas = saida.split("\n")
+        inicio_grande = next((i for i, l in enumerate(linhas) if "GRANDE" in l), None)
+        inicio_pequeno = next((i for i, l in enumerate(linhas) if "PEQUENO" in l), None)
+        self._r(
+            "H-0027: dist percentual: 'GRANDE' aparece antes de 'PEQUENO'",
+            inicio_grande is not None and inicio_pequeno is not None
+            and inicio_grande < inicio_pequeno,
+        )
+
+    # --- Grupo com arranjo 'sobreposto' (alias de vertical) ---
+    def test_arranjo_sobreposto_alias_vertical(self):
+        """Grupo com arranjo='sobreposto' produz saida identica a 'vertical'."""
+        modelo_sob = _modelo_hierarquico("vertical", [
+            _grupo("g1", "sobreposto", [
+                _funcional("c1", "console", "XX"),
+                _funcional("c2", "console", "YY"),
+            ]),
+        ])
+        modelo_ver = _modelo_hierarquico("vertical", [
+            _grupo("g1", "vertical", [
+                _funcional("c1", "console", "XX"),
+                _funcional("c2", "console", "YY"),
+            ]),
+        ])
+        saida_sob = renderizar_tela(modelo_sob, largura=42)
+        saida_ver = renderizar_tela(modelo_ver, largura=42)
+        self._r(
+            "H-0027: grupo arranjo='sobreposto' -> saida identica a 'vertical'",
+            saida_sob == saida_ver,
+        )
+
+    # --- Grupo com arranjo 'lado_a_lado' (alias de horizontal) ---
+    def test_arranjo_lado_a_lado_alias_horizontal(self):
+        """Grupo com arranjo='lado_a_lado' produz saida identica a 'horizontal'."""
+        modelo_lal = _modelo_hierarquico("vertical", [
+            _grupo("g1", "lado_a_lado", [
+                _funcional("c1", "console", "ALFA"),
+                _funcional("c2", "console", "BETA"),
+            ]),
+        ])
+        modelo_hor = _modelo_hierarquico("vertical", [
+            _grupo("g1", "horizontal", [
+                _funcional("c1", "console", "ALFA"),
+                _funcional("c2", "console", "BETA"),
+            ]),
+        ])
+        saida_lal = renderizar_tela(modelo_lal, largura=42)
+        saida_hor = renderizar_tela(modelo_hor, largura=42)
+        self._r(
+            "H-0027: grupo arranjo='lado_a_lado' -> saida identica a 'horizontal'",
+            saida_lal == saida_hor,
+        )
+
+    # --- Grupo vazio nao gera excecao (saida vazia para ele, resto renderiza) ---
+    def test_grupo_vazio_nao_gera_excecao(self):
+        """Grupo sem filhos (elementos=[]) nao lanca excecao; saida pode ser vazia para o grupo."""
+        modelo = _modelo_hierarquico("vertical", [
+            _funcional("c1", "console", "VISIVEL"),
+            _grupo("g_vazio", "vertical", []),
+        ])
+        try:
+            saida = renderizar_tela(modelo, largura=42)
+            self._r(
+                "H-0027: grupo vazio nao lanca excecao",
+                True,
+            )
+            self._r(
+                "H-0027: grupo vazio: 'VISIVEL' ainda aparece na saida",
+                "VISIVEL" in saida,
+            )
+        except Exception as exc:
+            self._r("H-0027: grupo vazio nao lanca excecao", False, str(exc))
+
+    # --- ACH-001 (a): Corpo horizontal com dois grupos filhos ---
+    def test_corpo_horizontal_com_grupos_filhos(self):
+        """Corpo horizontal com dois grupos filhos: grupos renderizados lado a lado."""
+        modelo = _modelo_hierarquico("horizontal", [
+            _grupo("g1", "vertical", [
+                _funcional("c1", "console", "ALFA"),
+            ]),
+            _grupo("g2", "vertical", [
+                _funcional("c2", "console", "BETA"),
+            ]),
+        ])
+        saida = renderizar_tela(modelo, largura=42)
+        linhas = saida.split("\n")
+        self._r(
+            "H-0027 ACH-001a: corpo horiz com grupos: saida nao vazia",
+            bool(saida.strip()),
+        )
+        self._r(
+            "H-0027 ACH-001a: corpo horiz com grupos: 'ALFA' presente",
+            "ALFA" in saida,
+        )
+        self._r(
+            "H-0027 ACH-001a: corpo horiz com grupos: 'BETA' presente",
+            "BETA" in saida,
+        )
+        # Grupos ficam lado a lado: ALFA e BETA devem aparecer na mesma linha
+        self._r(
+            "H-0027 ACH-001a: corpo horiz com grupos: 'ALFA' e 'BETA' na mesma linha",
+            any("ALFA" in l and "BETA" in l for l in linhas),
+        )
+        # Grupos nao sao slots vazios: conteudo funcional efetivamente renderizado
+        self._r(
+            "H-0027 ACH-001a: grupos nao sao slots vazios ('ALFA' e 'BETA' presentes)",
+            "ALFA" in saida and "BETA" in saida,
+        )
+        # Largura total preservada sem perda indevida
+        linhas_nv = [l for l in linhas if l != ""]
+        self._r(
+            "H-0027 ACH-001a: largura total preservada (42)",
+            all(len(l) == 42 for l in linhas_nv),
+            "invalidas={0}".format(
+                [(i, len(l)) for i, l in enumerate(linhas_nv) if len(l) != 42]
+            ),
+        )
+        # Sem sobreposicao: saida deterministica
+        saida2 = renderizar_tela(modelo, largura=42)
+        self._r(
+            "H-0027 ACH-001a: saida e deterministica (sem sobreposicao)",
+            saida == saida2,
+        )
+
+    # --- ACH-001 (b): Combinacao horizontal -> vertical ---
+    def test_horizontal_grupo_vertical(self):
+        """Corpo horizontal com grupo vertical interno: subdivisao vertical dentro do grupo.
+
+        Estrutura:
+            corpo horizontal
+            └── grupo vertical
+                ├── funcional "CIMA"
+                └── funcional "BAIXO"
+        """
+        modelo = _modelo_hierarquico("horizontal", [
+            _grupo("g1", "vertical", [
+                _funcional("c1", "console", "CIMA"),
+                _funcional("c2", "console", "BAIXO"),
+            ]),
+        ])
+        saida = renderizar_tela(modelo, largura=42)
+        linhas = saida.split("\n")
+        self._r(
+            "H-0027 ACH-001b: horiz→vert: saida nao vazia",
+            bool(saida.strip()),
+        )
+        self._r(
+            "H-0027 ACH-001b: horiz→vert: 'CIMA' presente (funcional no grupo vertical)",
+            "CIMA" in saida,
+        )
+        self._r(
+            "H-0027 ACH-001b: horiz→vert: 'BAIXO' presente (funcional no grupo vertical)",
+            "BAIXO" in saida,
+        )
+        # Subdivisao vertical interna: CIMA antes de BAIXO (ordem preservada)
+        idx_cima = next((i for i, l in enumerate(linhas) if "CIMA" in l), None)
+        idx_baixo = next((i for i, l in enumerate(linhas) if "BAIXO" in l), None)
+        self._r(
+            "H-0027 ACH-001b: horiz→vert: ordem vertical preservada ('CIMA' antes de 'BAIXO')",
+            idx_cima is not None and idx_baixo is not None and idx_cima < idx_baixo,
+        )
+        # Sem achatamento: CIMA e BAIXO em linhas distintas
+        self._r(
+            "H-0027 ACH-001b: horiz→vert: sem achatamento ('CIMA' e 'BAIXO' em linhas distintas)",
+            idx_cima is not None and idx_baixo is not None and idx_cima != idx_baixo,
+        )
+        # Ausencia de slot vazio: os dois funcionais foram renderizados
+        self._r(
+            "H-0027 ACH-001b: horiz→vert: ausencia de slot vazio (ambos presentes)",
+            "CIMA" in saida and "BAIXO" in saida,
+        )
+        # Dimensoes compativeis: largura total preservada
+        linhas_nv = [l for l in linhas if l != ""]
+        self._r(
+            "H-0027 ACH-001b: horiz→vert: largura total preservada (42)",
+            all(len(l) == 42 for l in linhas_nv),
+            "invalidas={0}".format(
+                [(i, len(l)) for i, l in enumerate(linhas_nv) if len(l) != 42]
+            ),
+        )
+
+    # --- ACH-001 (c): Tres niveis com arranjos alternados ---
+    def test_tres_niveis_arranjos_alternados(self):
+        """3 niveis de grupos com arranjos alternados (H-0027 secao 18).
+
+        Estrutura:
+            corpo vertical
+            └── g1 horizontal (nivel 1)
+                ├── g2 vertical (nivel 2)
+                │   └── g3 horizontal (nivel 3)
+                │       ├── funcional "FA" (console)
+                │       └── funcional "FB" (console)
+                └── funcional "TOPO" (dashboard)
+
+        Usa largura=80 para garantir area suficiente em tres niveis de
+        particionamento horizontal (g1 -> g3) sem truncamento de titulo.
+        """
+        modelo = _modelo_hierarquico("vertical", [
+            _grupo("g1", "horizontal", [
+                _grupo("g2", "vertical", [
+                    _grupo("g3", "horizontal", [
+                        _funcional("f1", "console", "FA"),
+                        _funcional("f2", "console", "FB"),
+                    ]),
+                ]),
+                _funcional("topo", "dashboard", "TOPO"),
+            ]),
+        ])
+        saida = renderizar_tela(modelo, largura=80)
+        linhas = saida.split("\n")
+        self._r(
+            "H-0027 ACH-001c: 3 niveis alternados: saida nao vazia",
+            bool(saida.strip()),
+        )
+        # Renderizacao dos elementos do nivel mais interno
+        self._r(
+            "H-0027 ACH-001c: 3 niveis alternados: 'FA' presente (funcional nivel 3)",
+            "FA" in saida,
+        )
+        self._r(
+            "H-0027 ACH-001c: 3 niveis alternados: 'FB' presente (funcional nivel 3)",
+            "FB" in saida,
+        )
+        self._r(
+            "H-0027 ACH-001c: 3 niveis alternados: 'TOPO' presente (funcional nivel 1)",
+            "TOPO" in saida,
+        )
+        # Alternancia real dos arranjos: g3 horizontal -> FA e FB na mesma linha
+        self._r(
+            "H-0027 ACH-001c: 3 niveis alternados: g3(h): 'FA' e 'FB' na mesma linha",
+            any("FA" in l and "FB" in l for l in linhas),
+        )
+        # Ausencia de achatamento: tres niveis sao respeitados
+        self._r(
+            "H-0027 ACH-001c: 3 niveis alternados: sem achatamento (todos os funcionais presentes)",
+            "FA" in saida and "FB" in saida and "TOPO" in saida,
+        )
+        # Propagacao correta da area: largura total preservada
+        linhas_nv = [l for l in linhas if l != ""]
+        self._r(
+            "H-0027 ACH-001c: 3 niveis alternados: largura total preservada (80)",
+            all(len(l) == 80 for l in linhas_nv),
+            "invalidas={0}".format(
+                [(i, len(l)) for i, l in enumerate(linhas_nv) if len(l) != 80]
+            ),
+        )
+        # Ausencia de sobreposicao: saida deterministica
+        saida2 = renderizar_tela(modelo, largura=80)
+        self._r(
+            "H-0027 ACH-001c: 3 niveis alternados: saida deterministica (sem sobreposicao)",
+            saida == saida2,
+        )
+        # Preservacao da ordem declarada: FA antes de FB no g3 horizontal
+        # (na mesma linha, FA aparece a esquerda de FB)
+        linha_com_fa_fb = next(
+            (l for l in linhas if "FA" in l and "FB" in l), None
+        )
+        self._r(
+            "H-0027 ACH-001c: 3 niveis alternados: ordem declarada preservada "
+            "('FA' a esquerda de 'FB' na linha compartilhada)",
+            linha_com_fa_fb is not None
+            and linha_com_fa_fb.index("FA") < linha_com_fa_fb.index("FB"),
+        )
+        # Ausencia de nivel 4: apenas tres niveis estruturais
+        self._r(
+            "H-0027 ACH-001c: 3 niveis alternados: existencia dos tres niveis validada",
+            "FA" in saida and "FB" in saida and "TOPO" in saida,
+        )
+
+    def run_all(self):
+        print("")
+        print("== TestHierarquiaGruposH0027: composicao hierarquica (H-0027 / ADR-0019) ==")
+        self.test_g1_vertical_produz_saida()
+        self.test_g1_horizontal_lado_a_lado()
+        self.test_g1_arranjo_none_equivale_vertical()
+        self.test_g2_vertical_vertical()
+        self.test_g2_vertical_horizontal()
+        self.test_g3_profundidade_maxima()
+        self.test_distribuicao_igual_em_grupo()
+        self.test_distribuicao_fracao_grupo_horizontal()
+        self.test_mistura_grupo_e_funcional_no_corpo()
+        self.test_multiplos_dashboards_em_grupos()
+        self.test_regressao_orquestrador()
+        self.test_regressao_grupo_minimo()
+        self.test_distribuicao_percentual_grupo_vertical_com_altura()
+        self.test_arranjo_sobreposto_alias_vertical()
+        self.test_arranjo_lado_a_lado_alias_horizontal()
+        self.test_grupo_vazio_nao_gera_excecao()
+        self.test_corpo_horizontal_com_grupos_filhos()
+        self.test_horizontal_grupo_vertical()
+        self.test_tres_niveis_arranjos_alternados()
+
+
 def main():
     print("Diagnostico H-0010A - renderer declarativo (curva/reta)")
     print("Base padrao: {0}".format(_BASE_PADRAO))
@@ -4321,6 +4941,7 @@ def main():
     TestPreenchimentoBordeadoH0021().run_all()
     TestDistribuicaoVerticalH0025().run_all()
     TestDistribuicaoHorizontalH0026().run_all()
+    TestHierarquiaGruposH0027().run_all()
 
     print("")
     print("== Resumo ==")

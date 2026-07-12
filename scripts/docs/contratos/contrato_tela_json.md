@@ -191,11 +191,16 @@ origem de dados nem `tela_destino`. Recebe área do container pai e
 redistribui entre seus filhos diretos. Declara seu próprio `arranjo` e sua
 própria `distribuicao`.
 
-**Composição hierárquica como árvore (ADR-0015)**: o corpo é modelado como
-árvore de composição. `corpo.elementos[]` é o nível 1. `grupo.elementos[]`
-cria o próximo nível. Profundidade máxima: 3 níveis. Estruturas com nível 4
-ou superior geram erro estrutural determinístico. A forma plana de elementos
-continua válida e equivale a nível 1.
+**Composição hierárquica como árvore (ADR-0015; ADR-0019)**: o corpo é modelado
+como árvore de composição. A profundidade hierárquica é contada por **níveis de
+grupos** — nós estruturais do tipo `grupo`: o corpo raiz não é contado; um
+`grupo` filho direto de `corpo.elementos[]` está no nível de grupo 1; um `grupo`
+filho de grupo do nível 1 está no nível 2; um `grupo` filho de grupo do nível 2
+está no nível 3. Profundidade máxima: **3 níveis de grupos**. Estruturas com
+grupo no nível 4 ou superior geram erro estrutural determinístico. Elementos
+funcionais dentro de um grupo do nível 3 não constituem nível 4. A forma plana
+de elementos continua válida. Múltiplos grupos irmãos e múltiplos elementos
+funcionais por grupo são permitidos em qualquer nível (ADR-0019, D1-D6).
 
 **Distribuição pertence a containers (ADR-0015)**: tanto `corpo` quanto
 `grupo` podem declarar `distribuicao`. A distribuição do container determina

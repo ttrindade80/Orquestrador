@@ -187,7 +187,12 @@ A lista de tipos funcionais é fechada — extensões exigem ADR.
 ### 6.2 Nó estrutural `grupo` (ADR-0015)
 
 `grupo` é nó estrutural de composição. Não é tipo funcional. Pode aparecer em
-`corpo.elementos[]` ou em `grupo.elementos[]` (grupos aninhados, até nível 3).
+`corpo.elementos[]` (nível de grupo 1) ou em `grupo.elementos[]` de grupos do
+nível 1 (nível de grupo 2) ou do nível 2 (nível de grupo 3). Um `grupo` filho
+de grupo do nível 3 estaria no nível 4 e é estruturalmente inválido. Elementos
+funcionais dentro de um grupo do nível 3 não constituem nível 4. Múltiplos
+grupos irmãos e múltiplos elementos funcionais por grupo são permitidos em
+qualquer nível (ADR-0019, D1-D6).
 
 `grupo` não declara: borda, moldura, título, conteúdo, ação, chip, origem de
 dados nem `tela_destino`. Declara: `arranjo`, `distribuicao` e `elementos[]`.

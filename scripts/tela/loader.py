@@ -145,7 +145,7 @@ def _eh_numero_nao_bool(valor):
     return isinstance(valor, (int, float)) and not isinstance(valor, bool)
 
 
-def _validar_distribuicao_corpo(distribuicao, n_elementos):
+def _validar_distribuicao_corpo(distribuicao, n_elementos, prefixo_caminho="corpo"):
     """Valida corpo.distribuicao declarado (H-0025 / ADR-0018).
 
     A distribuicao e OPCIONAL. Esta funcao so e chamada quando o campo existe.
@@ -167,19 +167,24 @@ def _validar_distribuicao_corpo(distribuicao, n_elementos):
     Erros sao levantados como ``TelaEstruturaInvalida`` (categoria ja usada
     para corpo.arranjo), de forma deterministica, sem fallback silencioso.
     Nao muta o dict recebido.
+
+    prefixo_caminho: caminho estrutural do container que declara a distribuicao
+    (ex.: "corpo" para o corpo raiz; "corpo → g1" para um grupo). Usado para
+    compor mensagens de diagnóstico que reflitam o container afetado.
     """
+    _p = prefixo_caminho
     if not isinstance(distribuicao, dict):
         raise TelaEstruturaInvalida(
-            "corpo.distribuicao deve ser um objeto; recebido: {0}".format(
-                type(distribuicao).__name__
+            "{0}.distribuicao deve ser um objeto; recebido: {1}".format(
+                _p, type(distribuicao).__name__
             )
         )
 
     modo = distribuicao.get("modo")
     if modo not in MODOS_DISTRIBUICAO_CORPO_VALIDOS:
         raise TelaEstruturaInvalida(
-            "corpo.distribuicao.modo invalido: {0!r}; valores aceitos: "
-            "igual, percentual, fracao".format(modo)
+            "{0}.distribuicao.modo invalido: {1!r}; valores aceitos: "
+            "igual, percentual, fracao".format(_p, modo)
         )
 
     if modo == "igual":
@@ -190,29 +195,29 @@ def _validar_distribuicao_corpo(distribuicao, n_elementos):
     valores = distribuicao.get("valores")
     if not isinstance(valores, list):
         raise TelaEstruturaInvalida(
-            "corpo.distribuicao.valores invalido para modo {0!r}: "
-            "esperado lista".format(modo)
+            "{0}.distribuicao.valores invalido para modo {1!r}: "
+            "esperado lista".format(_p, modo)
         )
 
     if len(valores) != n_elementos:
         raise TelaEstruturaInvalida(
-            "corpo.distribuicao.valores com quantidade {0} divergente da "
-            "quantidade de filhos diretos ({1})".format(
-                len(valores), n_elementos
+            "{0}.distribuicao.valores com quantidade {1} divergente da "
+            "quantidade de filhos diretos ({2})".format(
+                _p, len(valores), n_elementos
             )
         )
 
     for indice, valor in enumerate(valores):
         if not _eh_numero_nao_bool(valor) or valor <= 0:
             raise TelaEstruturaInvalida(
-                "corpo.distribuicao.valores[{0}] invalido: {1!r}; esperado "
-                "numero estritamente positivo".format(indice, valor)
+                "{0}.distribuicao.valores[{1}] invalido: {2!r}; esperado "
+                "numero estritamente positivo".format(_p, indice, valor)
             )
 
     if modo == "percentual" and sum(valores) != 100:
         raise TelaEstruturaInvalida(
-            "corpo.distribuicao percentual exige soma igual a 100; soma "
-            "encontrada: {0}".format(sum(valores))
+            "{0}.distribuicao percentual exige soma igual a 100; soma "
+            "encontrada: {1}".format(_p, sum(valores))
         )
 
 
@@ -224,89 +229,107 @@ def _para_base(caminho_base):
     return Path(caminho_base)
 
 
-def _validar_grupo(elemento, id_grupo):
-    """Valida os invariantes do tipo estrutural 'grupo' no H-0012.
+def _validar_grupo(elemento, id_grupo, nivel_grupo=1, caminho="corpo"):
+    """Valida os invariantes do tipo estrutural 'grupo' (ADR-0019 / H-0027).
 
-    O grupo e container estrutural de composicao, nao elemento funcional.
-    Invariantes deste ciclo (H-0012):
+    Valida recursivamente com contagem de profundidade exclusivamente por nós
+    estruturais ``grupo`` (ADR-0019 D1). Niveis 1, 2 e 3 sao validos; nivel
+    4 e invalido e rejeitado com erro determinístico (ADR-0019 D4). Multiplos
+    filhos e grupos irmaos sao permitidos (ADR-0019 D5, D6).
 
-    - campo ``elementos`` presente, lista nao vazia, com exatamente 1 item;
-    - o item interno tem ``id`` e ``tipo``;
-    - o ``tipo`` do item interno e funcional (console/lancador/dashboard);
-    - o ``tipo`` do item interno nao e ``"grupo"`` (proibir aninhamento);
-    - ``arranjo`` do grupo, se presente, nao e ``"horizontal"`` nem seu
-      alias transicional ``"lado_a_lado"`` (ADR-0011; H-0014).
-
-    Mantem o elemento interno como declaracao inerte acessivel ao modelo
-    (preservado no dict de saida do loader).
+    Parametros:
+        elemento: dict do grupo a validar.
+        id_grupo: id declarado do grupo.
+        nivel_grupo: profundidade do grupo atual (1 = filho direto do corpo).
+        caminho: string de contexto para diagnostico (ex.: "corpo → g1").
     """
+    # Validar arranjo contra o mesmo conjunto do corpo raiz (ADR-0015 / H-0027).
     arranjo = elemento.get("arranjo")
-    if arranjo in ("horizontal", "lado_a_lado"):
+    if arranjo not in ARRANJOS_CORPO_VALIDOS:
         raise TelaGrupoInvalido(
-            "Grupo '{0}' com arranjo '{1}' e fora de escopo no H-0014 "
-            "(arranjo horizontal nao implementado para grupo; "
-            "'lado_a_lado' e alias transicional de 'horizontal' — ADR-0011)".format(
-                id_grupo, arranjo
-            )
+            "Grupo '{0}' em '{1}' com arranjo invalido: {2!r}; "
+            "valores aceitos: vertical, horizontal, sobreposto, lado_a_lado, "
+            "ou ausente".format(id_grupo, caminho, arranjo)
         )
 
     if "elementos" not in elemento:
         raise TelaGrupoInvalido(
-            "Grupo '{0}' sem campo 'elementos'".format(id_grupo)
+            "Grupo '{0}' em '{1}' sem campo 'elementos'".format(
+                id_grupo, caminho
+            )
         )
 
     sub = elemento.get("elementos")
     if not isinstance(sub, list):
         raise TelaGrupoInvalido(
-            "Grupo '{0}' com 'elementos' nao e uma lista".format(id_grupo)
+            "Grupo '{0}' em '{1}' com 'elementos' nao e uma lista".format(
+                id_grupo, caminho
+            )
         )
 
     if len(sub) == 0:
         raise TelaGrupoInvalido(
-            "Grupo '{0}' com 'elementos' vazio".format(id_grupo)
-        )
-
-    if len(sub) > 1:
-        raise TelaGrupoInvalido(
-            "Grupo '{0}' com mais de 1 elemento interno (H-0012 exige "
-            "exatamente 1)".format(id_grupo)
-        )
-
-    item = sub[0]
-    if not isinstance(item, dict) or "id" not in item:
-        raise TelaGrupoInvalido(
-            "Elemento interno do grupo '{0}' sem campo 'id'".format(id_grupo)
-        )
-    id_item = item.get("id")
-    if not isinstance(id_item, str) or id_item == "":
-        raise TelaGrupoInvalido(
-            "Elemento interno do grupo '{0}' com 'id' invalido".format(
-                id_grupo
+            "Grupo '{0}' em '{1}' com 'elementos' vazio".format(
+                id_grupo, caminho
             )
         )
 
-    if "tipo" not in item:
-        raise TelaGrupoInvalido(
-            "Elemento interno '{0}' do grupo '{1}' sem campo 'tipo'".format(
-                id_item, id_grupo
-            )
-        )
-    tipo_item = item.get("tipo")
-    if not isinstance(tipo_item, str) or tipo_item == "":
-        raise TelaGrupoInvalido(
-            "Elemento interno '{0}' do grupo '{1}' com 'tipo' invalido".format(
-                id_item, id_grupo
-            )
-        )
+    # Caminho que inclui o grupo atual, usado em erros dos filhos e na
+    # distribuicao (para que mensagens reflitam o container afetado, nao "corpo").
+    caminho_grupo = "{0} → {1}".format(caminho, id_grupo)
 
-    if tipo_item == "grupo":
-        raise TelaGrupoInvalido(
-            "Grupo '{0}' contem grupo aninhado (fora de escopo no "
-            "H-0012)".format(id_grupo)
-        )
+    # Validar distribuicao do grupo se declarada (ADR-0015 / ADR-0019).
+    # Passa caminho_grupo como prefixo para que as mensagens de erro usem o
+    # caminho estrutural real (ex.: "corpo → g1.distribuicao.modo invalido")
+    # em vez de "corpo.distribuicao.modo invalido" (ACH-005 patch H-0027).
+    distribuicao = elemento.get("distribuicao")
+    if distribuicao is not None:
+        try:
+            _validar_distribuicao_corpo(distribuicao, len(sub), caminho_grupo)
+        except TelaEstruturaInvalida as exc:
+            raise TelaEstruturaInvalida(
+                "Grupo '{0}' em '{1}': {2}".format(id_grupo, caminho, exc)
+            ) from exc
 
-    if tipo_item not in TIPOS_CORPO_VALIDOS:
-        raise TelaTipoDesconhecido(tipo=tipo_item, id_elemento=id_item)
+    for sub_indice, item in enumerate(sub):
+        if not isinstance(item, dict) or "id" not in item:
+            raise TelaGrupoInvalido(
+                "Elemento interno na posicao {0} do grupo '{1}' em '{2}' "
+                "sem campo 'id'".format(sub_indice, id_grupo, caminho)
+            )
+        id_item = item.get("id")
+        if not isinstance(id_item, str) or id_item == "":
+            raise TelaGrupoInvalido(
+                "Elemento interno na posicao {0} do grupo '{1}' em '{2}' "
+                "com 'id' invalido".format(sub_indice, id_grupo, caminho)
+            )
+
+        if "tipo" not in item:
+            raise TelaGrupoInvalido(
+                "Elemento interno '{0}' do grupo '{1}' em '{2}' sem campo "
+                "'tipo'".format(id_item, id_grupo, caminho)
+            )
+        tipo_item = item.get("tipo")
+        if not isinstance(tipo_item, str) or tipo_item == "":
+            raise TelaGrupoInvalido(
+                "Elemento interno '{0}' do grupo '{1}' em '{2}' com 'tipo' "
+                "invalido".format(id_item, id_grupo, caminho)
+            )
+
+        if tipo_item == "grupo":
+            if nivel_grupo == 3:
+                # Grupo filho de grupo no nivel 3 estaria no nivel 4: invalido.
+                raise TelaGrupoInvalido(
+                    "Grupo '{0}' em '{1}' criaria nivel 4 de grupo, que e "
+                    "invalido; maximo e 3 niveis de grupos "
+                    "(ADR-0019 D4)".format(id_item, caminho_grupo)
+                )
+            # Recursao: validar grupo filho com nivel_grupo + 1.
+            _validar_grupo(item, id_item, nivel_grupo + 1, caminho_grupo)
+        elif tipo_item in TIPOS_CORPO_VALIDOS:
+            pass  # elemento funcional aceito (ADR-0019 D3, D6)
+        else:
+            raise TelaTipoDesconhecido(tipo=tipo_item, id_elemento=id_item)
 
 
 def carregar_tela(caminho_base, id_tela):

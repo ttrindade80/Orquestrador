@@ -86,7 +86,7 @@ sistema atual. Extensões futuras exigem ADR.
 |---|---|---|
 | `console` | Container interativo e navegável genérico; pode conter itens heterogêneos; inclui saída de script/log | Um ou mais por tela |
 | `lancador` | Elemento de navegação — lista de itens com chip, texto e `tela_destino` | Um ou mais por tela |
-| `dashboard` | Saída passiva formatada, resumo/legenda ou visão consolidada; elemento passivo não navegável | Zero ou um por tela — sempre opcional |
+| `dashboard` | Saída passiva formatada, resumo/legenda ou visão consolidada; elemento passivo não navegável | Sempre opcional; sem limite global de cardinalidade por tela — uma tela pode conter múltiplos dashboards (ADR-0019, D7) |
 
 **Distinção obrigatória**: `lancador` (elemento do corpo) e
 `barra_de_menus` (região fixa da tela, contrato separado) são entidades
@@ -126,14 +126,22 @@ A regra de `[✥]` continua restrita a `console`.
 - redistribui essa área entre seus filhos diretos;
 - declara seu próprio `arranjo`;
 - declara sua própria `distribuicao`;
-- pode conter filhos funcionais (`console`, `lancador`, `dashboard`) e, em
-  ciclo futuro, grupos aninhados.
+- pode conter filhos funcionais (`console`, `lancador`, `dashboard`) e grupos
+  aninhados até o nível de grupo 3 (ADR-0019);
+- pode conter **múltiplos elementos funcionais** e **múltiplos grupos irmãos**
+  em qualquer nível permitido (ADR-0019, D5, D6).
 
-**Nível** é o conjunto de filhos diretos de um mesmo container:
-- `corpo.elementos[]` é o nível 1;
-- `grupo.elementos[]` cria o próximo nível;
-- cada grupo aninhado cria um novo nível;
-- profundidade máxima: **3 níveis**;
+**Nível de grupo** é contado exclusivamente pelo aninhamento de nós estruturais
+`grupo` (ADR-0019, D1):
+- o corpo raiz **não** é contado como nível de grupo;
+- um `grupo` filho direto de `corpo.elementos[]` está no **nível de grupo 1**;
+- um `grupo` filho direto de um grupo do nível 1 está no **nível de grupo 2**;
+- um `grupo` filho direto de um grupo do nível 2 está no **nível de grupo 3**;
+- profundidade máxima: **3 níveis de grupos** (ADR-0019, D2);
+- elementos funcionais em qualquer grupo **não acrescentam** nível de grupo,
+  inclusive no nível 3 (ADR-0019, D3);
+- um `grupo` filho de grupo do nível 3 estaria no nível 4 e é **estruturalmente
+  inválido** (ADR-0019, D4);
 - nível 4 ou superior gera erro estrutural determinístico.
 
 ---
@@ -829,9 +837,12 @@ paginação. O conjunto paginado é sempre o resultado filtrado.
 nem `tela_destino`. Não é navegável por `[✥]`. Qualquer tratamento de `grupo`
 como elemento funcional é erro estrutural.
 
-**R-16. Profundidade máxima 3 (ADR-0015).**
-Estruturas com nível 4 ou superior devem ser rejeitadas com erro estrutural
-determinístico. O renderer não tenta renderizar estruturas além do nível 3.
+**R-16. Profundidade máxima 3 níveis de grupos (ADR-0015; ADR-0019).**
+A profundidade é contada por **níveis de grupos** — nós estruturais do tipo
+`grupo`. Grupos com nível 4 ou superior devem ser rejeitados com erro estrutural
+determinístico. Elementos funcionais dentro de um grupo do nível 3 **não**
+constituem nível 4. O renderer não tenta renderizar estruturas além do nível de
+grupo 3.
 
 **R-17. Arranjo por container (ADR-0015; ADR-0018).**
 O arranjo de um container (`corpo` ou `grupo`) define o eixo de composição dos
@@ -932,8 +943,9 @@ mantidas sem que o redesenho seja acionado.
       corpo, sem exceção (R-10).
 - [ ] `grupo` em `corpo.elementos[]` ou em `grupo.elementos[]` não gera borda,
       moldura, título, conteúdo próprio nem estrutura visual independente (R-15).
-- [ ] Estruturas com profundidade superior a 3 níveis são rejeitadas com erro
-      estrutural determinístico (R-16).
+- [ ] Estruturas com grupo no nível 4 ou superior são rejeitadas com erro
+      estrutural determinístico (R-16); elementos funcionais dentro de grupo do
+      nível 3 não constituem nível 4 (ADR-0019, D3).
 - [ ] O arranjo declarado por cada container se aplica somente aos seus filhos
       diretos, sem herança obrigatória para containers filhos (R-17).
 - [ ] A área alocada pela distribuição é preservada; conteúdo menor recebe

@@ -90,8 +90,11 @@ class ModeloTela:
     def elemento_por_id(self, id_elemento):
         """Retorna o primeiro ElementoCorpo com o id informado, ou None.
 
-        Somente leitura. Nao ativa bindings, nao executa acoes, nao
-        resolve pendencias.
+        Escopo plano: percorre somente ``self.corpo.elementos`` diretos, sem
+        descer na arvore de grupos (H-0027 — limitacao documentada, nao bug).
+        Elementos dentro de grupos sao acessiveis via navegacao direta da
+        arvore (``elemento.elementos``), nao por este metodo.
+        Somente leitura. Nao ativa bindings, nao executa acoes.
         """
         for elemento in self.corpo.elementos:
             if elemento.id == id_elemento:
@@ -99,8 +102,12 @@ class ModeloTela:
         return None
 
     def elementos_por_tipo(self, tipo):
-        """Retorna lista de ElementoCorpo cujo `tipo` coincide.
+        """Retorna lista de ElementoCorpo cujo ``tipo`` coincide.
 
+        Escopo plano: percorre somente ``self.corpo.elementos`` diretos, sem
+        descer na arvore de grupos (H-0027 — limitacao documentada, nao bug).
+        Elementos dentro de grupos sao acessiveis via navegacao direta da
+        arvore (``elemento.elementos``), nao por este metodo.
         Somente leitura. Nao cria registry de tipos nem subclasses.
         """
         return [e for e in self.corpo.elementos if e.tipo == tipo]
@@ -124,53 +131,73 @@ class ModeloTela:
         return "\n".join(linhas)
 
 
-def _construir_elementos_internos_grupo(elemento_grupo, id_grupo):
-    """Constroi a lista de ElementoCorpo dos elementos internos do grupo.
+def _construir_elementos_recursivo(elementos_raw, id_pai):
+    """Constroi recursivamente a lista de ElementoCorpo a partir de uma lista raw.
 
-    Os elementos internos sao funcionais (console/lancador/dashboard) --
-    o loader (H-0012) ja garantiu exatamente 1 item, nao-grupo e tipo
-    funcional. Nao ha recursao: grupo dentro de grupo e rejeitado pelo
-    loader antes de chegar aqui.
+    Tipos funcionais (console/lancador/dashboard) produzem ElementoCorpo com
+    elementos=[]. Tipo 'grupo' produz ElementoCorpo com tipo='grupo' e
+    elementos preenchido recursivamente (ADR-0019 D2/D3 — ate 3 niveis).
+    O loader (ADR-0019 / H-0027) ja garantiu a validade estrutural antes de
+    chegar aqui.
     """
-    sub_raw = elemento_grupo.get("elementos", [])
-    if not isinstance(sub_raw, list):
-        return []
-    sub_elementos = []
-    for sub_indice, sub_el in enumerate(sub_raw):
+    resultado = []
+    for sub_indice, sub_el in enumerate(elementos_raw):
         if not isinstance(sub_el, dict):
             raise ModeloTelaErro(
-                "Elemento interno na posicao {0} do grupo '{1}' nao e um "
-                "dict".format(sub_indice, id_grupo)
+                "Elemento interno na posicao {0} de '{1}' nao e um "
+                "dict".format(sub_indice, id_pai)
             )
         if "id" not in sub_el:
             raise ModeloTelaErro(
-                "Elemento interno na posicao {0} do grupo '{1}' sem campo "
-                "'id'".format(sub_indice, id_grupo)
+                "Elemento interno na posicao {0} de '{1}' sem campo "
+                "'id'".format(sub_indice, id_pai)
             )
         if "tipo" not in sub_el:
             raise ModeloTelaErro(
-                "Elemento interno '{0}' do grupo '{1}' sem campo "
-                "'tipo'".format(sub_el.get("id"), id_grupo)
+                "Elemento interno '{0}' de '{1}' sem campo "
+                "'tipo'".format(sub_el.get("id"), id_pai)
             )
         sub_tipo = sub_el["tipo"]
-        if sub_tipo not in TIPOS_CORPO_VALIDOS:
+        sub_id = sub_el["id"]
+
+        if sub_tipo == "grupo":
+            sub_raw = sub_el.get("elementos", [])
+            if not isinstance(sub_raw, list):
+                sub_raw = []
+            sub_elementos = _construir_elementos_recursivo(sub_raw, sub_id)
+            inertes = {
+                chave: valor
+                for chave, valor in sub_el.items()
+                if chave not in ("id", "tipo", "elementos")
+            }
+            resultado.append(
+                ElementoCorpo(
+                    id=sub_id,
+                    tipo="grupo",
+                    _campos_inertes=inertes,
+                    elementos=sub_elementos,
+                )
+            )
+        elif sub_tipo in TIPOS_CORPO_VALIDOS:
+            inertes = {
+                chave: valor
+                for chave, valor in sub_el.items()
+                if chave not in ("id", "tipo")
+            }
+            resultado.append(
+                ElementoCorpo(
+                    id=sub_id,
+                    tipo=sub_tipo,
+                    _campos_inertes=inertes,
+                )
+            )
+        else:
             raise ModeloTelaErro(
-                "Tipo interno desconhecido '{0}' em elemento '{1}' do grupo "
-                "'{2}'".format(sub_tipo, sub_el["id"], id_grupo)
+                "Tipo desconhecido '{0}' em elemento '{1}' de '{2}'".format(
+                    sub_tipo, sub_id, id_pai
+                )
             )
-        sub_inertes = {
-            chave: valor
-            for chave, valor in sub_el.items()
-            if chave not in ("id", "tipo")
-        }
-        sub_elementos.append(
-            ElementoCorpo(
-                id=sub_el["id"],
-                tipo=sub_el["tipo"],
-                _campos_inertes=sub_inertes,
-            )
-        )
-    return sub_elementos
+    return resultado
 
 
 def construir_modelo(tela_raw: dict) -> ModeloTela:
@@ -238,9 +265,10 @@ def construir_modelo(tela_raw: dict) -> ModeloTela:
             )
 
         if tipo == "grupo":
-            sub_elementos = _construir_elementos_internos_grupo(
-                elemento, elemento["id"]
-            )
+            sub_raw = elemento.get("elementos", [])
+            if not isinstance(sub_raw, list):
+                sub_raw = []
+            sub_elementos = _construir_elementos_recursivo(sub_raw, elemento["id"])
             inertes = {
                 chave: valor
                 for chave, valor in elemento.items()

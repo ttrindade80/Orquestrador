@@ -494,6 +494,190 @@ def teste_erros_modelo():
     )
 
 
+def _raw_tela(id_tela, corpo):
+    """Constroi o dict minimo que carregar_tela retornaria para uso direto em construir_modelo."""
+    raw_json = {
+        "schema": "tela.v1", "id": id_tela,
+        "cabecalho": {"titulo": "T", "descricao": "D"},
+        "corpo": corpo,
+        "barra_de_menus": {"distribuicao": "horizontal", "chips": []},
+    }
+    return {
+        "schema": raw_json["schema"],
+        "id": raw_json["id"],
+        "cabecalho": raw_json["cabecalho"],
+        "corpo": raw_json["corpo"],
+        "barra_de_menus": raw_json["barra_de_menus"],
+        "_raw": raw_json,
+    }
+
+
+def teste_hierarquia_grupos_adr0019_modelo():
+    """Testes de arvore recursiva de grupos no modelo — ADR-0019 / H-0027 (secao 20.3)."""
+    print("")
+    print("== ADR-0019 / H-0027: hierarquia de grupos — modelo ==")
+
+    # --- 2 niveis: g1 (nivel 1) -> g2 (nivel 2) -> funcional ---
+    raw2 = _raw_tela("m_g2", {
+        "arranjo": "vertical",
+        "elementos": [
+            {"id": "g1", "tipo": "grupo", "arranjo": "vertical",
+             "elementos": [
+                 {"id": "g2", "tipo": "grupo", "arranjo": "horizontal",
+                  "distribuicao": {"modo": "igual"},
+                  "elementos": [
+                      {"id": "c1", "tipo": "console"},
+                      {"id": "d1", "tipo": "dashboard"},
+                  ]},
+             ]},
+        ],
+    })
+    try:
+        m2 = construir_modelo(raw2)
+        _registrar("construir_modelo aceita 2 niveis de grupos (ADR-0019 D2)", True)
+    except Exception as exc:
+        _registrar("construir_modelo aceita 2 niveis de grupos (ADR-0019 D2)",
+                   False, str(exc))
+        return
+
+    g1 = m2.corpo.elementos[0]
+    _registrar("nivel 1: grupo g1 e ElementoCorpo tipo='grupo'",
+               isinstance(g1, ElementoCorpo) and g1.tipo == "grupo")
+    _registrar("nivel 1: g1._campos_inertes preserva arranjo='vertical'",
+               g1._campos_inertes.get("arranjo") == "vertical")
+
+    _registrar("nivel 1: g1.elementos tem 1 filho (g2)",
+               isinstance(g1.elementos, list) and len(g1.elementos) == 1)
+
+    g2 = g1.elementos[0] if g1.elementos else None
+    _registrar("nivel 2: g2 e ElementoCorpo tipo='grupo'",
+               g2 is not None and isinstance(g2, ElementoCorpo) and g2.tipo == "grupo")
+    _registrar("nivel 2: g2._campos_inertes preserva arranjo='horizontal'",
+               g2 is not None and g2._campos_inertes.get("arranjo") == "horizontal")
+    _registrar(
+        "nivel 2: g2._campos_inertes preserva distribuicao={'modo': 'igual'}",
+        g2 is not None and g2._campos_inertes.get("distribuicao") == {"modo": "igual"},
+    )
+    _registrar("nivel 2: g2.elementos tem 2 filhos funcionais",
+               g2 is not None and len(g2.elementos) == 2)
+
+    if g2 and len(g2.elementos) == 2:
+        c1 = g2.elementos[0]
+        d1 = g2.elementos[1]
+        _registrar("nivel 2 filho 0: c1 tipo='console'",
+                   isinstance(c1, ElementoCorpo) and c1.tipo == "console")
+        _registrar("nivel 2 filho 1: d1 tipo='dashboard'",
+                   isinstance(d1, ElementoCorpo) and d1.tipo == "dashboard")
+        _registrar("funcional nao e container: c1.elementos == []",
+                   c1.elementos == [])
+
+    # --- 3 niveis: g1 -> g2 -> g3 -> funcional ---
+    raw3 = _raw_tela("m_g3", {
+        "arranjo": "vertical",
+        "elementos": [
+            {"id": "g1", "tipo": "grupo", "arranjo": "vertical",
+             "distribuicao": {"modo": "fracao", "valores": [1]},
+             "elementos": [
+                 {"id": "g2", "tipo": "grupo", "arranjo": "vertical",
+                  "elementos": [
+                      {"id": "g3", "tipo": "grupo", "arranjo": "horizontal",
+                       "distribuicao": {"modo": "percentual", "valores": [70, 30]},
+                       "elementos": [
+                           {"id": "c1", "tipo": "console"},
+                           {"id": "l1", "tipo": "lancador"},
+                       ]},
+                  ]},
+             ]},
+        ],
+    })
+    try:
+        m3 = construir_modelo(raw3)
+        _registrar("construir_modelo aceita 3 niveis de grupos (ADR-0019 D2)", True)
+    except Exception as exc:
+        _registrar("construir_modelo aceita 3 niveis de grupos (ADR-0019 D2)",
+                   False, str(exc))
+        return
+
+    g1_3 = m3.corpo.elementos[0]
+    _registrar(
+        "nivel 1 (3-niveis): g1._campos_inertes preserva distribuicao fracao",
+        g1_3._campos_inertes.get("distribuicao") == {"modo": "fracao", "valores": [1]},
+    )
+    g2_3 = g1_3.elementos[0] if g1_3.elementos else None
+    g3_3 = g2_3.elementos[0] if (g2_3 and g2_3.elementos) else None
+    _registrar("nivel 3 existe e e tipo='grupo'",
+               g3_3 is not None and g3_3.tipo == "grupo")
+    _registrar(
+        "nivel 3: g3._campos_inertes preserva arranjo='horizontal' e distribuicao percentual",
+        g3_3 is not None
+        and g3_3._campos_inertes.get("arranjo") == "horizontal"
+        and g3_3._campos_inertes.get("distribuicao") == {
+            "modo": "percentual", "valores": [70, 30]
+        },
+    )
+    _registrar("nivel 3 tem 2 filhos funcionais (c1, l1)",
+               g3_3 is not None and len(g3_3.elementos) == 2)
+
+    # --- Multiplos filhos de grupo no mesmo nivel (D3) ---
+    raw_multi = _raw_tela("m_multi", {
+        "arranjo": "vertical",
+        "elementos": [
+            {"id": "g1", "tipo": "grupo", "arranjo": "vertical",
+             "elementos": [
+                 {"id": "g2a", "tipo": "grupo", "arranjo": "vertical",
+                  "elementos": [{"id": "c1", "tipo": "console"}]},
+                 {"id": "g2b", "tipo": "grupo", "arranjo": "vertical",
+                  "elementos": [{"id": "d1", "tipo": "dashboard"}]},
+                 {"id": "g2c", "tipo": "grupo", "arranjo": "vertical",
+                  "elementos": [{"id": "l1", "tipo": "lancador"}]},
+             ]},
+        ],
+    })
+    try:
+        m_multi = construir_modelo(raw_multi)
+        g1_m = m_multi.corpo.elementos[0]
+        _registrar("multiplos filhos de grupo no nivel 2: g1 tem 3 grupos filhos (D3)",
+                   len(g1_m.elementos) == 3)
+        ids_filhos = [e.id for e in g1_m.elementos]
+        _registrar("ids dos 3 grupos filhos corretos",
+                   ids_filhos == ["g2a", "g2b", "g2c"])
+    except Exception as exc:
+        _registrar("multiplos filhos de grupo no nivel 2 (D3)", False, str(exc))
+
+    # --- elemento_por_id: escopo plano (nao desce em grupos) ---
+    raw_plano = _raw_tela("m_plano", {
+        "arranjo": "vertical",
+        "elementos": [
+            {"id": "gtopo", "tipo": "grupo", "arranjo": "vertical",
+             "elementos": [{"id": "interno", "tipo": "console"}]},
+            {"id": "direto", "tipo": "lancador"},
+        ],
+    })
+    m_plano = construir_modelo(raw_plano)
+    _registrar(
+        "elemento_por_id('direto') retorna elemento nivel raiz (escopo plano)",
+        m_plano.elemento_por_id("direto") is not None
+        and m_plano.elemento_por_id("direto").tipo == "lancador",
+    )
+    _registrar(
+        "elemento_por_id('interno') retorna None (escopo plano, nao desce em grupos)",
+        m_plano.elemento_por_id("interno") is None,
+    )
+    _registrar(
+        "elementos_por_tipo('console') retorna [] (escopo plano, console esta dentro do grupo)",
+        m_plano.elementos_por_tipo("console") == [],
+    )
+    _registrar(
+        "elementos_por_tipo('grupo') retorna [gtopo] (escopo plano inclui o grupo raiz)",
+        len(m_plano.elementos_por_tipo("grupo")) == 1
+        and m_plano.elementos_por_tipo("grupo")[0].id == "gtopo",
+    )
+    _registrar(
+        "elemento interno acessivel por navegacao direta: gtopo.elementos[0].id == 'interno'",
+        m_plano.elemento_por_id("gtopo").elementos[0].id == "interno",
+    )
+
+
 def main():
     print("Diagnostico H-0002 - modelo interno normalizado de tela")
     print("Base padrao: {0}".format(_BASE_PADRAO))
@@ -502,6 +686,7 @@ def main():
     modelo = teste_modelo_orquestrador()
     teste_modelo_grupo_minimo()
     teste_erros_modelo()
+    teste_hierarquia_grupos_adr0019_modelo()
 
     print("")
     print("== Resumo ==")

@@ -68,7 +68,9 @@ Nenhum outro tipo existe na taxonomia. Extensões futuras exigem nova ADR.
 **3. Uma tela de processamento deve ser especificada como composição de tipos existentes.**
 A classe de tela declara os tipos de objeto do corpo que a compõem, conforme as regras de
 `contrato_composicao_corpo.md`. Para uma tela de processamento, a composição envolve um ou mais
-`console`, zero ou um `dashboard`, e chips específicos declarados na `barra_de_menus`.
+`console`, `dashboard` (zero ou mais), e chips específicos declarados na `barra_de_menus`. A
+cardinalidade de `dashboard` para telas de processamento segue a regra geral do tipo: não existe
+limite global de um único `dashboard` por tela (ADR-0019, D7, 2026-07-12).
 
 **4. `console` representa a região interativa/navegável por `[✥]` da tela de processamento.**
 Qualquer região da tela de processamento que expõe cursor navegável — listas de itens, alvos,
@@ -108,6 +110,15 @@ afetada pela composição descrita nesta ADR. Se uma tela de processamento possu
 setas da `barra_de_menus` navegam o cursor desse `console` — exatamente como em qualquer outra
 tela que contenha um `console`.
 
+**Nota de atualização — ADR-0019 supera parcialmente esta ADR (2026-07-12)**: A ADR-0019 supera
+parcialmente esta ADR exclusivamente nas formulações de cardinalidade "zero ou um `dashboard`"
+(ponto 3 acima e exemplo da seção "Composição conceitual" abaixo). Telas de processamento passam
+a admitir mais de um `dashboard`, exatamente como qualquer outra tela. A formulação "zero ou um
+`dashboard`" da ADR-0007 era uma restrição normativa para a categoria de tela de processamento —
+não a declaração de configuração de uma tela concreta individual — e opera no mesmo plano normativo
+que a regra global do tipo removida pela D7 da ADR-0019. A ADR-0019 prevalece neste ponto. Os
+demais pontos desta ADR (1, 2, 4–10) permanecem vigentes sem alteração.
+
 ## Composição conceitual
 
 O exemplo a seguir ilustra uma tela de processamento possível. Não é um contrato — não cria
@@ -120,7 +131,7 @@ Uma tela de processamento pode conter:
   - `console` Lista — itens a processar ou já processados, navegável por `[✥]`;
   - `console` Detalhe — detalhes do item selecionado, navegável por `[✥]`;
   - `console` Log — saída de log, se o log for navegável;
-- zero ou um `dashboard` — por exemplo estado agregado do processo (contadores, progresso, legenda);
+- `dashboard` (zero ou mais) — por exemplo estado agregado do processo (contadores, progresso, legenda); sem limite global de cardinalidade por tela (ADR-0019, D7);
 - `barra_de_menus` com chips canônicos e chips específicos da classe (por exemplo, um chip que
   aciona ou interrompe o processo).
 

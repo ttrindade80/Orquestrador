@@ -46,6 +46,7 @@ Este indice registra as ADRs aceitas do projeto.
 | ADR-0016 | Execução em tela cheia (TTY) sem cintilação, com Ctrl+C escopado | aceita | 2026-07-10 |
 | ADR-0017 | Redimensionamento reativo da TUI — SIGWINCH, ioctl(TIOCGWINSZ), cadeia de dimensões válidas e quadro mínimo de aviso (complementa ADR-0013 e ADR-0016) | aceita | 2026-07-11 |
 | ADR-0018 | Semântica da ausência de distribuição e da alocação vertical de área do corpo — distingue arranjo de distribuição; ausência de `corpo.distribuicao` deixa de equivaler ao modo `igual` e preserva a construção orientada pelo conteúdo; distribuição explícita reparte a altura útil com preenchimento interno das áreas (substitui parcialmente a ADR-0015 no ponto ausência ≡ `igual`) | aceita | 2026-07-11 |
+| ADR-0019 | Profundidade contada por aninhamento de grupos, multiplicidade estrutural e remoção da cardinalidade global de dashboard — define contagem por níveis de grupos (não por listas `elementos[]`); permite três níveis de grupos; permite múltiplos grupos irmãos e múltiplos elementos funcionais por grupo inclusive no nível 3; remove restrição global de zero ou um dashboard por tela (supera parcialmente ADR-0007 na cardinalidade de `dashboard`; substitui parcialmente ADR-0015 no critério de contagem de profundidade) | aceita | 2026-07-12 |
 
 ## Exemplo de linha
 

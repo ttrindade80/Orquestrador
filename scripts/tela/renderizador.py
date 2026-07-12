@@ -788,6 +788,183 @@ def _caixa_de_elemento(elemento, borda, inner_w, content_w, label_max, altura_al
     return None
 
 
+def _renderizar_container_vertical(
+    distribuicao, elementos, borda, total_w,
+    inner_w, content_w, label_max, altura_disponivel,
+):
+    """Renderiza elementos em disposicao vertical dentro de um container.
+
+    Se distribuicao e altura_disponivel sao ambos fornecidos, reparte a
+    altura entre os filhos (maiores restos). Caso contrario, cada filho usa
+    sua altura natural (orientado pelo conteudo — ADR-0018 D2).
+    Grupo e despachado recursivamente via _renderizar_container (H-0027).
+    """
+    partes = []
+
+    if distribuicao is not None and altura_disponivel is not None:
+        pesos = _pesos_distribuicao(distribuicao, len(elementos))
+        cotas = _distribuir_alturas(altura_disponivel, pesos)
+        for indice, elemento in enumerate(elementos):
+            cota = cotas[indice]
+            if elemento.tipo == "grupo":
+                arranjo_g = elemento._campos_inertes.get("arranjo")
+                dist_g = elemento._campos_inertes.get("distribuicao")
+                bloco = _renderizar_container(
+                    arranjo_g, dist_g, elemento.elementos, borda, total_w, cota
+                )
+                if bloco:
+                    partes.append(bloco)
+            else:
+                caixa = _caixa_de_elemento(
+                    elemento, borda, inner_w, content_w, label_max,
+                    altura_alvo=cota,
+                )
+                if caixa is not None:
+                    partes.append(caixa)
+    else:
+        for elemento in elementos:
+            if elemento.tipo == "grupo":
+                arranjo_g = elemento._campos_inertes.get("arranjo")
+                dist_g = elemento._campos_inertes.get("distribuicao")
+                bloco = _renderizar_container(
+                    arranjo_g, dist_g, elemento.elementos, borda, total_w, None
+                )
+                if bloco:
+                    partes.append(bloco)
+            else:
+                caixa = _caixa_de_elemento(
+                    elemento, borda, inner_w, content_w, label_max
+                )
+                if caixa is not None:
+                    partes.append(caixa)
+
+    return "\n".join(partes)
+
+
+def _renderizar_container_horizontal(
+    distribuicao, elementos, borda, total_w, altura_disponivel, larguras=None,
+):
+    """Renderiza elementos em disposicao horizontal dentro de um container.
+
+    Quando larguras e None, computa a partir de distribuicao (ou uniforme
+    quando distribuicao e None). Grupo e despachado recursivamente via
+    _renderizar_container (H-0027). Para elementos funcionais, preserva o
+    comportamento de _montar_corpo_horizontal.
+    """
+    N = len(elementos)
+    if N == 0:
+        return ""
+
+    if larguras is not None:
+        pass  # larguras pre-computadas (passadas externamente)
+    elif distribuicao is not None:
+        pesos = _pesos_distribuicao(distribuicao, N)
+        larguras = _distribuir_larguras(total_w, pesos)
+    else:
+        base_w = total_w // N
+        resto = total_w % N
+        larguras = [base_w + (1 if i < resto else 0) for i in range(N)]
+
+    for i, w in enumerate(larguras):
+        if w < 10:
+            raise RenderizadorErro(
+                "arranjo horizontal: largura {0} insuficiente para {1} "
+                "elementos no particionamento horizontal (minimo 10 chars "
+                "por area; area {2} calculada com {3})".format(
+                    total_w, N, i, w
+                )
+            )
+
+    todas_as_linhas_por_area = []
+    for i, elemento in enumerate(elementos):
+        w = larguras[i]
+        if elemento.tipo == "grupo":
+            arranjo_g = elemento._campos_inertes.get("arranjo")
+            dist_g = elemento._campos_inertes.get("distribuicao")
+            bloco = _renderizar_container(
+                arranjo_g, dist_g, elemento.elementos, borda, w, altura_disponivel
+            )
+            linhas_area = bloco.split("\n") if bloco else []
+        else:
+            caixa_str = _caixa_de_elemento(elemento, borda, w - 2, w - 3, w - 4)
+            if caixa_str is None or caixa_str == "":
+                linhas_area = []
+            else:
+                linhas_area = caixa_str.split("\n")
+        todas_as_linhas_por_area.append(linhas_area)
+
+    altura_max = max(
+        (len(linhas) for linhas in todas_as_linhas_por_area), default=0
+    )
+    if altura_max == 0:
+        return ""
+
+    altura_alvo = altura_disponivel if altura_disponivel is not None else altura_max
+    if altura_alvo < altura_max:
+        altura_alvo = altura_max
+
+    for i, linhas in enumerate(todas_as_linhas_por_area):
+        w = larguras[i]
+        if altura_disponivel is not None:
+            if linhas:
+                base_linha = linhas.pop()
+            else:
+                base_linha = _linha_base(borda, w - 2)
+            linha_fill = borda["v"] + " " * (w - 2) + borda["v"]
+            while len(linhas) < altura_alvo - 1:
+                linhas.append(linha_fill)
+            linhas.append(base_linha)
+        else:
+            while len(linhas) < altura_alvo:
+                linhas.append(" " * w)
+
+    linhas_resultado = []
+    for r in range(altura_alvo):
+        linha = ""
+        for linhas in todas_as_linhas_por_area:
+            linha += linhas[r]
+        linhas_resultado.append(linha)
+
+    return "\n".join(linhas_resultado)
+
+
+def _renderizar_container(arranjo, distribuicao, elementos, borda, total_w, altura_disponivel):
+    """Renderiza os filhos de um container recursivamente (H-0027 / ADR-0019).
+
+    Grupo e no estrutural sem caixa visual propria: sua area e preenchida
+    pelos filhos via composicao recursiva. Arranjos sao independentes entre
+    pai e filho (ADR-0019 D5 / ADR-0015 dec. 6).
+
+    arranjo: None / "vertical" / "sobreposto" -> pilha vertical
+             "horizontal" / "lado_a_lado"      -> lado a lado
+    distribuicao: None (orientado pelo conteudo) ou dict validado.
+    elementos: lista de ElementoCorpo.
+    total_w: largura total disponivel para este container.
+    altura_disponivel: altura alocada pelo pai (None = conteudo natural).
+    """
+    if not elementos:
+        return ""
+
+    arr = arranjo
+    if arr == "sobreposto":
+        arr = "vertical"
+    if arr == "lado_a_lado":
+        arr = "horizontal"
+
+    if arr == "horizontal":
+        return _renderizar_container_horizontal(
+            distribuicao, elementos, borda, total_w, altura_disponivel
+        )
+    else:
+        inner_w = total_w - 2
+        content_w = total_w - 3
+        label_max = total_w - 4
+        return _renderizar_container_vertical(
+            distribuicao, elementos, borda,
+            total_w, inner_w, content_w, label_max, altura_disponivel,
+        )
+
+
 def _montar_corpo_horizontal(elementos, borda, total_w, altura_disponivel=None,
                              larguras=None):
     """Particionamento horizontal contíguo do corpo raiz (H-0019 / H-0020 / H-0026).
@@ -805,8 +982,10 @@ def _montar_corpo_horizontal(elementos, borda, total_w, altura_disponivel=None,
     vez do particionamento uniforme, implementando os modos ``percentual`` e
     ``fracao`` no arranjo horizontal (H-0026 / ADR-0015 D5-D8, ADR-0018 D6/D7).
 
-    Grupo não é expandido (ADR-0015 D2): conta como slot com área visualmente
-    vazia.
+    Grupos não são expandidos aqui: contam como slot com área visualmente
+    vazia. Esta função é preservada como exportada histórica (H-0027); o
+    caminho principal de renderizar_tela usa _renderizar_container desde
+    H-0027, que expande grupos recursivamente via _renderizar_container_horizontal.
 
     altura_disponivel (H-0020): quando fornecida, cada coluna é preenchida até
     essa altura (altura do corpo inteiro), preservando a área alocada conforme
@@ -1015,54 +1194,11 @@ def renderizar_tela(
     distribuicao_corpo = modelo.corpo.distribuicao
     _corpo_vertical_distribuido = False
 
-    if arranjo_corpo == "horizontal":
-        # Particionamento horizontal contíguo entre filhos diretos (H-0019).
-        # Grupo não é expandido neste ciclo (ADR-0015 D2).
-        # H-0020: quando altura é fornecida, pré-computar linhas_barra para
-        # derivar l_barra e l_corpo_disponivel antes de _montar_corpo_horizontal.
-        if altura is not None:
-            linhas_barra = _linhas_barra(modelo.barra_de_menus, content_w)
-            l_cab = _contar_linhas(partes[0])
-            l_barra = len(linhas_barra) + 2
-            if l_cab + l_barra > altura:
-                raise RenderizadorErro(
-                    "altura insuficiente: terminal com {0} linhas nao comporta "
-                    "cabecalho ({1}) + barra_de_menus ({2})".format(
-                        altura, l_cab, l_barra
-                    )
-                )
-            _l_corpo_disponivel = altura - l_cab - l_barra
-        else:
-            _l_corpo_disponivel = None
-
-        # H-0026 / ADR-0015 D5-D8: distribuicao horizontal explicita. So ativa
-        # quando o container declara ``corpo.distribuicao`` nos modos
-        # ``percentual`` ou ``fracao``. Ausencia (None) preserva o particionamento
-        # uniforme existente (H-0019/H-0020/H-0021); modo ``igual`` e equivalente
-        # matematico ao uniforme e tambem preserva o caminho existente.
-        larguras_corpo = None
-        if distribuicao_corpo is not None:
-            pesos_corpo = _pesos_distribuicao(
-                distribuicao_corpo, len(modelo.corpo.elementos)
-            )
-            larguras_corpo = _distribuir_larguras(total_w, pesos_corpo)
-
-        bloco_horizontal = _montar_corpo_horizontal(
-            modelo.corpo.elementos, borda, total_w,
-            altura_disponivel=_l_corpo_disponivel,
-            larguras=larguras_corpo,
-        )
-        if bloco_horizontal:
-            partes.append(bloco_horizontal)
-    elif (
-        distribuicao_corpo is not None
-        and altura is not None
-    ):
-        # H-0025 / ADR-0018 D3/D4: distribuicao vertical explicita. Reparte a
-        # altura util integral entre os filhos diretos (maiores restos,
-        # desempate por ordem declarada). Cada moldura ocupa sua cota e a
-        # sobra vira preenchimento INTERNO (linhas em branco bordeadas dentro
-        # da moldura), nunca acumulada externamente abaixo do ultimo filho.
+    # H-0027 / ADR-0019: composicao recursiva por container. Determina a altura
+    # disponivel do corpo antes de renderizar para passar ao container raiz.
+    # Ausencia de altura -> composicao orientada pelo conteudo (ADR-0018 D2).
+    l_corpo_disponivel = None
+    if altura is not None:
         if linhas_barra is None:
             linhas_barra = _linhas_barra(modelo.barra_de_menus, content_w)
         l_cab = _contar_linhas(partes[0])
@@ -1076,51 +1212,22 @@ def renderizar_tela(
             )
         l_corpo_disponivel = altura - l_cab - l_barra
 
-        filhos_diretos = list(modelo.corpo.elementos)
-        pesos = _pesos_distribuicao(distribuicao_corpo, len(filhos_diretos))
-        cotas = _distribuir_alturas(l_corpo_disponivel, pesos)
+    bloco_corpo = _renderizar_container(
+        arranjo_corpo, distribuicao_corpo,
+        modelo.corpo.elementos, borda, total_w, l_corpo_disponivel,
+    )
+    if bloco_corpo:
+        partes.append(bloco_corpo)
 
-        for indice, elemento in enumerate(filhos_diretos):
-            cota = cotas[indice]
-            if elemento.tipo == "grupo":
-                # Grupo estrutural (H-0012): aplica a cota do slot ao elemento
-                # funcional interno (mesmo despacho da lista plana).
-                for interno in elemento.elementos:
-                    caixa = _caixa_de_elemento(
-                        interno, borda, inner_w, content_w, label_max,
-                        altura_alvo=cota,
-                    )
-                    if caixa is not None:
-                        partes.append(caixa)
-            else:
-                caixa = _caixa_de_elemento(
-                    elemento, borda, inner_w, content_w, label_max,
-                    altura_alvo=cota,
-                )
-                if caixa is not None:
-                    partes.append(caixa)
-        _corpo_vertical_distribuido = True
-    else:
-        # Comportamento atual: vertical / None / sobreposto (normalizado).
-        # Sem distribuicao declarada, preserva a construcao orientada pelo
-        # conteudo (cada filho usa sua altura natural) — ADR-0018 D2.
-        for elemento in modelo.corpo.elementos:
-            if elemento.tipo == "grupo":
-                # Grupo estrutural (H-0012): container sem caixa visual propria.
-                # Percorre os elementos funcionais internos e os renderiza com o
-                # mesmo despacho da lista plana, sem borda/titulo/linha extra.
-                for interno in elemento.elementos:
-                    caixa = _caixa_de_elemento(
-                        interno, borda, inner_w, content_w, label_max
-                    )
-                    if caixa is not None:
-                        partes.append(caixa)
-            else:
-                caixa = _caixa_de_elemento(
-                    elemento, borda, inner_w, content_w, label_max
-                )
-                if caixa is not None:
-                    partes.append(caixa)
+    # Corpo absorveu todo o espaco internamente quando: arranjo horizontal
+    # (fill por coluna em _renderizar_container_horizontal) ou arranjo
+    # vertical com distribuicao e altura fornecidos (fill por cota em
+    # _renderizar_container_vertical). Nenhum fill externo e necessario.
+    _corpo_vertical_distribuido = (
+        arranjo_corpo != "horizontal"
+        and distribuicao_corpo is not None
+        and l_corpo_disponivel is not None
+    )
 
     # Linhas de conteudo da barra_de_menus, computadas uma vez e reutilizadas
     # tanto para a contagem de L_barra (H-0015) quanto para a caixa final.

@@ -642,44 +642,57 @@ def teste_grupo_estrutural(tmp_base):
         TelaGrupoInvalido,
     )
 
+    # --- Substituicoes dos 4 testes historicos incompativeis (H-0027 sec 20.1) ---
+    # Antigo: "grupo com 2 elementos -> TelaGrupoInvalido"
+    # Novo: multiplos filhos sao validos (ADR-0019 D6)
     _escrever_tela(tmp_base, "g_dois_elementos",
                    _grupo_minimo_dict("g_dois_elementos", elementos=[
                        {"id": "d1", "tipo": "dashboard"},
                        {"id": "d2", "tipo": "dashboard"},
                    ]))
-    _espera_excecao(
-        "grupo com 2 elementos -> TelaGrupoInvalido",
-        lambda: carregar_tela(tmp_base, "g_dois_elementos"),
-        TelaGrupoInvalido,
-    )
+    try:
+        carregar_tela(tmp_base, "g_dois_elementos")
+        _registrar("grupo com 2 filhos funcionais e valido (ADR-0019 D6)", True)
+    except Exception as exc:
+        _registrar("grupo com 2 filhos funcionais e valido (ADR-0019 D6)",
+                   False, "{0}: {1}".format(type(exc).__name__, exc))
 
-    _escrever_tela(tmp_base, "g_aninhado",
-                   _grupo_minimo_dict("g_aninhado", elementos=[
-                       {"id": "g_interno", "tipo": "grupo", "elementos": []},
+    # Antigo: "grupo dentro de grupo -> TelaGrupoInvalido"
+    # Novo: aninhamento ate nivel 2 e valido; nivel 4 e invalido (ADR-0019 D2, D4)
+    _escrever_tela(tmp_base, "g_nivel2_valido",
+                   _grupo_minimo_dict("g_nivel2_valido", elementos=[
+                       {"id": "g2", "tipo": "grupo", "arranjo": "vertical",
+                        "elementos": [{"id": "c_interno", "tipo": "console"}]},
                    ]))
-    _espera_excecao(
-        "grupo dentro de grupo -> TelaGrupoInvalido",
-        lambda: carregar_tela(tmp_base, "g_aninhado"),
-        TelaGrupoInvalido,
-    )
+    try:
+        carregar_tela(tmp_base, "g_nivel2_valido")
+        _registrar("grupo dentro de grupo (nivel 1->2) e valido (ADR-0019 D2)", True)
+    except Exception as exc:
+        _registrar("grupo dentro de grupo (nivel 1->2) e valido (ADR-0019 D2)",
+                   False, "{0}: {1}".format(type(exc).__name__, exc))
 
-    _escrever_tela(tmp_base, "g_horizontal",
-                   _grupo_minimo_dict("g_horizontal",
-                                      arranjo="horizontal"))
-    _espera_excecao(
-        "grupo com arranjo 'horizontal' -> TelaGrupoInvalido (ADR-0011)",
-        lambda: carregar_tela(tmp_base, "g_horizontal"),
-        TelaGrupoInvalido,
-    )
+    # Antigo: "grupo com arranjo 'horizontal' -> TelaGrupoInvalido (ADR-0011)"
+    # Novo: arranjo horizontal e valido por container (ADR-0019 D5)
+    _escrever_tela(tmp_base, "g_horizontal_valido",
+                   _grupo_minimo_dict("g_horizontal_valido", arranjo="horizontal"))
+    try:
+        carregar_tela(tmp_base, "g_horizontal_valido")
+        _registrar("grupo com arranjo 'horizontal' e valido (ADR-0019 D5)", True)
+    except Exception as exc:
+        _registrar("grupo com arranjo 'horizontal' e valido (ADR-0019 D5)",
+                   False, "{0}: {1}".format(type(exc).__name__, exc))
 
-    _escrever_tela(tmp_base, "g_lado_a_lado",
-                   _grupo_minimo_dict("g_lado_a_lado",
-                                      arranjo="lado_a_lado"))
-    _espera_excecao(
-        "grupo com arranjo 'lado_a_lado' -> TelaGrupoInvalido (alias de horizontal)",
-        lambda: carregar_tela(tmp_base, "g_lado_a_lado"),
-        TelaGrupoInvalido,
-    )
+    # Antigo: "grupo com arranjo 'lado_a_lado' -> TelaGrupoInvalido (alias de horizontal)"
+    # Novo: alias lado_a_lado tambem e valido (ADR-0019 D5)
+    _escrever_tela(tmp_base, "g_lado_a_lado_valido",
+                   _grupo_minimo_dict("g_lado_a_lado_valido", arranjo="lado_a_lado"))
+    try:
+        carregar_tela(tmp_base, "g_lado_a_lado_valido")
+        _registrar("grupo com arranjo 'lado_a_lado' e valido, alias de horizontal (ADR-0019 D5)",
+                   True)
+    except Exception as exc:
+        _registrar("grupo com arranjo 'lado_a_lado' e valido, alias de horizontal (ADR-0019 D5)",
+                   False, "{0}: {1}".format(type(exc).__name__, exc))
 
     _escrever_tela(tmp_base, "g_tipo_desconhecido",
                    _grupo_minimo_dict("g_tipo_desconhecido", elementos=[
@@ -987,6 +1000,388 @@ def teste_distribuicao_corpo_h0025(tmp_base):
     )
 
 
+def teste_hierarquia_grupos_adr0019(tmp_base):
+    """Testes de hierarquia de grupos — ADR-0019 / H-0027 (secao 20.2)."""
+    print("")
+    print("== ADR-0019 / H-0027: hierarquia de grupos — loader ==")
+
+    def _tela_com_corpo(id_tela, corpo):
+        return {
+            "schema": "tela.v1", "id": id_tela,
+            "cabecalho": {"titulo": "T", "descricao": "D"},
+            "corpo": corpo,
+            "barra_de_menus": {"distribuicao": "horizontal", "chips": []},
+        }
+
+    # --- 1 nivel de grupo com um elemento funcional (preservacao grupo_minimo) ---
+    _escrever_tela(tmp_base, "h_g1_um_funcional", _tela_com_corpo("h_g1_um_funcional", {
+        "arranjo": "vertical",
+        "elementos": [
+            {"id": "g1", "tipo": "grupo", "arranjo": "vertical",
+             "elementos": [{"id": "c1", "tipo": "console"}]},
+        ],
+    }))
+    try:
+        carregar_tela(tmp_base, "h_g1_um_funcional")
+        _registrar("nivel 1: grupo com 1 funcional e valido", True)
+    except Exception as exc:
+        _registrar("nivel 1: grupo com 1 funcional e valido",
+                   False, str(exc))
+
+    # --- 1 nivel de grupo com multiplos elementos funcionais (D6) ---
+    _escrever_tela(tmp_base, "h_g1_multi_func", _tela_com_corpo("h_g1_multi_func", {
+        "arranjo": "vertical",
+        "elementos": [
+            {"id": "g1", "tipo": "grupo", "arranjo": "vertical",
+             "elementos": [
+                 {"id": "c1", "tipo": "console"},
+                 {"id": "d1", "tipo": "dashboard"},
+             ]},
+        ],
+    }))
+    try:
+        carregar_tela(tmp_base, "h_g1_multi_func")
+        _registrar("nivel 1: grupo com 2 funcionais e valido (ADR-0019 D6)", True)
+    except Exception as exc:
+        _registrar("nivel 1: grupo com 2 funcionais e valido (ADR-0019 D6)",
+                   False, str(exc))
+
+    # --- 2 niveis de grupos (g1 -> g2 -> funcional) ---
+    _escrever_tela(tmp_base, "h_g2", _tela_com_corpo("h_g2", {
+        "arranjo": "vertical",
+        "elementos": [
+            {"id": "g1", "tipo": "grupo", "arranjo": "vertical",
+             "elementos": [
+                 {"id": "g2", "tipo": "grupo", "arranjo": "vertical",
+                  "elementos": [{"id": "c1", "tipo": "console"}]},
+             ]},
+        ],
+    }))
+    try:
+        carregar_tela(tmp_base, "h_g2")
+        _registrar("2 niveis de grupos e valido (ADR-0019 D2)", True)
+    except Exception as exc:
+        _registrar("2 niveis de grupos e valido (ADR-0019 D2)",
+                   False, str(exc))
+
+    # --- 3 niveis de grupos (g1 -> g2 -> g3 -> funcional) ---
+    _escrever_tela(tmp_base, "h_g3", _tela_com_corpo("h_g3", {
+        "arranjo": "vertical",
+        "elementos": [
+            {"id": "g1", "tipo": "grupo", "arranjo": "vertical",
+             "elementos": [
+                 {"id": "g2", "tipo": "grupo", "arranjo": "vertical",
+                  "elementos": [
+                      {"id": "g3", "tipo": "grupo", "arranjo": "vertical",
+                       "elementos": [{"id": "c1", "tipo": "console"}]},
+                  ]},
+             ]},
+        ],
+    }))
+    try:
+        carregar_tela(tmp_base, "h_g3")
+        _registrar("3 niveis de grupos e valido (ADR-0019 D2)", True)
+    except Exception as exc:
+        _registrar("3 niveis de grupos e valido (ADR-0019 D2)",
+                   False, str(exc))
+
+    # --- 3 niveis com multiplos funcionais no nivel 3 (D3) ---
+    _escrever_tela(tmp_base, "h_g3_multi", _tela_com_corpo("h_g3_multi", {
+        "arranjo": "vertical",
+        "elementos": [
+            {"id": "g1", "tipo": "grupo", "arranjo": "vertical",
+             "elementos": [
+                 {"id": "g2", "tipo": "grupo", "arranjo": "vertical",
+                  "elementos": [
+                      {"id": "g3", "tipo": "grupo", "arranjo": "vertical",
+                       "elementos": [
+                           {"id": "c1", "tipo": "console"},
+                           {"id": "d1", "tipo": "dashboard"},
+                       ]},
+                  ]},
+             ]},
+        ],
+    }))
+    try:
+        carregar_tela(tmp_base, "h_g3_multi")
+        _registrar("nivel 3 com 2 funcionais: valido, nao constitui nivel 4 (ADR-0019 D3)",
+                   True)
+    except Exception as exc:
+        _registrar("nivel 3 com 2 funcionais: valido, nao constitui nivel 4 (ADR-0019 D3)",
+                   False, str(exc))
+
+    # --- Rejeicao de grupo no nivel 4 (D4) com verificacao de mensagem ---
+    _escrever_tela(tmp_base, "h_g4_invalido", _tela_com_corpo("h_g4_invalido", {
+        "arranjo": "vertical",
+        "elementos": [
+            {"id": "g1", "tipo": "grupo", "arranjo": "vertical",
+             "elementos": [
+                 {"id": "g2", "tipo": "grupo", "arranjo": "vertical",
+                  "elementos": [
+                      {"id": "g3", "tipo": "grupo", "arranjo": "vertical",
+                       "elementos": [
+                           {"id": "g4", "tipo": "grupo", "arranjo": "vertical",
+                            "elementos": [{"id": "c1", "tipo": "console"}]},
+                       ]},
+                  ]},
+             ]},
+        ],
+    }))
+    exc_g4 = _espera_excecao(
+        "grupo no nivel 4 -> TelaGrupoInvalido (ADR-0019 D4)",
+        lambda: carregar_tela(tmp_base, "h_g4_invalido"),
+        TelaGrupoInvalido,
+    )
+    if exc_g4 is not None:
+        msg = str(exc_g4)
+        _registrar(
+            "mensagem nivel 4 inclui id do grupo ofensor ('g4')",
+            "g4" in msg,
+            msg,
+        )
+        _registrar(
+            "mensagem nivel 4 inclui caminho (corpo → g1 → g2 → g3)",
+            "corpo" in msg and "g1" in msg and "g2" in msg and "g3" in msg,
+            msg,
+        )
+        _registrar(
+            "mensagem nivel 4 indica maximo de 3 niveis",
+            "3" in msg,
+            msg,
+        )
+        # Determinismo: mesma entrada, mesma mensagem
+        try:
+            carregar_tela(tmp_base, "h_g4_invalido")
+        except TelaGrupoInvalido as exc2:
+            _registrar(
+                "mensagem de nivel 4 e deterministica (mesma entrada, mesma mensagem)",
+                str(exc2) == msg,
+            )
+
+    # --- Multiplos grupos irmaos no nivel 1 (D5) ---
+    _escrever_tela(tmp_base, "h_irmaos_n1", _tela_com_corpo("h_irmaos_n1", {
+        "arranjo": "vertical",
+        "elementos": [
+            {"id": "ga", "tipo": "grupo", "arranjo": "vertical",
+             "elementos": [{"id": "c1", "tipo": "console"}]},
+            {"id": "gb", "tipo": "grupo", "arranjo": "vertical",
+             "elementos": [{"id": "d1", "tipo": "dashboard"}]},
+        ],
+    }))
+    try:
+        carregar_tela(tmp_base, "h_irmaos_n1")
+        _registrar("multiplos grupos irmaos no nivel 1 sao validos (ADR-0019 D5)", True)
+    except Exception as exc:
+        _registrar("multiplos grupos irmaos no nivel 1 sao validos (ADR-0019 D5)",
+                   False, str(exc))
+
+    # --- Multiplos grupos irmaos no nivel 2 (D5) ---
+    _escrever_tela(tmp_base, "h_irmaos_n2", _tela_com_corpo("h_irmaos_n2", {
+        "arranjo": "vertical",
+        "elementos": [
+            {"id": "g1", "tipo": "grupo", "arranjo": "vertical",
+             "elementos": [
+                 {"id": "g2a", "tipo": "grupo", "arranjo": "vertical",
+                  "elementos": [{"id": "c1", "tipo": "console"}]},
+                 {"id": "g2b", "tipo": "grupo", "arranjo": "vertical",
+                  "elementos": [{"id": "d1", "tipo": "dashboard"}]},
+             ]},
+        ],
+    }))
+    try:
+        carregar_tela(tmp_base, "h_irmaos_n2")
+        _registrar("multiplos grupos irmaos no nivel 2 sao validos (ADR-0019 D5)", True)
+    except Exception as exc:
+        _registrar("multiplos grupos irmaos no nivel 2 sao validos (ADR-0019 D5)",
+                   False, str(exc))
+
+    # --- Mistura de grupo e funcional no mesmo container ---
+    _escrever_tela(tmp_base, "h_mistura", _tela_com_corpo("h_mistura", {
+        "arranjo": "vertical",
+        "elementos": [
+            {"id": "c0", "tipo": "console"},
+            {"id": "g1", "tipo": "grupo", "arranjo": "vertical",
+             "elementos": [{"id": "d1", "tipo": "dashboard"}]},
+            {"id": "l0", "tipo": "lancador"},
+        ],
+    }))
+    try:
+        carregar_tela(tmp_base, "h_mistura")
+        _registrar("mistura de grupo e funcional no mesmo container e valida", True)
+    except Exception as exc:
+        _registrar("mistura de grupo e funcional no mesmo container e valida",
+                   False, str(exc))
+
+    # --- Grupo com arranjo vertical valido ---
+    _escrever_tela(tmp_base, "h_g_vertical", _tela_com_corpo("h_g_vertical", {
+        "arranjo": "vertical",
+        "elementos": [
+            {"id": "g1", "tipo": "grupo", "arranjo": "vertical",
+             "elementos": [{"id": "c1", "tipo": "console"}]},
+        ],
+    }))
+    try:
+        carregar_tela(tmp_base, "h_g_vertical")
+        _registrar("grupo com arranjo 'vertical' e valido", True)
+    except Exception as exc:
+        _registrar("grupo com arranjo 'vertical' e valido", False, str(exc))
+
+    # --- Grupo com arranjo ausente valido ---
+    _escrever_tela(tmp_base, "h_g_sem_arranjo", _tela_com_corpo("h_g_sem_arranjo", {
+        "arranjo": "vertical",
+        "elementos": [
+            {"id": "g1", "tipo": "grupo",
+             "elementos": [{"id": "c1", "tipo": "console"}]},
+        ],
+    }))
+    try:
+        carregar_tela(tmp_base, "h_g_sem_arranjo")
+        _registrar("grupo sem arranjo declarado (None) e valido", True)
+    except Exception as exc:
+        _registrar("grupo sem arranjo declarado (None) e valido", False, str(exc))
+
+    # --- Distribuicao do grupo: modo igual valido ---
+    _escrever_tela(tmp_base, "h_g_dist_igual", _tela_com_corpo("h_g_dist_igual", {
+        "arranjo": "vertical",
+        "elementos": [
+            {"id": "g1", "tipo": "grupo", "arranjo": "vertical",
+             "distribuicao": {"modo": "igual"},
+             "elementos": [
+                 {"id": "c1", "tipo": "console"},
+                 {"id": "d1", "tipo": "dashboard"},
+             ]},
+        ],
+    }))
+    try:
+        t = carregar_tela(tmp_base, "h_g_dist_igual")
+        g = t["corpo"]["elementos"][0]
+        _registrar(
+            "grupo com distribuicao modo 'igual' e valido e preservado",
+            g.get("distribuicao", {}).get("modo") == "igual",
+        )
+    except Exception as exc:
+        _registrar("grupo com distribuicao modo 'igual' e valido e preservado",
+                   False, str(exc))
+
+    # --- Distribuicao do grupo: modo percentual valido (soma 100) ---
+    _escrever_tela(tmp_base, "h_g_dist_pct", _tela_com_corpo("h_g_dist_pct", {
+        "arranjo": "vertical",
+        "elementos": [
+            {"id": "g1", "tipo": "grupo", "arranjo": "vertical",
+             "distribuicao": {"modo": "percentual", "valores": [60, 40]},
+             "elementos": [
+                 {"id": "c1", "tipo": "console"},
+                 {"id": "d1", "tipo": "dashboard"},
+             ]},
+        ],
+    }))
+    try:
+        carregar_tela(tmp_base, "h_g_dist_pct")
+        _registrar("grupo com distribuicao percentual soma 100 e valido", True)
+    except Exception as exc:
+        _registrar("grupo com distribuicao percentual soma 100 e valido",
+                   False, str(exc))
+
+    # --- Distribuicao do grupo: modo fracao valido ---
+    _escrever_tela(tmp_base, "h_g_dist_frac", _tela_com_corpo("h_g_dist_frac", {
+        "arranjo": "vertical",
+        "elementos": [
+            {"id": "g1", "tipo": "grupo", "arranjo": "vertical",
+             "distribuicao": {"modo": "fracao", "valores": [2, 1]},
+             "elementos": [
+                 {"id": "c1", "tipo": "console"},
+                 {"id": "d1", "tipo": "dashboard"},
+             ]},
+        ],
+    }))
+    try:
+        carregar_tela(tmp_base, "h_g_dist_frac")
+        _registrar("grupo com distribuicao fracao pesos positivos e valido", True)
+    except Exception as exc:
+        _registrar("grupo com distribuicao fracao pesos positivos e valido",
+                   False, str(exc))
+
+    # --- Distribuicao do grupo: vetor com tamanho errado -> TelaEstruturaInvalida ---
+    _escrever_tela(tmp_base, "h_g_dist_errada", _tela_com_corpo("h_g_dist_errada", {
+        "arranjo": "vertical",
+        "elementos": [
+            {"id": "g1", "tipo": "grupo", "arranjo": "vertical",
+             "distribuicao": {"modo": "percentual", "valores": [60, 20, 20]},
+             "elementos": [
+                 {"id": "c1", "tipo": "console"},
+                 {"id": "d1", "tipo": "dashboard"},
+             ]},
+        ],
+    }))
+    _espera_excecao(
+        "grupo com distribuicao vetor tamanho errado -> TelaEstruturaInvalida",
+        lambda: carregar_tela(tmp_base, "h_g_dist_errada"),
+        TelaEstruturaInvalida,
+    )
+
+    # --- Distribuicao do grupo: modo invalido -> TelaEstruturaInvalida ---
+    _escrever_tela(tmp_base, "h_g_dist_modo_inv", _tela_com_corpo("h_g_dist_modo_inv", {
+        "arranjo": "vertical",
+        "elementos": [
+            {"id": "g1", "tipo": "grupo", "arranjo": "vertical",
+             "distribuicao": {"modo": "invalido"},
+             "elementos": [{"id": "c1", "tipo": "console"}]},
+        ],
+    }))
+    exc_modo_inv = _espera_excecao(
+        "grupo com distribuicao.modo invalido -> TelaEstruturaInvalida",
+        lambda: carregar_tela(tmp_base, "h_g_dist_modo_inv"),
+        TelaEstruturaInvalida,
+    )
+    # ACH-005 patch H-0027: mensagem de erro de distribuicao em grupo deve usar
+    # o caminho estrutural do grupo (ex.: "corpo → g1.distribuicao.modo invalido"),
+    # nao "corpo.distribuicao.modo invalido" que refere o corpo raiz.
+    if exc_modo_inv is not None:
+        msg_inv = str(exc_modo_inv)
+        _registrar(
+            "ACH-005: mensagem de dist em grupo contem caminho do grupo ('corpo → g1')",
+            "corpo → g1" in msg_inv,
+            "msg={0!r}".format(msg_inv),
+        )
+        _registrar(
+            "ACH-005: mensagem de dist em grupo NAO usa 'corpo.distribuicao' isolado",
+            "corpo.distribuicao" not in msg_inv,
+            "msg={0!r}".format(msg_inv),
+        )
+
+    # --- Multiplos dashboards na mesma tela: sem rejeicao por cardinalidade (D7) ---
+    _escrever_tela(tmp_base, "h_multi_dash", _tela_com_corpo("h_multi_dash", {
+        "arranjo": "vertical",
+        "elementos": [
+            {"id": "g1", "tipo": "grupo", "arranjo": "vertical",
+             "elementos": [{"id": "dash1", "tipo": "dashboard"}]},
+            {"id": "g2", "tipo": "grupo", "arranjo": "vertical",
+             "elementos": [{"id": "dash2", "tipo": "dashboard"}]},
+        ],
+    }))
+    try:
+        carregar_tela(tmp_base, "h_multi_dash")
+        _registrar("multiplos dashboards em grupos distintos sao validos (ADR-0019 D7)",
+                   True)
+    except Exception as exc:
+        _registrar("multiplos dashboards em grupos distintos sao validos (ADR-0019 D7)",
+                   False, str(exc))
+
+    # --- Arranjo invalido no grupo -> TelaGrupoInvalido ---
+    _escrever_tela(tmp_base, "h_g_arranjo_inv", _tela_com_corpo("h_g_arranjo_inv", {
+        "arranjo": "vertical",
+        "elementos": [
+            {"id": "g1", "tipo": "grupo", "arranjo": "diagonal",
+             "elementos": [{"id": "c1", "tipo": "console"}]},
+        ],
+    }))
+    _espera_excecao(
+        "grupo com arranjo invalido ('diagonal') -> TelaGrupoInvalido",
+        lambda: carregar_tela(tmp_base, "h_g_arranjo_inv"),
+        TelaGrupoInvalido,
+    )
+
+
 def teste_id_incorreto_classe():
     print("")
     print("== Excecao TelaIdIncorreto (verificacao de classe) ==")
@@ -1016,6 +1411,7 @@ def main():
         teste_grupo_estrutural(tmp_base)
         teste_arranjo_corpo_h0019(tmp_base)
         teste_distribuicao_corpo_h0025(tmp_base)
+        teste_hierarquia_grupos_adr0019(tmp_base)
     finally:
         try:
             shutil.rmtree(tmp_base)

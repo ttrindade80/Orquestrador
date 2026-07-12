@@ -232,8 +232,8 @@ Uma tela de processamento é descrita como composição de tipos existentes:
 
 - um ou mais corpos tipo `console`, quando houver região interativa ou
   navegável por `[✥]`;
-- zero ou um `dashboard`, quando houver saída passiva formatada, como estado
-  agregado, resumo ou progresso;
+- `dashboard` (zero ou mais), quando houver saída passiva formatada, como estado
+  agregado, resumo ou progresso (ADR-0019, D7);
 - chips específicos declarados pela classe de tela na `barra_de_menus`.
 
 Chips específicos pertencem à `barra_de_menus`, nunca ao corpo. A classe de
@@ -246,8 +246,8 @@ continua restrito a corpo tipo `console`.
 
 Exemplo conceitual, não obrigatório: uma tela de processamento pode conter
 `cabecalho`, corpo com `console` Lista, corpo com `console` Detalhe, corpo com
-`console` Log se o log for navegável, zero ou um `dashboard` de estado
-agregado/resumo/progresso, e `barra_de_menus` com chips canônicos e chips
+`console` Log se o log for navegável, `dashboard` (zero ou mais) de estado
+agregado/resumo/progresso (ADR-0019, D7), e `barra_de_menus` com chips canônicos e chips
 específicos da classe. Este exemplo não obriga toda tela de processamento a
 ter exatamente essa estrutura.
 
@@ -1146,13 +1146,18 @@ canônica; a especificação completa com exemplos está na ADR-0015 e no
 
 1. **Corpo como árvore de composição** — o corpo é modelado como árvore, não
    lista plana de elementos.
-2. **Corpo raiz como nível 0** — o nó raiz da árvore é o `corpo`; ele ocupa
-   o nível 0.
-3. **Filhos diretos do corpo como nível 1** — `corpo.elementos[]` define o
-   nível 1.
-4. **Filhos de grupo como nível 2** — `grupo.elementos[]` cria o nível 2.
-5. **Nível 3 proibido na versão atual** — estruturas com profundidade ≥ 3
-   são rejeitadas com erro estrutural determinístico.
+2. **Profundidade contada por níveis de grupos** — a profundidade hierárquica
+   é contada exclusivamente pelo aninhamento de nós estruturais `grupo`
+   (ADR-0019, D1). O corpo raiz não conta como nível de grupo.
+3. **Nível de grupo 1** — um `grupo` filho direto de `corpo.elementos[]` está
+   no nível de grupo 1.
+4. **Nível de grupo 2** — um `grupo` filho de um grupo do nível 1 está no
+   nível de grupo 2.
+5. **Nível de grupo 3 — profundidade máxima** — um `grupo` filho de um grupo
+   do nível 2 está no nível de grupo 3, que é o máximo permitido (ADR-0019,
+   D2). Estruturas com grupo no nível 4 ou superior são rejeitadas com erro
+   estrutural determinístico. Elementos funcionais dentro de um grupo do
+   nível 3 não constituem nível 4 (ADR-0019, D3).
 6. **Grupo como nó estrutural** — `grupo` é nó estrutural de composição;
    não é tipo funcional.
 7. **Grupo não tem borda própria nem conteúdo próprio** — não tem título
