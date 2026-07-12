@@ -3,7 +3,7 @@ name: H-0024-distribuicao-vertical-percentual-fracao-corpo
 description: Handoff de implementação — distribuição da altura útil do corpo entre seus elementos quando corpo.arranjo é vertical, aplicando os modos percentual e por fração de corpo.distribuicao e executando a divisão igual normativa (modo igual e ausência de distribuicao) conforme ADR-0015 (arranjo/distribuição por container, modos, arredondamento por maiores restos, preenchimento de área alocada), preservando o arranjo horizontal e o redimensionamento reativo H-0023
 metadata:
   type: handoff
-  status: proposto
+  status: substituido
   data: 2026-07-11
 rastreabilidade:
   adr_base: docs/adr/ADR-0015-composicao-hierarquica-distribuicao-corpo.md
@@ -26,6 +26,8 @@ rastreabilidade:
     - tela/teste_renderizador.py
   relatorio_implementacao_esperado: docs/relatorios/IMP-0025-distribuicao-vertical-percentual-fracao-corpo.md
 ---
+
+> **Situação:** este handoff foi substituído operacionalmente pelo H-0025.
 
 # H-0024 — Distribuição vertical da altura do corpo: modos percentual e por fração
 
