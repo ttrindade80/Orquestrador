@@ -17,6 +17,8 @@ metadata:
       - docs/adr/ADR-0011-terminologia-arranjo-vertical-horizontal.md
       - docs/adr/ADR-0015-composicao-hierarquica-distribuicao-corpo.md
       - docs/adr/ADR-0018-semantica-ausencia-distribuicao-alocacao-vertical.md
+      - docs/adr/ADR-0019-profundidade-grupos-multiplicidade-cardinalidade-dashboard.md
+      - docs/adr/ADR-0020-matriz-de-grupos-coordenadas-explicitas.md
     reaproveitado_de_legado: false
 ---
 
@@ -195,9 +197,10 @@ grupos irmãos e múltiplos elementos funcionais por grupo são permitidos em
 qualquer nível (ADR-0019, D1-D6).
 
 `grupo` não declara: borda, moldura, título, conteúdo, ação, chip, origem de
-dados nem `tela_destino`. Declara: `arranjo`, `distribuicao` e `elementos[]`.
+dados nem `tela_destino`. Declara: `estrutura` (opcional), `arranjo`,
+`distribuicao` e `elementos[]`.
 
-Campos mínimos de `grupo`:
+Campos mínimos de `grupo` com comportamento `livre` (ou ausência de `estrutura`):
 
 ```json
 {
@@ -208,13 +211,25 @@ Campos mínimos de `grupo`:
 }
 ```
 
-`distribuicao` é opcional. Sua ausência **não** equivale ao modo `igual`
-(ADR-0018, 2026-07-11): quando `distribuicao` não é declarada, o container
-preserva a construção orientada pelo conteúdo — cada filho usa sua altura/largura
-natural e a sobra permanece como preenchimento externo do container, conforme a
-ocupação já normatizada (ADR-0013), sem repartição proporcional automática. `igual`
-permanece modo válido apenas quando declarado explicitamente. Ver
-`contrato_composicao_corpo.md` seção 5.7 e a ADR-0018.
+`distribuicao` é opcional em `estrutura: "livre"`. Sua ausência **não** equivale
+ao modo `igual` (ADR-0018, 2026-07-11): quando `distribuicao` não é declarada,
+o container preserva a construção orientada pelo conteúdo — cada filho usa sua
+altura/largura natural e a sobra permanece como preenchimento externo do
+container, conforme a ocupação já normatizada (ADR-0013), sem repartição
+proporcional automática. `igual` permanece modo válido apenas quando declarado
+explicitamente. Ver `contrato_composicao_corpo.md` seção 5.7 e a ADR-0018.
+
+**Comportamento estrutural `estrutura` (ADR-0020, 2026-07-12)**: o campo
+`estrutura` é opcional e seleciona o comportamento do `grupo`.
+
+| Valor | Comportamento |
+|---|---|
+| ausente | equivale a `"livre"` — todos os JSONs existentes continuam válidos |
+| `"livre"` | hierárquico unidimensional existente |
+| `"matriz"` | bidimensional com grade comum — ver seção 6.4 |
+
+O contrato exige que a ausência de `estrutura` **nunca** ative o comportamento
+`matriz`. Grupos sem `estrutura` são tratados como `livre`.
 
 ### 6.3 Distribuição por container (ADR-0015)
 
@@ -236,6 +251,71 @@ de arredondamento, e a ADR-0018 para a semântica de ausência × distribuição
 explícita.
 
 Tipo desconhecido em `corpo.elementos[]` é erro de validação.
+
+### 6.4 Campos mínimos de `grupo` com `estrutura: "matriz"` (ADR-0020)
+
+Quando `estrutura: "matriz"`, o objeto `matriz` é obrigatório. O envelope mínimo
+válido de uma matriz é:
+
+```json
+{
+  "id": "...",
+  "tipo": "grupo",
+  "estrutura": "matriz",
+  "matriz": {
+    "linhas": {
+      "quantidade": 2,
+      "distribuicao": {"modo": "igual"}
+    },
+    "colunas": {
+      "quantidade": 2,
+      "distribuicao": {"modo": "igual"}
+    },
+    "celulas": [
+      {"linha": 1, "coluna": 1, "elemento": "a"},
+      {"linha": 1, "coluna": 2, "elemento": "b"},
+      {"linha": 2, "coluna": 1, "elemento": "c"},
+      {"linha": 2, "coluna": 2, "elemento": "d"}
+    ]
+  },
+  "elementos": [
+    {"id": "a", "tipo": "console"},
+    {"id": "b", "tipo": "console"},
+    {"id": "c", "tipo": "dashboard"},
+    {"id": "d", "tipo": "console"}
+  ]
+}
+```
+
+Campos obrigatórios em `estrutura: "matriz"`:
+
+| Campo | Regra |
+|---|---|
+| `matriz.linhas.quantidade` | inteiro no intervalo [2, 4] |
+| `matriz.linhas.distribuicao` | obrigatório — ausência invalida a matriz |
+| `matriz.colunas.quantidade` | inteiro no intervalo [2, 4] |
+| `matriz.colunas.distribuicao` | obrigatório — ausência invalida a matriz |
+| `matriz.celulas[]` | quantidade exata = `linhas × colunas`; índices iniciados em 1 |
+| `elementos[]` | quantidade exata = `linhas × colunas`; cada `id` referenciado em `celulas[]` |
+
+**O modo `igual` deve ser declarado explicitamente.** Não existe default implícito
+para `igual` nem dimensionamento por conteúdo natural em eixo matricial.
+
+**Proibições em `estrutura: "matriz"`:**
+
+- `arranjo` é proibido;
+- objeto `matriz` ausente é inválido;
+- distribuição ausente em qualquer eixo é inválida;
+- célula vazia é proibida na versão atual;
+- mesclagem (`rowspan`/`colspan`) está fora de escopo;
+- fallback silencioso para `livre` é proibido.
+
+**Rejeição determinística**: o loader deverá futuramente rejeitar toda matriz
+inválida com erro determinístico. Nenhuma condição de invalidade pode resultar
+em conversão silenciosa para `livre`.
+
+**Matriz não torna-se obrigatória para toda tela.** A matriz é um comportamento
+opcional de `grupo` — nenhuma tela é obrigada a usar `estrutura: "matriz"`.
 
 ---
 
@@ -296,6 +376,24 @@ avaliável em tempo de carga.
 O `id` interno deve coincidir com o nome base do arquivo em disco. Divergência
 é inconsistência de validação.
 
+**V-9. `estrutura` ausente em `grupo` equivale a `livre` (ADR-0020).**
+O loader deverá futuramente tratar a ausência como `livre`. A ausência nunca
+ativa o comportamento `matriz`.
+
+**V-10. `estrutura: "matriz"` requer objeto `matriz` com `linhas`, `colunas`
+e `celulas` (ADR-0020).**
+Ausência do objeto `matriz` em grupo com `estrutura: "matriz"` é inválida.
+
+**V-11. Distribuições de ambos os eixos são obrigatórias em `estrutura: "matriz"`
+(ADR-0020).**
+O loader deverá futuramente rejeitar qualquer matriz sem
+`matriz.linhas.distribuicao` ou sem `matriz.colunas.distribuicao`.
+
+**V-12. Cobertura completa e coordenadas válidas obrigatórias (ADR-0020).**
+O loader deverá futuramente rejeitar matrizes com quantidade de células diferente
+de `linhas × colunas`, coordenadas duplicadas, elementos duplicados, referências
+inválidas ou `arranjo` declarado em conjunto com `estrutura: "matriz"`.
+
 ---
 
 ## 9. Fora de escopo
@@ -328,3 +426,13 @@ Os itens abaixo são explicitamente fora do escopo deste contrato:
 - [ ] Nenhuma seção deste contrato autoriza estado de runtime no JSON de tela.
 - [ ] Nenhuma seção deste contrato autoriza lógica procedural ou comando
       arbitrário no JSON de tela.
+- [ ] Grupos existentes sem `estrutura` continuam válidos e são tratados como
+      `estrutura: "livre"` — nenhum campo novo é obrigatório (ADR-0020, D3, D15).
+- [ ] `estrutura: "livre"` preserva `arranjo`, `distribuicao` opcional e semântica
+      de ausência conforme ADR-0018 (ADR-0020, D4).
+- [ ] `estrutura: "matriz"` requer objeto `matriz` com `linhas.distribuicao`,
+      `colunas.distribuicao` e `celulas[]` com cobertura completa (ADR-0020, D6, D8, D10).
+- [ ] O envelope mínimo de matriz 2×2 com `igual` explícito nos dois eixos está
+      formalmente especificado na seção 6.4 deste contrato.
+- [ ] Matriz não é obrigatória para toda tela; `estrutura: "matriz"` é opcional
+      para o nó `grupo`.

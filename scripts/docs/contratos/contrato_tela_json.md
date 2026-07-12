@@ -231,6 +231,72 @@ lacuna externa à ADR-0018 (altura mínima, overflow, truncamento, paginação,
 rejeição, degradação — nenhuma decidida aqui). Ver `contrato_composicao_corpo.md`
 seções 4.8, 4.9, 5.7 a 5.9 e a ADR-0018.
 
+**Comportamentos estruturais do `grupo` — `livre` e `matriz` (ADR-0020,
+2026-07-12)**: o nó `grupo` admite dois comportamentos estruturais, selecionados
+pelo campo `estrutura`.
+
+| Valor de `estrutura` | Comportamento | `objeto matriz` | `arranjo` |
+|---|---|---|---|
+| ausente | equivale a `livre` — compatibilidade retroativa | não aplicável | válido |
+| `"livre"` | hierárquico unidimensional existente | não aplicável | válido |
+| `"matriz"` | bidimensional com grade comum | **obrigatório** | **proibido** |
+
+**Quando `estrutura: "matriz"`**, o objeto `matriz` é obrigatório e deve conter:
+
+```json
+"matriz": {
+  "linhas": {
+    "quantidade": <inteiro 2–4>,
+    "distribuicao": { ... }
+  },
+  "colunas": {
+    "quantidade": <inteiro 2–4>,
+    "distribuicao": { ... }
+  },
+  "celulas": [
+    {"linha": <int>, "coluna": <int>, "elemento": "<id>"},
+    ...
+  ]
+}
+```
+
+**Quando `estrutura` for ausente ou `"livre"`**, o objeto `matriz` é não
+aplicável — não deve ser presente nem interpretado.
+
+Campos obrigatórios por modo de distribuição de eixo matricial:
+
+| Modo | Campos obrigatórios |
+|---|---|
+| `igual` | somente `modo` |
+| `percentual` | `modo`, `valores[]` com `len == quantidade` e soma 100 |
+| `fracao` | `modo`, `valores[]` com `len == quantidade` e todos positivos |
+
+Regras de validação a propagar para o loader:
+
+- `estrutura` diferente de `"livre"` ou `"matriz"` é inválido;
+- `estrutura: "matriz"` sem objeto `matriz` é inválido;
+- `estrutura: "livre"` dependente de campos matriciais é inválido;
+- dimensão fora de [2, 4] é inválida;
+- distribuição ausente em qualquer eixo é inválida;
+- `igual` presumido por ausência é inválido (não existe default);
+- percentual que não soma 100 é inválido;
+- fração com peso não positivo é inválida;
+- quantidade de `valores` diferente da dimensão do eixo é inválida;
+- coordenada iniciada em zero é inválida;
+- coordenada fora do limite declarado é inválida;
+- coordenada duplicada é inválida;
+- elemento duplicado em `celulas[]` é inválido;
+- referência inexistente em `elementos[]` é inválida;
+- célula faltante (quantidade de células ≠ `linhas × colunas`) é inválida;
+- célula excedente é inválida;
+- filho direto não associado é inválido;
+- `arranjo` em `estrutura: "matriz"` é inválido;
+- profundidade superior a três grupos é inválida (ADR-0019);
+- fallback silencioso para `"livre"` é proibido.
+
+Os JSONs existentes sem `estrutura` continuam válidos — nenhum campo novo é
+obrigatório em grupos existentes.
+
 A sequência histórica registrada pela ADR-0010 foi cancelada como roteiro
 ativo. A partir de H-0014, a numeração de handoffs **não usa letras**
 (H-0014, H-0015, …), conforme estabelecido por H-0012/H-0013 e reafirmado

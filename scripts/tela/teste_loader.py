@@ -1382,6 +1382,318 @@ def teste_hierarquia_grupos_adr0019(tmp_base):
     )
 
 
+def _ids_matriz(n_linhas, n_colunas):
+    return [
+        "e{0}".format(indice)
+        for indice in range(1, n_linhas * n_colunas + 1)
+    ]
+
+
+def _grupo_matriz_h0028(
+    n_linhas=2, n_colunas=2, dist_linhas=None, dist_colunas=None,
+    tipos=None, celulas=None, extras=None,
+):
+    if dist_linhas is None:
+        dist_linhas = {"modo": "igual"}
+    if dist_colunas is None:
+        dist_colunas = {"modo": "igual"}
+    ids = _ids_matriz(n_linhas, n_colunas)
+    if tipos is None:
+        tipos = ["console"] * len(ids)
+    elementos = [
+        {"id": id_item, "tipo": tipo}
+        for id_item, tipo in zip(ids, tipos)
+    ]
+    if celulas is None:
+        celulas = []
+        indice = 0
+        for linha in range(1, n_linhas + 1):
+            for coluna in range(1, n_colunas + 1):
+                celulas.append({
+                    "linha": linha,
+                    "coluna": coluna,
+                    "elemento": ids[indice],
+                })
+                indice += 1
+    grupo = {
+        "id": "g_matriz",
+        "tipo": "grupo",
+        "estrutura": "matriz",
+        "matriz": {
+            "linhas": {
+                "quantidade": n_linhas,
+                "distribuicao": dist_linhas,
+            },
+            "colunas": {
+                "quantidade": n_colunas,
+                "distribuicao": dist_colunas,
+            },
+            "celulas": celulas,
+        },
+        "elementos": elementos,
+    }
+    if extras:
+        grupo.update(extras)
+    return grupo
+
+
+def _tela_com_grupo_matriz_h0028(id_tela, grupo):
+    return {
+        "schema": "tela.v1",
+        "id": id_tela,
+        "cabecalho": {"titulo": "T", "descricao": "D"},
+        "corpo": {"arranjo": "vertical", "elementos": [grupo]},
+        "barra_de_menus": {"distribuicao": "horizontal", "chips": []},
+    }
+
+
+class TestValidacaoMatrizH0028:
+    """Valida schema de grupos matriciais (H-0028 / ADR-0020)."""
+
+    def _r(self, nome, passou, detalhe=""):
+        _registrar(nome, passou, detalhe)
+
+    def _com_tmp(self, fn):
+        tmp_base = Path(tempfile.mkdtemp(prefix="tela_loader_h0028_"))
+        try:
+            return fn(tmp_base)
+        finally:
+            try:
+                shutil.rmtree(tmp_base)
+            except OSError:
+                pass
+
+    def _carregar(self, tmp_base, id_tela, grupo):
+        _escrever_tela(
+            tmp_base, id_tela, _tela_com_grupo_matriz_h0028(id_tela, grupo)
+        )
+        return carregar_tela(tmp_base, id_tela)
+
+    def _espera_erro_grupo(self, nome, grupo, tipo_esperado=TelaGrupoInvalido):
+        def _caso(tmp_base):
+            _escrever_tela(
+                tmp_base, "matriz_invalida",
+                _tela_com_grupo_matriz_h0028("matriz_invalida", grupo),
+            )
+            return _espera_excecao(
+                nome,
+                lambda: carregar_tela(tmp_base, "matriz_invalida"),
+                tipo_esperado,
+            )
+        return self._com_tmp(_caso)
+
+    def test_estrutura_livre_e_ausente_preservadas(self):
+        def _caso(tmp_base):
+            for id_tela, grupo in [
+                ("g_sem_estrutura", {
+                    "id": "g1", "tipo": "grupo", "arranjo": "vertical",
+                    "elementos": [{"id": "c1", "tipo": "console"}],
+                }),
+                ("g_livre_explicito", {
+                    "id": "g1", "tipo": "grupo", "estrutura": "livre",
+                    "arranjo": "horizontal",
+                    "elementos": [
+                        {"id": "c1", "tipo": "console"},
+                        {"id": "d1", "tipo": "dashboard"},
+                    ],
+                }),
+                ("g_livre_matriz_inerte", {
+                    "id": "g1", "tipo": "grupo", "estrutura": "livre",
+                    "arranjo": "vertical",
+                    "matriz": {"conteudo": "inerte"},
+                    "elementos": [{"id": "c1", "tipo": "console"}],
+                }),
+            ]:
+                _escrever_tela(
+                    tmp_base, id_tela,
+                    _tela_minima(
+                        id_tela,
+                        corpo={"arranjo": "vertical", "elementos": [grupo]},
+                    ),
+                )
+                try:
+                    carregar_tela(tmp_base, id_tela)
+                    self._r("H-0028: {0} preservado como livre".format(id_tela), True)
+                except Exception as exc:
+                    self._r("H-0028: {0} preservado como livre".format(id_tela),
+                            False, str(exc))
+        self._com_tmp(_caso)
+
+    def test_matrizes_validas_dimensoes_modos_tipos_e_ordem(self):
+        cenarios = [
+            ("mat_2x2_igual", 2, 2, {"modo": "igual"}, {"modo": "igual"}),
+            ("mat_2x3_mista", 2, 3, {"modo": "fracao", "valores": [1, 2]},
+             {"modo": "percentual", "valores": [20, 30, 50]}),
+            ("mat_2x4_fracao", 2, 4, {"modo": "fracao", "valores": [1, 2]},
+             {"modo": "fracao", "valores": [1, 2, 1, 2]}),
+            ("mat_3x2_percentual", 3, 2, {"modo": "percentual", "valores": [30, 30, 40]},
+             {"modo": "percentual", "valores": [50, 50]}),
+            ("mat_3x3_fracao", 3, 3, {"modo": "fracao", "valores": [1, 3, 2]},
+             {"modo": "fracao", "valores": [2, 1, 3]}),
+            ("mat_3x4_mista", 3, 4, {"modo": "igual"},
+             {"modo": "fracao", "valores": [1, 2, 1, 2]}),
+            ("mat_4x2_mista", 4, 2, {"modo": "fracao", "valores": [1, 2, 3, 4]},
+             {"modo": "percentual", "valores": [25, 75]}),
+            ("mat_4x3_mista", 4, 3, {"modo": "percentual", "valores": [10, 20, 30, 40]},
+             {"modo": "fracao", "valores": [1, 2, 4]}),
+            ("mat_4x4_fracao", 4, 4, {"modo": "fracao", "valores": [1, 2, 3, 4]},
+             {"modo": "fracao", "valores": [1, 2, 3, 4]}),
+        ]
+
+        def _caso(tmp_base):
+            for id_tela, linhas, colunas, dist_l, dist_c in cenarios:
+                tipos = ["console", "lancador", "dashboard", "console"]
+                tipos = (tipos * ((linhas * colunas + 3) // 4))[:linhas * colunas]
+                grupo = _grupo_matriz_h0028(
+                    linhas, colunas, dist_l, dist_c, tipos=tipos
+                )
+                if id_tela == "mat_3x3_fracao":
+                    grupo["matriz"]["celulas"] = list(reversed(grupo["matriz"]["celulas"]))
+                try:
+                    tela = self._carregar(tmp_base, id_tela, grupo)
+                    g = tela["corpo"]["elementos"][0]
+                    self._r(
+                        "H-0028: matriz valida {0} carregada".format(id_tela),
+                        g.get("estrutura") == "matriz"
+                        and len(g.get("elementos", [])) == linhas * colunas,
+                    )
+                except Exception as exc:
+                    self._r(
+                        "H-0028: matriz valida {0} carregada".format(id_tela),
+                        False, str(exc),
+                    )
+        self._com_tmp(_caso)
+
+    def test_matrizes_invalidas_estrutura_dimensoes_distribuicoes(self):
+        casos = [
+            ("estrutura desconhecida", {"estrutura": "grade"}, TelaGrupoInvalido),
+            ("matriz ausente", {"matriz": _VAZIO}, TelaGrupoInvalido),
+            ("linhas 1", {"matriz.linhas.quantidade": 1}, TelaGrupoInvalido),
+            ("linhas 5", {"matriz.linhas.quantidade": 5}, TelaGrupoInvalido),
+            ("colunas 1", {"matriz.colunas.quantidade": 1}, TelaGrupoInvalido),
+            ("colunas 5", {"matriz.colunas.quantidade": 5}, TelaGrupoInvalido),
+            ("linhas distribuicao ausente", {"matriz.linhas.distribuicao": _VAZIO}, TelaGrupoInvalido),
+            ("colunas distribuicao ausente", {"matriz.colunas.distribuicao": _VAZIO}, TelaGrupoInvalido),
+            ("percentual invalido", {"matriz.linhas.distribuicao": {"modo": "percentual", "valores": [50, 40]}}, TelaEstruturaInvalida),
+            ("fracao zero", {"matriz.linhas.distribuicao": {"modo": "fracao", "valores": [1, 0]}}, TelaEstruturaInvalida),
+            ("fracao negativa", {"matriz.colunas.distribuicao": {"modo": "fracao", "valores": [1, -1]}}, TelaEstruturaInvalida),
+            ("quantidade valores linhas", {"matriz.linhas.distribuicao": {"modo": "fracao", "valores": [1, 2, 3]}}, TelaEstruturaInvalida),
+            ("quantidade valores colunas", {"matriz.colunas.distribuicao": {"modo": "percentual", "valores": [100]}}, TelaEstruturaInvalida),
+            ("arranjo em matriz", {"arranjo": "vertical"}, TelaGrupoInvalido),
+        ]
+        for nome, alteracoes, tipo in casos:
+            grupo = _grupo_matriz_h0028()
+            for caminho, valor in alteracoes.items():
+                if caminho == "estrutura":
+                    grupo["estrutura"] = valor
+                elif caminho == "arranjo":
+                    grupo["arranjo"] = valor
+                elif caminho == "matriz" and valor is _VAZIO:
+                    del grupo["matriz"]
+                else:
+                    partes = caminho.split(".")
+                    alvo = grupo
+                    for parte in partes[:-1]:
+                        alvo = alvo[parte]
+                    if valor is _VAZIO:
+                        del alvo[partes[-1]]
+                    else:
+                        alvo[partes[-1]] = valor
+            self._espera_erro_grupo("H-0028 invalida: {0}".format(nome), grupo, tipo)
+
+    def test_matrizes_invalidas_celulas_referencias_e_cobertura(self):
+        base = _grupo_matriz_h0028()
+        casos = []
+        g = _grupo_matriz_h0028(); g["matriz"]["celulas"][0]["linha"] = 0
+        casos.append(("linha zero", g))
+        g = _grupo_matriz_h0028(); g["matriz"]["celulas"][0]["coluna"] = 0
+        casos.append(("coluna zero", g))
+        g = _grupo_matriz_h0028(); g["matriz"]["celulas"][0]["linha"] = 3
+        casos.append(("linha fora do limite", g))
+        g = _grupo_matriz_h0028(); g["matriz"]["celulas"][0]["coluna"] = 3
+        casos.append(("coluna fora do limite", g))
+        g = _grupo_matriz_h0028(); g["matriz"]["celulas"][1]["linha"] = 1; g["matriz"]["celulas"][1]["coluna"] = 1
+        casos.append(("coordenada duplicada", g))
+        g = _grupo_matriz_h0028(); g["matriz"]["celulas"][1]["elemento"] = "e1"
+        casos.append(("elemento duplicado", g))
+        g = _grupo_matriz_h0028(); g["matriz"]["celulas"][0]["elemento"] = "x"
+        casos.append(("referencia inexistente", g))
+        g = _grupo_matriz_h0028(); g["matriz"]["celulas"][0]["elemento"] = ""
+        casos.append(("celula vazia", g))
+        g = _grupo_matriz_h0028(); g["matriz"]["celulas"] = g["matriz"]["celulas"][:-1]
+        casos.append(("celula faltante", g))
+        g = _grupo_matriz_h0028(); g["matriz"]["celulas"].append({"linha": 2, "coluna": 2, "elemento": "e4"})
+        casos.append(("celula excedente", g))
+        g = _grupo_matriz_h0028(); g["elementos"].append({"id": "extra", "tipo": "console"})
+        casos.append(("filho sem celula", g))
+        g = _grupo_matriz_h0028(); g["elementos"][1]["id"] = "e1"
+        casos.append(("elemento filho duplicado", g))
+        for nome, grupo in casos:
+            self._espera_erro_grupo("H-0028 invalida: {0}".format(nome), grupo)
+        self._r(
+            "H-0028: matriz invalida nao fez fallback para livre",
+            base.get("estrutura") == "matriz",
+        )
+
+    def test_profundidade_quarto_nivel_em_celula_rejeitada(self):
+        grupo_n3 = _grupo_matriz_h0028()
+        grupo_n3["elementos"][0] = {
+            "id": "e1", "tipo": "grupo", "arranjo": "vertical",
+            "elementos": [{"id": "nivel4", "tipo": "console"}],
+        }
+        grupo_n2 = {
+            "id": "g2", "tipo": "grupo", "arranjo": "vertical",
+            "elementos": [grupo_n3],
+        }
+        grupo_n1 = {
+            "id": "g1", "tipo": "grupo", "arranjo": "vertical",
+            "elementos": [grupo_n2],
+        }
+
+        def _caso(tmp_base):
+            _escrever_tela(
+                tmp_base, "matriz_nivel4",
+                _tela_minima(
+                    "matriz_nivel4",
+                    corpo={"arranjo": "vertical", "elementos": [grupo_n1]},
+                ),
+            )
+            _espera_excecao(
+                "H-0028: grupo em celula no quarto nivel -> TelaGrupoInvalido",
+                lambda: carregar_tela(tmp_base, "matriz_nivel4"),
+                TelaGrupoInvalido,
+            )
+        self._com_tmp(_caso)
+
+    def test_diagnosticos_mencionam_campos_matriciais(self):
+        grupo = _grupo_matriz_h0028()
+        del grupo["matriz"]["linhas"]["distribuicao"]
+        exc = self._espera_erro_grupo(
+            "H-0028 diagnostico: linhas.distribuicao ausente", grupo
+        )
+        msg = str(exc) if exc is not None else ""
+        self._r(
+            "H-0028: diagnostico contem matriz.linhas.distribuicao",
+            "matriz.linhas.distribuicao" in msg,
+            "msg={0!r}".format(msg),
+        )
+        self._r(
+            "H-0028: diagnostico contem caminho de cobertura/profundidade quando aplicavel",
+            "matriz" in msg and "linhas" in msg,
+            "msg={0!r}".format(msg),
+        )
+
+    def run_all(self):
+        print("")
+        print("== TestValidacaoMatrizH0028: loader matriz (H-0028 / ADR-0020) ==")
+        self.test_estrutura_livre_e_ausente_preservadas()
+        self.test_matrizes_validas_dimensoes_modos_tipos_e_ordem()
+        self.test_matrizes_invalidas_estrutura_dimensoes_distribuicoes()
+        self.test_matrizes_invalidas_celulas_referencias_e_cobertura()
+        self.test_profundidade_quarto_nivel_em_celula_rejeitada()
+        self.test_diagnosticos_mencionam_campos_matriciais()
+
+
 def teste_id_incorreto_classe():
     print("")
     print("== Excecao TelaIdIncorreto (verificacao de classe) ==")
@@ -1418,6 +1730,7 @@ def main():
         except OSError:
             pass
 
+    TestValidacaoMatrizH0028().run_all()
     teste_id_incorreto_classe()
 
     print("")

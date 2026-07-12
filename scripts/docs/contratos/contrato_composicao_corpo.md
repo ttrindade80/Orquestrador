@@ -22,6 +22,8 @@ metadata:
       - docs/adr/ADR-0015-composicao-hierarquica-distribuicao-corpo.md
       - docs/adr/ADR-0017-redimensionamento-reativo-tui.md
       - docs/adr/ADR-0018-semantica-ausencia-distribuicao-alocacao-vertical.md
+      - docs/adr/ADR-0019-profundidade-grupos-multiplicidade-cardinalidade-dashboard.md
+      - docs/adr/ADR-0020-matriz-de-grupos-coordenadas-explicitas.md
     reaproveitado_de_legado: false
 ---
 
@@ -143,6 +145,58 @@ A regra de `[✥]` continua restrita a `console`.
 - um `grupo` filho de grupo do nível 3 estaria no nível 4 e é **estruturalmente
   inválido** (ADR-0019, D4);
 - nível 4 ou superior gera erro estrutural determinístico.
+
+### 3.3 Comportamentos estruturais do `grupo` — `livre` e `matriz` (ADR-0020)
+
+O nó `grupo` admite dois comportamentos estruturais, selecionados pelo campo
+`estrutura` (ADR-0020, D1–D3).
+
+#### Seletor `estrutura`
+
+```json
+"estrutura": "livre"
+```
+
+ou:
+
+```json
+"estrutura": "matriz"
+```
+
+**Ausência equivale a `livre` (D3)**: quando `estrutura` não é declarado, o
+comportamento é `livre`. A ausência **nunca** ativa `matriz`. Esta regra
+preserva integralmente todos os JSONs existentes sem exigir nenhum campo novo.
+
+**Não usar como seletor**: `tipo` (já identifica o nó como `grupo`), `arranjo`
+(já define o eixo de composição em `livre`) nem `modo` isoladamente (já
+participa do schema de `distribuicao.modo`) — (D2).
+
+#### `estrutura: livre`
+
+Preserva o comportamento hierárquico unidimensional atual do nó `grupo`:
+
+- `arranjo` continua válido;
+- `distribuicao` continua local ao container e é opcional;
+- modos `igual`, `percentual`, `fracao` permanecem;
+- ausência de `distribuicao` segue a semântica da ADR-0018 (construção
+  orientada pelo conteúdo, não equivalente a `igual`);
+- não há grade bidimensional compartilhada;
+- não há garantia nova de alinhamento entre cortes independentes de grupos
+  distintos (ver seção 5.12).
+
+#### `estrutura: matriz`
+
+Define o comportamento bidimensional com grade comum:
+
+- quantidade de linhas e colunas declaradas;
+- distribuição obrigatória e independente de cada eixo;
+- grade comum de coordenadas compartilhada por todas as células;
+- associação de filhos a células por coordenadas explícitas.
+
+`arranjo` é **proibido** em `estrutura: matriz` (D13).
+
+Ver seções 5.13–5.21 para as regras completas de validação, composição,
+exemplos e invariantes da matriz.
 
 ---
 
@@ -741,6 +795,534 @@ deste campo não é fechado nesta versão.
 
 ---
 
+### 5.13 Distinção normativa `livre` × `matriz` (ADR-0020, D1–D4)
+
+**Em `estrutura: livre`** (ou ausência de `estrutura`):
+
+- `arranjo` é válido;
+- `distribuicao` é opcional; sua ausência preserva a construção orientada pelo
+  conteúdo (ADR-0018) e **não** equivale ao modo `igual`;
+- não há grade bidimensional compartilhada.
+
+**Em `estrutura: matriz`**:
+
+- `arranjo` é proibido;
+- distribuição de **ambos os eixos** é obrigatória;
+- ausência de distribuição em qualquer eixo invalida a matriz;
+- não existe distribuição implícita, default para `igual`, dimensionamento por
+  conteúdo natural, herança nem inferência (D6);
+- existe uma única grade compartilhada de coordenadas (D7).
+
+Esta distinção não altera a semântica da ADR-0018 para grupos `livre`.
+
+---
+
+### 5.14 Dimensões da matriz (ADR-0020, D5)
+
+Em `estrutura: matriz`, as dimensões devem respeitar:
+
+```text
+mínimo: 2 linhas × 2 colunas
+máximo: 4 linhas × 4 colunas
+```
+
+Combinações válidas:
+
+```text
+2 × 2  |  2 × 3  |  2 × 4
+3 × 2  |  3 × 3  |  3 × 4
+4 × 2  |  4 × 3  |  4 × 4
+```
+
+São inválidas: dimensão menor que 2; dimensão maior que 4; matriz com somente
+uma linha; matriz com somente uma coluna. Não existe fallback para `livre`.
+
+---
+
+### 5.15 Distribuições obrigatórias por eixo (ADR-0020, D6)
+
+Em `estrutura: matriz`, as distribuições de ambos os eixos são **obrigatórias**:
+
+```text
+matriz.linhas.distribuicao   — obrigatório
+matriz.colunas.distribuicao  — obrigatório
+```
+
+Regras:
+
+- a omissão de qualquer distribuição invalida a matriz;
+- cada eixo possui sua própria distribuição independente;
+- a distribuição de um eixo não é herdada, inferida ou reutilizada pelo outro;
+- não existe distribuição implícita;
+- não existe default para `igual`;
+- não existe dimensionamento por conteúdo natural;
+- não existe herança do container pai;
+- não existe inferência pela quantidade de linhas ou colunas;
+- não existe fallback para `estrutura: livre`.
+
+Para divisão igual, deve existir declaração explícita:
+
+```json
+"distribuicao": {
+  "modo": "igual"
+}
+```
+
+Para `percentual`: `valores` possui quantidade igual à dimensão do eixo e a
+soma deve ser 100. Para `fracao`: `valores` possui quantidade igual à dimensão
+do eixo e os valores são pesos positivos. O algoritmo dos maiores restos
+(seção 5.8) é aplicado **separadamente** em cada eixo.
+
+**Esta obrigatoriedade é específica de `estrutura: matriz` e não altera a
+semântica de ausência de distribuição para grupos `livre` (ADR-0018).**
+
+Invariantes de distribuição de eixo matricial:
+
+```text
+INV-MAT-DIST-01: Toda matriz declara distribuição de linhas.
+INV-MAT-DIST-02: Toda matriz declara distribuição de colunas.
+INV-MAT-DIST-03: A ausência da distribuição de qualquer eixo invalida a matriz.
+INV-MAT-DIST-04: O modo igual depende de declaração explícita.
+INV-MAT-DIST-05: Nenhum eixo matricial é dimensionado por conteúdo natural.
+INV-MAT-DIST-06: A distribuição de um eixo não é herdada, inferida ou
+                  reutilizada pelo outro eixo.
+```
+
+---
+
+### 5.16 Grade comum de coordenadas (ADR-0020, D7)
+
+O container `matriz` exige o cálculo de **uma única grade compartilhada** de:
+
+- coordenadas horizontais das linhas;
+- coordenadas verticais das colunas.
+
+Todas as células usam essas coordenadas comuns.
+
+Consequências normativas obrigatórias:
+
+- bordas de células da mesma linha permanecem alinhadas horizontalmente;
+- bordas de células da mesma coluna permanecem alinhadas verticalmente;
+- encontros de divisórias compartilham coordenadas;
+- os cortes não são calculados de forma independente por célula.
+
+A implementação futura deverá calcular os cortes horizontais (linhas) e
+verticais (colunas) uma única vez para o container, usando a grade comum
+para todas as células. O renderizador deverá futuramente aplicar maiores
+restos separadamente por eixo e preservar bordas alinhadas dentro da matriz.
+
+---
+
+### 5.17 Células com coordenadas explícitas (ADR-0020, D8)
+
+A posição de cada filho na grade é determinada por coordenadas explícitas:
+
+```json
+{
+  "linha": 1,
+  "coluna": 1,
+  "elemento": "id_do_elemento"
+}
+```
+
+Regras:
+
+- índices iniciados em 1;
+- `elemento` referencia o `id` de um filho direto declarado em `elementos[]`;
+- a posição é determinada pelas coordenadas, não pela ordem de `celulas[]`;
+- cada coordenada aparece exatamente uma vez em `celulas[]`;
+- cada elemento é associado exatamente uma vez;
+- coordenada fora das dimensões declaradas é inválida;
+- referência a elemento inexistente é inválida;
+- duplicidade de coordenada é inválida;
+- duplicidade de elemento é inválida.
+
+---
+
+### 5.18 Cobertura completa (ADR-0020, D10)
+
+Na versão atual da especificação:
+
+- células vazias são proibidas;
+- toda coordenada válida deve estar preenchida;
+- todo filho direto deve estar associado;
+- quantidade de células = `linhas × colunas`;
+- quantidade de elementos associados = `linhas × colunas`.
+
+O contrato exige cobertura total. Não criar placeholder, célula nula ou
+preenchimento automático. Esse tema poderá ser revisado futuramente por nova
+ADR.
+
+---
+
+### 5.19 Conteúdo das células e profundidade (ADR-0020, D9; ADR-0019)
+
+Uma célula referencia um filho direto dos tipos já permitidos:
+
+```text
+console
+lancador
+dashboard
+grupo
+```
+
+Um `grupo` dentro de uma célula continua sujeito ao limite de profundidade
+da ADR-0019:
+
+- a matriz não acrescenta nível de profundidade;
+- somente nós `grupo` contam como nível (ADR-0019, D1);
+- linhas, colunas e células não contam como níveis;
+- um `grupo` filho de um grupo do nível 3 estaria no nível 4 e é
+  estruturalmente inválido mesmo que esteja dentro de uma célula matricial.
+
+---
+
+### 5.20 Rejeição determinística de matriz inválida (ADR-0020, D12)
+
+Uma declaração matricial inválida deve ser rejeitada deterministicamente.
+
+O loader deverá futuramente rejeitar sem exceções — não é permitido:
+
+- ignorar campos inválidos;
+- corrigir dimensões automaticamente;
+- completar células ausentes;
+- remover células excedentes;
+- inferir coordenadas;
+- inferir distribuição;
+- converter silenciosamente para `livre`.
+
+---
+
+### 5.21 Terminal e área insuficiente em matriz (ADR-0020, D14)
+
+Preservar as regras globais existentes (ADR-0017):
+
+- dimensões dinâmicas;
+- `SIGWINCH`;
+- quadro global de terminal pequeno;
+- integridade estrutural.
+
+A política específica de área insuficiente para matrizes permanece pendente.
+
+Não estão decididos nesta versão:
+
+- mínimo numérico por célula;
+- paginação da matriz;
+- rolagem da matriz;
+- truncamento específico por célula;
+- redução automática de dimensões.
+
+---
+
+### 5.22 Schema normativo da matriz (ADR-0020)
+
+O schema abaixo é normativo e deve ser documentado como norma aprovada,
+não como implementação concluída.
+
+```json
+{
+  "id": "grupo_matriz_2x2",
+  "tipo": "grupo",
+  "estrutura": "matriz",
+  "matriz": {
+    "linhas": {
+      "quantidade": 2,
+      "distribuicao": {
+        "modo": "igual"
+      }
+    },
+    "colunas": {
+      "quantidade": 2,
+      "distribuicao": {
+        "modo": "igual"
+      }
+    },
+    "celulas": [
+      {"linha": 1, "coluna": 1, "elemento": "a"},
+      {"linha": 1, "coluna": 2, "elemento": "b"},
+      {"linha": 2, "coluna": 1, "elemento": "c"},
+      {"linha": 2, "coluna": 2, "elemento": "d"}
+    ]
+  },
+  "elementos": [
+    {"id": "a", "tipo": "console"},
+    {"id": "b", "tipo": "console"},
+    {"id": "c", "tipo": "dashboard"},
+    {"id": "d", "tipo": "console"}
+  ]
+}
+```
+
+---
+
+### 5.23 Exemplos válidos de composição matricial (ADR-0020)
+
+#### EX-MAT-V1 — Matriz 2×2 com `igual` explícito nos dois eixos
+
+```json
+{
+  "id": "g_2x2",
+  "tipo": "grupo",
+  "estrutura": "matriz",
+  "matriz": {
+    "linhas": {"quantidade": 2, "distribuicao": {"modo": "igual"}},
+    "colunas": {"quantidade": 2, "distribuicao": {"modo": "igual"}},
+    "celulas": [
+      {"linha": 1, "coluna": 1, "elemento": "e1"},
+      {"linha": 1, "coluna": 2, "elemento": "e2"},
+      {"linha": 2, "coluna": 1, "elemento": "e3"},
+      {"linha": 2, "coluna": 2, "elemento": "e4"}
+    ]
+  },
+  "elementos": [
+    {"id": "e1", "tipo": "console"},
+    {"id": "e2", "tipo": "dashboard"},
+    {"id": "e3", "tipo": "lancador"},
+    {"id": "e4", "tipo": "console"}
+  ]
+}
+```
+
+#### EX-MAT-V2 — Matriz 2×4 com frações diferentes entre linhas e colunas
+
+```json
+{
+  "id": "g_2x4",
+  "tipo": "grupo",
+  "estrutura": "matriz",
+  "matriz": {
+    "linhas": {
+      "quantidade": 2,
+      "distribuicao": {"modo": "fracao", "valores": [1, 2]}
+    },
+    "colunas": {
+      "quantidade": 4,
+      "distribuicao": {"modo": "fracao", "valores": [1, 2, 1, 2]}
+    },
+    "celulas": [
+      {"linha": 1, "coluna": 1, "elemento": "a"},
+      {"linha": 1, "coluna": 2, "elemento": "b"},
+      {"linha": 1, "coluna": 3, "elemento": "c"},
+      {"linha": 1, "coluna": 4, "elemento": "d"},
+      {"linha": 2, "coluna": 1, "elemento": "e"},
+      {"linha": 2, "coluna": 2, "elemento": "f"},
+      {"linha": 2, "coluna": 3, "elemento": "g"},
+      {"linha": 2, "coluna": 4, "elemento": "h"}
+    ]
+  },
+  "elementos": [
+    {"id": "a", "tipo": "console"}, {"id": "b", "tipo": "console"},
+    {"id": "c", "tipo": "dashboard"}, {"id": "d", "tipo": "console"},
+    {"id": "e", "tipo": "console"}, {"id": "f", "tipo": "lancador"},
+    {"id": "g", "tipo": "dashboard"}, {"id": "h", "tipo": "console"}
+  ]
+}
+```
+
+#### EX-MAT-V3 — Matriz com modos diferentes entre linhas e colunas
+
+```json
+{
+  "id": "g_modos_diff",
+  "tipo": "grupo",
+  "estrutura": "matriz",
+  "matriz": {
+    "linhas": {
+      "quantidade": 3,
+      "distribuicao": {"modo": "igual"}
+    },
+    "colunas": {
+      "quantidade": 2,
+      "distribuicao": {"modo": "percentual", "valores": [40, 60]}
+    },
+    "celulas": [
+      {"linha": 1, "coluna": 1, "elemento": "c1"},
+      {"linha": 1, "coluna": 2, "elemento": "c2"},
+      {"linha": 2, "coluna": 1, "elemento": "c3"},
+      {"linha": 2, "coluna": 2, "elemento": "c4"},
+      {"linha": 3, "coluna": 1, "elemento": "c5"},
+      {"linha": 3, "coluna": 2, "elemento": "c6"}
+    ]
+  },
+  "elementos": [
+    {"id": "c1", "tipo": "console"}, {"id": "c2", "tipo": "dashboard"},
+    {"id": "c3", "tipo": "console"}, {"id": "c4", "tipo": "console"},
+    {"id": "c5", "tipo": "lancador"}, {"id": "c6", "tipo": "console"}
+  ]
+}
+```
+
+#### EX-MAT-V4 — Grupo `livre` sem `estrutura` (comportamento preservado)
+
+```json
+{
+  "id": "grupo_existente",
+  "tipo": "grupo",
+  "arranjo": "horizontal",
+  "distribuicao": {"modo": "fracao", "valores": [1, 1]},
+  "elementos": [
+    {"id": "a", "tipo": "console"},
+    {"id": "b", "tipo": "dashboard"}
+  ]
+}
+```
+
+A ausência de `estrutura` equivale a `livre`. Todos os JSONs existentes sem
+`estrutura` continuam válidos e com comportamento preservado (D3, D15).
+
+#### EX-MAT-V5 — Grupo `livre` com `estrutura` declarado explicitamente
+
+```json
+{
+  "id": "grupo_livre",
+  "tipo": "grupo",
+  "estrutura": "livre",
+  "arranjo": "vertical",
+  "elementos": [
+    {"id": "c", "tipo": "console"},
+    {"id": "d", "tipo": "lancador"}
+  ]
+}
+```
+
+---
+
+### 5.24 Exemplos inválidos de composição matricial (ADR-0020)
+
+#### EX-MAT-I1 — Ausência de distribuição de linhas — inválido
+
+```json
+{
+  "estrutura": "matriz",
+  "matriz": {
+    "linhas": {"quantidade": 2},
+    "colunas": {"quantidade": 3, "distribuicao": {"modo": "igual"}},
+    "celulas": [...]
+  }
+}
+```
+
+`linhas.distribuicao` ausente. O contrato exige que a distribuição de linhas
+seja explícita (INV-MAT-DIST-01). O loader deverá futuramente rejeitar antes
+da construção do modelo.
+
+#### EX-MAT-I2 — Ausência de distribuição de colunas — inválido
+
+```json
+{
+  "estrutura": "matriz",
+  "matriz": {
+    "linhas": {"quantidade": 2, "distribuicao": {"modo": "igual"}},
+    "colunas": {"quantidade": 3},
+    "celulas": [...]
+  }
+}
+```
+
+`colunas.distribuicao` ausente. O contrato exige que a distribuição de colunas
+seja explícita (INV-MAT-DIST-02).
+
+#### EX-MAT-I3 — Somente um eixo com distribuição — inválido
+
+```json
+{
+  "estrutura": "matriz",
+  "matriz": {
+    "linhas": {"quantidade": 2, "distribuicao": {"modo": "igual"}},
+    "colunas": {"quantidade": 2},
+    "celulas": [...]
+  }
+}
+```
+
+Declarar distribuição em apenas um eixo não torna a matriz válida; ambos os
+eixos são obrigatórios (INV-MAT-DIST-03).
+
+#### EX-MAT-I4 — Coordenada duplicada — inválido
+
+```json
+{
+  "celulas": [
+    {"linha": 1, "coluna": 1, "elemento": "e1"},
+    {"linha": 1, "coluna": 1, "elemento": "e2"}
+  ]
+}
+```
+
+Coordenada `(1, 1)` duplicada (D8). O loader deverá futuramente rejeitar.
+
+#### EX-MAT-I5 — Elemento duplicado — inválido
+
+```json
+{
+  "celulas": [
+    {"linha": 1, "coluna": 1, "elemento": "e1"},
+    {"linha": 1, "coluna": 2, "elemento": "e1"}
+  ]
+}
+```
+
+`e1` aparece em duas células (D8). O loader deverá futuramente rejeitar.
+
+#### EX-MAT-I6 — Célula faltante — inválido
+
+Matriz declarada como `2 × 2` com apenas 3 células declaradas. O contrato
+exige que toda coordenada válida seja declarada exatamente uma vez (D8, D10).
+
+#### EX-MAT-I7 — `arranjo` em `estrutura: matriz` — inválido
+
+```json
+{
+  "tipo": "grupo",
+  "estrutura": "matriz",
+  "arranjo": "horizontal",
+  "matriz": {...}
+}
+```
+
+`arranjo` é proibido em `estrutura: matriz` (D13). O loader deverá futuramente
+rejeitar.
+
+#### EX-MAT-I8 — Quarto nível de grupo em célula — inválido
+
+```json
+{
+  "id": "nivel1",
+  "tipo": "grupo",
+  "elementos": [{
+    "id": "nivel2",
+    "tipo": "grupo",
+    "elementos": [{
+      "id": "nivel3_mat",
+      "tipo": "grupo",
+      "estrutura": "matriz",
+      "matriz": {
+        "linhas": {"quantidade": 2, "distribuicao": {"modo": "igual"}},
+        "colunas": {"quantidade": 2, "distribuicao": {"modo": "igual"}},
+        "celulas": [
+          {"linha": 1, "coluna": 1, "elemento": "nivel4"},
+          ...
+        ]
+      },
+      "elementos": [
+        {"id": "nivel4", "tipo": "grupo", ...}
+      ]
+    }]
+  }]
+}
+```
+
+`nivel4` seria nível de grupo 4 (inválido — ADR-0019, D4). A matriz não cria
+nível extra, mas o `grupo` filho dentro da célula conta normalmente.
+
+#### EX-MAT-I9 — Matriz inválida sem fallback — inválido
+
+Uma declaração matricial inválida não pode ser convertida silenciosamente para
+`livre` (D12). O loader deverá futuramente rejeitar com erro determinístico —
+nunca ajustar silenciosamente nem tentar renderizar como `livre`.
+
+---
+
 ## 6. Relação com `barra_de_menus`
 
 `barra_de_menus` fica fora do corpo. Chips não decidem composição do corpo.
@@ -892,6 +1474,42 @@ recalcular áreas, paginação e distribuições visuais dependentes, e redesenh
 quadro completo. Par inválido não é aplicado; as últimas dimensões válidas são
 mantidas sem que o redesenho seja acionado.
 
+**R-25. `estrutura` ausente equivale a `livre` (ADR-0020).**
+O loader deverá futuramente tratar a ausência de `estrutura` como equivalente
+a `estrutura: "livre"`. A ausência nunca ativa o comportamento `matriz`.
+
+**R-26. `estrutura: matriz` requer o objeto `matriz` com `linhas`, `colunas`
+e `celulas` (ADR-0020).**
+A ausência do objeto `matriz` em um `grupo` com `estrutura: "matriz"` é inválida.
+O loader deverá futuramente rejeitar antes de qualquer construção do modelo.
+
+**R-27. Distribuições de linhas e colunas são obrigatórias em `estrutura: matriz`
+(ADR-0020).**
+O loader deverá futuramente rejeitar qualquer matriz sem
+`matriz.linhas.distribuicao` ou sem `matriz.colunas.distribuicao`. Não existe
+default implícito para `igual` nem dimensionamento por conteúdo natural.
+
+**R-28. Dimensões válidas: 2 ≤ linhas ≤ 4 e 2 ≤ colunas ≤ 4 (ADR-0020).**
+O loader deverá futuramente rejeitar dimensões fora desses limites sem fallback.
+
+**R-29. Cobertura completa obrigatória (ADR-0020).**
+O loader deverá futuramente rejeitar matrizes onde a quantidade de células em
+`celulas[]` difira de `linhas × colunas`, ou onde algum filho direto não esteja
+associado exatamente uma vez.
+
+**R-30. `arranjo` é proibido em `estrutura: matriz` (ADR-0020).**
+O loader deverá futuramente rejeitar qualquer `grupo` com `estrutura: "matriz"`
+que declare `arranjo`.
+
+**R-31. Rejeição determinística de matriz inválida sem fallback (ADR-0020).**
+Nenhuma condição de invalidade da matriz pode resultar em conversão silenciosa
+para `livre`. O loader deverá futuramente gerar erro determinístico.
+
+**R-32. Matriz não acrescenta nível de profundidade (ADR-0020; ADR-0019).**
+`estrutura: matriz` não cria nível de grupo extra. Linhas, colunas e células
+não contam como níveis. Um `grupo` filho dentro de uma célula matricial conta
+normalmente como nível de grupo.
+
 ---
 
 ## 8. Critérios de validação
@@ -979,6 +1597,30 @@ mantidas sem que o redesenho seja acionado.
       são recalculadas (R-23, ADR-0017).
 - [ ] Par inválido de dimensões não é aplicado ao renderer; as últimas dimensões
       válidas são mantidas e não provocam redesenho por si sós (R-24, ADR-0017).
+- [ ] Ausência de `estrutura` em `grupo` é tratada como `estrutura: "livre"`;
+      nunca ativa `matriz` (R-25, ADR-0020).
+- [ ] `estrutura: "matriz"` sem objeto `matriz` é inválido; o loader deverá
+      futuramente rejeitar antes da construção do modelo (R-26, ADR-0020).
+- [ ] `matriz` sem `linhas.distribuicao` ou sem `colunas.distribuicao` é inválido;
+      o loader deverá futuramente rejeitar; não existe default implícito para `igual`
+      (R-27, ADR-0020; INV-MAT-DIST-01, INV-MAT-DIST-02, INV-MAT-DIST-03).
+- [ ] Dimensão de linhas ou colunas fora do intervalo [2, 4] é inválida; o loader
+      deverá futuramente rejeitar sem fallback (R-28, ADR-0020).
+- [ ] Quantidade de células em `celulas[]` diferente de `linhas × colunas` é
+      inválida; filho direto não associado exatamente uma vez é inválido (R-29,
+      ADR-0020).
+- [ ] `grupo` com `estrutura: "matriz"` que declare `arranjo` é inválido; o loader
+      deverá futuramente rejeitar (R-30, ADR-0020).
+- [ ] Coordenada duplicada em `celulas[]` é inválida; elemento duplicado em
+      `celulas[]` é inválido; referência a `id` inexistente em `elementos[]` é
+      inválida (ADR-0020, D8).
+- [ ] Coordenada fora das dimensões declaradas é inválida (ADR-0020, D8).
+- [ ] Matriz inválida não pode ser convertida silenciosamente para `livre`; o
+      loader deverá futuramente gerar erro determinístico (R-31, ADR-0020).
+- [ ] `estrutura: "livre"` explícito: `arranjo` é válido; `distribuicao` é
+      opcional; ausência de `distribuicao` segue ADR-0018 (ADR-0020, D4).
+- [ ] `estrutura: "matriz"` não cria nível de profundidade extra; linhas, colunas
+      e células não contam como nível de grupo (R-32, ADR-0020; ADR-0019, D1).
 
 ---
 

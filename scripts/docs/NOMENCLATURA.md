@@ -1254,3 +1254,80 @@ distribuição é obtida pelo mecanismo da ADR-0017, e o preenchimento externo d
 ADR-0013 é o comportamento aplicável **na ausência** de distribuição. A
 especificação normativa completa está na ADR-0018 e em
 `contrato_composicao_corpo.md` seções 4.8, 4.9, 5.7 a 5.9 e 10.
+
+---
+
+## 15. Comportamento estrutural do `grupo` — `livre` e `matriz` (ADR-0020)
+
+A ADR-0020 (2026-07-12) formaliza dois comportamentos estruturais do nó
+`grupo`. Esta seção é a referência terminológica canônica; a especificação
+normativa completa está na ADR-0020 e em `contrato_composicao_corpo.md`.
+
+### 15.1 Seletor declarativo `estrutura`
+
+O campo `estrutura` é o seletor canônico do comportamento de um nó `grupo`.
+
+| Valor | Comportamento |
+|---|---|
+| `"livre"` | Comportamento hierárquico unidimensional existente — `arranjo` e `distribuicao` local por container |
+| `"matriz"` | Comportamento bidimensional com grade comum, distribuições independentes por eixo e coordenadas explícitas de células |
+| *(ausente)* | Equivale a `"livre"` — compatibilidade retroativa integral (D3) |
+
+**Não usar como seletor**: `tipo` (já identifica o nó como `grupo`), `arranjo`
+(já define o eixo de composição em `livre`), nem `modo` isoladamente (já
+participa do schema de `distribuicao.modo`).
+
+### 15.2 Comportamento `livre`
+
+`estrutura: "livre"` nomeia o comportamento hierárquico atual do nó `grupo`.
+
+Preserva integralmente:
+
+- composição recursiva por containers;
+- `arranjo` vertical ou horizontal;
+- `distribuicao` local ao container (opcional);
+- modos `igual`, `percentual`, `fracao`;
+- ausência de `distribuicao` como construção orientada pelo conteúdo
+  (ADR-0018 — não equivale ao modo `igual`);
+- todos os JSONs ativos sem alteração.
+
+A ausência de `estrutura` equivale a `livre` e **nunca** ativa `matriz`.
+
+### 15.3 Comportamento `matriz` — matriz de grupos
+
+`estrutura: "matriz"` define um comportamento declarativo bidimensional.
+
+**Termo canônico**: `matriz de grupos` — especialização do nó `grupo` que
+organiza os filhos diretos em uma grade bidimensional com grade comum de
+coordenadas.
+
+**Distinção obrigatória**: `matriz de grupos` (ADR-0020) não se confunde com:
+
+- modo matriz do `lancador` (cálculo automático de colunas, ADR-0001 e
+  seção 8.2 desta nomenclatura) — domínios distintos;
+- navegação em grade 2D de `console` por `[✥]` (seção 4.1);
+- qualquer uso anterior de "matriz" em menu, tabela ou item de corpo.
+
+### 15.4 Termos da matriz de grupos
+
+| Termo | Definição |
+|---|---|
+| `linha da matriz` | Faixa horizontal da grade; cada linha ocupa altura calculada pela distribuição de linhas |
+| `coluna da matriz` | Faixa vertical da grade; cada coluna ocupa largura calculada pela distribuição de colunas |
+| `célula da matriz` | Interseção de uma linha e uma coluna; contém exatamente um filho direto do grupo matricial |
+| `coordenada explícita` | Par `(linha, coluna)` com índices iniciados em 1 que identifica unicamente uma célula na grade |
+| `distribuição de linhas` | Campo `matriz.linhas.distribuicao` — distribui a altura do container entre as linhas; obrigatório em `estrutura: matriz` |
+| `distribuição de colunas` | Campo `matriz.colunas.distribuicao` — distribui a largura do container entre as colunas; obrigatório em `estrutura: matriz` |
+| `grade comum` | Única grade de coordenadas calculada para o container matricial, compartilhada por todas as células — bordas de células da mesma linha/coluna são sempre alinhadas |
+| `cobertura completa` | Restrição de que toda coordenada válida deve ser preenchida e todo filho direto deve estar associado exatamente uma vez |
+
+### 15.5 Termos desaconselhados ou inválidos em `estrutura: matriz`
+
+| Termo | Status | Motivo |
+|---|---|---|
+| Ordem implícita de células | **inválido** | Posição determinada por coordenadas explícitas; a ordem de `celulas[]` não define posição (D8) |
+| Matriz por grupos irmãos independentes | **inválido** | A grade compartilhada não pode ser construída por grupos com cortes independentes (D7) |
+| Célula vazia | **proibida** na versão atual | Toda célula deve ser preenchida (D10) |
+| Mesclagem (`rowspan`/`colspan`) | **fora de escopo** | Não previsto na ADR-0020 (D11) |
+| Distribuição implícita de eixo | **inválido** | Ambas as distribuições são obrigatórias e explícitas; ausência invalida a matriz (D6) |
+| `arranjo` em `estrutura: matriz` | **proibido** | `arranjo` é autoridade concorrente ao posicionamento bidimensional (D13) |

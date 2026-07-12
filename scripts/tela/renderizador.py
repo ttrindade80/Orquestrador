@@ -807,10 +807,13 @@ def _renderizar_container_vertical(
         for indice, elemento in enumerate(elementos):
             cota = cotas[indice]
             if elemento.tipo == "grupo":
+                estrutura_g = elemento._campos_inertes.get("estrutura")
                 arranjo_g = elemento._campos_inertes.get("arranjo")
                 dist_g = elemento._campos_inertes.get("distribuicao")
+                matriz_g = elemento._campos_inertes.get("matriz")
                 bloco = _renderizar_container(
-                    arranjo_g, dist_g, elemento.elementos, borda, total_w, cota
+                    arranjo_g, dist_g, elemento.elementos, borda, total_w, cota,
+                    estrutura=estrutura_g, matriz_config=matriz_g,
                 )
                 if bloco:
                     partes.append(bloco)
@@ -824,10 +827,13 @@ def _renderizar_container_vertical(
     else:
         for elemento in elementos:
             if elemento.tipo == "grupo":
+                estrutura_g = elemento._campos_inertes.get("estrutura")
                 arranjo_g = elemento._campos_inertes.get("arranjo")
                 dist_g = elemento._campos_inertes.get("distribuicao")
+                matriz_g = elemento._campos_inertes.get("matriz")
                 bloco = _renderizar_container(
-                    arranjo_g, dist_g, elemento.elementos, borda, total_w, None
+                    arranjo_g, dist_g, elemento.elementos, borda, total_w, None,
+                    estrutura=estrutura_g, matriz_config=matriz_g,
                 )
                 if bloco:
                     partes.append(bloco)
@@ -879,10 +885,13 @@ def _renderizar_container_horizontal(
     for i, elemento in enumerate(elementos):
         w = larguras[i]
         if elemento.tipo == "grupo":
+            estrutura_g = elemento._campos_inertes.get("estrutura")
             arranjo_g = elemento._campos_inertes.get("arranjo")
             dist_g = elemento._campos_inertes.get("distribuicao")
+            matriz_g = elemento._campos_inertes.get("matriz")
             bloco = _renderizar_container(
-                arranjo_g, dist_g, elemento.elementos, borda, w, altura_disponivel
+                arranjo_g, dist_g, elemento.elementos, borda, w, altura_disponivel,
+                estrutura=estrutura_g, matriz_config=matriz_g,
             )
             linhas_area = bloco.split("\n") if bloco else []
         else:
@@ -928,7 +937,61 @@ def _renderizar_container_horizontal(
     return "\n".join(linhas_resultado)
 
 
-def _renderizar_container(arranjo, distribuicao, elementos, borda, total_w, altura_disponivel):
+def _renderizar_container_matriz(matriz_config, elementos, borda, total_w, altura_disponivel):
+    """Renderiza um grupo ``estrutura: matriz`` com grade bidimensional comum.
+
+    As cotas dos dois eixos sao calculadas uma unica vez para o container
+    matricial e compartilhadas por todas as celulas. As linhas sao renderizadas
+    como containers horizontais com larguras pre-computadas, preservando as
+    primitivas de borda e preenchimento ja existentes.
+    """
+    if not isinstance(matriz_config, dict):
+        raise RenderizadorErro("estrutura matriz sem objeto matriz validado")
+    if altura_disponivel is None:
+        raise RenderizadorErro(
+            "estrutura matriz requer altura_disponivel para distribuir linhas"
+        )
+
+    n_linhas = matriz_config["linhas"]["quantidade"]
+    n_colunas = matriz_config["colunas"]["quantidade"]
+    dist_linhas = matriz_config["linhas"]["distribuicao"]
+    dist_colunas = matriz_config["colunas"]["distribuicao"]
+
+    pesos_linhas = _pesos_distribuicao(dist_linhas, n_linhas)
+    pesos_colunas = _pesos_distribuicao(dist_colunas, n_colunas)
+    alturas = _distribuir_alturas(altura_disponivel, pesos_linhas)
+    larguras = _distribuir_larguras(total_w, pesos_colunas)
+
+    elem_por_id = {elemento.id: elemento for elemento in elementos}
+    celula_para_id = {
+        (celula["linha"], celula["coluna"]): celula["elemento"]
+        for celula in matriz_config["celulas"]
+    }
+
+    blocos = []
+    for linha in range(1, n_linhas + 1):
+        elementos_linha = [
+            elem_por_id[celula_para_id[(linha, coluna)]]
+            for coluna in range(1, n_colunas + 1)
+        ]
+        bloco = _renderizar_container_horizontal(
+            distribuicao=None,
+            elementos=elementos_linha,
+            borda=borda,
+            total_w=total_w,
+            altura_disponivel=alturas[linha - 1],
+            larguras=larguras,
+        )
+        if bloco:
+            blocos.append(bloco)
+
+    return "\n".join(blocos)
+
+
+def _renderizar_container(
+    arranjo, distribuicao, elementos, borda, total_w, altura_disponivel,
+    estrutura=None, matriz_config=None,
+):
     """Renderiza os filhos de um container recursivamente (H-0027 / ADR-0019).
 
     Grupo e no estrutural sem caixa visual propria: sua area e preenchida
@@ -944,6 +1007,11 @@ def _renderizar_container(arranjo, distribuicao, elementos, borda, total_w, altu
     """
     if not elementos:
         return ""
+
+    if estrutura == "matriz":
+        return _renderizar_container_matriz(
+            matriz_config, elementos, borda, total_w, altura_disponivel
+        )
 
     arr = arranjo
     if arr == "sobreposto":

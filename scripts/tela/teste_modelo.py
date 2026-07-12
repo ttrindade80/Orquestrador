@@ -678,6 +678,119 @@ def teste_hierarquia_grupos_adr0019_modelo():
     )
 
 
+def _grupo_matriz_modelo_h0028():
+    return {
+        "id": "g_matriz",
+        "tipo": "grupo",
+        "estrutura": "matriz",
+        "matriz": {
+            "linhas": {
+                "quantidade": 2,
+                "distribuicao": {"modo": "fracao", "valores": [1, 2]},
+            },
+            "colunas": {
+                "quantidade": 2,
+                "distribuicao": {"modo": "percentual", "valores": [40, 60]},
+            },
+            "celulas": [
+                {"linha": 2, "coluna": 2, "elemento": "d"},
+                {"linha": 1, "coluna": 1, "elemento": "a"},
+                {"linha": 1, "coluna": 2, "elemento": "b"},
+                {"linha": 2, "coluna": 1, "elemento": "c"},
+            ],
+        },
+        "elementos": [
+            {"id": "a", "tipo": "console", "titulo": "A"},
+            {"id": "b", "tipo": "dashboard", "titulo": "B"},
+            {"id": "c", "tipo": "lancador", "titulo": "C", "itens": []},
+            {
+                "id": "d",
+                "tipo": "grupo",
+                "estrutura": "livre",
+                "arranjo": "vertical",
+                "elementos": [{"id": "d1", "tipo": "console"}],
+            },
+        ],
+    }
+
+
+class TestModeloMatrizH0028:
+    """Confirma transporte inerte de estrutura/matriz no modelo."""
+
+    def _r(self, nome, passou, detalhe=""):
+        _registrar(nome, passou, detalhe)
+
+    def test_campos_inertes_preservam_estrutura_matriz_e_distribuicoes(self):
+        grupo_raw = _grupo_matriz_modelo_h0028()
+        modelo = construir_modelo(_raw_tela(
+            "modelo_matriz",
+            {"arranjo": "vertical", "elementos": [grupo_raw]},
+        ))
+        grupo = modelo.corpo.elementos[0]
+        matriz = grupo._campos_inertes.get("matriz")
+        self._r(
+            "H-0028 modelo: grupo preserva estrutura='matriz' em _campos_inertes",
+            grupo._campos_inertes.get("estrutura") == "matriz",
+        )
+        self._r(
+            "H-0028 modelo: matriz preserva linhas/colunas/celulas",
+            isinstance(matriz, dict)
+            and matriz.get("linhas") == grupo_raw["matriz"]["linhas"]
+            and matriz.get("colunas") == grupo_raw["matriz"]["colunas"]
+            and matriz.get("celulas") == grupo_raw["matriz"]["celulas"],
+        )
+
+    def test_ordem_de_elementos_e_vinculo_por_ids_preservados(self):
+        grupo_raw = _grupo_matriz_modelo_h0028()
+        modelo = construir_modelo(_raw_tela(
+            "modelo_matriz_ordem",
+            {"arranjo": "vertical", "elementos": [grupo_raw]},
+        ))
+        grupo = modelo.corpo.elementos[0]
+        ids_filhos = [elemento.id for elemento in grupo.elementos]
+        celulas = grupo._campos_inertes["matriz"]["celulas"]
+        self._r(
+            "H-0028 modelo: ordem declarativa de elementos[] preservada",
+            ids_filhos == ["a", "b", "c", "d"],
+            "ids={0!r}".format(ids_filhos),
+        )
+        self._r(
+            "H-0028 modelo: celulas continuam vinculadas por ids declarados",
+            [c["elemento"] for c in celulas] == ["d", "a", "b", "c"],
+        )
+        self._r(
+            "H-0028 modelo: elementos nao foram duplicados por coordenadas",
+            len(grupo.elementos) == 4 and len(set(ids_filhos)) == 4,
+        )
+
+    def test_grupo_livre_dentro_de_celula_preservado_no_limite(self):
+        grupo_raw = _grupo_matriz_modelo_h0028()
+        modelo = construir_modelo(_raw_tela(
+            "modelo_matriz_grupo_livre",
+            {"arranjo": "vertical", "elementos": [grupo_raw]},
+        ))
+        grupo_matriz = modelo.corpo.elementos[0]
+        grupo_livre = grupo_matriz.elementos[3]
+        self._r(
+            "H-0028 modelo: grupo dentro de celula permanece grupo",
+            grupo_livre.tipo == "grupo" and grupo_livre.id == "d",
+        )
+        self._r(
+            "H-0028 modelo: grupo livre interno preserva arranjo e filho",
+            grupo_livre._campos_inertes.get("estrutura") == "livre"
+            and grupo_livre._campos_inertes.get("arranjo") == "vertical"
+            and len(grupo_livre.elementos) == 1
+            and grupo_livre.elementos[0].id == "d1",
+        )
+
+    def run_all(self):
+        print("")
+        print("== TestModeloMatrizH0028: preservacao inerte de matriz (H-0028) ==")
+        self.test_campos_inertes_preservam_estrutura_matriz_e_distribuicoes()
+        self.test_ordem_de_elementos_e_vinculo_por_ids_preservados()
+        self.test_grupo_livre_dentro_de_celula_preservado_no_limite()
+
+
 def main():
     print("Diagnostico H-0002 - modelo interno normalizado de tela")
     print("Base padrao: {0}".format(_BASE_PADRAO))
@@ -687,6 +800,7 @@ def main():
     teste_modelo_grupo_minimo()
     teste_erros_modelo()
     teste_hierarquia_grupos_adr0019_modelo()
+    TestModeloMatrizH0028().run_all()
 
     print("")
     print("== Resumo ==")

@@ -4331,6 +4331,72 @@ def _funcional(fid, tipo, titulo=None):
     return ElementoCorpo(id=fid, tipo=tipo, _campos_inertes=inertes)
 
 
+def _grupo_matriz_render_h0028(
+    gid="g_matriz", n_linhas=2, n_colunas=2, dist_linhas=None,
+    dist_colunas=None, filhos=None, celulas=None,
+):
+    if dist_linhas is None:
+        dist_linhas = {"modo": "igual"}
+    if dist_colunas is None:
+        dist_colunas = {"modo": "igual"}
+    if filhos is None:
+        filhos = [
+            _funcional("e{0}".format(i), "console", "E{0}".format(i))
+            for i in range(1, n_linhas * n_colunas + 1)
+        ]
+    if celulas is None:
+        celulas = []
+        indice = 0
+        for linha in range(1, n_linhas + 1):
+            for coluna in range(1, n_colunas + 1):
+                celulas.append({
+                    "linha": linha,
+                    "coluna": coluna,
+                    "elemento": filhos[indice].id,
+                })
+                indice += 1
+    matriz = {
+        "linhas": {
+            "quantidade": n_linhas,
+            "distribuicao": dist_linhas,
+        },
+        "colunas": {
+            "quantidade": n_colunas,
+            "distribuicao": dist_colunas,
+        },
+        "celulas": celulas,
+    }
+    return ElementoCorpo(
+        id=gid,
+        tipo="grupo",
+        _campos_inertes={"estrutura": "matriz", "matriz": matriz},
+        elementos=filhos,
+    )
+
+
+def _modelo_matriz_render_h0028(elementos, arranjo="vertical", distribuicao=None):
+    if distribuicao is None:
+        distribuicao = {"modo": "igual"}
+    return ModeloTela(
+        id="teste_h0028",
+        schema="tela.v1",
+        cabecalho={"titulo": "H28", "descricao": "matriz"},
+        corpo=Corpo(arranjo=arranjo, elementos=elementos, distribuicao=distribuicao),
+        barra_de_menus={"chips": [{"id": "ok", "tecla": "k", "texto": "Ok"}]},
+        _raw={},
+    )
+
+
+def _linhas_corpo_renderizado(saida):
+    linhas = saida.splitlines()
+    return linhas[3:-3]
+
+
+def _posicoes_bordas_linha(linha):
+    bordas = set("│┃║┌┐└┘┼├┤┬┴╭╮╰╯─")
+    return [i for i, ch in enumerate(linha) if ch in bordas]
+
+
 class TestHierarquiaGruposH0027:
     """Testes de composicao hierarquica com tres niveis de grupos (H-0027 / ADR-0019).
 
@@ -4918,6 +4984,200 @@ class TestHierarquiaGruposH0027:
         self.test_tres_niveis_arranjos_alternados()
 
 
+class TestRenderizadorMatrizH0028:
+    """Testes de grade compartilhada para grupos matriciais (H-0028)."""
+
+    def _r(self, nome, passou, detalhe=""):
+        _registrar(nome, passou, detalhe)
+
+    def _render_matriz(self, grupo, largura=80, altura=24):
+        modelo = _modelo_matriz_render_h0028([grupo])
+        return renderizar_tela(modelo, largura=largura, altura=altura)
+
+    def test_matriz_2x2_alinhamento_vertical_e_horizontal(self):
+        grupo = _grupo_matriz_render_h0028()
+        largura = 80
+        altura = 24
+        saida = self._render_matriz(grupo, largura=largura, altura=altura)
+        corpo = _linhas_corpo_renderizado(saida)
+        alturas = _distribuir_alturas(len(corpo), [1, 1])
+        larguras = _distribuir_larguras(largura, [1, 1])
+        cortes = [0, larguras[0] - 1, larguras[0], largura - 1]
+
+        self._r(
+            "H-0028 renderer: matriz 2x2 ocupa soma de alturas do corpo",
+            len(corpo) == sum(alturas),
+            "len={0} alturas={1!r}".format(len(corpo), alturas),
+        )
+        self._r(
+            "H-0028 renderer: divisorias verticais 2x2 compartilham coordenadas",
+            all(all(pos in _posicoes_bordas_linha(linha) for pos in cortes)
+                for linha in corpo),
+            "cortes={0!r}".format(cortes),
+        )
+        self._r(
+            "H-0028 renderer: divisoria horizontal 2x2 inicia segunda linha na cota comum",
+            "E3" in "\n".join(corpo[alturas[0]:])
+            and "E1" in "\n".join(corpo[:alturas[0]]),
+        )
+
+    def test_matriz_2x4_pesos_assimetricos_compartilhados(self):
+        grupo = _grupo_matriz_render_h0028(
+            n_linhas=2,
+            n_colunas=4,
+            dist_linhas={"modo": "fracao", "valores": [1, 2]},
+            dist_colunas={"modo": "fracao", "valores": [1, 2, 1, 2]},
+        )
+        largura = 90
+        altura = 30
+        saida = self._render_matriz(grupo, largura=largura, altura=altura)
+        corpo = _linhas_corpo_renderizado(saida)
+        alturas = _distribuir_alturas(len(corpo), [1, 2])
+        larguras = _distribuir_larguras(largura, [1, 2, 1, 2])
+        acumulado = 0
+        cortes = [0]
+        for w in larguras:
+            acumulado += w
+            cortes.extend([acumulado - 1, acumulado])
+        cortes = [c for c in cortes if 0 <= c < largura]
+
+        self._r(
+            "H-0028 renderer: matriz 2x4 linhas [1,2] aplicadas uma vez",
+            alturas[1] >= alturas[0] * 2 - 1 and sum(alturas) == len(corpo),
+            "alturas={0!r}".format(alturas),
+        )
+        self._r(
+            "H-0028 renderer: matriz 2x4 colunas [1,2,1,2] aplicadas uma vez",
+            sum(larguras) == largura and larguras[1] >= larguras[0] * 2 - 1,
+            "larguras={0!r}".format(larguras),
+        )
+        self._r(
+            "H-0028 renderer: cortes 2x4 aparecem nas duas faixas de linha",
+            all(all(pos in _posicoes_bordas_linha(corpo[i]) for pos in cortes)
+                for i in [0, alturas[0], len(corpo) - 1]),
+            "cortes={0!r}".format(cortes),
+        )
+
+    def test_dimensoes_impares_e_restos_por_eixo(self):
+        grupo = _grupo_matriz_render_h0028(
+            n_linhas=3,
+            n_colunas=3,
+            dist_linhas={"modo": "fracao", "valores": [1, 2, 3]},
+            dist_colunas={"modo": "fracao", "valores": [3, 2, 1]},
+        )
+        largura = 83
+        altura = 29
+        saida = self._render_matriz(grupo, largura=largura, altura=altura)
+        corpo = _linhas_corpo_renderizado(saida)
+        alturas = _distribuir_alturas(len(corpo), [1, 2, 3])
+        larguras = _distribuir_larguras(largura, [3, 2, 1])
+        self._r(
+            "H-0028 renderer: restos fecham soma exata das linhas em dimensao impar",
+            sum(alturas) == len(corpo) and len(alturas) == 3,
+            "alturas={0!r}".format(alturas),
+        )
+        self._r(
+            "H-0028 renderer: restos fecham soma exata das colunas em dimensao impar",
+            sum(larguras) == largura and len(larguras) == 3,
+            "larguras={0!r}".format(larguras),
+        )
+
+    def test_celulas_fora_de_ordem_posicionam_por_coordenada(self):
+        filhos = [
+            _funcional("a", "console", "A1"),
+            _funcional("b", "console", "B2"),
+            _funcional("c", "console", "C3"),
+            _funcional("d", "console", "D4"),
+        ]
+        celulas = [
+            {"linha": 2, "coluna": 2, "elemento": "d"},
+            {"linha": 1, "coluna": 1, "elemento": "a"},
+            {"linha": 2, "coluna": 1, "elemento": "c"},
+            {"linha": 1, "coluna": 2, "elemento": "b"},
+        ]
+        grupo = _grupo_matriz_render_h0028(filhos=filhos, celulas=celulas)
+        saida = self._render_matriz(grupo, largura=80, altura=24)
+        corpo = _linhas_corpo_renderizado(saida)
+        topo = "\n".join(corpo[:len(corpo) // 2])
+        base = "\n".join(corpo[len(corpo) // 2:])
+        self._r(
+            "H-0028 renderer: celulas fora de ordem usam coordenadas, nao ordem do array",
+            "A1" in topo and "B2" in topo and "C3" in base and "D4" in base,
+        )
+
+    def test_tipos_permitidos_e_grupo_livre_em_celula(self):
+        grupo_livre = _grupo(
+            "g_livre", "vertical",
+            [_funcional("interno", "console", "INT")],
+            distribuicao={"modo": "igual"},
+        )
+        filhos = [
+            _funcional("c", "console", "CON"),
+            _funcional("l", "lancador", "LAN"),
+            _funcional("d", "dashboard", "DAS"),
+            grupo_livre,
+        ]
+        celulas = [
+            {"linha": 1, "coluna": 1, "elemento": "c"},
+            {"linha": 1, "coluna": 2, "elemento": "l"},
+            {"linha": 2, "coluna": 1, "elemento": "d"},
+            {"linha": 2, "coluna": 2, "elemento": "g_livre"},
+        ]
+        grupo = _grupo_matriz_render_h0028(filhos=filhos, celulas=celulas)
+        saida = self._render_matriz(grupo, largura=80, altura=24)
+        self._r(
+            "H-0028 renderer: matriz renderiza console, lancador, dashboard e grupo livre",
+            all(texto in saida for texto in ["CON", "LAN", "DAS", "INT"]),
+        )
+
+    def test_grupo_livre_contendo_matriz(self):
+        matriz = _grupo_matriz_render_h0028(gid="mat_interna")
+        livre = _grupo(
+            "livre", "vertical", [matriz],
+            distribuicao={"modo": "igual"},
+        )
+        modelo = _modelo_matriz_render_h0028([livre])
+        saida = renderizar_tela(modelo, largura=80, altura=24)
+        self._r(
+            "H-0028 renderer: grupo livre contendo matriz renderiza matriz interna",
+            "E1" in saida and "E4" in saida,
+        )
+
+    def test_redimensionamento_recalcula_grade(self):
+        grupo = _grupo_matriz_render_h0028(
+            dist_colunas={"modo": "fracao", "valores": [1, 2]},
+        )
+        saida_80 = self._render_matriz(grupo, largura=80, altura=24)
+        saida_100 = self._render_matriz(grupo, largura=100, altura=24)
+        corpo_80 = _linhas_corpo_renderizado(saida_80)
+        corpo_100 = _linhas_corpo_renderizado(saida_100)
+        self._r(
+            "H-0028 renderer: redimensionamento altera largura das linhas da grade",
+            len(corpo_80[0]) == 80 and len(corpo_100[0]) == 100
+            and corpo_80[0] != corpo_100[0],
+        )
+
+    def test_terminal_pequeno_propaga_erro_global_existente(self):
+        grupo = _grupo_matriz_render_h0028()
+        _espera_excecao(
+            "H-0028 renderer: matriz estreita propaga RenderizadorErro existente",
+            lambda: self._render_matriz(grupo, largura=18, altura=24),
+            RenderizadorErro,
+        )
+
+    def run_all(self):
+        print("")
+        print("== TestRenderizadorMatrizH0028: grade matricial compartilhada ==")
+        self.test_matriz_2x2_alinhamento_vertical_e_horizontal()
+        self.test_matriz_2x4_pesos_assimetricos_compartilhados()
+        self.test_dimensoes_impares_e_restos_por_eixo()
+        self.test_celulas_fora_de_ordem_posicionam_por_coordenada()
+        self.test_tipos_permitidos_e_grupo_livre_em_celula()
+        self.test_grupo_livre_contendo_matriz()
+        self.test_redimensionamento_recalcula_grade()
+        self.test_terminal_pequeno_propaga_erro_global_existente()
+
+
 def main():
     print("Diagnostico H-0010A - renderer declarativo (curva/reta)")
     print("Base padrao: {0}".format(_BASE_PADRAO))
@@ -4942,6 +5202,7 @@ def main():
     TestDistribuicaoVerticalH0025().run_all()
     TestDistribuicaoHorizontalH0026().run_all()
     TestHierarquiaGruposH0027().run_all()
+    TestRenderizadorMatrizH0028().run_all()
 
     print("")
     print("== Resumo ==")
