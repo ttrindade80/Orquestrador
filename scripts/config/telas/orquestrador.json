@@ -121,6 +121,36 @@
             "chip": "g",
             "texto": "Grupo Min.",
             "tela_destino": "grupo_minimo"
+          },
+          {
+            "id": "item_console_unico",
+            "chip": "1",
+            "texto": "Console",
+            "tela_destino": "h0030_console_unico"
+          },
+          {
+            "id": "item_dashboard_unico",
+            "chip": "2",
+            "texto": "Dashboard",
+            "tela_destino": "h0030_dashboard_unico"
+          },
+          {
+            "id": "item_matriz_2x2",
+            "chip": "3",
+            "texto": "Matriz 2x2",
+            "tela_destino": "h0030_matriz_2x2"
+          },
+          {
+            "id": "item_matriz_3x2",
+            "chip": "4",
+            "texto": "Matriz 3x2",
+            "tela_destino": "h0030_matriz_3x2"
+          },
+          {
+            "id": "item_matriz_2x4",
+            "chip": "5",
+            "texto": "Matriz 2x4",
+            "tela_destino": "h0030_matriz_2x4"
           }
         ]
       }

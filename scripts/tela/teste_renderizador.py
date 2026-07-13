@@ -77,6 +77,11 @@ _EXPECTED_ORQUESTRADOR = (
     "╭ NAVEGAR ───────────────────────────────╮\n"
     "│ [d] Destino                            │\n"
     "│ [g] Grupo Min.                         │\n"
+    "│ [1] Console                            │\n"
+    "│ [2] Dashboard                          │\n"
+    "│ [3] Matriz 2x2                         │\n"
+    "│ [4] Matriz 3x2                         │\n"
+    "│ [5] Matriz 2x4                         │\n"
     "╰────────────────────────────────────────╯\n"
     "╭ Menus ─────────────────────────────────╮\n"
     "│  [Esc] Sair  [?] Ajuda                 │\n"
@@ -96,6 +101,11 @@ _EXPECTED_ORQUESTRADOR_RETA = (
     "┌ NAVEGAR ───────────────────────────────┐\n"
     "│ [d] Destino                            │\n"
     "│ [g] Grupo Min.                         │\n"
+    "│ [1] Console                            │\n"
+    "│ [2] Dashboard                          │\n"
+    "│ [3] Matriz 2x2                         │\n"
+    "│ [4] Matriz 3x2                         │\n"
+    "│ [5] Matriz 2x4                         │\n"
     "└────────────────────────────────────────┘\n"
     "┌ Menus ─────────────────────────────────┐\n"
     "│  [Esc] Sair  [?] Ajuda                 │\n"
@@ -992,14 +1002,17 @@ def teste_altura_explicita():
     # H-0016: a barra_de_menus agora e horizontal responsiva. Com 2 chips em
     # largura 42 (content_w=39), "[Esc] Sair" + "  " + "[?] Ajuda" = 21 <= 39,
     # logo cabem em linha unica -> N_linhas_barra = 1.
+    # H-0030: o lancador_principal tem agora 7 itens (d,g,1..5); a caixa
+    # NAVEGAR passou de 4 linhas (topo + 2 itens + base) para 9 linhas
+    # (topo + 7 itens + base).
     #   L_cab = 3 (1 topo + 1 descricao + 1 base)
-    #   L_corpo_conteudo = 9 (ITENS=3, INFO=2, NAVEGAR=4)
+    #   L_corpo_conteudo = 14 (ITENS=3, INFO=2, NAVEGAR=9)
     #   L_barra = 3 (1 topo + 1 linha horizontal + 1 base)
-    #   altura natural (sem preenchimento) = 3 + 9 + 3 = 15
+    #   altura natural (sem preenchimento) = 3 + 14 + 3 = 20
     l_cab = 3
-    l_corpo_conteudo = 9
+    l_corpo_conteudo = 14
     l_barra = 3
-    n_minimo = l_cab + l_corpo_conteudo + l_barra  # 15
+    n_minimo = l_cab + l_corpo_conteudo + l_barra  # 20
 
     # CA-09 / CA-10: altura=None preserva o comportamento atual.
     _registrar(
@@ -1013,21 +1026,21 @@ def teste_altura_explicita():
     # saida identica ao comportamento natural.
     saida_min = renderizar_tela(modelo, largura=42, altura=n_minimo)
     _registrar(
-        "altura=N_minimo (15) -> count('\\n') == 15 (sem fill) (CA-03)",
+        "altura=N_minimo (20) -> count('\\n') == 20 (sem fill) (CA-03)",
         saida_min.count("\n") == n_minimo,
         "count={0}".format(saida_min.count("\n")),
     )
     _registrar(
-        "altura=N_minimo (15) gera saida identica a altura=None",
+        "altura=N_minimo (20) gera saida identica a altura=None",
         saida_min == renderizar_tela(modelo, largura=42),
     )
 
-    # CA-01: altura=16 -> 16 linhas (1 de preenchimento).
-    saida_16 = renderizar_tela(modelo, largura=42, altura=16)
+    # CA-01: altura=21 -> 21 linhas (1 de preenchimento).
+    saida_21 = renderizar_tela(modelo, largura=42, altura=21)
     _registrar(
-        "renderizar_tela(modelo, largura=42, altura=16) -> 16 linhas (CA-01)",
-        saida_16.count("\n") == 16,
-        "count={0}".format(saida_16.count("\n")),
+        "renderizar_tela(modelo, largura=42, altura=21) -> 21 linhas (CA-01)",
+        saida_21.count("\n") == 21,
+        "count={0}".format(saida_21.count("\n")),
     )
 
     # CA-02: altura=24 -> exatamente 24 linhas, barra preservada.
@@ -1044,8 +1057,8 @@ def teste_altura_explicita():
 
     # Contagem de preenchimento para altura=24 (H-0016, L_barra=3):
     #   L_corpo_disponivel = 24 - 3 - 3 = 18
-    #   L_corpo_fill = 18 - 9 = 9
-    l_corpo_fill_24 = (24 - l_cab - l_barra) - l_corpo_conteudo  # 9
+    #   L_corpo_fill = 18 - 14 = 4
+    l_corpo_fill_24 = (24 - l_cab - l_barra) - l_corpo_conteudo  # 4
     linhas_24 = saida_24.split("\n")
     # Identifica linhas de preenchimento: NAO usa strip() para validar
     # a evidencia (ACH-H15-02); compara a linha inteira contra a string
@@ -1053,7 +1066,7 @@ def teste_altura_explicita():
     fill_esperado = " " * 42
     fills = [ln for ln in linhas_24 if ln == fill_esperado]
     _registrar(
-        "altura=24 gera exatamente 8 linhas de preenchimento",
+        "altura=24 gera exatamente 4 linhas de preenchimento",
         len(fills) == l_corpo_fill_24,
         "fills={0} esperado={1}".format(len(fills), l_corpo_fill_24),
     )
@@ -1074,17 +1087,18 @@ def teste_altura_explicita():
     )
 
     # CA-08: preenchimento fica entre o ultimo box do corpo e o box Menus.
-    # Estrutura (H-0016, L_barra=3): cabecalho(3) + ITENS(3) + INFO(2) +
-    # NAVEGAR(4) = 12 caixas, depois 9 fills (indices 12..20), depois Menus
-    # topo no indice 21, 1 linha horizontal de chips no 22, base no 23.
+    # Estrutura (H-0016, L_barra=3) com 7 itens no lancador (H-0030):
+    # cabecalho(3) + ITENS(3) + INFO(2) + NAVEGAR(9) = 17 caixas (indices
+    # 0..16), depois 4 fills (indices 17..20), depois Menus topo no indice
+    # 21, 1 linha horizontal de chips no 22, base no 23.
     _registrar(
-        "preenchimento entre corpo e Menus (CA-08): linha 12 = fill, "
+        "preenchimento entre corpo e Menus (CA-08): linha 17 = fill, "
         "linha 20 = fill, linha 21 = '╭ Menus'",
-        linhas_24[12] == fill_esperado
+        linhas_24[17] == fill_esperado
         and linhas_24[20] == fill_esperado
         and linhas_24[21].startswith("╭ Menus"),
-        "l12={0!r} l20={1!r} l21={2!r}".format(
-            linhas_24[12], linhas_24[20], linhas_24[21][:9]
+        "l17={0!r} l20={1!r} l21={2!r}".format(
+            linhas_24[17], linhas_24[20], linhas_24[21][:9]
         ),
     )
 
@@ -1131,17 +1145,17 @@ def teste_altura_explicita():
     )
 
     # CA-12: altura insuficiente para o corpo (overflow) -> RenderizadorErro.
-    # N_overflow = L_cab + L_barra + L_corpo_conteudo - 1 = 14.
+    # N_overflow = L_cab + L_barra + L_corpo_conteudo - 1 = 19.
     n_overflow = l_cab + l_barra + l_corpo_conteudo - 1
     exc_overflow = _espera_excecao(
-        "altura=14 (corpo overflow) levanta RenderizadorErro (CA-12)",
+        "altura=19 (corpo overflow) levanta RenderizadorErro (CA-12)",
         lambda: renderizar_tela(modelo, largura=42, altura=n_overflow),
         RenderizadorErro,
     )
     if exc_overflow is not None:
         _registrar(
             "mensagem de overflow menciona corpo/area disponivel (CA-13)",
-            "corpo" in str(exc_overflow) and "14" in str(exc_overflow),
+            "corpo" in str(exc_overflow) and "19" in str(exc_overflow),
             str(exc_overflow),
         )
 
@@ -1162,7 +1176,7 @@ def teste_altura_explicita():
         )
 
     # CA-14: exatamente no limite cabecalho + barra, sem corpo, deve ERRO
-    # quando L_corpo_conteudo(9) > 0 e L_corpo_disponivel = 0.
+    # quando L_corpo_conteudo(14) > 0 e L_corpo_disponivel = 0.
     _espera_excecao(
         "altura == L_cab + L_barra (6) com corpo nao vazio levanta "
         "RenderizadorErro (sem truncamento silencioso)",
@@ -1610,13 +1624,14 @@ class TestLinhasBarra:
         # declara distribuicao; a cobertura de distribuicao vertical esta em
         # TestDistribuicaoVerticalH0025.
         modelo = _modelo_orquestrador_sem_distribuicao()
-        # H-0016: n_minimo = L_cab(3) + L_corpo(9) + L_barra(3) = 15.
-        saida_15 = renderizar_tela(modelo, largura=42, altura=15)
+        # H-0016 / H-0030: com 7 itens no lancador, n_minimo = L_cab(3) +
+        # L_corpo(14) + L_barra(3) = 20.
+        saida_20 = renderizar_tela(modelo, largura=42, altura=20)
         self._r(
-            "altura minima = 15 com barra horizontal (sem distribuicao)",
-            saida_15.count("\n") == 15
-            and saida_15 == renderizar_tela(modelo, largura=42),
-            "count={0}".format(saida_15.count("\n")),
+            "altura minima = 20 com barra horizontal (sem distribuicao)",
+            saida_20.count("\n") == 20
+            and saida_20 == renderizar_tela(modelo, largura=42),
+            "count={0}".format(saida_20.count("\n")),
         )
 
     def test_fluxo_g_d_b_esc_preservado(self):
@@ -3696,12 +3711,14 @@ class TestDistribuicaoVerticalH0025:
             isinstance(modelo.corpo.distribuicao, dict)
             and modelo.corpo.distribuicao.get("valores") == [2, 1, 2],
         )
-        saida = renderizar_tela(modelo, largura=42, altura=24)
+        # H-0030: com 7 itens no lancador, NAVEGAR requer >= 9 linhas; a
+        # fracao [2,1,2] sobre l_corpo=24 (altura=30) -> [10,5,9].
+        saida = renderizar_tela(modelo, largura=42, altura=30)
         corpo = _corpo_alturas(saida)
-        # l_corpo_disponivel=18 -> [7,4,7] para ITENS/INFO/NAVEGAR.
+        # l_corpo_disponivel=24 -> [10,5,9] para ITENS/INFO/NAVEGAR.
         self._r(
-            "JSON real: altura=24 distribui [7,4,7] entre ITENS/INFO/NAVEGAR",
-            corpo == [7, 4, 7],
+            "JSON real: altura=30 distribui [10,5,9] entre ITENS/INFO/NAVEGAR",
+            corpo == [10, 5, 9],
             "corpo={0}".format(corpo),
         )
         # Sem preenchimento externo (sobra absorvida internamente).
@@ -3712,8 +3729,8 @@ class TestDistribuicaoVerticalH0025:
             "fills={0}".format(len(fill_ext)),
         )
         self._r(
-            "JSON real: total de linhas == 24",
-            saida.count("\n") == 24,
+            "JSON real: total de linhas == 30",
+            saida.count("\n") == 30,
             "count={0}".format(saida.count("\n")),
         )
 
@@ -6360,6 +6377,888 @@ class TestTelasPermanentesH0029:
         self.test_ausencia_sobreposicao()
 
 
+# ---------------------------------------------------------------------------
+# H-0030: catalogo de telas utilizaveis (console, dashboard, matrizes).
+# ---------------------------------------------------------------------------
+
+_TELAS_H0030 = [
+    "h0030_console_unico",
+    "h0030_dashboard_unico",
+    "h0030_matriz_2x2",
+    "h0030_matriz_3x2",
+    "h0030_matriz_2x4",
+]
+
+# (n_linhas, n_colunas, [rotulos de posicao esperados]) por matriz.
+_GEO_H0030 = {
+    "h0030_matriz_2x2": (2, 2),
+    "h0030_matriz_3x2": (3, 2),
+    "h0030_matriz_2x4": (2, 4),
+}
+
+# Altura deterministica para renderizar matrizes (a matriz requer altura
+# explicita para distribuir as linhas; largura=80). 3 linhas no maximo ->
+# 24 linhas bastam para cabecalho(3) + grid + barra(3).
+_ALTURA_MATRIZ_H0030 = 24
+
+
+class TestCatalogoH0030:
+    """Renderizacao do catalogo H-0030 (5 telas permanentes).
+
+    Cobre (H-0030 secoes 14.3 e 14.3-G):
+    - renderizar_tela das 5 telas sem excecao e com saida nao vazia;
+    - conteudo deterministico do console unico e do dashboard unico;
+    - para cada matriz: quantidade de linhas/colunas de celulas, cobertura
+      integral (todos os rotulos de posicao presentes), divisorias verticais
+      e horizontais, ausencia de lacunas e de sobreposicoes;
+    - largura alternativa 120 para cada matriz (sem excecao, mesmas regioes).
+    """
+
+    def _r(self, nome, passou, detalhe=""):
+        _registrar(nome, passou, detalhe)
+
+    def _carregar(self, id_tela):
+        return construir_modelo(carregar_tela(_BASE_PADRAO, id_tela))
+
+    # ---------------------------------- 14.3: render sem excecao, nao vazio
+    def test_renderizar_cinco_telas(self):
+        for id_tela in _TELAS_H0030:
+            modelo = self._carregar(id_tela)
+            eh_matriz = id_tela in _GEO_H0030
+            altura = _ALTURA_MATRIZ_H0030 if eh_matriz else 24
+            try:
+                saida = renderizar_tela(
+                    modelo, tipo_borda="curva", largura=80, altura=altura
+                )
+                ok = isinstance(saida, str) and saida != ""
+            except Exception as exc:
+                ok = False
+                saida = ""
+                detalhe = "{0}: {1}".format(type(exc).__name__, exc)
+            else:
+                detalhe = "len={0}".format(len(saida))
+            self._r(
+                "H-0030 render: renderizar_tela({0}) nao lanca e saida nao vazia".format(
+                    id_tela
+                ),
+                ok,
+                detalhe,
+            )
+            self._r(
+                "H-0030 render: {0} saida nao e None".format(id_tela),
+                saida is not None,
+            )
+
+    # ---------------------------------------------- 14.3: conteudo deterministico
+    def test_console_unico_conteudo(self):
+        modelo = self._carregar("h0030_console_unico")
+        saida = renderizar_tela(modelo, tipo_borda="curva", largura=80, altura=24)
+        self._r(
+            "H-0030 render: console_unico exibe titulo 'CONSOLE'",
+            "CONSOLE" in saida,
+        )
+        self._r(
+            "H-0030 render: console_unico exibe placeholder '(console)'",
+            "(console)" in saida,
+        )
+        self._r(
+            "H-0030 render: console_unico exibe barra '[Esc] Voltar'",
+            "[Esc] Voltar" in saida,
+        )
+
+    def test_dashboard_unico_conteudo(self):
+        modelo = self._carregar("h0030_dashboard_unico")
+        saida = renderizar_tela(modelo, tipo_borda="curva", largura=80, altura=24)
+        self._r(
+            "H-0030 render: dashboard_unico exibe 'dashboard único'",
+            "dashboard único" in saida,
+        )
+        self._r(
+            "H-0030 render: dashboard_unico exibe 'H-0030'",
+            "H-0030" in saida,
+        )
+        self._r(
+            "H-0030 render: dashboard_unico exibe titulo 'DASHBOARD'",
+            "DASHBOARD" in saida,
+        )
+
+    # ---------------------------------------------- 14.3-G: geometria das matrizes
+    def test_matrizes_geometria(self):
+        for id_matriz, (n_linhas, n_colunas) in _GEO_H0030.items():
+            modelo = self._carregar(id_matriz)
+            largura = 80
+            altura = _ALTURA_MATRIZ_H0030
+            saida = renderizar_tela(
+                modelo, tipo_borda="curva", largura=largura, altura=altura
+            )
+            self._r(
+                "H-0030 geo: {0} render sem excecao (largura=80)".format(id_matriz),
+                isinstance(saida, str) and saida != "",
+            )
+
+            # Rotulos de posicao: cada celula declara "linha N, coluna M".
+            rotulos_esperados = {
+                "linha {0}, coluna {1}".format(ln, co)
+                for ln in range(1, n_linhas + 1)
+                for co in range(1, n_colunas + 1)
+            }
+            presentes = {r for r in rotulos_esperados if r in saida}
+            self._r(
+                "H-0030 geo: {0} exibe todos os {1} rotulos de posicao".format(
+                    id_matriz, n_linhas * n_colunas
+                ),
+                presentes == rotulos_esperados,
+                "faltam={0!r}".format(sorted(rotulos_esperados - presentes)),
+            )
+
+            # Titulos das celulas ("L<n> C<m>") tambem aparecem.
+            titulos_esperados = {
+                "L{0} C{1}".format(ln, co)
+                for ln in range(1, n_linhas + 1)
+                for co in range(1, n_colunas + 1)
+            }
+            titulos_presentes = {t for t in titulos_esperados if t in saida}
+            self._r(
+                "H-0030 geo: {0} exibe todos os titulos de celula (L<n> C<m>)".format(
+                    id_matriz
+                ),
+                titulos_presentes == titulos_esperados,
+                "faltam={0!r}".format(sorted(titulos_esperados - titulos_presentes)),
+            )
+
+            # Cobertura: cada rotulo aparece exatamente uma vez (sem duplicidade
+            # de celula, sem lacuna).
+            for rotulo in sorted(rotulos_esperados):
+                self._r(
+                    "H-0030 geo: {0} rotulo {1!r} aparece exatamente uma vez".format(
+                        id_matriz, rotulo
+                    ),
+                    saida.count(rotulo) == 1,
+                    "count={0}".format(saida.count(rotulo)),
+                )
+
+            # Quantidade de linhas de conteudo de celula: cada linha do grid
+            # tem sua propria faixa horizontal de caixas. Conta-se quantas
+            # linhas de texto possuem o rotulo de coluna 1 (borda esquerda da
+            # primeira celula de cada linha).
+            # Estrutura: cabecalho(3) + (n_linhas faixas) + barra(3).
+            linhas = saida.split("\n")
+            # Numero de linhas de grade = contagem de linhas que iniciam uma
+            # caixa de celula na primeira coluna (topo "╭ L1 C1" etc.).
+            inicioss = [
+                i for i, l in enumerate(linhas)
+                if l.startswith("╭ L") or l.startswith("┌ L")
+            ]
+            self._r(
+                "H-0030 geo: {0} possui {1} linhas de celulas (faixas horizontais)".format(
+                    id_matriz, n_linhas
+                ),
+                len(inicioss) == n_linhas,
+                "inicios={0!r}".format(inicioss),
+            )
+
+            # Divisorias verticais: entre colunas adjacentes, cada linha de
+            # conteudo possui bordas verticais nas coordenadas dos cortes.
+            # Verifica-se que o numero de caixas por faixa (linha do grid)
+            # equivale a n_colunas: cada faixa contem n_colunas rotulos de
+            # titulo "L<n> C<m>".
+            for i_linha, linha_grid in enumerate(inicioss, start=1):
+                # Rotulos esperados nesta faixa (linha do grid = i_linha).
+                titulos_linha = [
+                    "L{0} C{1}".format(i_linha, co)
+                    for co in range(1, n_colunas + 1)
+                ]
+                # A faixa vai do inicio atual ate o proximo inicio (ou ate a barra).
+                fim_faixa = (
+                    inicioss[i_linha] if i_linha < len(inicioss) else len(linhas)
+                )
+                bloco_faixa = "\n".join(linhas[linha_grid:fim_faixa])
+                self._r(
+                    "H-0030 geo: {0} faixa {1} contem {2} colunas (titulos L{1} C*)".format(
+                        id_matriz, i_linha, n_colunas
+                    ),
+                    all(t in bloco_faixa for t in titulos_linha)
+                    and len(titulos_linha) == n_colunas,
+                    "faixa={0!r}".format(bloco_faixa[:60]),
+                )
+
+            # Divisoria horizontal: entre faixas verticais adjacentes deve
+            # existir uma linha de borda (base da faixa superior/topo da
+            # faixa inferior). Os proprios inicios das faixas (exceto a 1a)
+            # marcam essa transicao; como cada faixa tem topo e base em
+            # coordenadas compartilhadas, a existencia de >=2 faixas ja
+            # implica ao menos uma divisoria horizontal central.
+            if n_linhas >= 2:
+                self._r(
+                    "H-0030 geo: {0} tem divisoria horizontal (>=2 faixas empilhadas)".format(
+                        id_matriz
+                    ),
+                    len(inicioss) >= 2,
+                    "faixas={0}".format(len(inicioss)),
+                )
+
+            # Divisorias verticais: em largura 80 com n_colunas colunas iguais,
+            # cada faixa possui n_colunas caixas lado a lado, separadas por
+            # divisores verticais (╮╭ ou ┐┌). Verifica-se pela presenca do
+            # padrao de juncao entre caixas ("╮╭" no conjunto curva).
+            if n_colunas >= 2:
+                padrao_juncao = "╮╭"
+                tem_divisoria_vertical = padrao_juncao in saida
+                self._r(
+                    "H-0030 geo: {0} tem divisoria(s) vertical(is) entre colunas".format(
+                        id_matriz
+                    ),
+                    tem_divisoria_vertical,
+                    "padrao_juncao={0!r} presente={1}".format(
+                        padrao_juncao, tem_divisoria_vertical
+                    ),
+                )
+
+            # Ausencia de sobreposicao: cada titulo "L<n> C<m>" aparece uma
+            # unica vez (ja verificado acima); como adicional, nenhum rotulo
+            # de posicao se sobrepoe a outro na mesma linha (cada linha de
+            # texto contem no maximo n_colunas rotulos). Verifica-se que nao
+            # ha duas ocorrencias do mesmo rotulo na mesma linha visivel.
+            sobreposicoes = 0
+            for l in linhas:
+                for rotulo in rotulos_esperados:
+                    if l.count(rotulo) > 1:
+                        sobreposicoes += 1
+            self._r(
+                "H-0030 geo: {0} sem sobreposicao de rotulos na mesma linha".format(
+                    id_matriz
+                ),
+                sobreposicoes == 0,
+                "sobreposicoes={0}".format(sobreposicoes),
+            )
+
+    def test_matrizes_geometria_coordenadas(self):
+        """Fortalece test_matrizes_geometria com provas por coordenadas reais.
+
+        As assercoes a seguir derivam as propriedades estruturais (faixas,
+        colunas, bordas externas, cortes verticais, divisoria horizontal,
+        alinhamento dos cortes entre faixas, pontos de encontro, contiguidade,
+        ausencia de lacunas e de sobreposicao de retangulos) diretamente das
+        posicoes dos caracteres de borda na saida renderizada. Nao reimplementam
+        o algoritmo produtivo nem aceitam `len(faixas) >= 2` como prova de
+        divisoria, nem duplicidade de rotulo como prova de ausencia de
+        sobreposicao.
+        """
+        for id_matriz, (n_linhas, n_colunas) in _GEO_H0030.items():
+            modelo = self._carregar(id_matriz)
+            largura = 80
+            altura = _ALTURA_MATRIZ_H0030
+            saida = renderizar_tela(
+                modelo, tipo_borda="curva", largura=largura, altura=altura
+            )
+            linhas = saida.splitlines()
+            corpo = _linhas_corpo_renderizado(saida)
+
+            # 1. Quantidade correta de faixas de linhas: cada faixa comeca
+            #    num caractere de topo de caixa ("╭"/"┌") na coluna 0.
+            inicios_faixas = [
+                i for i, l in enumerate(corpo)
+                if l.startswith("╭") or l.startswith("┌")
+            ]
+            # 2. Quantidade correta de colunas por faixa: cada faixa termina
+            #    num caractere de base de caixa ("╰"/"└") na coluna 0.
+            fins_faixas = [
+                i for i, l in enumerate(corpo)
+                if l.startswith("╰") or l.startswith("└")
+            ]
+            self._r(
+                "H-0030 geo-coord: {0} tem {1} faixas de linha".format(
+                    id_matriz, n_linhas
+                ),
+                len(inicios_faixas) == n_linhas,
+                "inicios={0!r} corpo={1}".format(inicios_faixas, len(corpo)),
+            )
+            self._r(
+                "H-0030 geo-coord: {0} tem {1} bases de faixa".format(
+                    id_matriz, n_linhas
+                ),
+                len(fins_faixas) == n_linhas,
+                "fins={0!r}".format(fins_faixas),
+            )
+
+            # Faixas: lista de (inicio, fim) em indices do corpo.
+            faixas = list(zip(inicios_faixas, fins_faixas))
+            alturas_faixas = [fim - ini + 1 for ini, fim in faixas]
+
+            # 10. Ausencia de linha vazia inesperada entre faixas: a base de
+            #     uma faixa precede imediatamente o topo da seguinte.
+            sem_linha_vazia = all(
+                faixas[k][1] + 1 == faixas[k + 1][0]
+                for k in range(len(faixas) - 1)
+            )
+            self._r(
+                "H-0030 geo-coord: {0} sem linha vazia entre faixas".format(
+                    id_matriz
+                ),
+                sem_linha_vazia,
+                "alturas_faixas={0!r}".format(alturas_faixas),
+            )
+
+            # 3. Coordenadas das bordas externas (colunas e linhas do corpo).
+            #    Coluna esquerda = 0; coluna direita = largura - 1.
+            #    Linha do corpo de topo externo = inicios_faixas[0];
+            #    linha de base externa = fins_faixas[-1].
+            borda_esq = 0
+            borda_dir = largura - 1
+            self._r(
+                "H-0030 geo-coord: {0} bordas externas col 0 e {1}".format(
+                    id_matriz, borda_dir
+                ),
+                corpo[inicios_faixas[0]][borda_esq] in "╭┌"
+                and corpo[fins_faixas[-1]][borda_esq] in "╰└"
+                and corpo[inicios_faixas[0]][borda_dir] in "╮┐"
+                and corpo[fins_faixas[-1]][borda_dir] in "╯┘",
+                "externos=[{0},{1}]".format(
+                    corpo[inicios_faixas[0]][0],
+                    corpo[fins_faixas[-1]][-1],
+                ),
+            )
+
+            # 4/6. Cortes verticais e alinhamento entre faixas: derivados das
+            #      posicoes de borda de uma linha de conteudo de cada faixa.
+            #      Os cortes internos (entre celulas) sao as colunas onde
+            #      aparece "|" e que nao sao as bordas externas. O par (k, k+1)
+            #      representa o encontro base/topo de caixas vizinhas; a coluna
+            #      do corte interno e k+1 (ou k, dependendo da convensao); aqui
+            #      verificamos o conjunto de colunas de borda que se repete em
+            #      todas as faixas (alinhamento dos cortes).
+            cortes_por_faixa = []
+            for ini, fim in faixas:
+                # Linha de conteudo valida: primeira linha apos o topo da faixa
+                # que comeca com "│" e contem o rotulo de posicao.
+                linhas_conteudo = [
+                    corpo[i] for i in range(ini + 1, fim)
+                    if corpo[i].startswith("│") and "linha" in corpo[i]
+                ]
+                self._r(
+                    "H-0030 geo-coord: {0} faixa {1} tem linha de conteudo".format(
+                        id_matriz, ini
+                    ),
+                    len(linhas_conteudo) >= 1,
+                    "ini={0}".format(ini),
+                )
+                if not linhas_conteudo:
+                    cortes_por_faixa.append(set())
+                    continue
+                pos = _posicoes_bordas_linha(linhas_conteudo[0])
+                # Cortes internos = bordas verticais que nao sao os externos.
+                cortes_internos = {
+                    p for p in pos if p != borda_esq and p != borda_dir
+                }
+                cortes_por_faixa.append(cortes_internos)
+
+            # 4. Coordenadas dos cortes verticais em cada faixa: o numero de
+            #    cortes internos distintos por faixa deve ser 2*(n_colunas-1)
+            #    (cada juncao entre duas caixas vizinhas gera um par de bordas
+            #    em colunas adjacentes) — equivalente a n_colunas-1 divisores.
+            for k_faixa, cortes in enumerate(cortes_por_faixa, start=1):
+                # Agrupa colunas adjacentes em divisores: cada divisor ocupa
+                # duas colunas consecutivas (parede direita de uma caixa e
+                # parede esquerda da seguinte).
+                ordenados = sorted(cortes)
+                divisores = []
+                i = 0
+                while i < len(ordenados):
+                    if i + 1 < len(ordenados) and ordenados[i + 1] - ordenados[i] == 1:
+                        divisores.append((ordenados[i], ordenados[i + 1]))
+                        i += 2
+                    else:
+                        divisores.append((ordenados[i], ordenados[i]))
+                        i += 1
+                self._r(
+                    "H-0030 geo-coord: {0} faixa {1} tem {2} divisores verticais".format(
+                        id_matriz, k_faixa, n_colunas - 1
+                    ),
+                    len(divisores) == n_colunas - 1,
+                    "divisores={0!r} cortes={1!r}".format(divisores, ordenados),
+                )
+
+            # 6. Alinhamento dos cortes verticais entre as faixas: o conjunto
+            #    de cortes internos deve ser identico em todas as faixas.
+            alinhados = all(
+                cortes == cortes_por_faixa[0] for cortes in cortes_por_faixa
+            )
+            self._r(
+                "H-0030 geo-coord: {0} cortes verticais alinhados entre faixas".format(
+                    id_matriz
+                ),
+                alinhados,
+                "cortes_por_faixa={0!r}".format(cortes_por_faixa),
+            )
+
+            # 2 (reconfirmado). Colunas por faixa derivadas dos cortes internos
+            #    da faixa 0: n_colunas = n_divisores + 1.
+            if cortes_por_faixa:
+                divisores_f0 = sorted(cortes_por_faixa[0])
+                n_div = 0
+                i = 0
+                while i < len(divisores_f0):
+                    if i + 1 < len(divisores_f0) and divisores_f0[i + 1] - divisores_f0[i] == 1:
+                        n_div += 1
+                        i += 2
+                    else:
+                        n_div += 1
+                        i += 1
+                self._r(
+                    "H-0030 geo-coord: {0} colunas por faixa = {1}".format(
+                        id_matriz, n_colunas
+                    ),
+                    n_div + 1 == n_colunas,
+                    "n_divisores={0}".format(n_div),
+                )
+
+            # 5. Divisoria horizontal: a base da faixa superior e o topo da
+            #    faixa inferior ficam em linhas consecutivas do corpo. A linha
+            #    de base termina com "╰"/"└" e a linha seguinte comeca com
+            #    "╭"/"┌" — isso prova uma divisoria horizontal real (nao apenas
+            #    `len(faixas) >= 2`).
+            divisorias_horizontais = 0
+            for k in range(len(faixas) - 1):
+                base = corpo[faixas[k][1]]
+                topo_seg = corpo[faixas[k + 1][0]]
+                if (base.startswith("╰") or base.startswith("└")) and (
+                    topo_seg.startswith("╭") or topo_seg.startswith("┌")
+                ) and faixas[k][1] + 1 == faixas[k + 1][0]:
+                    divisorias_horizontais += 1
+            self._r(
+                "H-0030 geo-coord: {0} tem {1} divisoria(s) horizontal(is) por base/topo".format(
+                    id_matriz, n_linhas - 1
+                ),
+                divisorias_horizontais == n_linhas - 1,
+                "divisorias={0}".format(divisorias_horizontais),
+            )
+
+            # 7. Pontos de encontro entre bordas horizontais e verticais:
+            #    no cruzamento de uma divisoria horizontal com um corte
+            #    vertical, a coluna do corte na linha de base da faixa superior
+            #    deve conter um caractere de borda (parede vertical cruza a
+            #    base). Verifica-se para cada divisor da faixa superior.
+            if cortes_por_faixa and n_linhas >= 2:
+                base_faixa_sup = corpo[faixas[0][1]]
+                cortes_sup = sorted(cortes_por_faixa[0])
+                # colunas de borda presentes na linha de base
+                bordas_base = _posicoes_bordas_linha(base_faixa_sup)
+                # Cada divisor (par de colunas adjacentes) deve aparecer como
+                # borda na linha de base (ponto de encontro).
+                encontros = 0
+                i = 0
+                while i < len(cortes_sup):
+                    if i + 1 < len(cortes_sup) and cortes_sup[i + 1] - cortes_sup[i] == 1:
+                        if cortes_sup[i] in bordas_base and cortes_sup[i + 1] in bordas_base:
+                            encontros += 1
+                        i += 2
+                    else:
+                        if cortes_sup[i] in bordas_base:
+                            encontros += 1
+                        i += 1
+                self._r(
+                    "H-0030 geo-coord: {0} encontros HxV na divisoria horizontal".format(
+                        id_matriz
+                    ),
+                    encontros == n_colunas - 1,
+                    "encontros={0} bordas_base={1!r}".format(encontros, bordas_base),
+                )
+
+            # 8. Contiguidade entre caixas adjacentes: para cada faixa, em uma
+            #    linha de conteudo, a parede direita de uma caixa (coluna k) e
+            #    a parede esquerda da caixa seguinte (coluna k+1) devem ser
+            #    consecutivas, sem coluna de espaco entre elas. Os cortes
+            #    internos formam pares de colunas adjacentes (um divisor por
+            #    juncao); dentro de cada par a distancia deve ser 1.
+            contiguo = True
+            detalhe_contig = []
+            for ini, fim in faixas:
+                linhas_c = [
+                    corpo[i] for i in range(ini + 1, fim)
+                    if corpo[i].startswith("│") and "linha" in corpo[i]
+                ]
+                if not linhas_c:
+                    continue
+                pos = _posicoes_bordas_linha(linhas_c[0])
+                internos = sorted(
+                    p for p in pos if p != borda_esq and p != borda_dir
+                )
+                # Agrupa internos em pares de colunas adjacentes (divisores).
+                i = 0
+                while i < len(internos):
+                    if (
+                        i + 1 < len(internos)
+                        and internos[i + 1] - internos[i] == 1
+                    ):
+                        i += 2
+                    else:
+                        contiguo = False
+                        detalhe_contig.append((ini, internos))
+                        break
+            self._r(
+                "H-0030 geo-coord: {0} caixas adjacentes contiguas (sem coluna vazia)".format(
+                    id_matriz
+                ),
+                contiguo,
+                "quebras={0!r}".format(detalhe_contig),
+            )
+
+            # 9. Ausencia de coluna vazia inesperada entre caixas: derivado da
+            #    contiguidade acima — reafirma em separado como cobertura 9.
+            #    (Sempre passa se a contiguidade passar; registrado para fins
+            #    de rastreabilidade da cobertura exigida.)
+            self._r(
+                "H-0030 geo-coord: {0} sem coluna vazia entre caixas".format(
+                    id_matriz
+                ),
+                contiguo,
+                "ver teste de contiguidade acima",
+            )
+
+            # 11/12. Cobertura integral + ausencia de sobreposicao entre
+            #        retangulos de celulas distintas: constroi os retangulos
+            #        (intervalos [linha, coluna]) de cada celula a partir dos
+            #        cortes por faixa e verifica (a) que cobrem toda a regiao
+            #        da matriz sem lacuna e (b) que retangulos distintos nao se
+            #        intersectam.
+            retangulos = []  # (linha_corpo_inicio, linha_corpo_fim, col_ini, col_fim)
+            for (ini, fim), cortes in zip(faixas, cortes_por_faixa):
+                ordenados = sorted(cortes)
+                # Fronteiras de coluna: 0, depois os cortes agrupados em pares.
+                fronteira = [borda_esq]
+                i = 0
+                while i < len(ordenados):
+                    if i + 1 < len(ordenados) and ordenados[i + 1] - ordenados[i] == 1:
+                        fronteira.append(ordenados[i + 1])
+                        i += 2
+                    else:
+                        fronteira.append(ordenados[i])
+                        i += 1
+                fronteira.append(borda_dir)
+                # Celulas: intervalos [fronteira[k], fronteira[k+1]].
+                for k in range(len(fronteira) - 1):
+                    retangulos.append(
+                        (ini, fim, fronteira[k], fronteira[k + 1])
+                    )
+
+            # (a) Cobertura integral: numero de retangulos == n_linhas*n_colunas.
+            self._r(
+                "H-0030 geo-coord: {0} cobertura integral com {1} celulas".format(
+                    id_matriz, n_linhas * n_colunas
+                ),
+                len(retangulos) == n_linhas * n_colunas,
+                "retangulos={0}".format(len(retangulos)),
+            )
+
+            # (b) Ausencia de sobreposicao: retangulos distintos na mesma faixa
+            #     nao compartilham colunas; retangulos em faixas distintas nao
+            #     compartilham linhas. (As celulas sao disjuntas por
+            #     construcao da grade.)
+            sobreposicao = False
+            for a in range(len(retangulos)):
+                for b in range(a + 1, len(retangulos)):
+                    la_i, la_f, ca_i, ca_f = retangulos[a]
+                    lb_i, lb_f, cb_i, cb_f = retangulos[b]
+                    # Intersecao de intervalos (linha e coluna).
+                    inter_linha = not (la_f < lb_i or lb_f < la_i)
+                    inter_coluna = not (ca_f < cb_i or cb_f < ca_i)
+                    if inter_linha and inter_coluna:
+                        # Tolerancia: as paredes compartilhadas (limite
+                        # comum) nao sao sobreposicao de area. Ha
+                        # sobreposicao real apenas se houver area interna
+                        # comum, i.e., mais do que a parede divisoria.
+                        area_comum = (
+                            (min(la_f, lb_f) - max(la_i, lb_i))
+                            * (min(ca_f, cb_f) - max(ca_i, cb_i))
+                        )
+                        if area_comum > 0:
+                            sobreposicao = True
+            self._r(
+                "H-0030 geo-coord: {0} sem sobreposicao de retangulos distintos".format(
+                    id_matriz
+                ),
+                not sobreposicao,
+                "sobreposicao={0}".format(sobreposicao),
+            )
+
+            # (c) Contiguidade vertical entre faixas: a faixa k termina na
+            #     linha imediatamente anterior ao inicio da faixa k+1.
+            self._r(
+                "H-0030 geo-coord: {0} faixas contiguas verticalmente".format(
+                    id_matriz
+                ),
+                all(
+                    faixas[k][1] + 1 == faixas[k + 1][0]
+                    for k in range(len(faixas) - 1)
+                ),
+                "faixas={0!r}".format(faixas),
+            )
+
+            # 13. Preservacao dos rotulos e titulos esperados: ja coberto em
+            #     test_matrizes_geometria; reafirma cobertura integral dos
+            #     rotulos de posicao aqui como parte da prova por coordenadas.
+            rotulos = {
+                "linha {0}, coluna {1}".format(ln, co)
+                for ln in range(1, n_linhas + 1)
+                for co in range(1, n_colunas + 1)
+            }
+            presentes = {r for r in rotulos if r in saida}
+            self._r(
+                "H-0030 geo-coord: {0} preserva todos os rotulos de posicao".format(
+                    id_matriz
+                ),
+                presentes == rotulos,
+                "faltam={0!r}".format(sorted(rotulos - presentes)),
+            )
+
+            # 14. Largura padrao prevista: toda linha nao-vazia tem largura 80.
+            larguras_linhas = {len(l) for l in linhas if l != ""}
+            self._r(
+                "H-0030 geo-coord: {0} largura 80 em todas as linhas".format(
+                    id_matriz
+                ),
+                larguras_linhas == {80},
+                "larguras={0!r}".format(sorted(larguras_linhas)),
+            )
+
+            # Cada rotulo aparece exatamente uma vez (sem celula duplicada nem
+            # ausente) — cobertura adicional derivada por contagem.
+            unicidade = all(saida.count(r) == 1 for r in rotulos)
+            self._r(
+                "H-0030 geo-coord: {0} cada rotulo aparece exatamente uma vez".format(
+                    id_matriz
+                ),
+                unicidade,
+                "contagens={0!r}".format(
+                    {r: saida.count(r) for r in sorted(rotulos)}
+                ),
+            )
+
+    def test_matrizes_cortes_distribuicao_igual(self):
+        """Prova os cortes verticais contra coordenadas esperadas da distribuicao igual.
+
+        Cobre a pendencia residual do achado QA-IMP-H0030-MEDIO-001 identificada
+        pelo QA pos-patch (RELATORIO_QA_POS_PATCH_H-0030_IMPLEMENTACAO.md, secao 5):
+
+        (i)  a cobertura anterior derivava os cortes da propria saida e verificava
+             apenas quantidade e alinhamento entre faixas, sem exigir os valores
+             esperados para distribuicao igual. Um corte vertical deslocado de
+             forma consistente poderia passar.
+        (ii) a verificacao de encontros HxV contra a linha de base era pouco
+             discriminante, pois `_posicoes_bordas_linha` tambem considera o
+             caractere horizontal `─`, de modo que uma base horizontal completa
+             tende a conter qualquer coluna de corte deslocado.
+
+        As assercoes a seguir derivam as coordenadas esperadas da largura e do
+        numero de colunas (independente do algoritmo produtivo e da propria
+        saida) e comprovam duas propriedades geométricas independentes:
+
+        1. Os cortes verticais internos caem exatamente nas colunas exigidas
+           pela distribuicao igual em largura 80: cada par (k*passo-1, k*passo)
+           com passo = largura // n_colunas. Para 2 colunas -> (39,40); para
+           4 colunas -> (19,20),(39,40),(59,60). Um corte deslocado falha.
+        2. O encontro entre a divisoria vertical e a divisoria horizontal (HxV)
+           ocorre em caracteres de quina (╮╭ no topo, ╯╰ na base) e nunca em
+           traco horizontal `─`. Isso torna a prova especifica: se o corte
+           estiver deslocado para uma coluna de base preenchida por `─`, o par
+           esperado nao aparecera como quina.
+        """
+        # Quinas de juncao entre faixas horizontais: o corte vertical de cada
+        # coluna divide a borda de topo (╮╭) e a borda de base (╯╰) em pares
+        # de quinas adjacentes. O traco horizontal `─` nao e quina.
+        quinas_topo = ("╮", "╭")
+        quinas_base = ("╯", "╰")
+        for id_matriz, (n_linhas, n_colunas) in _GEO_H0030.items():
+            modelo = self._carregar(id_matriz)
+            largura = 80
+            altura = _ALTURA_MATRIZ_H0030
+            saida = renderizar_tela(
+                modelo, tipo_borda="curva", largura=largura, altura=altura
+            )
+            corpo = _linhas_corpo_renderizado(saida)
+
+            # Faixas (inicio, fim) a partir de topo/base na coluna 0.
+            inicios_faixas = [
+                i for i, l in enumerate(corpo)
+                if l.startswith("╭") or l.startswith("┌")
+            ]
+            fins_faixas = [
+                i for i, l in enumerate(corpo)
+                if l.startswith("╰") or l.startswith("└")
+            ]
+            faixas = list(zip(inicios_faixas, fins_faixas))
+
+            # Coordenadas esperadas dos cortes internos para distribuicao igual.
+            # Invariante geometrico: em largura L com C colunas iguais, o k-esimo
+            # corte cai entre as colunas (k*L//C - 1) e (k*L//C), formando um par
+            # de paredes adjacentes. O algoritmo produtivo nao e consultado; os
+            # valores derivam somente de L e C.
+            passo = largura // n_colunas
+            cortes_esperados = [
+                (k * passo - 1, k * passo) for k in range(1, n_colunas)
+            ]
+
+            # Propriedade 1 (corte deslocado): para cada faixa, a linha de
+            # conteudo apresenta exatamente os pares de colunas esperados como
+            # paredes verticais internas. Extrai-se as paredes (apenas "|") em
+            # colunas internas e agrupa-se em pares adjacentes; o conjunto
+            # resultante deve ser igual ao esperado.
+            for k_faixa, (ini, fim) in enumerate(faixas, start=1):
+                linhas_c = [
+                    corpo[i] for i in range(ini + 1, fim)
+                    if corpo[i].startswith("│") and "linha" in corpo[i]
+                ]
+                # Colunas com parede vertical "|" (nao qualquer caractere de
+                # borda): isso isola as paredes laterais das celulas.
+                paredes = [
+                    p for p, ch in enumerate(linhas_c[0])
+                    if ch == "│" and 0 < p < largura - 1
+                ]
+                ordenados = sorted(paredes)
+                pares = []
+                i = 0
+                while i < len(ordenados):
+                    if (
+                        i + 1 < len(ordenados)
+                        and ordenados[i + 1] - ordenados[i] == 1
+                    ):
+                        pares.append((ordenados[i], ordenados[i + 1]))
+                        i += 2
+                    else:
+                        pares.append((ordenados[i], ordenados[i]))
+                        i += 1
+                self._r(
+                    "H-0030 geo-igual: {0} faixa {1} cortes internos nas "
+                    "colunas esperadas {2}".format(
+                        id_matriz, k_faixa, cortes_esperados
+                    ),
+                    pares == cortes_esperados,
+                    "pares={0!r} esperados={1!r}".format(pares, cortes_esperados),
+                )
+
+            # Propriedade 2 (encontro HxV especifico): na divisoria horizontal
+            # entre cada par de faixas vizinhas, cada corte interno esperado
+            # aparece como um par de quinas adjacentes (╮╭ no topo da faixa
+            # inferior e ╯╰ na base da faixa superior), nunca como `─`. Isso
+            # prova que o corte vertical realmente cruza a divisoria horizontal
+            # numa interseccao de quina, e nao apenas numa coluna qualquer de
+            # uma base horizontal completa.
+            for k in range(len(faixas) - 1):
+                base_sup = corpo[faixas[k][1]]
+                topo_inf = corpo[faixas[k + 1][0]]
+                for (c_esq, c_dir) in cortes_esperados:
+                    par_base = (base_sup[c_esq], base_sup[c_dir])
+                    par_topo = (topo_inf[c_esq], topo_inf[c_dir])
+                    self._r(
+                        "H-0030 geo-igual: {0} div.h.{1} corte {2},{3} "
+                        "quina base (╯╰)".format(
+                            id_matriz, k + 1, c_esq, c_dir
+                        ),
+                        par_base == quinas_base,
+                        "par_base={0!r}".format(par_base),
+                    )
+                    self._r(
+                        "H-0030 geo-igual: {0} div.h.{1} corte {2},{3} "
+                        "quina topo (╮╭)".format(
+                            id_matriz, k + 1, c_esq, c_dir
+                        ),
+                        par_topo == quinas_topo,
+                        "par_topo={0!r}".format(par_topo),
+                    )
+
+            # Regressao explicita de lacuna/coluna vazia no corte: a coluna
+            # imediatamente anterior (c_esq) e a imediatamente posterior (c_dir)
+            # a um corte esperado devem ambas conter parede vertical numa linha
+            # de conteudo; se o renderer inserir um espaco em branco em uma das
+            # duas, a contiguidade entre caixas vizinhas esta quebrada.
+            ini0, fim0 = faixas[0]
+            conteudo0 = [
+                corpo[i] for i in range(ini0 + 1, fim0)
+                if corpo[i].startswith("│") and "linha" in corpo[i]
+            ][0]
+            for (c_esq, c_dir) in cortes_esperados:
+                self._r(
+                    "H-0030 geo-igual: {0} corte {1},{2} sem coluna vazia "
+                    "(paredes nas duas colunas)".format(
+                        id_matriz, c_esq, c_dir
+                    ),
+                    conteudo0[c_esq] == "│" and conteudo0[c_dir] == "│",
+                    "chars={0!r}".format(
+                        (conteudo0[c_esq], conteudo0[c_dir])
+                    ),
+                )
+
+    def test_matrizes_largura_alternativa_120(self):
+        for id_matriz, (n_linhas, n_colunas) in _GEO_H0030.items():
+            modelo = self._carregar(id_matriz)
+            try:
+                saida = renderizar_tela(
+                    modelo, tipo_borda="curva", largura=120,
+                    altura=_ALTURA_MATRIZ_H0030,
+                )
+                ok = isinstance(saida, str) and saida != ""
+            except Exception as exc:
+                ok = False
+                detalhe = "{0}: {1}".format(type(exc).__name__, exc)
+            else:
+                detalhe = "len={0}".format(len(saida))
+            self._r(
+                "H-0030 geo: {0} largura=120 nao lanca excecao".format(id_matriz),
+                ok,
+                detalhe,
+            )
+            # Largura 120 mantem o mesmo numero de regioes de celula.
+            rotulos_esperados = {
+                "linha {0}, coluna {1}".format(ln, co)
+                for ln in range(1, n_linhas + 1)
+                for co in range(1, n_colunas + 1)
+            }
+            presentes = {r for r in rotulos_esperados if r in saida}
+            self._r(
+                "H-0030 geo: {0} largura=120 mantem {1} regioes de celula".format(
+                    id_matriz, n_linhas * n_colunas
+                ),
+                presentes == rotulos_esperados,
+                "faltam={0!r}".format(sorted(rotulos_esperados - presentes)),
+            )
+            # Cada linha nao-vazia tem exatamente 120 chars.
+            self._r(
+                "H-0030 geo: {0} largura=120: linhas nao-vazias tem 120 chars".format(
+                    id_matriz
+                ),
+                all(len(ln) == 120 for ln in saida.split("\n") if ln != ""),
+                "larguras={0}".format(
+                    sorted({len(ln) for ln in saida.split("\n") if ln != ""})
+                ),
+            )
+
+    def test_preservacao_telas_anteriores(self):
+        """Telas anteriores continuam renderizando sem regressao."""
+        for id_perm in ("destino_minimo", "grupo_minimo", "orquestrador"):
+            modelo = self._carregar(id_perm)
+            try:
+                saida = renderizar_tela(modelo, tipo_borda="curva", largura=42)
+                ok = isinstance(saida, str) and saida != ""
+            except Exception:
+                ok = False
+            self._r(
+                "H-0030 render: tela anterior {0} ainda renderiza".format(id_perm),
+                ok,
+            )
+
+    def run_all(self):
+        print("")
+        print("== TestCatalogoH0030: render do catalogo de 5 telas permanentes ==")
+        self.test_renderizar_cinco_telas()
+        self.test_console_unico_conteudo()
+        self.test_dashboard_unico_conteudo()
+        self.test_matrizes_geometria()
+        self.test_matrizes_geometria_coordenadas()
+        self.test_matrizes_cortes_distribuicao_igual()
+        self.test_matrizes_largura_alternativa_120()
+        self.test_preservacao_telas_anteriores()
+
+
 def main():
     print("Diagnostico H-0010A - renderer declarativo (curva/reta)")
     print("Base padrao: {0}".format(_BASE_PADRAO))
@@ -6387,6 +7286,7 @@ def main():
     TestRenderizadorMatrizH0028().run_all()
     TestCardinalidadeUnitariaH0029().run_all()
     TestTelasPermanentesH0029().run_all()
+    TestCatalogoH0030().run_all()
 
     print("")
     print("== Resumo ==")

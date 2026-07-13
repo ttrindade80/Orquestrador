@@ -271,8 +271,9 @@ def teste_caminho_feliz():
         lancador.get("itens") if isinstance(lancador, dict) else None
     )
     _registrar(
-        "lancador_principal.itens e lista com 2 itens (H-0013)",
-        isinstance(itens_lancador, list) and len(itens_lancador) == 2,
+        "lancador_principal.itens e lista com 7 itens "
+        "(H-0013 d/g + H-0030 chips 1-5)",
+        isinstance(itens_lancador, list) and len(itens_lancador) == 7,
         "n={0}".format(
             len(itens_lancador) if isinstance(itens_lancador, list) else "?"
         ),
@@ -1694,6 +1695,230 @@ class TestValidacaoMatrizH0028:
         self.test_diagnosticos_mencionam_campos_matriciais()
 
 
+# Telas permanentes do catalogo H-0030 (console, dashboard, matrizes).
+# A ordem preserva a numeracao do handoff (secao 3).
+_TELAS_H0030 = [
+    "h0030_console_unico",
+    "h0030_dashboard_unico",
+    "h0030_matriz_2x2",
+    "h0030_matriz_3x2",
+    "h0030_matriz_2x4",
+]
+
+
+def teste_h0030_catalogo():
+    """Cobre os criterios de carregamento do catalogo H-0030.
+
+    Para cada uma das cinco telas:
+    - carregamento valido (sem excecao);
+    - identificacao correta (id == basename, schema presente);
+    - estrutura obrigatoria (cabecalho, corpo, barra_de_menus);
+    - corpo com exatamente um elemento (console/dashboard/grupo).
+
+    Cobertura adicional do lancador do orquestrador (H-0030 secao 14.4):
+    - exatamente 7 itens;
+    - 2 itens preservados (d, g) + 5 novos (1..5);
+    - chips 1..5 nao conflitam com d/g;
+    - todos os texto <= 15 caracteres;
+    - todos os tela_destino resolvem para arquivos existentes.
+    """
+    print("")
+    print("== Catalogo H-0030 (5 telas permanentes) ==")
+
+    for id_tela in _TELAS_H0030:
+        try:
+            tela = carregar_tela(_BASE_PADRAO, id_tela)
+        except Exception as exc:  # pragma: no cover - diagnostico
+            _registrar(
+                "H-0030: carregar_tela({0}) nao lanca excecao".format(id_tela),
+                False,
+                "{0}: {1}".format(type(exc).__name__, exc),
+            )
+            continue
+        _registrar(
+            "H-0030: carregar_tela({0}) nao lanca excecao".format(id_tela),
+            True,
+        )
+        _registrar(
+            "H-0030: {0}.id confere com basename".format(id_tela),
+            tela.get("id") == id_tela,
+            "id={0!r}".format(tela.get("id")),
+        )
+        _registrar(
+            "H-0030: {0} tem schema 'tela.v1'".format(id_tela),
+            tela.get("schema") == "tela.v1",
+            "schema={0!r}".format(tela.get("schema")),
+        )
+        _registrar(
+            "H-0030: {0} tem cabecalho (dict)".format(id_tela),
+            isinstance(tela.get("cabecalho"), dict),
+        )
+        _registrar(
+            "H-0030: {0} tem barra_de_menus (dict)".format(id_tela),
+            isinstance(tela.get("barra_de_menus"), dict),
+        )
+        _registrar(
+            "H-0030: {0} tem corpo (dict)".format(id_tela),
+            isinstance(tela.get("corpo"), dict),
+        )
+        elementos = tela.get("corpo", {}).get("elementos", [])
+        _registrar(
+            "H-0030: {0} corpo.elementos tem exatamente 1 elemento".format(id_tela),
+            isinstance(elementos, list) and len(elementos) == 1,
+            "n={0}".format(len(elementos) if isinstance(elementos, list) else "?"),
+        )
+
+    # Tipos especificos: console unico / dashboard unico / grupo matriz.
+    tela_console = carregar_tela(_BASE_PADRAO, "h0030_console_unico")
+    _registrar(
+        "H-0030: console_unico corpo[0].tipo == 'console'",
+        tela_console["corpo"]["elementos"][0].get("tipo") == "console",
+    )
+    tela_dashboard = carregar_tela(_BASE_PADRAO, "h0030_dashboard_unico")
+    _registrar(
+        "H-0030: dashboard_unico corpo[0].tipo == 'dashboard'",
+        tela_dashboard["corpo"]["elementos"][0].get("tipo") == "dashboard",
+    )
+    for id_matriz in ("h0030_matriz_2x2", "h0030_matriz_3x2", "h0030_matriz_2x4"):
+        tela_matriz = carregar_tela(_BASE_PADRAO, id_matriz)
+        grupo = tela_matriz["corpo"]["elementos"][0]
+        _registrar(
+            "H-0030: {0} corpo[0].tipo == 'grupo'".format(id_matriz),
+            grupo.get("tipo") == "grupo",
+        )
+        _registrar(
+            "H-0030: {0} corpo[0].estrutura == 'matriz'".format(id_matriz),
+            grupo.get("estrutura") == "matriz",
+        )
+        _registrar(
+            "H-0030: {0} grupo sem campo 'arranjo' (proibido em matriz)".format(
+                id_matriz
+            ),
+            "arranjo" not in grupo,
+        )
+
+    # --- Integracao no lancador (H-0030 secao 14.4) ---
+    print("")
+    print("-- Lancador do orquestrador: 7 itens (H-0030 secao 14.4) --")
+    orq = carregar_tela(_BASE_PADRAO, "orquestrador")
+    lancador = None
+    for el in orq["corpo"]["elementos"]:
+        if isinstance(el, dict) and el.get("tipo") == "lancador":
+            lancador = el
+            break
+    itens = lancador.get("itens") if isinstance(lancador, dict) else None
+    _registrar(
+        "H-0030: orquestrador possui exatamente 7 itens em lancador_principal.itens",
+        isinstance(itens, list) and len(itens) == 7,
+        "n={0}".format(len(itens) if isinstance(itens, list) else "?"),
+    )
+
+    # Ordem final esperada (H-0030 secao 9).
+    ordem_esperada = [
+        ("item_destino_minimo", "d", "destino_minimo"),
+        ("item_grupo_minimo", "g", "grupo_minimo"),
+        ("item_console_unico", "1", "h0030_console_unico"),
+        ("item_dashboard_unico", "2", "h0030_dashboard_unico"),
+        ("item_matriz_2x2", "3", "h0030_matriz_2x2"),
+        ("item_matriz_3x2", "4", "h0030_matriz_3x2"),
+        ("item_matriz_2x4", "5", "h0030_matriz_2x4"),
+    ]
+    ordem_real = [
+        (it.get("id"), it.get("chip"), it.get("tela_destino"))
+        for it in itens
+        if isinstance(it, dict)
+    ]
+    _registrar(
+        "H-0030: ordem final dos 7 itens confere (id, chip, tela_destino)",
+        ordem_real == ordem_esperada,
+        "ordem={0!r}".format(ordem_real),
+    )
+
+    # Preservacao dos chips d e g (H-0030 secao 9).
+    chips = [it.get("chip") for it in itens]
+    _registrar(
+        "H-0030: chip 'd' preservado em item_destino_minimo",
+        itens[0].get("id") == "item_destino_minimo"
+        and itens[0].get("chip") == "d"
+        and itens[0].get("tela_destino") == "destino_minimo",
+    )
+    _registrar(
+        "H-0030: chip 'g' preservado em item_grupo_minimo",
+        itens[1].get("id") == "item_grupo_minimo"
+        and itens[1].get("chip") == "g"
+        and itens[1].get("tela_destino") == "grupo_minimo",
+    )
+
+    # Ausencia de conflito de chips (H-0030 secao 14.4).
+    _registrar(
+        "H-0030: chips 1..5 nao conflitam com d/g (sem duplicidade)",
+        len(chips) == len(set(chips)) and all(
+            c not in ("d", "g") for c in ("1", "2", "3", "4", "5")
+        ),
+        "chips={0!r}".format(chips),
+    )
+
+    # Limite contratual de 15 caracteres para texto (H-0030 secao 14.4).
+    textos_longos = [
+        it.get("texto")
+        for it in itens
+        if isinstance(it.get("texto"), str) and len(it.get("texto")) > 15
+    ]
+    _registrar(
+        "H-0030: todos os texto dos 7 itens tem <= 15 caracteres",
+        len(textos_longos) == 0,
+        "longos={0!r}".format(textos_longos),
+    )
+
+    # tela_destino dos 5 novos itens resolvem para arquivos existentes.
+    for it in itens[2:]:
+        destino = it.get("tela_destino")
+        caminho = _BASE_PADRAO / "config" / "telas" / "{0}.json".format(destino)
+        _registrar(
+            "H-0030: tela_destino {0!r} resolve para arquivo existente".format(
+                destino
+            ),
+            caminho.is_file(),
+            "caminho={0}".format(caminho),
+        )
+        # Carregamento direto do destino tambem funciona.
+        try:
+            carregar_tela(_BASE_PADRAO, destino)
+            resolve_load = True
+        except Exception:
+            resolve_load = False
+        _registrar(
+            "H-0030: carregar_tela({0!r}) via lancador nao lanca excecao".format(
+                destino
+            ),
+            resolve_load,
+        )
+
+    # Preservacao das telas existentes (destino_minimo, grupo_minimo, h0029_*).
+    telas_permanentes_anteriores = [
+        "destino_minimo",
+        "grupo_minimo",
+        "stub_b",
+        "h0029_dashboard_igual",
+        "h0029_dashboard_fracao",
+        "h0029_dashboard_percentual",
+        "h0029_grupo_pai_distribuido",
+        "h0029_grupo_igual",
+        "h0029_grupo_fracao",
+        "h0029_grupo_percentual",
+    ]
+    for id_perm in telas_permanentes_anteriores:
+        try:
+            carregar_tela(_BASE_PADRAO, id_perm)
+            ok = True
+        except Exception:
+            ok = False
+        _registrar(
+            "H-0030: tela permanente anterior {0} ainda carrega".format(id_perm),
+            ok,
+        )
+
+
 def teste_id_incorreto_classe():
     print("")
     print("== Excecao TelaIdIncorreto (verificacao de classe) ==")
@@ -1731,6 +1956,7 @@ def main():
             pass
 
     TestValidacaoMatrizH0028().run_all()
+    teste_h0030_catalogo()
     teste_id_incorreto_classe()
 
     print("")

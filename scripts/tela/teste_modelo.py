@@ -199,10 +199,11 @@ def teste_modelo_orquestrador():
     itens_inerte_ok = (
         lancador is not None
         and isinstance(lancador._campos_inertes.get("itens"), list)
-        and len(lancador._campos_inertes.get("itens")) == 2
+        and len(lancador._campos_inertes.get("itens")) == 7
     )
     _registrar(
-        "lancador_principal._campos_inertes['itens'] e lista com 2 itens (H-0013)",
+        "lancador_principal._campos_inertes['itens'] e lista com 7 itens "
+        "(H-0013 d/g + H-0030 chips 1-5)",
         itens_inerte_ok,
         "itens={0!r}".format(
             lancador._campos_inertes.get("itens") if lancador else None
@@ -791,6 +792,229 @@ class TestModeloMatrizH0028:
         self.test_grupo_livre_dentro_de_celula_preservado_no_limite()
 
 
+# Telas permanentes do catalogo H-0030.
+_TELAS_H0030_MODELO = [
+    "h0030_console_unico",
+    "h0030_dashboard_unico",
+    "h0030_matriz_2x2",
+    "h0030_matriz_3x2",
+    "h0030_matriz_2x4",
+]
+
+# Dimensoes esperadas de cada matriz (linhas, colunas).
+_DIMENSOES_H0030 = {
+    "h0030_matriz_2x2": (2, 2),
+    "h0030_matriz_3x2": (3, 2),
+    "h0030_matriz_2x4": (2, 4),
+}
+
+
+class TestModeloCatalogoH0030:
+    """Interpretacao do modelo para o catalogo H-0030 (5 telas permanentes).
+
+    Cobre (H-0030 secao 14.2):
+    - construir_modelo nao lanca excecao para cada tela;
+    - interpretacao correta do console unico;
+    - interpretacao correta do dashboard unico;
+    - dimensoes corretas das matrizes (linhas/colunas);
+    - coordenadas explicitas presentes em cada matriz;
+    - grade integral (cobertura completa de celulas);
+    - identificadores consistentes (celulas referenciam filhos existentes).
+    """
+
+    def _r(self, nome, passou, detalhe=""):
+        _registrar(nome, passou, detalhe)
+
+    def _carregar(self, id_tela):
+        return construir_modelo(carregar_tela(_BASE_PADRAO, id_tela))
+
+    def test_modelo_cada_tela_nao_lanca(self):
+        for id_tela in _TELAS_H0030_MODELO:
+            try:
+                modelo = self._carregar(id_tela)
+                ok = modelo is not None and modelo.id == id_tela
+            except Exception as exc:
+                ok = False
+                detalhe = "{0}: {1}".format(type(exc).__name__, exc)
+            else:
+                detalhe = ""
+            self._r(
+                "H-0030 modelo: construir_modelo({0}) nao lanca e id confere".format(
+                    id_tela
+                ),
+                ok,
+                detalhe,
+            )
+
+    def test_console_unico(self):
+        modelo = self._carregar("h0030_console_unico")
+        corpo = modelo.corpo
+        self._r(
+            "H-0030 modelo: console_unico corpo tem 1 elemento",
+            len(corpo.elementos) == 1,
+            "n={0}".format(len(corpo.elementos)),
+        )
+        elem = corpo.elementos[0]
+        self._r(
+            "H-0030 modelo: console_unico corpo[0].id == 'console_catalogo'",
+            elem.id == "console_catalogo",
+        )
+        self._r(
+            "H-0030 modelo: console_unico corpo[0].tipo == 'console'",
+            elem.tipo == "console",
+        )
+        self._r(
+            "H-0030 modelo: console_unico origem_dados preservado inerte (null)",
+            elem._campos_inertes.get("origem_dados") is None,
+            "origem_dados={0!r}".format(elem._campos_inertes.get("origem_dados")),
+        )
+        self._r(
+            "H-0030 modelo: console_unico itens == [] (vazio deterministico)",
+            elem._campos_inertes.get("itens") == [],
+        )
+
+    def test_dashboard_unico(self):
+        modelo = self._carregar("h0030_dashboard_unico")
+        corpo = modelo.corpo
+        self._r(
+            "H-0030 modelo: dashboard_unico corpo tem 1 elemento",
+            len(corpo.elementos) == 1,
+        )
+        elem = corpo.elementos[0]
+        self._r(
+            "H-0030 modelo: dashboard_unico corpo[0].id == 'dashboard_catalogo'",
+            elem.id == "dashboard_catalogo",
+        )
+        self._r(
+            "H-0030 modelo: dashboard_unico corpo[0].tipo == 'dashboard'",
+            elem.tipo == "dashboard",
+        )
+        campos = elem._campos_inertes.get("campos")
+        self._r(
+            "H-0030 modelo: dashboard_unico tem 2 campos literais",
+            isinstance(campos, list) and len(campos) == 2
+            and all(c.get("fonte") == "literal" for c in campos),
+            "campos={0!r}".format(campos),
+        )
+        valores = {c.get("id"): c.get("valor") for c in campos}
+        self._r(
+            "H-0030 modelo: dashboard_unico Tipo='dashboard único' e Ciclo='H-0030'",
+            valores.get("tipo_corpo") == "dashboard único"
+            and valores.get("ciclo") == "H-0030",
+            "valores={0!r}".format(valores),
+        )
+
+    def test_matrizes_dimensoes_e_coordenadas(self):
+        for id_matriz, (n_linhas, n_colunas) in _DIMENSOES_H0030.items():
+            modelo = self._carregar(id_matriz)
+            grupo = modelo.corpo.elementos[0]
+            self._r(
+                "H-0030 modelo: {0} corpo[0].tipo == 'grupo'".format(id_matriz),
+                grupo.tipo == "grupo",
+            )
+            matriz = grupo._campos_inertes.get("matriz")
+            self._r(
+                "H-0030 modelo: {0} tem matriz.linhas.quantidade == {1}".format(
+                    id_matriz, n_linhas
+                ),
+                isinstance(matriz, dict)
+                and matriz.get("linhas", {}).get("quantidade") == n_linhas,
+            )
+            self._r(
+                "H-0030 modelo: {0} tem matriz.colunas.quantidade == {1}".format(
+                    id_matriz, n_colunas
+                ),
+                isinstance(matriz, dict)
+                and matriz.get("colunas", {}).get("quantidade") == n_colunas,
+            )
+            self._r(
+                "H-0030 modelo: {0} distribuicao igual em ambos os eixos".format(
+                    id_matriz
+                ),
+                isinstance(matriz, dict)
+                and matriz.get("linhas", {}).get("distribuicao", {}).get("modo") == "igual"
+                and matriz.get("colunas", {}).get("distribuicao", {}).get("modo") == "igual",
+            )
+            celulas = matriz.get("celulas") if isinstance(matriz, dict) else None
+            self._r(
+                "H-0030 modelo: {0} tem {1} celulas (grade integral)".format(
+                    id_matriz, n_linhas * n_colunas
+                ),
+                isinstance(celulas, list) and len(celulas) == n_linhas * n_colunas,
+                "n={0}".format(len(celulas) if isinstance(celulas, list) else "?"),
+            )
+
+            # Coordenadas explicitas: todas (linha,coluna) unicas e dentro do grid.
+            coordenadas = [
+                (c.get("linha"), c.get("coluna"))
+                for c in celulas
+                if isinstance(c, dict)
+            ]
+            esperadas = {
+                (ln, co)
+                for ln in range(1, n_linhas + 1)
+                for co in range(1, n_colunas + 1)
+            }
+            self._r(
+                "H-0030 modelo: {0} coordenadas cobrem toda a grade sem lacuna".format(
+                    id_matriz
+                ),
+                set(coordenadas) == esperadas and len(coordenadas) == len(set(coordenadas)),
+                "coordenadas={0!r}".format(sorted(coordenadas)),
+            )
+
+            # Identificadores consistentes: celulas[].elemento referenciam filhos.
+            ids_filhos = {e.id for e in grupo.elementos}
+            refs_celulas = {c.get("elemento") for c in celulas}
+            self._r(
+                "H-0030 modelo: {0} celulas referenciam somente filhos existentes".format(
+                    id_matriz
+                ),
+                refs_celulas <= ids_filhos,
+                "refs={0!r} filhos={1!r}".format(refs_celulas, ids_filhos),
+            )
+            self._r(
+                "H-0030 modelo: {0} cada filho tem exatamente uma celula".format(
+                    id_matriz
+                ),
+                len(refs_celulas) == len(ids_filhos) == (n_linhas * n_colunas),
+                "refs={0} filhos={1}".format(len(refs_celulas), len(ids_filhos)),
+            )
+
+            # Cada filho e dashboard com titulo "L<n> C<n>" e campo pos literal.
+            for filho in grupo.elementos:
+                self._r(
+                    "H-0030 modelo: {0} filho {1} e dashboard".format(
+                        id_matriz, filho.id
+                    ),
+                    filho.tipo == "dashboard",
+                )
+
+    def test_preservacao_validacoes_vigentes(self):
+        """Telas anteriores continuam carregando no modelo sem regressao."""
+        for id_perm in ("destino_minimo", "grupo_minimo", "orquestrador"):
+            try:
+                m = self._carregar(id_perm)
+                ok = m is not None
+            except Exception:
+                ok = False
+            self._r(
+                "H-0030 modelo: tela anterior {0} ainda constroi modelo".format(
+                    id_perm
+                ),
+                ok,
+            )
+
+    def run_all(self):
+        print("")
+        print("== TestModeloCatalogoH0030: modelo das 5 telas permanentes ==")
+        self.test_modelo_cada_tela_nao_lanca()
+        self.test_console_unico()
+        self.test_dashboard_unico()
+        self.test_matrizes_dimensoes_e_coordenadas()
+        self.test_preservacao_validacoes_vigentes()
+
+
 def main():
     print("Diagnostico H-0002 - modelo interno normalizado de tela")
     print("Base padrao: {0}".format(_BASE_PADRAO))
@@ -801,6 +1025,7 @@ def main():
     teste_erros_modelo()
     teste_hierarquia_grupos_adr0019_modelo()
     TestModeloMatrizH0028().run_all()
+    TestModeloCatalogoH0030().run_all()
 
     print("")
     print("== Resumo ==")

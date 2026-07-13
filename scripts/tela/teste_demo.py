@@ -131,12 +131,15 @@ _RESULTADOS = []
 
 
 _LARGURA_SUBPROCESS = 80
-# Altura deterministica do subprocess da demo (H-0015). Em contexto de
+# Altura deterministica do subprocess da demo (H-0015 / H-0030). Em contexto de
 # pipe/nao-tty, ``shutil.get_terminal_size(fallback=(80, 24))`` usa o fallback
-# ``lines=24``. Para garantir determinismo entre ambientes (ACH-H15-03), o env
-# do subprocess remove COLUMNS e LINES, forçando o fallback (80, 24); o
-# esperado e entao computado com largura=80 e altura=24.
-_ALTURA_SUBPROCESS = 24
+# ``lines=24``. A partir do H-0030 o lancador do orquestrador possui 7 itens
+# (d, g, 1..5), de modo que a caixa NAVEGAR exige mais linhas e o orquestrador
+# requer altura >= 28 em largura 80. Para garantir determinismo entre ambientes
+# (ACH-H15-03) e acomodar o lancador ampliado, o env do subprocess define
+# COLUMNS=80 e LINES=30 explicitamente; o esperado e computado com largura=80 e
+# altura=30.
+_ALTURA_SUBPROCESS = 30
 
 
 _EXPECTED_CURVA = (
@@ -151,6 +154,11 @@ _EXPECTED_CURVA = (
     "╭ NAVEGAR ─────────────────────────────────────────────────────────────────────╮\n"
     "│ [d] Destino                                                                  │\n"
     "│ [g] Grupo Min.                                                               │\n"
+    "│ [1] Console                                                                  │\n"
+    "│ [2] Dashboard                                                                │\n"
+    "│ [3] Matriz 2x2                                                               │\n"
+    "│ [4] Matriz 3x2                                                               │\n"
+    "│ [5] Matriz 2x4                                                               │\n"
     "╰──────────────────────────────────────────────────────────────────────────────╯\n"
     "╭ Menus ───────────────────────────────────────────────────────────────────────╮\n"
     "│  [Esc] Sair  [?] Ajuda                                                       │\n"
@@ -169,6 +177,11 @@ _EXPECTED_RETA = (
     "┌ NAVEGAR ─────────────────────────────────────────────────────────────────────┐\n"
     "│ [d] Destino                                                                  │\n"
     "│ [g] Grupo Min.                                                               │\n"
+    "│ [1] Console                                                                  │\n"
+    "│ [2] Dashboard                                                                │\n"
+    "│ [3] Matriz 2x2                                                               │\n"
+    "│ [4] Matriz 3x2                                                               │\n"
+    "│ [5] Matriz 2x4                                                               │\n"
     "└──────────────────────────────────────────────────────────────────────────────┘\n"
     "┌ Menus ───────────────────────────────────────────────────────────────────────┐\n"
     "│  [Esc] Sair  [?] Ajuda                                                       │\n"
@@ -188,6 +201,11 @@ _EXPECTED_DIAGNOSTICO_CURVA_42 = (
     "╭ NAVEGAR ───────────────────────────────╮\n"
     "│ [d] Destino                            │\n"
     "│ [g] Grupo Min.                         │\n"
+    "│ [1] Console                            │\n"
+    "│ [2] Dashboard                          │\n"
+    "│ [3] Matriz 2x2                         │\n"
+    "│ [4] Matriz 3x2                         │\n"
+    "│ [5] Matriz 2x4                         │\n"
     "╰────────────────────────────────────────╯\n"
     "╭ Menus ─────────────────────────────────╮\n"
     "│  [Esc] Sair  [?] Ajuda                 │\n"
@@ -683,26 +701,29 @@ def teste_renderizar_estado_altura(modelo):
     estado_curva = {"tipo_borda": "curva", "saindo": False, "pilha_telas": []}
 
     # CA-02: altura explicita suficiente -> exatamente `altura` linhas.
-    res_24 = renderizar_estado(
-        estado_curva, modelo, largura=42, altura=24
+    # H-0030: o orquestrador com 7 itens no lancador requer altura >= 29 em
+    # largura 42 (fracao [2,1,2]); usa-se altura=30 para exercitar o fill.
+    res_30 = renderizar_estado(
+        estado_curva, modelo, largura=42, altura=30
     )
     _registrar(
-        "renderizar_estado(estado, modelo, largura=42, altura=24) -> 24 linhas",
-        isinstance(res_24, str) and res_24.count("\n") == 24,
-        "count={0}".format(res_24.count("\n") if isinstance(res_24, str) else "n/a"),
+        "renderizar_estado(estado, modelo, largura=42, altura=30) -> 30 linhas",
+        isinstance(res_30, str) and res_30.count("\n") == 30,
+        "count={0}".format(res_30.count("\n") if isinstance(res_30, str) else "n/a"),
     )
 
-    # CA-01 / CA-03: altura minima (15) sem preenchimento, saida identica
+    # CA-01 / CA-03: altura minima sem preenchimento, saida identica
     # ao comportamento natural (sem altura). H-0016: com a barra horizontal
-    # responsiva em 1 linha, L_barra=3 e n_minimo=15.
+    # responsiva em 1 linha, L_barra=3. H-0030: com 7 itens no lancador,
+    # L_corpo_conteudo=14 (ITENS=3, INFO=2, NAVEGAR=9) -> n_minimo=20.
     #
     # H-0025 secao 11.5 (item 1): o orquestrador real agora declara
-    # distribuicao (fracao [2,1,2]); em altura=15 essa distribuicao produz
+    # distribuicao (fracao [2,1,2]); em altura=20 essa distribuicao produz
     # uma cota menor que a altura natural de algum filho — terminal
     # insuficiente, caso explicitamente fora de escopo (ADR-0018 D8). Para
     # preservar a cobertura "altura minima sem fill = saida natural", o
     # sub-cenario usa um modelo SEM distribuicao (ausencia preserva o
-    # preenchimento externo H-0013/ADR-0018 D2). altura=15 nao e altura
+    # preenchimento externo H-0013/ADR-0018 D2). altura=20 nao e altura
     # suportada normativa do produto; e apenas o minimo natural desta tela.
     tela_raw_sd = carregar_tela(_BASE_PADRAO, "orquestrador")
     corpo_sd = dict(tela_raw_sd["corpo"])
@@ -710,18 +731,18 @@ def teste_renderizar_estado_altura(modelo):
     tela_raw_sd = dict(tela_raw_sd)
     tela_raw_sd["corpo"] = corpo_sd
     modelo_sd = construir_modelo(tela_raw_sd)
-    res_16 = renderizar_estado(
-        estado_curva, modelo_sd, largura=42, altura=15
+    res_20 = renderizar_estado(
+        estado_curva, modelo_sd, largura=42, altura=20
     )
     _registrar(
-        "renderizar_estado(..., altura=15, sem distribuicao) -> 15 linhas (sem fill)",
-        res_16.count("\n") == 15,
-        "count={0}".format(res_16.count("\n")),
+        "renderizar_estado(..., altura=20, sem distribuicao) -> 20 linhas (sem fill)",
+        res_20.count("\n") == 20,
+        "count={0}".format(res_20.count("\n")),
     )
     _registrar(
-        "renderizar_estado(..., altura=15, sem distribuicao) == "
+        "renderizar_estado(..., altura=20, sem distribuicao) == "
         "renderizar_estado(..., largura=42) [sem altura]",
-        res_16 == renderizar_estado(estado_curva, modelo_sd, largura=42),
+        res_20 == renderizar_estado(estado_curva, modelo_sd, largura=42),
     )
 
     # altura=None preserva o comportamento atual.
@@ -734,37 +755,37 @@ def teste_renderizar_estado_altura(modelo):
 
     # Consistencia: renderizar_estado repassa altura ao renderer.
     _registrar(
-        "renderizar_estado(..., altura=24) == renderizar_tela(modelo, 'curva', "
-        "largura=42, altura=24)",
-        res_24 == renderizar_tela(
-            modelo, tipo_borda="curva", largura=42, altura=24
+        "renderizar_estado(..., altura=30) == renderizar_tela(modelo, 'curva', "
+        "largura=42, altura=30)",
+        res_30 == renderizar_tela(
+            modelo, tipo_borda="curva", largura=42, altura=30
         ),
     )
 
     # Barra_de_menus preservada no rodape (ultima linha nao-vazia termina
     # com a borda inferior) e invariante de largura preservado.
-    linhas_24 = res_24.split("\n")
-    ultima = [ln for ln in linhas_24 if ln != ""][-1]
+    linhas_30 = res_30.split("\n")
+    ultima = [ln for ln in linhas_30 if ln != ""][-1]
     _registrar(
-        "renderizar_estado(..., altura=24): barra_de_menus no rodape ('╯')",
+        "renderizar_estado(..., altura=30): barra_de_menus no rodape ('╯')",
         ultima.endswith("╯"),
         "ultima={0!r}".format(ultima),
     )
     _registrar(
-        "renderizar_estado(..., altura=24): cada linha nao-vazia tem 42 chars",
-        all(len(ln) == 42 for ln in linhas_24 if ln != ""),
+        "renderizar_estado(..., altura=30): cada linha nao-vazia tem 42 chars",
+        all(len(ln) == 42 for ln in linhas_30 if ln != ""),
     )
 
     # renderizar_estado nao altera estado nem modelo.
     estado_snap = {"tipo_borda": "curva", "saindo": False, "pilha_telas": []}
     cabecalho_antes = dict(modelo.cabecalho)
-    renderizar_estado(estado_snap, modelo, largura=42, altura=24)
+    renderizar_estado(estado_snap, modelo, largura=42, altura=30)
     _registrar(
-        "renderizar_estado(..., altura=24) nao altera estado",
+        "renderizar_estado(..., altura=30) nao altera estado",
         estado_snap == {"tipo_borda": "curva", "saindo": False, "pilha_telas": []},
     )
     _registrar(
-        "renderizar_estado(..., altura=24) nao altera modelo.cabecalho",
+        "renderizar_estado(..., altura=30) nao altera modelo.cabecalho",
         modelo.cabecalho == cabecalho_antes,
     )
 
@@ -787,9 +808,15 @@ def teste_integracao_subprocess():
     )
     saida_esperada = esperado_curva_80 + esperado_reta_80
 
-    env_sem_dimensoes = {
-        k: v for k, v in os.environ.items() if k not in ("COLUMNS", "LINES")
-    }
+    # H-0030: o orquestrador com 7 itens no lancador requer altura >= 28 em
+    # largura 80. O env do subprocess fixa COLUMNS=80 e LINES=30 (em vez de
+    # remover as variaveis) para que a demo renderize o orquestrador em dimensao
+    # deterministica suficiente.
+    env_sem_dimensoes = dict(
+        (k, v) for k, v in os.environ.items() if k not in ("COLUMNS", "LINES")
+    )
+    env_sem_dimensoes["COLUMNS"] = str(_LARGURA_SUBPROCESS)
+    env_sem_dimensoes["LINES"] = str(_ALTURA_SUBPROCESS)
 
     proc = subprocess.run(
         [sys.executable, "tela/demo.py"],
@@ -878,9 +905,15 @@ def teste_eof_sem_s():
         modelo, tipo_borda="curva",
         largura=_LARGURA_SUBPROCESS, altura=_ALTURA_SUBPROCESS,
     )
-    env_sem_dimensoes = {
-        k: v for k, v in os.environ.items() if k not in ("COLUMNS", "LINES")
-    }
+    # H-0030: o orquestrador com 7 itens no lancador requer altura >= 28 em
+    # largura 80. O env do subprocess fixa COLUMNS=80 e LINES=30 (em vez de
+    # remover as variaveis) para que a demo renderize o orquestrador em dimensao
+    # deterministica suficiente.
+    env_sem_dimensoes = dict(
+        (k, v) for k, v in os.environ.items() if k not in ("COLUMNS", "LINES")
+    )
+    env_sem_dimensoes["COLUMNS"] = str(_LARGURA_SUBPROCESS)
+    env_sem_dimensoes["LINES"] = str(_ALTURA_SUBPROCESS)
 
     proc = subprocess.run(
         [sys.executable, "tela/demo.py"],
@@ -930,9 +963,15 @@ def teste_navegacao_subprocess():
         largura=_LARGURA_SUBPROCESS, altura=_ALTURA_SUBPROCESS,
     )
 
-    env_sem_dimensoes = {
-        k: v for k, v in os.environ.items() if k not in ("COLUMNS", "LINES")
-    }
+    # H-0030: o orquestrador com 7 itens no lancador requer altura >= 28 em
+    # largura 80. O env do subprocess fixa COLUMNS=80 e LINES=30 (em vez de
+    # remover as variaveis) para que a demo renderize o orquestrador em dimensao
+    # deterministica suficiente.
+    env_sem_dimensoes = dict(
+        (k, v) for k, v in os.environ.items() if k not in ("COLUMNS", "LINES")
+    )
+    env_sem_dimensoes["COLUMNS"] = str(_LARGURA_SUBPROCESS)
+    env_sem_dimensoes["LINES"] = str(_ALTURA_SUBPROCESS)
 
     proc_nav = subprocess.run(
         [sys.executable, "tela/demo.py"],
@@ -1089,11 +1128,11 @@ def teste_navegacao_subprocess():
     )
 
     # ACH-H15-03: determinismo da altura em subprocess. Com COLUMNS e LINES
-    # removidos do env, a demo usa fallback (80, 24); cada um dos 3 renders
-    # (orq-c, grupo-c, orq-c) deve ter exatamente 24 linhas -> total 72.
+    # fixados no env (80x30), cada um dos 3 renders (orq-c, grupo-c, orq-c)
+    # deve ter exatamente 30 linhas -> total 90.
     _registrar(
-        "demo 'g\\n\\x1b\\n\\x1b\\n' propaga altura=24: stdout tem 72 "
-        "newlines (3 renders x 24) (ACH-H15-03)",
+        "demo 'g\\n\\x1b\\n\\x1b\\n' propaga altura=30: stdout tem 90 "
+        "newlines (3 renders x 30) (ACH-H15-03)",
         proc_nav_grupo.stdout.count("\n") == 3 * _ALTURA_SUBPROCESS,
         "count={0}".format(proc_nav_grupo.stdout.count("\n")),
     )
@@ -1609,9 +1648,15 @@ def teste_sessao_tui_h0022():
     print("")
     print("-- 7G: Fallback nao-TTY --")
 
-    env_sem_dimensoes = {
-        k: v for k, v in os.environ.items() if k not in ("COLUMNS", "LINES")
-    }
+    # H-0030: o orquestrador com 7 itens no lancador requer altura >= 28 em
+    # largura 80. O env do subprocess fixa COLUMNS=80 e LINES=30 (em vez de
+    # remover as variaveis) para que a demo renderize o orquestrador em dimensao
+    # deterministica suficiente.
+    env_sem_dimensoes = dict(
+        (k, v) for k, v in os.environ.items() if k not in ("COLUMNS", "LINES")
+    )
+    env_sem_dimensoes["COLUMNS"] = str(_LARGURA_SUBPROCESS)
+    env_sem_dimensoes["LINES"] = str(_ALTURA_SUBPROCESS)
     proc_pipe = subprocess.run(
         [sys.executable, "tela/demo.py"],
         cwd=str(_BASE_PADRAO),
@@ -2308,17 +2353,19 @@ def teste_redimensionamento_reativo_h0023():
     _registrar("8.12: terminal pequeno (5,3): retorna quadro minimo",
                r_rc_peq.count("\n") == 3)
 
-    r_rc_ok = _resolver_conteudo(_estado_rc, _modelo_rc, 80, 24)
-    _registrar("8.12: dimensoes normais (80,24): retorna render normal",
+    # H-0030: o orquestrador com 7 itens no lancador requer altura >= 28 em
+    # largura 80; dimensoes normais usam (80, 30) para que o render ocorra.
+    r_rc_ok = _resolver_conteudo(_estado_rc, _modelo_rc, 80, 30)
+    _registrar("8.12: dimensoes normais (80,30): retorna render normal",
                "ORQUESTRADOR" in r_rc_ok)
     _registrar("8.12: corpo.arranjo nao alterado apos resolver_conteudo",
                _modelo_rc.corpo.arranjo is not None)
 
     from tela.renderizador import RenderizadorErro as _RenderizadorErro
     with _patch("tela.demo.renderizar_estado", side_effect=_RenderizadorErro("r")):
-        r_rc_err = _resolver_conteudo(_estado_rc, _modelo_rc, 80, 24)
+        r_rc_err = _resolver_conteudo(_estado_rc, _modelo_rc, 80, 30)
     _registrar("8.12: RenderizadorErro: retorna quadro minimo",
-               r_rc_err.count("\n") == 24)
+               r_rc_err.count("\n") == 30)
 
     # --- 8.13: Falhas parciais na inicializacao e cleanup ---
     print("")
@@ -2656,9 +2703,14 @@ def teste_redimensionamento_reativo_h0023():
         _sigwinch_installed_notty[0] = True
         return signal.SIG_DFL
 
+    # H-0030: o orquestrador com 7 itens requer altura >= 28 em largura 80;
+    # o env do nao-TTY define COLUMNS=80/LINES=30 para que a demo renderize.
     env_notty = {k: v for k, v in os.environ.items() if k not in ("COLUMNS", "LINES")}
+    env_notty["COLUMNS"] = "80"
+    env_notty["LINES"] = "30"
     with _patch("tela.demo._instalar_handler_sigwinch",
                 side_effect=_track_sigwinch_install), \
+         _patch.dict(os.environ, env_notty, clear=False), \
          _patch("sys.stdin") as _mock_stdin_nt, \
          _patch("sys.stdout") as _mock_stdout_nt:
         _mock_stdin_nt.isatty.return_value = False
@@ -2672,7 +2724,11 @@ def teste_redimensionamento_reativo_h0023():
     print("")
     print("-- 8.14: Regressao nao-TTY --")
 
+    # H-0030: o orquestrador com 7 itens requer altura >= 28 em largura 80;
+    # o env do nao-TTY define COLUMNS=80/LINES=30 para que a demo renderize.
     env_sem_dims = {k: v for k, v in os.environ.items() if k not in ("COLUMNS", "LINES")}
+    env_sem_dims["COLUMNS"] = "80"
+    env_sem_dims["LINES"] = "30"
     proc_notty = subprocess.run(
         [sys.executable, "tela/demo.py"],
         cwd=str(_BASE_PADRAO),
@@ -2784,10 +2840,12 @@ def teste_redimensionamento_reativo_h0023():
         _proc_pty = None
 
         # Dimensoes deterministas:
-        #   normal   40x20 -> tela normal (contem "ORQUESTRADOR")
+        #   normal   40x30 -> tela normal (contem "ORQUESTRADOR")
         #   reduzido 30x5  -> quadro minimo ("terminal pequeno demais"): altura < 6
-        #   ampliado 40x20 -> tela normal restaurada
-        _COLS_NORM, _LINS_NORM = 40, 20
+        #   ampliado 40x30 -> tela normal restaurada
+        # H-0030: o orquestrador com 7 itens no lancador requer altura >= 28
+        # mesmo em largura 40; _LINS_NORM subiu de 20 para 30.
+        _COLS_NORM, _LINS_NORM = 40, 30
         _COLS_RED, _LINS_RED = 30, 5
 
         try:
@@ -2962,6 +3020,191 @@ def teste_redimensionamento_reativo_h0023():
 
 
 
+def teste_navegacao_h0030(modelo):
+    """Smoke tests do ponto de entrada real para o catalogo H-0030 (14.6).
+
+    Para cada chip 1..5:
+    - processar_comando abre a tela_destino correta e empilha o orquestrador;
+    - subprocess (<chip>\\nEsc\\nEsc\\n) percorre o ciclo real
+      orquestrador -> chip -> tela correta -> Esc -> orquestrador -> Esc -> exit;
+    - a tela aberta e identificada pelo seu marcador de cabecalho;
+    - o orquestrador reaparece apos Esc (retorno comprovado).
+
+    Preservacoes:
+    - chips d e g continuam abrindo destino_minimo e grupo_minimo;
+    - Esc na raiz encerra o subprocess com codigo 0.
+    """
+    print("")
+    print("== Secao 4c - Catalogo H-0030: navegacao real pelos chips 1-5 ==")
+
+    # Mapeamento: chip -> (id_tela, marcador de cabecalho, texto do lancador).
+    chip_para_h0030 = [
+        ("1", "h0030_console_unico", "H-0030 CONSOLE", "Console"),
+        ("2", "h0030_dashboard_unico", "H-0030 DASHBOARD", "Dashboard"),
+        ("3", "h0030_matriz_2x2", "H-0030 MATRIZ 2X2", "Matriz 2x2"),
+        ("4", "h0030_matriz_3x2", "H-0030 MATRIZ 3X2", "Matriz 3x2"),
+        ("5", "h0030_matriz_2x4", "H-0030 MATRIZ 2X4", "Matriz 2x4"),
+    ]
+
+    estado_raiz = {
+        "tipo_borda": "curva",
+        "saindo": False,
+        "tela_atual": "orquestrador",
+        "pilha_telas": [],
+    }
+
+    # --- processar_comando: cada chip abre a tela correta ---
+    for chip, id_tela, _marker, _texto in chip_para_h0030:
+        res = processar_comando(estado_raiz, chip, modelo)
+        _registrar(
+            "H-0030 proc: chip {0!r} abre tela_atual == {1!r}".format(chip, id_tela),
+            res["tela_atual"] == id_tela,
+            "tela_atual={0!r}".format(res.get("tela_atual")),
+        )
+        _registrar(
+            "H-0030 proc: chip {0!r} empilha 'orquestrador'".format(chip),
+            res["pilha_telas"] == ["orquestrador"],
+            "pilha={0!r}".format(res.get("pilha_telas")),
+        )
+        _registrar(
+            "H-0030 proc: chip {0!r} nao define saindo".format(chip),
+            res["saindo"] is False,
+        )
+
+    # --- Ciclo real por subprocess: chip -> tela -> Esc -> orquestrador ---
+    env_h0030 = dict(
+        (k, v) for k, v in os.environ.items() if k not in ("COLUMNS", "LINES")
+    )
+    env_h0030["COLUMNS"] = str(_LARGURA_SUBPROCESS)
+    env_h0030["LINES"] = str(_ALTURA_SUBPROCESS)
+
+    for chip, id_tela, marker, texto in chip_para_h0030:
+        modelo_dest = _carregar_modelo_por_id(id_tela)
+        esperado_orq = renderizar_tela(
+            modelo, tipo_borda="curva",
+            largura=_LARGURA_SUBPROCESS, altura=_ALTURA_SUBPROCESS,
+        )
+        esperado_dest = renderizar_tela(
+            modelo_dest, tipo_borda="curva",
+            largura=_LARGURA_SUBPROCESS, altura=_ALTURA_SUBPROCESS,
+        )
+        # Entrada: <chip> (abre) -> Esc (volta p/ orquestrador) -> Esc (sai).
+        entrada = "{0}\n\x1b\n\x1b\n".format(chip)
+        proc = subprocess.run(
+            [sys.executable, "tela/demo.py"],
+            cwd=str(_BASE_PADRAO),
+            input=entrada,
+            capture_output=True,
+            text=True,
+            env=env_h0030,
+        )
+        _registrar(
+            "H-0030 demo: chip {0!r} ciclo encerra com codigo 0".format(chip),
+            proc.returncode == 0,
+            "returncode={0}".format(proc.returncode),
+        )
+        if proc.returncode != 0:
+            sys.stderr.write(proc.stdout)
+            sys.stderr.write(proc.stderr)
+        _registrar(
+            "H-0030 demo: chip {0!r} abre {1!r} (marcador {2!r} presente)".format(
+                chip, id_tela, marker
+            ),
+            marker in proc.stdout,
+            "marker_presente={0}".format(marker in proc.stdout),
+        )
+        _registrar(
+            "H-0030 demo: chip {0!r} stdout contem orquestrador apos retorno".format(
+                chip
+            ),
+            proc.stdout.count("ORQUESTRADOR") >= 2,
+            "orq_count={0}".format(proc.stdout.count("ORQUESTRADOR")),
+        )
+        # O destino incorreto nao deve aparecer: nenhum marcador de outra tela
+        # do catalogo pode estar presente (cada tela so aparece quando aberta).
+        outros_markers = [m for c, _, m, _ in chip_para_h0030 if c != chip]
+        _registrar(
+            "H-0030 demo: chip {0!r} nao abre destino incorreto".format(chip),
+            all(other not in proc.stdout or other == marker
+                for other in outros_markers),
+        )
+        # Saida esperada: orquestrador -> destino -> orquestrador.
+        saida_esperada = esperado_orq + esperado_dest + esperado_orq
+        _registrar(
+            "H-0030 demo: chip {0!r} gera 3 renders (orq,dest,orq) largura 80 altura 30".format(
+                chip
+            ),
+            proc.stdout == saida_esperada,
+            "" if proc.stdout == saida_esperada else "ver diff abaixo",
+        )
+        if proc.stdout != saida_esperada:
+            print("--- esperado (repr) ---")
+            print(repr(saida_esperada))
+            print("--- stdout (repr) ---")
+            print(repr(proc.stdout))
+        _registrar(
+            "H-0030 demo: chip {0!r} stderr vazio".format(chip),
+            proc.stderr == "",
+            "stderr={0!r}".format(proc.stderr),
+        )
+        # Altura deterministica propagada: 3 renders x 30 linhas = 90.
+        _registrar(
+            "H-0030 demo: chip {0!r} propaga altura=30 (stdout tem 90 newlines)".format(
+                chip
+            ),
+            proc.stdout.count("\n") == 3 * _ALTURA_SUBPROCESS,
+            "count={0}".format(proc.stdout.count("\n")),
+        )
+
+    # --- Preservacao dos fluxos existentes (d, g, Esc na raiz) ---
+    print("")
+    print("-- H-0030: preservacao dos chips d/g e Esc na raiz --")
+
+    # d continua abrindo destino_minimo.
+    res_d = processar_comando(estado_raiz, "d", modelo)
+    _registrar(
+        "H-0030 preservacao: chip 'd' continua abrindo destino_minimo",
+        res_d["tela_atual"] == "destino_minimo",
+        "tela_atual={0!r}".format(res_d.get("tela_atual")),
+    )
+    # g continua abrindo grupo_minimo.
+    res_g = processar_comando(estado_raiz, "g", modelo)
+    _registrar(
+        "H-0030 preservacao: chip 'g' continua abrindo grupo_minimo",
+        res_g["tela_atual"] == "grupo_minimo",
+        "tela_atual={0!r}".format(res_g.get("tela_atual")),
+    )
+
+    # Esc na raiz encerra o subprocess (saida vigente por Esc na raiz).
+    proc_esc_raiz = subprocess.run(
+        [sys.executable, "tela/demo.py"],
+        cwd=str(_BASE_PADRAO),
+        input="\x1b\n",
+        capture_output=True,
+        text=True,
+        env=env_h0030,
+    )
+    _registrar(
+        "H-0030 preservacao: Esc na raiz encerra com codigo 0",
+        proc_esc_raiz.returncode == 0,
+        "returncode={0}".format(proc_esc_raiz.returncode),
+    )
+    _registrar(
+        "H-0030 preservacao: Esc na raiz exibe orquestrador (curva) uma vez",
+        "ORQUESTRADOR" in proc_esc_raiz.stdout
+        and proc_esc_raiz.stdout.count("ORQUESTRADOR") == 1,
+        "orq_count={0}".format(proc_esc_raiz.stdout.count("ORQUESTRADOR")),
+    )
+
+    # Chips nao declarados (ex.: 'z') nao abrem destino algum.
+    res_z = processar_comando(estado_raiz, "z", modelo)
+    _registrar(
+        "H-0030 preservacao: chip nao declarado 'z' nao altera tela_atual",
+        res_z["tela_atual"] == "orquestrador" and res_z["pilha_telas"] == [],
+        "tela_atual={0!r}".format(res_z.get("tela_atual")),
+    )
+
+
 def _finalizar():
     print("")
     print("== Resumo ==")
@@ -3001,6 +3244,7 @@ def main():
     teste_inspecao_codigo_demo()
     teste_sessao_tui_h0022()
     teste_redimensionamento_reativo_h0023()
+    teste_navegacao_h0030(modelo)
 
     return _finalizar()
 

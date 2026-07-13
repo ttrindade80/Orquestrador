@@ -1,0 +1,144 @@
+{
+  "schema": "tela.v1",
+  "id": "h0030_matriz_3x2",
+  "cabecalho": {
+    "titulo": "H-0030 Matriz 3x2",
+    "descricao": "Catálogo — grupo matricial 3 linhas × 2 colunas"
+  },
+  "corpo": {
+    "arranjo": "vertical",
+    "distribuicao": {
+      "modo": "igual"
+    },
+    "elementos": [
+      {
+        "id": "g_3x2",
+        "tipo": "grupo",
+        "estrutura": "matriz",
+        "matriz": {
+          "linhas": {
+            "quantidade": 3,
+            "distribuicao": {"modo": "igual"}
+          },
+          "colunas": {
+            "quantidade": 2,
+            "distribuicao": {"modo": "igual"}
+          },
+          "celulas": [
+            {"linha": 1, "coluna": 1, "elemento": "l1c1"},
+            {"linha": 1, "coluna": 2, "elemento": "l1c2"},
+            {"linha": 2, "coluna": 1, "elemento": "l2c1"},
+            {"linha": 2, "coluna": 2, "elemento": "l2c2"},
+            {"linha": 3, "coluna": 1, "elemento": "l3c1"},
+            {"linha": 3, "coluna": 2, "elemento": "l3c2"}
+          ]
+        },
+        "elementos": [
+          {
+            "id": "l1c1",
+            "tipo": "dashboard",
+            "titulo": "L1 C1",
+            "campos": [{"id": "pos", "rotulo": "Posição", "fonte": "literal", "valor": "linha 1, coluna 1"}]
+          },
+          {
+            "id": "l1c2",
+            "tipo": "dashboard",
+            "titulo": "L1 C2",
+            "campos": [{"id": "pos", "rotulo": "Posição", "fonte": "literal", "valor": "linha 1, coluna 2"}]
+          },
+          {
+            "id": "l2c1",
+            "tipo": "dashboard",
+            "titulo": "L2 C1",
+            "campos": [{"id": "pos", "rotulo": "Posição", "fonte": "literal", "valor": "linha 2, coluna 1"}]
+          },
+          {
+            "id": "l2c2",
+            "tipo": "dashboard",
+            "titulo": "L2 C2",
+            "campos": [{"id": "pos", "rotulo": "Posição", "fonte": "literal", "valor": "linha 2, coluna 2"}]
+          },
+          {
+            "id": "l3c1",
+            "tipo": "dashboard",
+            "titulo": "L3 C1",
+            "campos": [{"id": "pos", "rotulo": "Posição", "fonte": "literal", "valor": "linha 3, coluna 1"}]
+          },
+          {
+            "id": "l3c2",
+            "tipo": "dashboard",
+            "titulo": "L3 C2",
+            "campos": [{"id": "pos", "rotulo": "Posição", "fonte": "literal", "valor": "linha 3, coluna 2"}]
+          }
+        ]
+      }
+    ]
+  },
+  "barra_de_menus": {
+    "distribuicao": {
+      "modo": "horizontal_responsiva",
+      "ordem": {
+        "politica": "declaracao",
+        "ancoras": {
+          "primeiro": ["chip_esc"],
+          "ultimo": ["chip_ajuda"]
+        }
+      },
+      "tentativa_inicial": "linha_unica",
+      "quebra": "multilinha_quando_nao_couber",
+      "preenchimento_multilinha": "coluna_a_coluna",
+      "preenchimentos_multilinha_suportados": ["coluna_a_coluna", "linha_a_linha"],
+      "linhas": {
+        "minimo": 1,
+        "maximo": 2,
+        "preferir_menor_numero": true
+      },
+      "alinhamento_linhas": "esquerda",
+      "espacamentos": {
+        "margem_horizontal": {"minimo": 1, "maximo": null},
+        "vao_chip_texto": {"minimo": 1, "maximo": 3},
+        "vao_entre_chips": {"minimo": 2, "maximo": 6},
+        "vao_entre_colunas": {"minimo": 2, "maximo": 8},
+        "vao_vertical_entre_linhas": {"minimo": 0, "maximo": 0}
+      },
+      "colunas": {
+        "largura": "por_maior_item_da_coluna",
+        "subcolunas": {
+          "chip": {"alinhamento": "esquerda"},
+          "texto": {"alinhamento": "esquerda"}
+        }
+      },
+      "overflow": {
+        "quando_nao_couber": "erro_layout",
+        "nao_omitir_chips": true,
+        "nao_truncar_texto": true,
+        "nao_reordenar": true
+      }
+    },
+    "chips": [
+      {
+        "id": "chip_esc",
+        "tipo": "acao",
+        "tecla": "Esc",
+        "texto": "Voltar",
+        "acao": {
+          "tipo": "acao_contextual_esc",
+          "nota": "Voltar na tela interna sem selecao ativa (contrato_barra_de_menus secao 9)"
+        },
+        "regra_existencia": "sempre",
+        "regra_ativo": "sempre",
+        "forma_exibicao": "rotulo_dinamico"
+      },
+      {
+        "id": "chip_ajuda",
+        "tipo": "acao",
+        "tecla": "?",
+        "texto": "Ajuda",
+        "acao": {"tipo": "abrir_ajuda"},
+        "regra_existencia": "sempre",
+        "regra_ativo": "sempre",
+        "forma_exibicao": "visivel_ativo"
+      }
+    ]
+  }
+}
