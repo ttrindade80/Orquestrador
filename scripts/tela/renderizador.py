@@ -815,8 +815,14 @@ def _renderizar_container_vertical(
                     arranjo_g, dist_g, elemento.elementos, borda, total_w, cota,
                     estrutura=estrutura_g, matriz_config=matriz_g,
                 )
+                fill_linha = " " * total_w
                 if bloco:
-                    partes.append(bloco)
+                    linhas_bloco = bloco.split("\n")
+                    while len(linhas_bloco) < cota:
+                        linhas_bloco.append(fill_linha)
+                    partes.append("\n".join(linhas_bloco))
+                elif cota > 0:
+                    partes.append("\n".join(fill_linha for _ in range(cota)))
             else:
                 caixa = _caixa_de_elemento(
                     elemento, borda, inner_w, content_w, label_max,

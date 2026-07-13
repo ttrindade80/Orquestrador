@@ -5178,6 +5178,1188 @@ class TestRenderizadorMatrizH0028:
         self.test_terminal_pequeno_propaga_erro_global_existente()
 
 
+def _modelo_h0029(elementos, corpo_dist=None, largura=42):
+    """Cria ModeloTela sintetico para testes H-0029.
+
+    Cabecalho de 3 linhas, barra de 3 linhas com chip unico.
+    Para largura=42 e altura=20: l_corpo_disponivel=14.
+    """
+    return ModeloTela(
+        id="teste_h0029",
+        schema="tela.v1",
+        cabecalho={"titulo": "H0029", "descricao": "h0029"},
+        corpo=Corpo(arranjo="vertical", elementos=elementos, distribuicao=corpo_dist),
+        barra_de_menus={"chips": [{"id": "esc", "tecla": "Esc", "texto": "Voltar"}]},
+        _raw={},
+    )
+
+
+def _h0029_linhas_totais(saida):
+    return len(saida.splitlines())
+
+
+def _h0029_larguras(saida):
+    return [len(l) for l in saida.splitlines() if l.strip()]
+
+
+def _h0029_barra_posicao(saida, altura):
+    linhas = saida.splitlines()
+    for i in range(len(linhas) - 1, -1, -1):
+        if linhas[i].startswith("╭") or linhas[i].startswith("┌"):
+            return i
+    return -1
+
+
+class TestCardinalidadeUnitariaH0029:
+    """Testes de distribuicao em containers com cardinalidade unitaria (H-0029).
+
+    Cobre a matriz minima do handoff: ausencia preservada; corpo e grupo com
+    modos igual/fracao/percentual para cardinalidade 1; composicao em dois niveis;
+    equivalencia geometrica; preservacao de 2+ filhos; preservacao da ausencia;
+    preservacao dos JSONs reais; comportamento em duas alturas de terminal.
+    """
+
+    LARGURA = 42
+    ALTURA = 20
+    # l_cab=3, l_barra=3, l_corpo_disponivel=14
+
+    def _r(self, nome, passou, detalhe=""):
+        _registrar(nome, passou, detalhe)
+
+    def _espera_erro(self, nome, fn):
+        try:
+            fn()
+            self._r(nome, False, "nenhuma excecao levantada")
+            return None
+        except RenderizadorErro as exc:
+            self._r(nome, True, str(exc))
+            return exc
+
+    def _render(self, elementos, corpo_dist=None, altura=None):
+        m = _modelo_h0029(elementos, corpo_dist=corpo_dist)
+        kw = {"largura": self.LARGURA}
+        if altura is not None:
+            kw["altura"] = altura
+        return renderizar_tela(m, **kw)
+
+    # -------------------------------------------------- M01: ausencia funcional
+    def test_M01_ausencia_funcional_preserva_natural(self):
+        """M01: corpo sem dist, 1 funcional direto -> altura natural preservada."""
+        saida = self._render(
+            [_funcional("d1", "dashboard", "D1")],
+            altura=self.ALTURA,
+        )
+        self._r(
+            "H-0029 M01: total de linhas == altura",
+            _h0029_linhas_totais(saida) == self.ALTURA,
+            "got={0}".format(_h0029_linhas_totais(saida)),
+        )
+        corpo_alts = _corpo_alturas(saida)
+        self._r(
+            "H-0029 M01: funcional preserva altura natural (dashboard sem campos = 2 linhas)",
+            corpo_alts == [2],
+            "corpo_alturas={0}".format(corpo_alts),
+        )
+        fill_ext = [l for l in saida.splitlines() if l == " " * self.LARGURA]
+        self._r(
+            "H-0029 M01: fill externo H-0015 presente (ausencia de dist)",
+            len(fill_ext) > 0,
+            "fill_ext={0}".format(len(fill_ext)),
+        )
+
+    # -------------------------------------------------- M02: corpo igual funcional
+    def test_M02_igual_funcional_direto_ocupa_area(self):
+        """M02: corpo=igual, 1 funcional direto -> filho recebe toda a area."""
+        saida = self._render(
+            [_funcional("d1", "dashboard", "D1")],
+            corpo_dist={"modo": "igual"},
+            altura=self.ALTURA,
+        )
+        self._r(
+            "H-0029 M02: total de linhas == altura",
+            _h0029_linhas_totais(saida) == self.ALTURA,
+            "got={0}".format(_h0029_linhas_totais(saida)),
+        )
+        corpo_alts = _corpo_alturas(saida)
+        # l_corpo_disponivel=14; com dist, funcional ocupa 14 linhas
+        self._r(
+            "H-0029 M02: funcional recebe toda a area distribuivel (14 linhas)",
+            corpo_alts == [14],
+            "corpo_alturas={0}".format(corpo_alts),
+        )
+        fill_ext = [l for l in saida.splitlines() if l == " " * self.LARGURA]
+        self._r(
+            "H-0029 M02: sem fill externo (dist absorve area internamente)",
+            len(fill_ext) == 0,
+            "fill_ext={0}".format(len(fill_ext)),
+        )
+        self._r(
+            "H-0029 M02: barra na posicao correta (linha altura-3 = 17)",
+            _h0029_barra_posicao(saida, self.ALTURA) == self.ALTURA - 3,
+            "barra_pos={0}".format(_h0029_barra_posicao(saida, self.ALTURA)),
+        )
+
+    # -------------------------------------------------- M03: fracao[1] funcional
+    def test_M03_fracao1_funcional_equivale_igual(self):
+        """M03: corpo=fracao[1], 1 funcional -> geometricamente equivalente a M02."""
+        saida_ig = self._render(
+            [_funcional("d1", "dashboard", "D1")],
+            corpo_dist={"modo": "igual"},
+            altura=self.ALTURA,
+        )
+        saida_fr = self._render(
+            [_funcional("d1", "dashboard", "D1")],
+            corpo_dist={"modo": "fracao", "valores": [1]},
+            altura=self.ALTURA,
+        )
+        self._r(
+            "H-0029 M03: fracao[1] total linhas == altura",
+            _h0029_linhas_totais(saida_fr) == self.ALTURA,
+        )
+        self._r(
+            "H-0029 M03: fracao[1] geometricamente identico a igual (cardinalidade 1)",
+            saida_fr == saida_ig,
+        )
+
+    # -------------------------------------------------- M04: percentual[100] funcional
+    def test_M04_percentual100_funcional_equivale_igual(self):
+        """M04: corpo=percentual[100], 1 funcional -> equivalente a M02."""
+        saida_ig = self._render(
+            [_funcional("d1", "dashboard", "D1")],
+            corpo_dist={"modo": "igual"},
+            altura=self.ALTURA,
+        )
+        saida_pc = self._render(
+            [_funcional("d1", "dashboard", "D1")],
+            corpo_dist={"modo": "percentual", "valores": [100]},
+            altura=self.ALTURA,
+        )
+        self._r(
+            "H-0029 M04: percentual[100] total linhas == altura",
+            _h0029_linhas_totais(saida_pc) == self.ALTURA,
+        )
+        self._r(
+            "H-0029 M04: percentual[100] geometricamente identico a igual (cardinalidade 1)",
+            saida_pc == saida_ig,
+        )
+
+    # ---- M05: corpo=igual, grupo sem dist, 1 filho -> grupo recebe cota; filho natural
+    def test_M05_igual_grupo_sem_dist_1filho(self):
+        """M05: corpo=igual, grupo sem dist, 1 filho -> grupo recebe cota; filho permanece natural.
+
+        Reproduz o defeito pre-H-0029: output era 8 linhas em vez de 20.
+        """
+        saida = self._render(
+            [_grupo("g1", "vertical", [_funcional("d1", "dashboard", "D1")])],
+            corpo_dist={"modo": "igual"},
+            altura=self.ALTURA,
+        )
+        self._r(
+            "H-0029 M05: total de linhas == altura (defeito pre-H-0029 era 8 linhas)",
+            _h0029_linhas_totais(saida) == self.ALTURA,
+            "got={0} (esperado {1})".format(_h0029_linhas_totais(saida), self.ALTURA),
+        )
+        corpo_alts = _corpo_alturas(saida)
+        self._r(
+            "H-0029 M05: filho interno permanece em altura natural (2 linhas)",
+            corpo_alts == [2],
+            "corpo_alturas={0}".format(corpo_alts),
+        )
+        self._r(
+            "H-0029 M05: barra na posicao correta",
+            _h0029_barra_posicao(saida, self.ALTURA) == self.ALTURA - 3,
+            "barra_pos={0}".format(_h0029_barra_posicao(saida, self.ALTURA)),
+        )
+        # A soma de linhas do corpo (2 dashboard + fill) == l_corpo_disponivel
+        linhas = saida.splitlines()
+        corpo_linhas = linhas[3:self.ALTURA - 3]
+        self._r(
+            "H-0029 M05: corpo ocupa exatamente l_corpo_disponivel=14 linhas",
+            len(corpo_linhas) == 14,
+            "len_corpo={0}".format(len(corpo_linhas)),
+        )
+
+    # -------------------------------------------------- M06: fracao[1] grupo sem dist
+    def test_M06_fracao1_grupo_sem_dist_1filho(self):
+        """M06: corpo=fracao[1], grupo sem dist, 1 filho -> equivalente a M05."""
+        saida_ig = self._render(
+            [_grupo("g1", "vertical", [_funcional("d1", "dashboard", "D1")])],
+            corpo_dist={"modo": "igual"},
+            altura=self.ALTURA,
+        )
+        saida_fr = self._render(
+            [_grupo("g1", "vertical", [_funcional("d1", "dashboard", "D1")])],
+            corpo_dist={"modo": "fracao", "valores": [1]},
+            altura=self.ALTURA,
+        )
+        self._r(
+            "H-0029 M06: fracao[1] grupo sem dist total linhas == altura",
+            _h0029_linhas_totais(saida_fr) == self.ALTURA,
+        )
+        self._r(
+            "H-0029 M06: fracao[1] grupo sem dist geometricamente igual a M05 (igual)",
+            saida_fr == saida_ig,
+        )
+
+    # ---- M07: corpo sem dist, grupo=igual, 1 filho -> grupo natural; dist interna
+    def test_M07_ausencia_corpo_grupo_igual_1filho(self):
+        """M07: corpo sem dist, grupo=igual, 1 filho -> grupo raiz permanece natural."""
+        saida = self._render(
+            [_grupo("g1", "vertical", [_funcional("d1", "dashboard", "D1")],
+                    distribuicao={"modo": "igual"})],
+            altura=self.ALTURA,
+        )
+        self._r(
+            "H-0029 M07: total de linhas == altura",
+            _h0029_linhas_totais(saida) == self.ALTURA,
+            "got={0}".format(_h0029_linhas_totais(saida)),
+        )
+        # Sem area disponivel, dist do grupo nao atua; filho usa altura natural
+        corpo_alts = _corpo_alturas(saida)
+        self._r(
+            "H-0029 M07: filho interno permanece natural (sem area do corpo)",
+            corpo_alts == [2],
+            "corpo_alturas={0}".format(corpo_alts),
+        )
+        fill_ext = [l for l in saida.splitlines() if l == " " * self.LARGURA]
+        self._r(
+            "H-0029 M07: fill externo presente (corpo sem dist -> H-0015)",
+            len(fill_ext) > 0,
+        )
+
+    # -------------------------------------------------- M08: fracao[1] interno
+    def test_M08_ausencia_corpo_grupo_fracao1_1filho(self):
+        """M08: corpo sem dist, grupo=fracao[1], 1 filho -> equivalente a M07."""
+        saida_ig = self._render(
+            [_grupo("g1", "vertical", [_funcional("d1", "dashboard", "D1")],
+                    distribuicao={"modo": "igual"})],
+            altura=self.ALTURA,
+        )
+        saida_fr = self._render(
+            [_grupo("g1", "vertical", [_funcional("d1", "dashboard", "D1")],
+                    distribuicao={"modo": "fracao", "valores": [1]})],
+            altura=self.ALTURA,
+        )
+        self._r(
+            "H-0029 M08: fracao[1] interno total linhas == altura",
+            _h0029_linhas_totais(saida_fr) == self.ALTURA,
+        )
+        self._r(
+            "H-0029 M08: fracao[1] interno geometricamente identico a igual interno",
+            saida_fr == saida_ig,
+        )
+
+    # -------------------------------------------------- M09: percentual[100] interno
+    def test_M09_ausencia_corpo_grupo_percentual100_1filho(self):
+        """M09: corpo sem dist, grupo=percentual[100], 1 filho -> equivalente a M07."""
+        saida_ig = self._render(
+            [_grupo("g1", "vertical", [_funcional("d1", "dashboard", "D1")],
+                    distribuicao={"modo": "igual"})],
+            altura=self.ALTURA,
+        )
+        saida_pc = self._render(
+            [_grupo("g1", "vertical", [_funcional("d1", "dashboard", "D1")],
+                    distribuicao={"modo": "percentual", "valores": [100]})],
+            altura=self.ALTURA,
+        )
+        self._r(
+            "H-0029 M09: percentual[100] interno total linhas == altura",
+            _h0029_linhas_totais(saida_pc) == self.ALTURA,
+        )
+        self._r(
+            "H-0029 M09: percentual[100] interno geometricamente identico a igual interno",
+            saida_pc == saida_ig,
+        )
+
+    # ---- M10: corpo=igual, grupo=igual, 1 filho -> dois niveis distribuicao integral
+    def test_M10_igual_grupo_igual_1filho_dois_niveis(self):
+        """M10: corpo=igual, grupo=igual, 1 filho -> filho ocupa area interna completa."""
+        saida = self._render(
+            [_grupo("g1", "vertical", [_funcional("d1", "dashboard", "D1")],
+                    distribuicao={"modo": "igual"})],
+            corpo_dist={"modo": "igual"},
+            altura=self.ALTURA,
+        )
+        self._r(
+            "H-0029 M10: total de linhas == altura",
+            _h0029_linhas_totais(saida) == self.ALTURA,
+        )
+        corpo_alts = _corpo_alturas(saida)
+        self._r(
+            "H-0029 M10: filho ocupa area interna completa (14 linhas = l_corpo_disponivel)",
+            corpo_alts == [14],
+            "corpo_alturas={0}".format(corpo_alts),
+        )
+        fill_ext = [l for l in saida.splitlines() if l == " " * self.LARGURA]
+        self._r(
+            "H-0029 M10: sem fill externo (dois niveis de dist absorvem area)",
+            len(fill_ext) == 0,
+        )
+        self._r(
+            "H-0029 M10: barra na posicao correta",
+            _h0029_barra_posicao(saida, self.ALTURA) == self.ALTURA - 3,
+        )
+
+    # -------------------------------------------------- M11: fracao[1]/fracao[1]
+    def test_M11_fracao1_grupo_fracao1_1filho(self):
+        """M11: corpo=fracao[1], grupo=fracao[1], 1 filho -> equivalente a M10."""
+        saida_ig = self._render(
+            [_grupo("g1", "vertical", [_funcional("d1", "dashboard", "D1")],
+                    distribuicao={"modo": "igual"})],
+            corpo_dist={"modo": "igual"},
+            altura=self.ALTURA,
+        )
+        saida_fr = self._render(
+            [_grupo("g1", "vertical", [_funcional("d1", "dashboard", "D1")],
+                    distribuicao={"modo": "fracao", "valores": [1]})],
+            corpo_dist={"modo": "fracao", "valores": [1]},
+            altura=self.ALTURA,
+        )
+        self._r(
+            "H-0029 M11: fracao[1]/fracao[1] total linhas == altura",
+            _h0029_linhas_totais(saida_fr) == self.ALTURA,
+        )
+        self._r(
+            "H-0029 M11: fracao[1]/fracao[1] geometricamente identico a igual/igual",
+            saida_fr == saida_ig,
+        )
+
+    # -------------------------------------------------- M12: percentual[100]/percentual[100]
+    def test_M12_percentual100_grupo_percentual100_1filho(self):
+        """M12: corpo=percentual[100], grupo=percentual[100], 1 filho -> equivalente a M10."""
+        saida_ig = self._render(
+            [_grupo("g1", "vertical", [_funcional("d1", "dashboard", "D1")],
+                    distribuicao={"modo": "igual"})],
+            corpo_dist={"modo": "igual"},
+            altura=self.ALTURA,
+        )
+        saida_pc = self._render(
+            [_grupo("g1", "vertical", [_funcional("d1", "dashboard", "D1")],
+                    distribuicao={"modo": "percentual", "valores": [100]})],
+            corpo_dist={"modo": "percentual", "valores": [100]},
+            altura=self.ALTURA,
+        )
+        self._r(
+            "H-0029 M12: percentual[100]/percentual[100] total linhas == altura",
+            _h0029_linhas_totais(saida_pc) == self.ALTURA,
+        )
+        self._r(
+            "H-0029 M12: percentual[100]/percentual[100] geometricamente identico a igual/igual",
+            saida_pc == saida_ig,
+        )
+
+    # -------------------------------------------------- M13: preservacao 2+ filhos
+    def test_M13_preservacao_dois_ou_mais_filhos(self):
+        """M13: corpo=igual, grupo=igual, 2+ filhos -> comportamento existente preservado."""
+        saida = self._render(
+            [_grupo("g1", "vertical", [
+                _funcional("d1", "dashboard", "D1"),
+                _funcional("d2", "dashboard", "D2"),
+            ], distribuicao={"modo": "igual"})],
+            corpo_dist={"modo": "igual"},
+            altura=self.ALTURA,
+        )
+        self._r(
+            "H-0029 M13: total de linhas == altura",
+            _h0029_linhas_totais(saida) == self.ALTURA,
+        )
+        corpo_alts = _corpo_alturas(saida)
+        self._r(
+            "H-0029 M13: dois filhos somam l_corpo_disponivel=14",
+            sum(corpo_alts) == 14,
+            "corpo_alturas={0}".format(corpo_alts),
+        )
+        self._r(
+            "H-0029 M13: dois filhos presentes nas caixas do corpo",
+            len(corpo_alts) == 2,
+            "n_caixas={0}".format(len(corpo_alts)),
+        )
+        fill_ext = [l for l in saida.splitlines() if l == " " * self.LARGURA]
+        self._r(
+            "H-0029 M13: sem fill externo com 2 filhos distribuidos",
+            len(fill_ext) == 0,
+        )
+
+    # -------------------------------------------------- largura das linhas
+    def test_largura_linhas(self):
+        """Todas as linhas nao vazias tem a largura correta."""
+        for nome, corpo_dist, filhos in [
+            ("sem dist, 1 funcional", None, [_funcional("d1", "dashboard", "D1")]),
+            ("igual, 1 funcional", {"modo": "igual"}, [_funcional("d1", "dashboard", "D1")]),
+            ("igual, 1 grupo sem dist 1 filho",
+             {"modo": "igual"},
+             [_grupo("g1", "vertical", [_funcional("d1", "dashboard", "D1")])]),
+            ("igual, 1 grupo igual 1 filho",
+             {"modo": "igual"},
+             [_grupo("g1", "vertical", [_funcional("d1", "dashboard", "D1")],
+                     distribuicao={"modo": "igual"})]),
+        ]:
+            saida = self._render(filhos, corpo_dist=corpo_dist, altura=self.ALTURA)
+            larguras = [len(l) for l in saida.splitlines() if l.strip()]
+            todas_corretas = all(w == self.LARGURA for w in larguras)
+            self._r(
+                "H-0029 largura: {0} -> todas as linhas nao vazias com {1} chars".format(
+                    nome, self.LARGURA),
+                todas_corretas,
+                "larguras={0}".format(sorted(set(larguras))),
+            )
+
+    # -------------------------------------------------- redimensionamento (2 alturas)
+    def test_redimensionamento_duas_alturas(self):
+        """Duas alturas de terminal produzem resultados corretos."""
+        for alt in (20, 30):
+            for nome, corpo_dist, filhos in [
+                ("igual, 1 grupo sem dist 1 filho",
+                 {"modo": "igual"},
+                 [_grupo("g1", "vertical", [_funcional("d1", "dashboard", "D1")])]),
+                ("igual, 1 grupo igual 1 filho",
+                 {"modo": "igual"},
+                 [_grupo("g1", "vertical", [_funcional("d1", "dashboard", "D1")],
+                         distribuicao={"modo": "igual"})]),
+            ]:
+                saida = self._render(filhos, corpo_dist=corpo_dist, altura=alt)
+                n = _h0029_linhas_totais(saida)
+                self._r(
+                    "H-0029 redim: {0} altura={1} -> {1} linhas".format(nome, alt),
+                    n == alt,
+                    "got={0}".format(n),
+                )
+
+    # -------------------------------------------------- soma exata das cotas
+    def test_soma_cotas_exata(self):
+        """Soma das cotas atribuidas pelo corpo == l_corpo_disponivel."""
+        l_corpo = self.ALTURA - 3 - 3  # cab=3, barra=3
+        for nome, corpo_dist, filhos in [
+            ("igual, 1 funcional",
+             {"modo": "igual"},
+             [_funcional("d1", "dashboard", "D1")]),
+            ("igual, 2 funcionais",
+             {"modo": "igual"},
+             [_funcional("d1", "dashboard", "D1"), _funcional("d2", "dashboard", "D2")]),
+            ("fracao[2,1], 2 funcionais",
+             {"modo": "fracao", "valores": [2, 1]},
+             [_funcional("d1", "dashboard", "D1"), _funcional("d2", "dashboard", "D2")]),
+        ]:
+            pesos = _pesos_distribuicao(corpo_dist, len(filhos))
+            cotas = _distribuir_alturas(l_corpo, pesos)
+            self._r(
+                "H-0029 cotas: {0} -> soma({1}) == {2}".format(nome, cotas, l_corpo),
+                sum(cotas) == l_corpo,
+                "soma={0}".format(sum(cotas)),
+            )
+
+    # -------------------------------------------------- composicao 2 niveis unitaria
+    def test_composicao_dois_niveis_unitaria(self):
+        """Composicao com cardinalidade unitaria em 2 niveis funciona corretamente."""
+        # g1 sem dist, g2 com dist=igual, 1 funcional
+        saida_a = self._render(
+            [_grupo("g1", "vertical", [
+                _grupo("g2", "vertical", [_funcional("d1", "dashboard", "D1")],
+                       distribuicao={"modo": "igual"})
+            ])],
+            corpo_dist={"modo": "igual"},
+            altura=self.ALTURA,
+        )
+        self._r(
+            "H-0029 2niveis: g1_sem_dist > g2_igual > 1dash total linhas == altura",
+            _h0029_linhas_totais(saida_a) == self.ALTURA,
+            "got={0}".format(_h0029_linhas_totais(saida_a)),
+        )
+        # g1 com dist=igual, g2 com dist=igual, 1 funcional
+        saida_b = self._render(
+            [_grupo("g1", "vertical", [
+                _grupo("g2", "vertical", [_funcional("d1", "dashboard", "D1")],
+                       distribuicao={"modo": "igual"})
+            ], distribuicao={"modo": "igual"})],
+            corpo_dist={"modo": "igual"},
+            altura=self.ALTURA,
+        )
+        self._r(
+            "H-0029 2niveis: g1_igual > g2_igual > 1dash total linhas == altura",
+            _h0029_linhas_totais(saida_b) == self.ALTURA,
+            "got={0}".format(_h0029_linhas_totais(saida_b)),
+        )
+        corpo_alts_b = _corpo_alturas(saida_b)
+        self._r(
+            "H-0029 2niveis: g1_igual > g2_igual > 1dash filho expande para 14",
+            corpo_alts_b == [14],
+            "corpo_alturas={0}".format(corpo_alts_b),
+        )
+
+    # -------------------------------------------------- area insuficiente
+    def test_area_insuficiente_rejeicao_deterministica(self):
+        """Area insuficiente levanta RenderizadorErro deterministico."""
+        self._espera_erro(
+            "H-0029 area insuficiente: cab+barra > altura levanta RenderizadorErro",
+            lambda: self._render(
+                [_funcional("d1", "dashboard", "D1")],
+                corpo_dist={"modo": "igual"},
+                altura=4,  # impossivel: cab=3 + barra=3 > 4
+            ),
+        )
+
+    # ---------------------------------------- integracao JSON real grupo_minimo
+    def test_integracao_json_grupo_minimo(self):
+        """Integracao loader -> modelo -> renderer com grupo_minimo.json real."""
+        modelo = construir_modelo(carregar_tela(_BASE_PADRAO, "grupo_minimo"))
+        self._r(
+            "H-0029 integracao: grupo_minimo.json distribuicao is None (sem dist)",
+            modelo.corpo.distribuicao is None,
+        )
+        saida20 = renderizar_tela(modelo, largura=42, altura=20)
+        self._r(
+            "H-0029 integracao: grupo_minimo.json altura=20 -> 20 linhas",
+            _h0029_linhas_totais(saida20) == 20,
+            "got={0}".format(_h0029_linhas_totais(saida20)),
+        )
+        # filho interno em altura natural (sem dist no corpo)
+        corpo_alts = _corpo_alturas(saida20)
+        self._r(
+            "H-0029 integracao: grupo_minimo.json filho natural sem dist no corpo",
+            len(corpo_alts) == 1 and corpo_alts[0] < 14,
+            "corpo_alturas={0}".format(corpo_alts),
+        )
+        # Fill externo presente (corpus sem dist)
+        fill_ext = [l for l in saida20.splitlines() if l == " " * 42]
+        self._r(
+            "H-0029 integracao: grupo_minimo.json fill externo H-0015 presente",
+            len(fill_ext) > 0,
+        )
+        saida_sem = renderizar_tela(modelo, largura=42)
+        self._r(
+            "H-0029 integracao: grupo_minimo.json sem altura produz saida nao vazia",
+            bool(saida_sem.strip()),
+        )
+
+    # ---------------------------------------- preservacao ausencia nos JSONs reais
+    def test_preservacao_jsons_sem_dist(self):
+        """destino_minimo.json e stub_b.json nao declaram distribuicao: preservados."""
+        for id_tela in ("destino_minimo", "stub_b"):
+            modelo = construir_modelo(carregar_tela(_BASE_PADRAO, id_tela))
+            self._r(
+                "H-0029 preserv: {0} distribuicao is None".format(id_tela),
+                modelo.corpo.distribuicao is None,
+            )
+            saida = renderizar_tela(modelo, largura=42, altura=20)
+            self._r(
+                "H-0029 preserv: {0} altura=20 -> 20 linhas".format(id_tela),
+                _h0029_linhas_totais(saida) == 20,
+                "got={0}".format(_h0029_linhas_totais(saida)),
+            )
+
+    def run_all(self):
+        print("")
+        print("== TestCardinalidadeUnitariaH0029: distribuicao com cardinalidade 1 ==")
+        self.test_M01_ausencia_funcional_preserva_natural()
+        self.test_M02_igual_funcional_direto_ocupa_area()
+        self.test_M03_fracao1_funcional_equivale_igual()
+        self.test_M04_percentual100_funcional_equivale_igual()
+        self.test_M05_igual_grupo_sem_dist_1filho()
+        self.test_M06_fracao1_grupo_sem_dist_1filho()
+        self.test_M07_ausencia_corpo_grupo_igual_1filho()
+        self.test_M08_ausencia_corpo_grupo_fracao1_1filho()
+        self.test_M09_ausencia_corpo_grupo_percentual100_1filho()
+        self.test_M10_igual_grupo_igual_1filho_dois_niveis()
+        self.test_M11_fracao1_grupo_fracao1_1filho()
+        self.test_M12_percentual100_grupo_percentual100_1filho()
+        self.test_M13_preservacao_dois_ou_mais_filhos()
+        self.test_largura_linhas()
+        self.test_redimensionamento_duas_alturas()
+        self.test_soma_cotas_exata()
+        self.test_composicao_dois_niveis_unitaria()
+        self.test_area_insuficiente_rejeicao_deterministica()
+        self.test_integracao_json_grupo_minimo()
+        self.test_preservacao_jsons_sem_dist()
+
+
+# Geometria dos JSONs permanentes h0029_* (HANDOFF H-0029 secao 11A / 12.2).
+#
+# Para largura=42:
+#   - cabecalho: 3 linhas (indices 0, 1, 2);
+#   - barra_de_menus: 3 linhas, topo na linha `altura - 3`;
+#   - l_corpo_disponivel = altura - 6 (para altura=20 -> 14; para altura=30 -> 24).
+#
+# Cenarios com dashboard preenchendo a area distribuida (11A.1-11A.3 e 11A.5-11A.7):
+#   topo do dashboard na linha 3; borda inferior na linha `altura - 4`;
+#   barra imediatamente apos (gap == 0).
+#
+# Cenario grupo_pai_distribuido (11A.4): dashboard em altura natural (3 linhas,
+# indices 3..5); sobra como linhas estruturais em branco ate a barra.
+
+_H0029_TELAS_DASHBOARD = (
+    "h0029_dashboard_igual",
+    "h0029_dashboard_fracao",
+    "h0029_dashboard_percentual",
+)
+
+_H0029_TELAS_GRUPO_DISTRIBUIDO = (
+    "h0029_grupo_igual",
+    "h0029_grupo_fracao",
+    "h0029_grupo_percentual",
+)
+
+_H0029_TELAS_GRUPO_SEM_DIST = ("h0029_grupo_pai_distribuido",)
+
+_H0029_TELAS_TODAS = (
+    _H0029_TELAS_DASHBOARD
+    + _H0029_TELAS_GRUPO_SEM_DIST
+    + _H0029_TELAS_GRUPO_DISTRIBUIDO
+)
+
+
+def _h0029_caminho_json(id_tela):
+    return _BASE_PADRAO / "config" / "telas" / (id_tela + ".json")
+
+
+def _h0029_dashboard_topo(saida):
+    """Indice da borda superior (╭/┌) do primeiro dashboard apos o cabecalho."""
+    linhas = saida.splitlines()
+    for i, linha in enumerate(linhas):
+        if i < 3:
+            continue
+        if linha.startswith("╭") or linha.startswith("┌"):
+            return i
+    return -1
+
+
+def _h0029_dashboard_base(saida):
+    """Indice da borda inferior (╰/└) do primeiro dashboard apos o cabecalho."""
+    linhas = saida.splitlines()
+    topo = _h0029_dashboard_topo(saida)
+    if topo < 0:
+        return -1
+    for i in range(topo + 1, len(linhas)):
+        if linhas[i].startswith("╰") or linhas[i].startswith("└"):
+            return i
+    return -1
+
+
+def _h0029_barra_topo(saida):
+    """Indice da borda superior da caixa da barra_de_menus (ultima caixa)."""
+    linhas = saida.splitlines()
+    for i in range(len(linhas) - 1, -1, -1):
+        if linhas[i].startswith("╭") or linhas[i].startswith("┌"):
+            return i
+    return -1
+
+
+def _h0029_bordas_laterais_continuas(saida, topo, base):
+    """True se as linhas internas entre topo e base comecam e terminam com a
+    borda vertical (│) do conjunto curva."""
+    linhas = saida.splitlines()
+    for i in range(topo + 1, base):
+        if i >= len(linhas):
+            return False
+        linha = linhas[i]
+        if not linha.startswith("│") or not linha.endswith("│"):
+            return False
+    return True
+
+
+class TestTelasPermanentesH0029:
+    """Testes nominais de integracao para os sete JSONs permanentes h0029_*.
+
+    Carrega cada JSON pelo loader real, constroi o modelo e verifica a geometria
+    materialmente relevante em pelo menos duas alturas, conforme a secao 12.2 do
+    handoff H-0029. Nao se limita a contagem de linhas: inspeciona bordas do
+    dashboard, posicao da barra_de_menus, continuidade das bordas laterais,
+    ausencia de sobreposicao e equivalencia entre os tres modos de cada grupo.
+    """
+
+    LARGURA = 42
+    ALTURAS = (20, 30)
+
+    def _r(self, nome, passou, detalhe=""):
+        _registrar(nome, passou, detalhe)
+
+    # --------------------------------------------------- existencia e sintaxe
+    def test_existencia_e_sintaxe(self):
+        import json as _json
+        for id_tela in _H0029_TELAS_TODAS:
+            caminho = _h0029_caminho_json(id_tela)
+            existe = caminho.is_file()
+            self._r(
+                "H-0029 JSON {0}: arquivo existe".format(id_tela),
+                existe,
+                "caminho={0}".format(caminho),
+            )
+            if not existe:
+                continue
+            try:
+                with caminho.open(encoding="utf-8") as fh:
+                    dados = _json.load(fh)
+            except Exception as exc:
+                self._r(
+                    "H-0029 JSON {0}: sintaxe JSON valida".format(id_tela),
+                    False,
+                    "{0}: {1}".format(type(exc).__name__, exc),
+                )
+                continue
+            self._r(
+                "H-0029 JSON {0}: sintaxe JSON valida".format(id_tela),
+                isinstance(dados, dict),
+            )
+
+    # ------------------------------------------- carregamento e construcao
+    def test_carregamento_modelo(self):
+        for id_tela in _H0029_TELAS_TODAS:
+            try:
+                raw = carregar_tela(_BASE_PADRAO, id_tela)
+                modelo = construir_modelo(raw)
+            except Exception as exc:
+                self._r(
+                    "H-0029 JSON {0}: carrega e constroi modelo".format(id_tela),
+                    False,
+                    "{0}: {1}".format(type(exc).__name__, exc),
+                )
+                continue
+            self._r(
+                "H-0029 JSON {0}: carrega e constroi modelo".format(id_tela),
+                isinstance(modelo, ModeloTela),
+            )
+            self._r(
+                "H-0029 JSON {0}: id corresponde ao arquivo".format(id_tela),
+                modelo.id == id_tela,
+                "id={0!r}".format(modelo.id),
+            )
+            self._r(
+                "H-0029 JSON {0}: schema tela.v1".format(id_tela),
+                modelo.schema == "tela.v1",
+                "schema={0!r}".format(modelo.schema),
+            )
+            self._r(
+                "H-0029 JSON {0}: corpo tem exatamente 1 filho direto".format(id_tela),
+                len(modelo.corpo.elementos) == 1,
+                "n_filhos={0}".format(len(modelo.corpo.elementos)),
+            )
+
+    # ------------------------------------------- distribuicao declarada do corpo
+    def test_distribuicao_corpo_declarada(self):
+        espec = {
+            "h0029_dashboard_igual": {"modo": "igual"},
+            "h0029_dashboard_fracao": {"modo": "fracao", "valores": [1]},
+            "h0029_dashboard_percentual": {"modo": "percentual", "valores": [100]},
+            "h0029_grupo_pai_distribuido": {"modo": "fracao", "valores": [1]},
+            "h0029_grupo_igual": {"modo": "igual"},
+            "h0029_grupo_fracao": {"modo": "fracao", "valores": [1]},
+            "h0029_grupo_percentual": {"modo": "percentual", "valores": [100]},
+        }
+        for id_tela, esperado in espec.items():
+            modelo = construir_modelo(carregar_tela(_BASE_PADRAO, id_tela))
+            dist = modelo.corpo.distribuicao
+            self._r(
+                "H-0029 JSON {0}: corpo.distribuicao == {1!r}".format(id_tela, esperado),
+                dist == esperado,
+                "dist={0!r}".format(dist),
+            )
+
+    # ----------------------------------------------- tipo do filho direto
+    def test_tipo_do_filho_do_corpo(self):
+        espec = {
+            "h0029_dashboard_igual": "dashboard",
+            "h0029_dashboard_fracao": "dashboard",
+            "h0029_dashboard_percentual": "dashboard",
+            "h0029_grupo_pai_distribuido": "grupo",
+            "h0029_grupo_igual": "grupo",
+            "h0029_grupo_fracao": "grupo",
+            "h0029_grupo_percentual": "grupo",
+        }
+        for id_tela, esperado in espec.items():
+            modelo = construir_modelo(carregar_tela(_BASE_PADRAO, id_tela))
+            filho = modelo.corpo.elementos[0]
+            self._r(
+                "H-0029 JSON {0}: filho do corpo e tipo {1!r}".format(id_tela, esperado),
+                filho.tipo == esperado,
+                "tipo={0!r}".format(filho.tipo),
+            )
+
+    # ----------------------------- distribuicao interna do grupo (presenca/ausencia)
+    def test_distribuicao_interna_do_grupo(self):
+        # Telas com grupo: pai_distribuido SEM dist interna; demais COM dist interna.
+        sem_dist = {"h0029_grupo_pai_distribuido"}
+        com_dist = {
+            "h0029_grupo_igual": {"modo": "igual"},
+            "h0029_grupo_fracao": {"modo": "fracao", "valores": [1]},
+            "h0029_grupo_percentual": {"modo": "percentual", "valores": [100]},
+        }
+        for id_tela in sem_dist:
+            modelo = construir_modelo(carregar_tela(_BASE_PADRAO, id_tela))
+            grupo = modelo.corpo.elementos[0]
+            dist_g = grupo._campos_inertes.get("distribuicao")
+            self._r(
+                "H-0029 JSON {0}: grupo SEM distribuicao interna".format(id_tela),
+                dist_g is None,
+                "dist_g={0!r}".format(dist_g),
+            )
+            self._r(
+                "H-0029 JSON {0}: grupo tem 1 filho interno".format(id_tela),
+                len(grupo.elementos) == 1,
+                "n={0}".format(len(grupo.elementos)),
+            )
+            self._r(
+                "H-0029 JSON {0}: filho interno e dashboard".format(id_tela),
+                grupo.elementos[0].tipo == "dashboard",
+            )
+        for id_tela, esperado in com_dist.items():
+            modelo = construir_modelo(carregar_tela(_BASE_PADRAO, id_tela))
+            grupo = modelo.corpo.elementos[0]
+            dist_g = grupo._campos_inertes.get("distribuicao")
+            self._r(
+                "H-0029 JSON {0}: grupo.distribuicao == {1!r}".format(id_tela, esperado),
+                dist_g == esperado,
+                "dist_g={0!r}".format(dist_g),
+            )
+            self._r(
+                "H-0029 JSON {0}: grupo tem 1 filho interno".format(id_tela),
+                len(grupo.elementos) == 1,
+            )
+            self._r(
+                "H-0029 JSON {0}: filho interno e dashboard".format(id_tela),
+                grupo.elementos[0].tipo == "dashboard",
+            )
+
+    # ------------------------- geometria: altura total, largura, barra (2 alturas)
+    def test_geometria_altura_largura_barra(self):
+        for id_tela in _H0029_TELAS_TODAS:
+            modelo = construir_modelo(carregar_tela(_BASE_PADRAO, id_tela))
+            for altura in self.ALTURAS:
+                saida = renderizar_tela(
+                    modelo, tipo_borda="curva",
+                    largura=self.LARGURA, altura=altura,
+                )
+                linhas = saida.splitlines()
+                self._r(
+                    "H-0029 JSON {0} alt={1}: total de linhas == altura".format(
+                        id_tela, altura
+                    ),
+                    len(linhas) == altura,
+                    "linhas={0}".format(len(linhas)),
+                )
+                larguras = {len(l) for l in linhas if l.strip()}
+                self._r(
+                    "H-0029 JSON {0} alt={1}: largura uniforme == {2}".format(
+                        id_tela, altura, self.LARGURA
+                    ),
+                    larguras == {self.LARGURA},
+                    "larguras={0}".format(sorted(larguras)),
+                )
+                barra = _h0029_barra_topo(saida)
+                self._r(
+                    "H-0029 JSON {0} alt={1}: barra_topo == altura-3 ({2})".format(
+                        id_tela, altura, altura - 3
+                    ),
+                    barra == altura - 3,
+                    "barra_topo={0}".format(barra),
+                )
+
+    # ----------------------------- geometria: dashboard preenche area distribuida
+    def test_geometria_dashboard_preenche_area(self):
+        """Telas 11A.1-11A.3 e 11A.5-11A.7: dashboard ocupa toda a area."""
+        preenche = _H0029_TELAS_DASHBOARD + _H0029_TELAS_GRUPO_DISTRIBUIDO
+        for id_tela in preenche:
+            modelo = construir_modelo(carregar_tela(_BASE_PADRAO, id_tela))
+            for altura in self.ALTURAS:
+                saida = renderizar_tela(
+                    modelo, tipo_borda="curva",
+                    largura=self.LARGURA, altura=altura,
+                )
+                topo = _h0029_dashboard_topo(saida)
+                base = _h0029_dashboard_base(saida)
+                barra = _h0029_barra_topo(saida)
+                self._r(
+                    "H-0029 JSON {0} alt={1}: dashboard topo == 3".format(
+                        id_tela, altura
+                    ),
+                    topo == 3,
+                    "topo={0}".format(topo),
+                )
+                self._r(
+                    "H-0029 JSON {0} alt={1}: dashboard base == altura-4 ({2})".format(
+                        id_tela, altura, altura - 4
+                    ),
+                    base == altura - 4,
+                    "base={0}".format(base),
+                )
+                self._r(
+                    "H-0029 JSON {0} alt={1}: borda inferior imediatamente antes "
+                    "da barra (gap == 0)".format(id_tela, altura),
+                    base >= 0 and barra == base + 1,
+                    "base={0} barra={1}".format(base, barra),
+                )
+                self._r(
+                    "H-0029 JSON {0} alt={1}: bordas laterais continuas".format(
+                        id_tela, altura
+                    ),
+                    _h0029_bordas_laterais_continuas(saida, topo, base),
+                )
+                # Ausencia de linhas externas (branco total) entre dashboard e barra.
+                entre = [
+                    l for l in saida.splitlines()[base + 1:barra]
+                    if l == " " * self.LARGURA
+                ]
+                self._r(
+                    "H-0029 JSON {0} alt={1}: sem linhas externas entre dashboard "
+                    "e barra".format(id_tela, altura),
+                    len(entre) == 0,
+                    "linhas_externas={0}".format(len(entre)),
+                )
+
+    # ----------------------------- geometria: grupo_pai_distribuido (natural)
+    def test_geometria_grupo_pai_distribuido_natural(self):
+        """Tela 11A.4: dashboard em altura natural; sobra estrutural do grupo."""
+        id_tela = "h0029_grupo_pai_distribuido"
+        modelo = construir_modelo(carregar_tela(_BASE_PADRAO, id_tela))
+        for altura in self.ALTURAS:
+            saida = renderizar_tela(
+                modelo, tipo_borda="curva",
+                largura=self.LARGURA, altura=altura,
+            )
+            linhas = saida.splitlines()
+            topo = _h0029_dashboard_topo(saida)
+            base = _h0029_dashboard_base(saida)
+            barra = _h0029_barra_topo(saida)
+            # Dashboard em altura natural: topo 3, base 5 (3 linhas fisicas).
+            self._r(
+                "H-0029 JSON {0} alt={1}: dashboard natural topo == 3".format(
+                    id_tela, altura
+                ),
+                topo == 3,
+                "topo={0}".format(topo),
+            )
+            self._r(
+                "H-0029 JSON {0} alt={1}: dashboard natural base == 5".format(
+                    id_tela, altura
+                ),
+                base == 5,
+                "base={0}".format(base),
+            )
+            # NAO exige expansao do dashboard ate a barra.
+            self._r(
+                "H-0029 JSON {0} alt={1}: dashboard NAO expandido ate a barra".format(
+                    id_tela, altura
+                ),
+                base < barra - 1,
+                "base={0} barra={1}".format(base, barra),
+            )
+            # Sobra como linhas estruturais (branco total) entre dashboard e barra.
+            estruturais = [
+                l for l in linhas[base + 1:barra] if l == " " * self.LARGURA
+            ]
+            esperado_estruturais = barra - base - 1
+            self._r(
+                "H-0029 JSON {0} alt={1}: linhas estruturais restantes == {2}".format(
+                    id_tela, altura, esperado_estruturais
+                ),
+                len(estruturais) == esperado_estruturais,
+                "estruturais={0}".format(len(estruturais)),
+            )
+            self._r(
+                "H-0029 JSON {0} alt={1}: barra_topo == altura-3 ({2})".format(
+                    id_tela, altura, altura - 3
+                ),
+                barra == altura - 3,
+                "barra={0}".format(barra),
+            )
+            # Ausencia de sobreposicao: base < barra e total == altura.
+            self._r(
+                "H-0029 JSON {0} alt={1}: sem sobreposicao (base < barra)".format(
+                    id_tela, altura
+                ),
+                base < barra and len(linhas) == altura,
+            )
+
+    # --------------------------------------------- equivalencia: dashboards
+    def test_equivalencia_dashboard_tres_modos(self):
+        """h0029_dashboard_igual/fracao/percentual geometricamente equivalentes."""
+        saidas = {}
+        for altura in self.ALTURAS:
+            saidas[altura] = {}
+            for id_tela in _H0029_TELAS_DASHBOARD:
+                modelo = construir_modelo(carregar_tela(_BASE_PADRAO, id_tela))
+                saidas[altura][id_tela] = renderizar_tela(
+                    modelo, tipo_borda="curva",
+                    largura=self.LARGURA, altura=altura,
+                )
+            igual = saidas[altura]["h0029_dashboard_igual"]
+            frac = saidas[altura]["h0029_dashboard_fracao"]
+            perc = saidas[altura]["h0029_dashboard_percentual"]
+            # Geometria (bordas) deve coincidir; textos do cabecalho diferem.
+            for id_tela, s in (("fracao", frac), ("percentual", perc)):
+                top_i = _h0029_dashboard_topo(igual)
+                top_o = _h0029_dashboard_topo(s)
+                base_i = _h0029_dashboard_base(igual)
+                base_o = _h0029_dashboard_base(s)
+                barra_i = _h0029_barra_topo(igual)
+                barra_o = _h0029_barra_topo(s)
+                self._r(
+                    "H-0029 equiv dashboard alt={0}: igual vs {1} topo".format(
+                        altura, id_tela
+                    ),
+                    top_i == top_o,
+                    "igual={0} {1}={2}".format(top_i, id_tela, top_o),
+                )
+                self._r(
+                    "H-0029 equiv dashboard alt={0}: igual vs {1} base".format(
+                        altura, id_tela
+                    ),
+                    base_i == base_o,
+                    "igual={0} {1}={2}".format(base_i, id_tela, base_o),
+                )
+                self._r(
+                    "H-0029 equiv dashboard alt={0}: igual vs {1} barra".format(
+                        altura, id_tela
+                    ),
+                    barra_i == barra_o,
+                    "igual={0} {1}={2}".format(barra_i, id_tela, barra_o),
+                )
+                # Altura do corpo (dashboard) identica.
+                self._r(
+                    "H-0029 equiv dashboard alt={0}: igual vs {1} altura dashboard".format(
+                        altura, id_tela
+                    ),
+                    (base_i - top_i) == (base_o - top_o),
+                    "igual={0} {1}={2}".format(base_i - top_i, id_tela, base_o - top_o),
+                )
+
+    # ------------------------------------------------- equivalencia: grupos
+    def test_equivalencia_grupo_tres_modos(self):
+        """h0029_grupo_igual/fracao/percentual geometricamente equivalentes."""
+        saidas = {}
+        for altura in self.ALTURAS:
+            saidas[altura] = {}
+            for id_tela in _H0029_TELAS_GRUPO_DISTRIBUIDO:
+                modelo = construir_modelo(carregar_tela(_BASE_PADRAO, id_tela))
+                saidas[altura][id_tela] = renderizar_tela(
+                    modelo, tipo_borda="curva",
+                    largura=self.LARGURA, altura=altura,
+                )
+            igual = saidas[altura]["h0029_grupo_igual"]
+            frac = saidas[altura]["h0029_grupo_fracao"]
+            perc = saidas[altura]["h0029_grupo_percentual"]
+            for id_tela, s in (("fracao", frac), ("percentual", perc)):
+                top_i = _h0029_dashboard_topo(igual)
+                top_o = _h0029_dashboard_topo(s)
+                base_i = _h0029_dashboard_base(igual)
+                base_o = _h0029_dashboard_base(s)
+                barra_i = _h0029_barra_topo(igual)
+                barra_o = _h0029_barra_topo(s)
+                self._r(
+                    "H-0029 equiv grupo alt={0}: igual vs {1} topo".format(
+                        altura, id_tela
+                    ),
+                    top_i == top_o,
+                    "igual={0} {1}={2}".format(top_i, id_tela, top_o),
+                )
+                self._r(
+                    "H-0029 equiv grupo alt={0}: igual vs {1} base".format(
+                        altura, id_tela
+                    ),
+                    base_i == base_o,
+                    "igual={0} {1}={2}".format(base_i, id_tela, base_o),
+                )
+                self._r(
+                    "H-0029 equiv grupo alt={0}: igual vs {1} barra".format(
+                        altura, id_tela
+                    ),
+                    barra_i == barra_o,
+                    "igual={0} {1}={2}".format(barra_i, id_tela, barra_o),
+                )
+                self._r(
+                    "H-0029 equiv grupo alt={0}: igual vs {1} altura dashboard".format(
+                        altura, id_tela
+                    ),
+                    (base_i - top_i) == (base_o - top_o),
+                    "igual={0} {1}={2}".format(base_i - top_i, id_tela, base_o - top_o),
+                )
+
+    # --------------------------- area adicional absorvida (redimensionamento)
+    def test_area_adicional_absorvida(self):
+        """Altura maior: area extra absorvida corretamente; barra permanece no fim."""
+        for id_tela in _H0029_TELAS_TODAS:
+            modelo = construir_modelo(carregar_tela(_BASE_PADRAO, id_tela))
+            s20 = renderizar_tela(
+                modelo, tipo_borda="curva", largura=self.LARGURA, altura=20
+            )
+            s30 = renderizar_tela(
+                modelo, tipo_borda="curva", largura=self.LARGURA, altura=30
+            )
+            barra20 = _h0029_barra_topo(s20)
+            barra30 = _h0029_barra_topo(s30)
+            self._r(
+                "H-0029 JSON {0}: barra acompanha nova altura (17->27)".format(id_tela),
+                barra20 == 17 and barra30 == 27,
+                "barra20={0} barra30={1}".format(barra20, barra30),
+            )
+            if id_tela == "h0029_grupo_pai_distribuido":
+                # Dashboard permanece natural em ambas as alturas.
+                base20 = _h0029_dashboard_base(s20)
+                base30 = _h0029_dashboard_base(s30)
+                self._r(
+                    "H-0029 JSON {0}: dashboard natural preservado (base 5 em ambas)".format(
+                        id_tela
+                    ),
+                    base20 == 5 and base30 == 5,
+                    "base20={0} base30={1}".format(base20, base30),
+                )
+            else:
+                # Dashboard distribuido: borda inferior acompanha a nova cota.
+                base20 = _h0029_dashboard_base(s20)
+                base30 = _h0029_dashboard_base(s30)
+                self._r(
+                    "H-0029 JSON {0}: borda inferior acompanha cota (16->26)".format(
+                        id_tela
+                    ),
+                    base20 == 16 and base30 == 26,
+                    "base20={0} base30={1}".format(base20, base30),
+                )
+
+    # ----------------------------------- ausencia de sobreposicao (geral)
+    def test_ausencia_sobreposicao(self):
+        """Nenhuma tela produz linhas duplicadas nem desaparecimento de bordas."""
+        for id_tela in _H0029_TELAS_TODAS:
+            modelo = construir_modelo(carregar_tela(_BASE_PADRAO, id_tela))
+            for altura in self.ALTURAS:
+                saida = renderizar_tela(
+                    modelo, tipo_borda="curva",
+                    largura=self.LARGURA, altura=altura,
+                )
+                linhas = saida.splitlines()
+                # Sem linha em branco entre caixas (invariante do renderer).
+                self._r(
+                    "H-0029 JSON {0} alt={1}: sem '\\n\\n' (sem linha em branco)".format(
+                        id_tela, altura
+                    ),
+                    "\n\n" not in saida,
+                )
+                # Contagem de bordas superiores: 3 caixas (cabecalho, corpo, barra).
+                top_count = sum(
+                    1 for l in linhas if l.startswith("╭")
+                )
+                self._r(
+                    "H-0029 JSON {0} alt={1}: exatamente 3 caixas (3 bordas superiores)".format(
+                        id_tela, altura
+                    ),
+                    top_count == 3,
+                    "top_count={0}".format(top_count),
+                )
+
+    def run_all(self):
+        print("")
+        print("== TestTelasPermanentesH0029: sete JSONs nominais ==")
+        self.test_existencia_e_sintaxe()
+        self.test_carregamento_modelo()
+        self.test_distribuicao_corpo_declarada()
+        self.test_tipo_do_filho_do_corpo()
+        self.test_distribuicao_interna_do_grupo()
+        self.test_geometria_altura_largura_barra()
+        self.test_geometria_dashboard_preenche_area()
+        self.test_geometria_grupo_pai_distribuido_natural()
+        self.test_equivalencia_dashboard_tres_modos()
+        self.test_equivalencia_grupo_tres_modos()
+        self.test_area_adicional_absorvida()
+        self.test_ausencia_sobreposicao()
+
+
 def main():
     print("Diagnostico H-0010A - renderer declarativo (curva/reta)")
     print("Base padrao: {0}".format(_BASE_PADRAO))
@@ -5203,6 +6385,8 @@ def main():
     TestDistribuicaoHorizontalH0026().run_all()
     TestHierarquiaGruposH0027().run_all()
     TestRenderizadorMatrizH0028().run_all()
+    TestCardinalidadeUnitariaH0029().run_all()
+    TestTelasPermanentesH0029().run_all()
 
     print("")
     print("== Resumo ==")
