@@ -1,33 +1,55 @@
 ---
-name: issues-metodologia
-description: Impedimentos ativos com impacto identificável no sistema metodologia
+name: issues-orquestrador
+description: Modelo neutro para registrar impedimentos e bugs
 metadata:
   type: issues
-  scope: metodologia
+  scope: orquestrador
 ---
 
-# Issues — metodologia/
+# Issues — Modelo
 
-## Template
+## Regra
 
+Issues registram impedimentos ativos, bugs e decisoes pendentes. Elas nao
+alteram contrato e nao autorizam implementacao fora de handoff.
+
+## Estados
+
+| Estado | Significado |
+|---|---|
+| OPEN | Registrada e ainda sem solucao |
+| IN_REVIEW | Aguardando decisao documental |
+| FIX_READY | Pode gerar handoff de correcao |
+| CLOSED | Fechada com evidencia objetiva |
+
+## Formato
+
+```markdown
+### ISSUE-NNNN — [Titulo curto]
+**Tipo:** bug | impedimento | decisao_pendente | mudanca_contratual
+**Severidade:** critica | alta | media | baixa
+**Status:** OPEN
+**Modulo:** [modulo afetado ou "processo"]
+**Descricao:** [O que esta bloqueando ou quebrando]
+**Evidencia:** [Arquivo, comando, relato ou criterio violado]
+**Proxima acao:** [Decisao, ADR, contrato ou handoff necessario]
+**Aberta em:** YYYY-MM-DD
+**Artefatos relacionados:** [RFC-NNNN, ADR-NNNN, contrato_X.md, H-NNNN]
+**Criterio de fechamento:** [Evidencia objetiva]
 ```
-### [ID] Título curto
-- **Status**: aberto | em andamento | fechado
-- **Impacto**: o que está bloqueado enquanto este issue estiver aberto
-- **Descrição**: contexto e detalhes
-- **Resolução**: (preencher ao fechar)
+
+## Exemplo
+
+```markdown
+### ISSUE-0000 — Contrato do modulo exemplo ainda nao existe
+**Tipo:** impedimento
+**Severidade:** alta
+**Status:** OPEN
+**Modulo:** modulo_exemplo
+**Descricao:** Nao ha contrato aprovado para orientar implementacao.
+**Evidencia:** `docs/contratos/contrato_modulo_exemplo.md` ausente.
+**Proxima acao:** Criar contrato antes de qualquer handoff.
+**Aberta em:** YYYY-MM-DD
+**Artefatos relacionados:** ITEM-0000
+**Criterio de fechamento:** Contrato aprovado e referenciado no indice.
 ```
-
----
-
-### [I001] Política de declaração de uso de IA no PPGEE/UFRGS
-- **Status**: aberto
-- **Impacto**: impede fechar a seção de metodologia da revisão e a nota de uso de IA
-  em qualquer texto produzido (qualificação, artigo, tese). O enquadramento proposto
-  existe (ver `contrato_redacao_geral.md`), mas não pode ser aplicado sem aval do
-  orientador.
-- **Descrição**: questão levantada em reunião do programa na semana de 2026-06-30.
-  Resposta: PPGEE/UFRGS não tem política nem regra sobre uso de IA — situação do
-  programa e da universidade. Verificar com orientador Prof. Dr. Ivan Müller qual
-  enquadramento adotar antes de submeter qualquer texto.
-- **Resolução**: pendente consulta ao orientador.

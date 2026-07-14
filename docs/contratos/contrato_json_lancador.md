@@ -1,0 +1,189 @@
+---
+name: contrato-json-lancador
+description: Especifica a forma mínima de um elemento tipo lancador em corpo.elementos[] do JSON de tela — campos de item, tela_destino, regras de exibicao e limites declarativos
+metadata:
+  type: contrato
+  scope: orquestrador
+  versao: "0.1"
+  status: ativo
+  rastreabilidade:
+    origem_especificacao:
+      - docs/contratos/contrato_lancador.md
+      - docs/contratos/contrato_tela_json.md
+      - docs/contratos/contrato_composicao_corpo.md
+    adrs_aplicadas:
+      - docs/adr/ADR-0008-modelo-configuracao-por-tela.md
+      - docs/adr/ADR-0009-caminho-formato-jsons-tela.md
+    reaproveitado_de_legado: false
+---
+
+# Contrato — JSON mínimo de elemento `lancador` (`contrato_json_lancador.md`)
+
+## 1. Objetivo
+
+Especificar a forma mínima de um elemento do tipo `lancador` declarado em
+`corpo.elementos[]` no JSON de tela concreto: os campos obrigatórios do
+envelope do elemento, os campos obrigatórios de cada item, as regras de
+`tela_destino`, os limites de `texto`, e as restrições que decorrem de
+`contrato_lancador.md`.
+
+---
+
+## 2. Natureza e escopo
+
+`lancador` é um tipo de elemento do corpo. Uma ocorrência concreta de
+`lancador` é uma instância declarada em `corpo.elementos[]` no JSON de tela.
+O `lancador` não é uma região fixa da tela — não é `barra_de_menus`, não é
+`cabecalho`.
+
+Este contrato especifica apenas a **representação mínima de um elemento
+`lancador` no JSON de tela**. As regras semânticas completas (layout de
+matriz/fila, vãos, alinhamento, título na borda) pertencem a
+`contrato_lancador.md`, que continua sendo a autoridade sobre o comportamento
+do tipo.
+
+---
+
+## 3. Relação com `contrato_tela_json.md`
+
+`contrato_tela_json.md` (seção 10) estabelece que:
+
+- `lancador` é elemento de corpo do tipo `lancador`;
+- campos mínimos da instância: `id`, `tipo = lancador`, `titulo`,
+  `itens[]`, `layout`/`regras_exibicao`;
+- cada item deve ter no mínimo: `id`, `chip` ou tecla, `texto`,
+  `tela_destino`;
+- adicionar item ao `lancador` é alteração declarativa no JSON;
+- o código apenas percorre `itens[]`;
+- `lancador` não é navegável por `[✥]`.
+
+Este contrato operacionaliza esses princípios para o formato JSON concreto.
+
+---
+
+## 4. JSON mínimo
+
+A forma mínima de um elemento `lancador` em `corpo.elementos[]` é:
+
+```json
+{
+  "id": "lancador_principal",
+  "tipo": "lancador",
+  "titulo": "Navegar",
+  "itens": [
+    {
+      "id": "abrir_destino_minimo",
+      "chip": "D",
+      "texto": "Destino",
+      "tela_destino": "destino_minimo"
+    }
+  ],
+  "regras_exibicao": {
+    "alinhamento": "esquerda"
+  }
+}
+```
+
+---
+
+## 5. Campos obrigatórios
+
+### 5.1 Campos do envelope do elemento `lancador`
+
+| Campo | Tipo | Regra |
+|---|---|---|
+| `id` | string | Identificador estável e único do elemento no escopo do `tela.json`. Elemento sem `id` é inválido. |
+| `tipo` | string | Deve ser o valor literal `"lancador"`. |
+| `titulo` | string | Texto exibido integrado à linha de borda superior do `lancador`. Declarado pela instância. |
+| `itens` | array | Lista de itens da instância. Itens concretos pertencem ao JSON da tela. O renderer apenas percorre. |
+| `regras_exibicao` | objeto | Regras de alinhamento e layout da instância. O renderer aplica; não decide. |
+| `regras_exibicao.alinhamento` | string | `"esquerda"`, `"centro"` ou `"direita"`. Regra desconhecida é erro de validação. |
+
+### 5.2 Campos obrigatórios de cada item em `itens[]`
+
+| Campo | Tipo | Regra |
+|---|---|---|
+| `id` | string | Identificador estável do item no escopo da instância. Item sem `id` é inválido. |
+| `chip` | string | Tecla/letra de identificação do item — exibida dentro do chip visual. O renderer não hardcoda este valor. |
+| `texto` | string | Rótulo descritivo do destino. **Máximo de 15 caracteres.** Item com `texto` acima de 15 caracteres é rejeitado em validação — nunca truncado automaticamente. |
+| `tela_destino` | string | Identificador formal da tela a ser aberta. Não é texto de exibição — é chave de carregamento. |
+
+---
+
+## 6. Regras de validação
+
+**V-1. `lancador` é elemento do corpo.**
+O `lancador` só pode aparecer como elemento de `corpo.elementos[]`. Nunca
+como seção raiz da tela, nunca como substituto de `barra_de_menus`.
+
+**V-2. `id` do elemento presente e único.**
+Elemento `lancador` sem `id` é inválido. `id` duplicado no escopo de
+`corpo.elementos[]` é erro de validação.
+
+**V-3. `itens[]` é array.**
+O campo `itens` deve ser array. Pode ser vazio estruturalmente, mas
+`lancador` sem itens é semanticamente inútil.
+
+**V-4. Todo item tem `id`.**
+Item sem `id` é inválido.
+
+**V-5. Todo item tem `chip`.**
+Item sem `chip` é inválido.
+
+**V-6. `texto` máximo 15 caracteres — rejeitado, nunca truncado.**
+`texto` acima de 15 caracteres deve ser rejeitado em verificação. O renderer
+nunca trunca nem abrevia o `texto` silenciosamente.
+
+**V-7. `tela_destino` é campo declarativo válido.**
+`tela_destino` é um campo declarativo formal em todo item. Sua ausência é
+inválida. Quando a validação semântica completa é executada, a tela
+referenciada deve existir como `config/telas/<tela_destino>.json`.
+
+Nota: em ciclo inerte (renderização sem navegação ativa), `tela_destino` pode
+não ser acionado — mas permanece campo declarativo obrigatório do item. Não
+declarar `tela_destino` por razão de ciclo inerte é violação contratual.
+
+**V-8. Ações do item são declarativas.**
+O item do `lancador` só aciona navegação declarativa para `tela_destino`.
+Nenhum item pode executar processo, filtrar dado ou declarar lógica
+procedural.
+
+**V-9. `lancador` não é navegável por `[✥]`.**
+O chip `[✥]` e as setas do teclado controlam somente cursor de `console`
+navegável. `lancador` não participa da condição de existência nem de ativação
+de `[✥]` (ADR-0005).
+
+**V-10. Renderer percorre `itens[]`; não hardcoda itens.**
+O renderer não cria item não declarado, não hardcoda chip, texto ou destino.
+Adicionar, remover ou alterar item é alteração declarativa no JSON da tela.
+
+---
+
+## 7. Fora de escopo
+
+Os itens abaixo são explicitamente fora do escopo deste contrato:
+
+- regras de layout interno do `lancador` (matriz/fila, vãos, sub-colunas) —
+  pertencem a `contrato_lancador.md` seção 6;
+- parâmetros de layout do tipo em `config/lancador.json` (transicional por
+  ADR-0008) — pertencem ao artefato transicional;
+- título do `lancador` na borda — regido por `contrato_lancador.md`
+  seção 4.2;
+- estilo visual do chip do item (caracteres de abertura/fechamento) —
+  pertencem ao schema de estilo ativo (`contrato_estilo.md`).
+
+---
+
+## 8. Critérios de aceite documental
+
+- [ ] O JSON mínimo contém `id`, `tipo`, `titulo`, `itens[]` e
+      `regras_exibicao`.
+- [ ] Cada item do JSON mínimo contém `id`, `chip`, `texto` e
+      `tela_destino`.
+- [ ] `texto` máximo de 15 caracteres está formalizado.
+- [ ] `tela_destino` é campo declarativo obrigatório, mesmo em ciclo inerte.
+- [ ] `lancador` está posicionado em `corpo.elementos[]`, não como seção raiz
+      nem como substituto de `barra_de_menus`.
+- [ ] `lancador` não é navegável por `[✥]` está declarado.
+- [ ] O JSON mínimo não contradiz `contrato_lancador.md` nem
+      `contrato_tela_json.md`.
