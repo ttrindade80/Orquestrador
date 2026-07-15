@@ -24,6 +24,7 @@ metadata:
       - docs/adr/ADR-0018-semantica-ausencia-distribuicao-alocacao-vertical.md
       - docs/adr/ADR-0019-profundidade-grupos-multiplicidade-cardinalidade-dashboard.md
       - docs/adr/ADR-0020-matriz-de-grupos-coordenadas-explicitas.md
+      - docs/adr/ADR-0022-ponto-entrada-tela-inicial-orquestrador.md
     reaproveitado_de_legado: false
 ---
 
@@ -113,7 +114,23 @@ classe de tela. O renderer de composição de corpo não decide chips específic
 
 A regra de `[✥]` continua restrita a `console`.
 
-### 3.2 Nó estrutural `grupo` (ADR-0015)
+### 3.2 Tela inicial real `orquestrador` (ADR-0022)
+
+A futura tela inicial real do produto, `config/telas/orquestrador.json`, deverá
+declarar no corpo os elementos funcionais:
+
+```text
+console
+dashboard
+```
+
+Ambos deverão estar estruturalmente presentes e começar sem entradas de dados
+reais ou demonstrativos. Essa regra é específica da tela inicial real
+`orquestrador`: não torna `dashboard` obrigatório em todas as telas, não cria
+tipo de corpo novo, não autoriza conteúdo fictício e não reintroduz
+`posicao_dashboard` como eixo ativo de alinhamento.
+
+### 3.3 Nó estrutural `grupo` (ADR-0015)
 
 `grupo` é o único nó estrutural do corpo. Não é tipo funcional.
 
@@ -146,7 +163,7 @@ A regra de `[✥]` continua restrita a `console`.
   inválido** (ADR-0019, D4);
 - nível 4 ou superior gera erro estrutural determinístico.
 
-### 3.3 Comportamentos estruturais do `grupo` — `livre` e `matriz` (ADR-0020)
+### 3.4 Comportamentos estruturais do `grupo` — `livre` e `matriz` (ADR-0020)
 
 O nó `grupo` admite dois comportamentos estruturais, selecionados pelo campo
 `estrutura` (ADR-0020, D1–D3).
@@ -405,12 +422,14 @@ sempre pagina, exceto `lancador`. Espaço sobrando é preenchido (padding), nunc
 deixado vazio de forma desorganizada.
 
 **Valores parametrizados de layout do `console`**: vãos, alinhamento,
-configuração de colunas e navegação são lidos de `config/layout_console.json`,
-não hardcoded — artefato ativo transicional a reavaliar conforme ADR-0008.
-O `lancador` lê seus próprios parâmetros em `config/lancador.json`, conforme
-`contrato_lancador.md` — também ativo transicional a reavaliar conforme ADR-0008.
-`config/layout_dado.json` permanece apenas como artefato obsoleto/transicional
-de rastreabilidade da migração `dado` → `console`.
+configuração de colunas e navegação são lidos no futuro caminho
+`config/layouts/layout_console.json`, não hardcoded — artefato ativo
+transicional a reavaliar conforme ADR-0008 e organizado pela ADR-0021.
+O `lancador` lê seus próprios parâmetros no futuro caminho
+`config/elementos/lancador.json`, conforme `contrato_lancador.md` — também
+ativo transicional a reavaliar conforme ADR-0008. `config/layouts/layout_dado.json`
+permanece apenas como artefato obsoleto/transicional de rastreabilidade da
+migração `dado` → `console`.
 
 ---
 
@@ -431,8 +450,9 @@ apenas seu encaixe na composição geral do corpo:
 
 As regras internas de estrutura, vãos, colunas, título, item, navegação e
 validação do `lancador` pertencem a `contrato_lancador.md` e aos valores
-concretos de `config/lancador.json`; este contrato não as duplica.
-`contrato_lancador.md` será revisado conforme ADR-0008 em tarefa posterior (DOC-0020).
+concretos de `config/elementos/lancador.json`; este contrato não as duplica.
+`contrato_lancador.md` será revisado conforme ADR-0008 e ADR-0021 em tarefa
+posterior.
 
 ---
 
@@ -1394,10 +1414,12 @@ aplicar lógica de posicionamento diferenciada não declarada (ADR-0010).
 O renderer sempre insere uma linha em branco entre borda e conteúdo em qualquer
 elemento do corpo. Esta regra não pode ser suprimida.
 
-**R-11. Valores do draft de dashboard do Orquestrador são sempre numéricos.**
-Nenhum campo do draft exibe travessão (`—`), campo vazio ou "sem dado". O valor
-`0` é exibido normalmente. Esta regra aplica-se ao draft da instância do
-Orquestrador; outras instâncias de `dashboard` seguem suas próprias declarações.
+**R-11. Draft demonstrativo de dashboard não contamina a tela real.**
+Regras históricas do draft de dashboard da demonstração não definem conteúdo
+da futura tela inicial real. Pela ADR-0022, o `dashboard` inicial do
+Orquestrador real deverá estar estruturalmente presente e sem entradas de dados
+reais ou demonstrativos; outras instâncias de `dashboard` seguem suas próprias
+declarações.
 
 **R-12. Tiling tem duas camadas de decisão — nenhuma é única.**
 O renderer não consulta `tiling` do estilo quando o `tela.json` já declarou
@@ -1550,11 +1572,13 @@ normalmente como nível de grupo.
 - [ ] Com `arranjo` não declarado no `tela.json`, o renderer consulta `tiling` do
       estilo ativo sem modificação, sem fallback automático baseado em largura.
 - [ ] Em modo horizontal (`horizontal`, ADR-0011; alias transicional `lado_a_lado`), o espaço horizontal é distribuído por particionamento contíguo entre os filhos diretos do container: molduras adjacentes ficam coladas, sem vão externo entre elas, e a soma das larguras alocadas deve fechar exatamente a largura disponível (ADR-0015, R-20).
-- [ ] Campo do draft de dashboard do Orquestrador exibe valor numérico — nunca `—`,
-      nunca vazio; `0` é exibido normalmente (R-11).
+- [ ] Regras históricas do draft demonstrativo de dashboard não definem
+      conteúdo da futura tela inicial real `orquestrador`; o `dashboard`
+      inicial real permanece estruturalmente presente e sem entradas (R-11).
 - [ ] `lancador` não pagina; o renderer calcula `distribuicao_lancador` automaticamente.
-- [ ] Valores de layout do `console` são lidos de `config/layout_console.json`, não
-      hardcoded; `config/layout_dado.json` é obsoleto/transicional.
+- [ ] Valores de layout do `console` são lidos de
+      `config/layouts/layout_console.json`, não hardcoded;
+      `config/layouts/layout_dado.json` é obsoleto/transicional.
 - [ ] A linha em branco entre Total e marcadores no draft do Orquestrador é exatamente
       1 — não sujeita à distribuição uniforme e não comprimível.
 - [ ] O renderer insere linha em branco entre borda e conteúdo em todo elemento do

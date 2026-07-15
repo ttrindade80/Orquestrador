@@ -8,6 +8,9 @@ metadata:
   status: ativo
   rastreabilidade:
     origem_especificacao: "docs/NOMENCLATURA.md#1-estilo-universal"
+    adrs_aplicadas:
+      - docs/adr/ADR-0021-separacao-demo-produto-politica-caminhos.md
+      - docs/adr/ADR-0022-ponto-entrada-tela-inicial-orquestrador.md
     reaproveitado_de_legado: false
 ---
 
@@ -24,6 +27,12 @@ Este contrato cobre exclusivamente a seção 1 ("Estilo — universal") de
 `ativo`) e barra_de_menus (`contrato_barra_de_menus.md`, `ativo`) são módulos
 separados com contratos próprios. Os demais domínios devem ser tratados em
 contratos próprios quando formalizados.
+
+Pela ADR-0021, `config/estilo.json` permanece em seu caminho atual. Pela
+ADR-0022, a tela inicial real poderá exibir acesso a estilos na
+`barra_de_menus`, mas a tela funcional de estilos, troca de borda, troca de
+envelope de chips e persistência da seleção de estilo continuam fora deste
+contrato e de sua aplicação documental.
 
 ---
 

@@ -14,6 +14,7 @@ metadata:
     adrs_aplicadas:
       - docs/adr/ADR-0008-modelo-configuracao-por-tela.md
       - docs/adr/ADR-0009-caminho-formato-jsons-tela.md
+      - docs/adr/ADR-0022-ponto-entrada-tela-inicial-orquestrador.md
     reaproveitado_de_legado: false
 ---
 
@@ -120,6 +121,10 @@ Observações sobre o envelope mínimo:
 - `politica_paginacao: "sem"` indica sem paginação — valor alternativo:
   `"com"`;
 - `politica_exibicao.verboso: false` indica modo verboso desabilitado.
+- Pela ADR-0022, a futura tela inicial real `orquestrador` deverá ter um
+  `console` estruturalmente presente e sem entradas iniciais; `origem_dados:
+  null` com `itens: []` é a forma mínima compatível com essa semântica, desde
+  que preservadas as demais políticas obrigatórias deste envelope.
 
 ---
 

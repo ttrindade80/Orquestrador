@@ -563,14 +563,19 @@ def _validar_grupo(elemento, id_grupo, nivel_grupo=1, caminho="corpo"):
             raise TelaTipoDesconhecido(tipo=tipo_item, id_elemento=id_item)
 
 
-def carregar_tela(caminho_base, id_tela):
-    """Carrega e valida macro de `config/telas/<id_tela>.json`.
+def carregar_tela(caminho_base, id_tela, raiz_telas=None):
+    """Carrega e valida macro de `<raiz_telas>/<id_tela>.json`.
 
     Parametros:
         caminho_base: diretorio raiz do repositorio do Orquestrador. Se None,
             usa o pai do diretorio deste modulo (tela/).
         id_tela: identificador estavel da tela. Define o nome do arquivo
-            (`config/telas/<id_tela>.json`) e e comparado ao `id` interno.
+            (`<raiz_telas>/<id_tela>.json`) e e comparado ao `id` interno.
+        raiz_telas: caminho relativo ao repositorio onde estao os JSONs de
+            tela. Se None, usa `config/telas` (raiz do produto real). Para
+            a demonstracao, passar `config/telas/demo` explicitamente. Nao
+            ha fallback entre raizes: ausencia em uma raiz nao dispara
+            tentativa na outra.
 
     Retorna:
         dict com representacao interna minima:
@@ -598,7 +603,10 @@ def carregar_tela(caminho_base, id_tela):
     if not isinstance(id_tela, str) or not id_tela:
         raise TelaCampoObrigatorioAusente(campo="id (parametro id_tela)")
 
-    caminho_relativo = os.path.join("config", "telas", id_tela + ".json")
+    if raiz_telas is None:
+        raiz_telas = os.path.join("config", "telas")
+
+    caminho_relativo = os.path.join(raiz_telas, id_tela + ".json")
     caminho_arquivo = base / caminho_relativo
 
     if not caminho_arquivo.is_file():

@@ -8,6 +8,8 @@ metadata:
   status: ativo
   rastreabilidade:
     origem_especificacao: "docs/NOMENCLATURA.md#7-cabecalho"
+    adrs_aplicadas:
+      - docs/adr/ADR-0022-ponto-entrada-tela-inicial-orquestrador.md
     reaproveitado_de_legado: false
 ---
 
@@ -46,11 +48,11 @@ equivalente a, ou subconjunto de, corpo, `dashboard`, `lancador` ou `barra_de_me
 - O `cabecalho` **não herda** nenhuma regra de layout, vão, alinhamento ou
   distribuição do corpo, do objeto `dashboard`, do objeto `lancador` do corpo, nem da
   `barra_de_menus`.
-- O arquivo de dados é exclusivo: `config/cabecalho.json` guarda somente
-  parâmetros de apresentação do `cabecalho` — não é consultado por nenhum
-  outro renderer.
+- O arquivo de dados é exclusivo: o futuro caminho
+  `config/elementos/cabecalho.json` guarda somente parâmetros de apresentação
+  do `cabecalho` — não é consultado por nenhum outro renderer.
 - Os textos concretos de `titulo` e `descricao` pertencem à classe/tela que
-  os declara, nunca a `config/cabecalho.json`.
+  os declara, nunca a `config/elementos/cabecalho.json`.
 
 ---
 
@@ -63,12 +65,18 @@ O `cabecalho` tem exatamente dois campos textuais:
 
 | Campo | Função | Restrição |
 |---|---|---|
-| `titulo` | Texto curto de identificação da tela | Sem limite de caracteres definido — o estilo de apresentação é configurável via `config/cabecalho.json` |
-| `descricao` | Texto longo de contextualização | Máximo de 200 caracteres (`max_caracteres` em `config/cabecalho.json`) |
+| `titulo` | Texto curto de identificação da tela | Sem limite de caracteres definido — o estilo de apresentação é configurável via `config/elementos/cabecalho.json` |
+| `descricao` | Texto longo de contextualização | Máximo de 200 caracteres (`max_caracteres` em `config/elementos/cabecalho.json`) |
 
 Não existem outros campos textuais no `cabecalho`. A classe/tela declara os
 valores concretos de `titulo` e `descricao`; este contrato especifica apenas
 como esses valores são apresentados.
+
+Pela ADR-0022, a futura tela inicial real `orquestrador` deverá declarar
+`cabecalho`, mas os valores concretos obrigatórios de `titulo` e `descricao`
+permanecem pendentes de decisão documental suficiente. Este contrato não
+autoriza inventar título, descrição, versão, estado de Pipeline ou indicador
+dinâmico para preencher `config/telas/orquestrador.json`.
 
 ---
 
@@ -76,22 +84,25 @@ como esses valores são apresentados.
 
 Todos os parâmetros de apresentação do `cabecalho` — posição do título,
 recuo lateral, capitalização, formato na borda, alinhamento da descrição,
-limite de caracteres — vivem em **`config/cabecalho.json`**.
+limite de caracteres — vivem no futuro caminho
+**`config/elementos/cabecalho.json`**.
 
 Este contrato define a **semântica**, as **regras** e os **invariantes**.
 O JSON guarda os **valores concretos de apresentação**. Os dois artefatos têm
 responsabilidades separadas e não sobrepostas (política da seção 0 de
 `docs/NOMENCLATURA.md`).
 
-O renderer deve ler `config/cabecalho.json` em tempo de execução. Nenhum
-parâmetro de apresentação do `cabecalho` pode estar hardcoded no código.
+O renderer deve ler o futuro caminho `config/elementos/cabecalho.json` em tempo
+de execução quando ele for criado. Nenhum parâmetro de apresentação do
+`cabecalho` pode estar hardcoded no código.
 
 ---
 
 ## 5. Schema de apresentação — `titulo`
 
 O campo `titulo` é renderizado integrado à linha superior da borda do
-`cabecalho`. Os parâmetros abaixo são todos lidos de `config/cabecalho.json`.
+`cabecalho`. Os parâmetros abaixo serão lidos do futuro caminho
+`config/elementos/cabecalho.json`.
 
 | Campo | Valores permitidos | Semântica |
 |---|---|---|
@@ -115,8 +126,8 @@ O campo `titulo` é renderizado integrado à linha superior da borda do
 ## 6. Schema de apresentação — `descricao`
 
 O campo `descricao` é renderizado abaixo da linha superior da borda, dentro
-do espaço do `cabecalho`. Os parâmetros abaixo são todos lidos de
-`config/cabecalho.json`.
+do espaço do `cabecalho`. Os parâmetros abaixo serão lidos do futuro caminho
+`config/elementos/cabecalho.json`.
 
 | Campo | Valores permitidos | Semântica |
 |---|---|---|
@@ -146,12 +157,12 @@ atualização deste contrato.
 
 **R-3. Textos pertencem à classe.**
 Os valores concretos de `titulo` e `descricao` são declarados pela
-classe/tela, não lidos de `config/cabecalho.json`. O JSON guarda somente
+classe/tela, não lidos de `config/elementos/cabecalho.json`. O JSON guarda somente
 parâmetros de apresentação.
 
 **R-4. Proibição de hardcoding.**
 Nenhum parâmetro de apresentação do `cabecalho` pode estar hardcoded no
-código. Todos os parâmetros vêm de `config/cabecalho.json`, lido em tempo
+código. Todos os parâmetros vêm do futuro caminho `config/elementos/cabecalho.json`, lido em tempo
 de execução.
 
 **R-5. Independência de layout.**
@@ -180,8 +191,8 @@ o texto já truncado.
 
 - [ ] O `cabecalho` existe em toda tela do sistema — nenhuma tela é renderizada sem ele.
 - [ ] O `cabecalho` contém exatamente os campos `titulo` e `descricao` — nem mais, nem menos.
-- [ ] Os valores concretos de `titulo` e `descricao` são declarados pela classe/tela — não constam em `config/cabecalho.json`.
-- [ ] Nenhum parâmetro de apresentação do `cabecalho` está hardcoded no código — todos vêm de `config/cabecalho.json`.
+- [ ] Os valores concretos de `titulo` e `descricao` são declarados pela classe/tela — não constam em `config/elementos/cabecalho.json`.
+- [ ] Nenhum parâmetro de apresentação do `cabecalho` está hardcoded no código — todos vêm do futuro caminho `config/elementos/cabecalho.json`.
 - [ ] `titulo` aparece integrado à linha superior da borda no formato `com_espacos_laterais` (borda + espaço + título + espaço + borda).
 - [ ] Quando `posicao = esquerda`, o bloco do título inicia a `recuo_lateral` caracteres do canto esquerdo da borda.
 - [ ] Quando `posicao = centro`, o bloco do título fica centralizado; `recuo_lateral` é ignorado.

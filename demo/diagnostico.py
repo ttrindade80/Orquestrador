@@ -1,15 +1,15 @@
-"""Diagnostico executavel da tela raiz (H-0004).
+"""Diagnostico executavel da tela demo (H-0032).
 
 Ponto de entrada unico e auditavel que encadeia o pipeline completo
-dos handoffs anteriores sobre a tela raiz do Orquestrador:
+sobre a tela demo:
 
-    config/telas/orquestrador.json
-        -> carregar_tela(None, id_tela)        [tela/loader.py      - H-0001]
-        -> construir_modelo(tela_raw)         [tela/modelo.py      - H-0002]
-        -> renderizar_tela(modelo)            [tela/renderizador.py - H-0003]
+    config/telas/demo/demo.json
+        -> carregar_tela(None, id_tela, raiz_telas)  [tela/loader.py      - H-0001]
+        -> construir_modelo(tela_raw)                 [tela/modelo.py      - H-0002]
+        -> renderizar_tela(modelo)                    [tela/renderizador.py - H-0003]
         -> str
 
-ESCOPO (H-0004):
+ESCOPO (H-0032):
 - Apenas o encadeamento acima. Nenhuma logica de negocio e adicionada.
 - Nao executa acao, nao ativa binding, nao navega por tela_destino,
   nao aplica filtro, nao altera estado, nao grava arquivo, nao
@@ -17,25 +17,19 @@ ESCOPO (H-0004):
 - Excecoes dos modulos subjacentes propagam naturalmente para o
   chamador (Tela*, ModeloTelaErro, RenderizadorErro).
 
-AJUSTE INTERNO DOCUMENTADO (handoff H-0004, secao "Estrutura esperada",
-permite ajustes internos desde que o comportamento externo seja
-exatamente o especificado):
-- Quando executado como `python tela/diagnostico.py`, Python coloca
-  `tela/` (nao a raiz do repositorio) em sys.path[0], fazendo
+AJUSTE INTERNO DOCUMENTADO:
+- Quando executado como `python demo/diagnostico.py`, Python coloca
+  `demo/` (nao a raiz do repositorio) em sys.path[0], fazendo
   `from tela.* import ...` falhar com ModuleNotFoundError.
-- Os modulos Irmaos tela/teste_loader.py, tela/teste_modelo.py e
-  tela/teste_renderizador.py resolvem isso adicionando a raiz do
-  repositorio do Orquestrador ao sys.path antes de importar tela.*.
-- Este modulo faz o mesmo, utilizando APENAS `sys` (ja autorizado pelo
-  handoff), sem importar os, pathlib ou json, e sem nenhum mecanismo
-  de execucao de processo externo, preservando todas as proibicoes
-  de importacao do H-0004.
+- O bootstrap insere a raiz do repositorio em sys.path antes de
+  importar tela.*, utilizando APENAS `sys` e `os`.
 - O bootstrap e restrito a `__name__ == "__main__"` para nao interferir
-  no comportamento quando importado como `tela.diagnostico`.
+  no comportamento quando importado como `demo.diagnostico`.
 
 Apenas biblioteca padrao do Python.
 """
 
+import os
 import sys
 
 sys.dont_write_bytecode = True
@@ -49,13 +43,15 @@ from tela.loader import carregar_tela
 from tela.modelo import construir_modelo
 from tela.renderizador import renderizar_tela
 
+_RAIZ_TELAS_DEMO = os.path.join("config", "telas", "demo")
 
-def gerar_diagnostico_tela(id_tela: str = "orquestrador") -> str:
-    """Encadeia carregar_tela -> construir_modelo -> renderizar_tela.
+
+def gerar_diagnostico_tela(id_tela: str = "demo") -> str:
+    """Encadeia carregar_tela -> construir_modelo -> renderizar_tela para a raiz demo.
 
     Parametros:
-        id_tela: identificador estavel da tela (padrao "orquestrador").
-            E repassado diretamente para carregar_tela(None, id_tela).
+        id_tela: identificador estavel da tela demo (padrao "demo").
+            E repassado para carregar_tela(None, id_tela, _RAIZ_TELAS_DEMO).
 
     Retorna:
         str produzida por renderizar_tela sobre o modelo construido
@@ -74,7 +70,7 @@ def gerar_diagnostico_tela(id_tela: str = "orquestrador") -> str:
         derivadas), tela.modelo (ModeloTelaErro) e tela.renderizador
         (RenderizadorErro). Nao captura, nao relanca, nao transforma.
     """
-    tela_raw = carregar_tela(None, id_tela)
+    tela_raw = carregar_tela(None, id_tela, _RAIZ_TELAS_DEMO)
     modelo = construir_modelo(tela_raw)
     return renderizar_tela(modelo)
 

@@ -19,6 +19,8 @@ metadata:
       - docs/adr/ADR-0018-semantica-ausencia-distribuicao-alocacao-vertical.md
       - docs/adr/ADR-0019-profundidade-grupos-multiplicidade-cardinalidade-dashboard.md
       - docs/adr/ADR-0020-matriz-de-grupos-coordenadas-explicitas.md
+      - docs/adr/ADR-0021-separacao-demo-produto-politica-caminhos.md
+      - docs/adr/ADR-0022-ponto-entrada-tela-inicial-orquestrador.md
     reaproveitado_de_legado: false
 ---
 
@@ -133,6 +135,39 @@ e `contrato_json_dashboard.md`.
 > finais de `corpo.arranjo`. `sobreposto`/`lado_a_lado` são aliases
 > transicionais aceitos para compatibilidade de JSONs legados até migração
 > específica.
+
+### 4.2 Tela inicial real `orquestrador` (ADR-0022)
+
+A tela inicial real do produto fica reservada para:
+
+```text
+config/telas/orquestrador.json
+```
+
+com:
+
+```json
+"id": "orquestrador"
+```
+
+Essa reserva não declara que o arquivo já existe fisicamente. O ponto de
+entrada real futuro `orquestrador.py` deverá carregar explicitamente a raiz
+`config/telas/` e iniciar pela identidade `orquestrador`, sem alias, fallback
+ou busca ambígua com `demo`.
+
+O envelope macro dessa tela deve manter exatamente:
+
+```text
+cabecalho
+corpo
+barra_de_menus
+```
+
+O corpo inicial deverá conter `console` e `dashboard` estruturalmente
+presentes, ambos sem entradas iniciais de dados reais ou demonstrativos.
+Os valores concretos obrigatórios de `cabecalho.titulo` e
+`cabecalho.descricao` permanecem pendentes de decisão documental suficiente
+antes da criação física do JSON.
 
 ---
 
@@ -319,25 +354,34 @@ opcional de `grupo` — nenhuma tela é obrigada a usar `estrutura: "matriz"`.
 
 ---
 
-## 7. Caminho canônico e regra de coincidência de `id`
+## 7. Caminhos canônicos e regra de coincidência de `id`
 
-Conforme ADR-0009, o caminho canônico de qualquer JSON de tela concreta é:
+Conforme ADR-0009 atualizada parcialmente pela ADR-0021, os JSONs de tela
+concreta usam duas raízes declarativas:
 
 ```text
-config/telas/<id>.json
+produto real:  config/telas/<id>.json
+demonstracao: config/telas/demo/<id>.json
 ```
 
 Regras obrigatórias:
 
-- o diretório `config/telas/` é exclusivo para JSONs de tela;
+- `config/telas/` é reservado às telas do produto real;
+- `config/telas/demo/` é a futura raiz das telas demonstrativas;
 - o `id` interno declarado no campo `"id"` do JSON deve coincidir com o nome
-  base do arquivo em disco;
+  base do arquivo em disco, em qualquer uma das raízes;
 - o nome do arquivo segue as regras de identificador estável: minúsculo, sem
   acentos, sem espaços, preferencialmente `snake_case`;
 - `id` divergente do nome base do arquivo é inconsistência de validação.
 
-Exemplo: tela com `"id": "orquestrador"` deve estar em
-`config/telas/orquestrador.json`.
+Exemplo demonstrativo futuro: tela com `"id": "demo"` deve estar em
+`config/telas/demo/demo.json`.
+
+A futura `config/telas/orquestrador.json` fica reservada ao produto real. Pela
+ADR-0022, sua identidade será `orquestrador`, seu envelope macro será
+`cabecalho`, `corpo` e `barra_de_menus`, e seu corpo inicial conterá `console`
+e `dashboard` presentes sem entradas iniciais. Não há alias entre `demo` e
+`orquestrador`, nem fallback silencioso entre as duas raízes.
 
 ---
 
@@ -421,8 +465,9 @@ Os itens abaixo são explicitamente fora do escopo deste contrato:
       `contrato_tela_json.md` nem a ADR-0008 nem a ADR-0009.
 - [ ] A lista de tipos válidos em `corpo.elementos[]` é fechada e coincide com
       a taxonomia de `contrato_composicao_corpo.md`.
-- [ ] O caminho canônico `config/telas/<id>.json` está registrado e a regra
-      de coincidência de `id` está formalizada.
+- [ ] Os caminhos canônicos `config/telas/<id>.json` e
+      `config/telas/demo/<id>.json` estão registrados e a regra de coincidência
+      de `id` está formalizada para ambas as raízes.
 - [ ] Nenhuma seção deste contrato autoriza estado de runtime no JSON de tela.
 - [ ] Nenhuma seção deste contrato autoriza lógica procedural ou comando
       arbitrário no JSON de tela.

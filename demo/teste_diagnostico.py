@@ -1,12 +1,12 @@
-"""Diagnostico integrado do ponto de entrada H-0004 (tela/diagnostico.py).
+"""Diagnostico integrado do ponto de entrada demo (H-0032).
 
 Executavel via:
-    python tela/teste_diagnostico.py
+    python demo/teste_diagnostico.py
 
-Cobre os criterios de aceite testaveis do handoff H-0004, com as
+Cobre os criterios de aceite testaveis do handoff H-0032, com as
 verificacoes de formato atualizadas para o renderer declarativo H-0010A
 (caixas bordeadas derivadas do modelo/JSON, 42 chars por linha):
-- gerar_diagnostico_tela() nao lanca excecao para o padrao "orquestrador";
+- gerar_diagnostico_tela() nao lanca excecao para o padrao "demo";
 - retorno e str;
 - saida comeca com "╭ ORQUESTRADOR";
 - saida contem "│ Tela raiz do sistema", "╭ ITENS", "(console)",
@@ -15,14 +15,14 @@ verificacoes de formato atualizadas para o renderer declarativo H-0010A
 - saida NAO contem "[B] Borda" (nunca declarado no JSON);
 - saida e deterministica (duas chamadas identicas);
 - saida bate com expected output literal do H-0010A (igualdade estrita);
-- modo executavel `python tela/diagnostico.py` imprime a mesma string
+- modo executavel `python demo/diagnostico.py` imprime a mesma string
   (verificado via subprocess.run com capture_output=True);
 - campos inertes (origem_dados, bindings, filtros, tela_destino,
   regra_existencia) nao vazam na saida;
-- gerar_diagnostico_tela("orquestrador") == gerar_diagnostico_tela();
+- gerar_diagnostico_tela("demo") == gerar_diagnostico_tela();
 - invariantes H-0001, H-0002 e H-0010A preservados (via subprocess.run,
   executados antes dos demais testes);
-- proibicoes de importacao no modulo tela/diagnostico.py.
+- proibicoes de importacao no modulo demo/diagnostico.py.
 
 Apenas biblioteca padrao do Python.
 """
@@ -35,10 +35,13 @@ from pathlib import Path
 
 _BASE_PADRAO = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(_BASE_PADRAO))
+_this_dir = str(Path(__file__).resolve().parent)
+while _this_dir in sys.path:
+    sys.path.remove(_this_dir)
 
 import subprocess  # noqa: E402
 
-from tela.diagnostico import gerar_diagnostico_tela  # noqa: E402
+from demo.diagnostico import gerar_diagnostico_tela  # noqa: E402
 
 
 _RESULTADOS = []
@@ -78,13 +81,13 @@ def _registrar(nome, passou, detalhe=""):
 
 
 def teste_invariantes_anteriores():
-    """Confirma via subprocess que H-0001, H-0002 e H-0006 ainda passam.
+    """Confirma via subprocess que H-0001, H-0002 e H-0010A ainda passam.
 
     Executado antes dos demais testes para garantir estado de partida
     limpo. Esse e o uso autorizado de subprocess para invocar os ciclos
-    anteriores (o modo executavel de tela/diagnostico.py tambem e
+    anteriores (o modo executavel de demo/diagnostico.py tambem e
     verificado por subprocess, conforme tabela de verificacoes do
-    handoff H-0004). A linha do renderer foi atualizada para H-0006
+    handoff H-0032). A linha do renderer foi atualizada para H-0006
     porque tela/teste_renderizador.py agora verifica o formato visual
     H-0006 com borda fixa.
     """
@@ -119,7 +122,7 @@ def teste_invariantes_anteriores():
 
 def teste_gerar_diagnostico():
     print("")
-    print("== gerar_diagnostico_tela sobre orquestrador.json ==")
+    print("== gerar_diagnostico_tela sobre demo.json ==")
 
     try:
         resultado = gerar_diagnostico_tela()
@@ -221,9 +224,9 @@ def teste_gerar_diagnostico():
         inertes_ok,
     )
 
-    explicito = gerar_diagnostico_tela("orquestrador")
+    explicito = gerar_diagnostico_tela("demo")
     _registrar(
-        "gerar_diagnostico_tela('orquestrador') == gerar_diagnostico_tela()",
+        "gerar_diagnostico_tela('demo') == gerar_diagnostico_tela()",
         explicito == resultado,
     )
 
@@ -232,10 +235,10 @@ def teste_gerar_diagnostico():
 
 def teste_modo_executavel(resultado_esperado):
     print("")
-    print("== Modo executavel: python tela/diagnostico.py ==")
+    print("== Modo executavel: python demo/diagnostico.py ==")
 
     proc = subprocess.run(
-        [sys.executable, "tela/diagnostico.py"],
+        [sys.executable, "demo/diagnostico.py"],
         cwd=str(_BASE_PADRAO),
         capture_output=True,
         text=True,
@@ -252,7 +255,7 @@ def teste_modo_executavel(resultado_esperado):
 
     stdout_igual = proc.stdout == resultado_esperado
     _registrar(
-        "'python tela/diagnostico.py' stdout == gerar_diagnostico_tela()",
+        "'python demo/diagnostico.py' stdout == gerar_diagnostico_tela()",
         stdout_igual,
         "" if stdout_igual else "stdout diverge da string esperada",
     )
@@ -265,9 +268,9 @@ def teste_modo_executavel(resultado_esperado):
 
 def teste_proibicoes_importacao():
     print("")
-    print("== Proibicoes de import no modulo tela/diagnostico.py ==")
+    print("== Proibicoes de import no modulo demo/diagnostico.py ==")
 
-    caminho_mod = _BASE_PADRAO / "tela" / "diagnostico.py"
+    caminho_mod = _BASE_PADRAO / "demo" / "diagnostico.py"
     texto_mod = caminho_mod.read_text(encoding="utf-8")
 
     _registrar(
@@ -275,8 +278,8 @@ def teste_proibicoes_importacao():
         "import json" not in texto_mod,
     )
     _registrar(
-        "diagnostico nao importa 'os'",
-        "import os" not in texto_mod,
+        "diagnostico importa 'os' (para _RAIZ_TELAS_DEMO)",
+        "import os" in texto_mod,
     )
     _registrar(
         "diagnostico nao importa 'pathlib'",
@@ -288,6 +291,14 @@ def teste_proibicoes_importacao():
         "subprocess" not in texto_mod
         and "exec(" not in texto_mod
         and "eval(" not in texto_mod,
+    )
+    _registrar(
+        "diagnostico define _RAIZ_TELAS_DEMO",
+        "_RAIZ_TELAS_DEMO" in texto_mod,
+    )
+    _registrar(
+        "diagnostico usa raiz demo na chamada carregar_tela",
+        "_RAIZ_TELAS_DEMO" in texto_mod and "carregar_tela(None, id_tela, _RAIZ_TELAS_DEMO)" in texto_mod,
     )
 
 
@@ -310,7 +321,7 @@ def _finalizar():
 
 
 def main():
-    print("Diagnostico H-0004 - ponto de entrada executavel da tela raiz")
+    print("Diagnostico H-0032 - ponto de entrada executavel da tela demo")
     print("Base padrao: {0}".format(_BASE_PADRAO))
     print("Python: {0}".format(sys.version.split()[0]))
 

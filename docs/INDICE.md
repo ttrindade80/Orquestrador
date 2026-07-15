@@ -50,12 +50,19 @@ Antes de mover este padrao para outro projeto, verificar:
 ```text
 config/
   estilo.json
-  lancador.json
-  layout_console.json
-  layout_dado.json  # obsoleto/transicional; nao canonico
-  barra_de_menus.json
-  cabecalho.json
-  layout_menu.json  # obsoleto/transicional; nao canonico
+  telas/
+    orquestrador.json     # futuro/reservado; tela inicial do produto real
+    <id>.json              # telas do produto real
+    demo/                  # futuro; telas demonstrativas
+      <id>.json
+  layouts/                 # futuro; parametros de layout
+    layout_console.json
+    layout_dado.json       # obsoleto/transicional; nao canonico
+    layout_menu.json       # obsoleto/transicional; nao canonico
+  elementos/               # futuro; parametros por elemento
+    cabecalho.json
+    barra_de_menus.json
+    lancador.json
 docs/
   INDICE.md
   NOMENCLATURA.md
@@ -94,9 +101,12 @@ docs/
     TEMPLATE_RELATORIO_QA.md
     TEMPLATE_RFC.md
 tela/
+  __init__.py
   loader.py
   modelo.py
   renderizador.py
+orquestrador.py            # futuro; ponto de entrada principal do produto real
+demo/                      # futuro; pontos de entrada demonstrativos
   demo.py
   diagnostico.py
 ```
@@ -110,7 +120,7 @@ Orquestrador, irmã de `docs/`, nunca dentro de `docs/`.
 | Artefato | Funcao | Regra |
 |---|---|---|
 | Glossário (`NOMENCLATURA.md`) | Fonte única de nomes e schema | Todo contrato deriva dele; ele não guarda valor concreto de produção (ver seção 0) |
-| Config (`config/*.json`) | Valores concretos que o renderer lê | Modelo em migração pela ADR-0008: `config/estilo.json` permanece biblioteca global de estilo; telas passam a ter JSON próprio de configuração concreta conforme `contrato_tela_json.md`. JSONs por domínio existentes permanecem transicionais até revisão específica. |
+| Config (`config/*.json`) | Valores concretos que o renderer lê | Modelo em migração pela ADR-0008 e organizado pela ADR-0021/ADR-0022: `config/estilo.json` permanece biblioteca global de estilo; telas do produto real ficam em `config/telas/<id>.json`; `config/telas/orquestrador.json` fica reservado à tela inicial real com `id: "orquestrador"`; telas demonstrativas ficam na futura raiz `config/telas/demo/<id>.json`; parâmetros gerais futuros ficam em `config/layouts/` e `config/elementos/`. |
 | Contrato | Define comportamento esperado | Deve ser aprovado antes da implementacao |
 | ADR | Registra decisao arquitetural | Nao substitui contrato; contratos afetados devem ser atualizados |
 | RFC | Propoe mudanca | Nao autoriza implementacao |

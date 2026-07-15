@@ -15,6 +15,7 @@ metadata:
       - docs/adr/ADR-0008-modelo-configuracao-por-tela.md
       - docs/adr/ADR-0009-caminho-formato-jsons-tela.md
       - docs/adr/ADR-0010-composicao-hierarquica-corpo-dashboard.md
+      - docs/adr/ADR-0022-ponto-entrada-tela-inicial-orquestrador.md
     reaproveitado_de_legado: false
 ---
 
@@ -103,6 +104,11 @@ Observações sobre o envelope mínimo:
   `arranjo` nem de `tiling`. JSONs existentes com este campo podem ser
   honrados por compatibilidade em ciclo futuro de migração. A migração/
   descarte do campo ocorrerá em handoff numerado posterior.
+- Pela ADR-0022, a futura tela inicial real `orquestrador` deverá ter um
+  `dashboard` estruturalmente presente e sem entradas iniciais. O envelope
+  `conteudo.tipo: "placeholder"` com `conteudo.binding: null` representa
+  ausência de dados reais ou demonstrativos; essa decisão não reativa
+  `regras_exibicao.posicao_dashboard` como eixo de posicionamento.
 
 ---
 
@@ -169,7 +175,8 @@ Os itens abaixo são explicitamente fora do escopo deste contrato:
 - regras de renderização visual do `dashboard` (moldura, alinhamento de
   rótulos) — pertencem a `contrato_composicao_corpo.md` seção 5.3;
 - draft da instância de `dashboard` da tela raiz do Orquestrador (8 campos
-  + Total + 8 marcadores) — é instância específica, não regra universal;
+  + Total + 8 marcadores) — é instância demonstrativa/transicional, não regra
+  universal nem conteúdo da futura tela inicial real definida pela ADR-0022;
 - posicionamento horizontal do bloco dentro do espaço disponível — pendência
   DOC-B004.
 

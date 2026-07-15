@@ -31,6 +31,43 @@ rastreabilidade:
 
 2026-07-07
 
+## Nota de atualização — ADR-0021 (2026-07-14)
+
+A ADR-0021 preserva o ponto central desta decisão: cada tela continua sendo
+declarada por JSON próprio, e uma mudança expressável por configuração deve ser
+feita por JSON, sem duplicar o motor de tela.
+
+Ponto preservado:
+
+- modelo declarativo por tela;
+- `config/estilo.json` como biblioteca global de aparência;
+- separação entre configuração declarativa e código executável.
+
+Ponto atualizado:
+
+- a organização física das telas passa a distinguir duas raízes declarativas:
+  `config/telas/<id>.json` para o produto real e
+  `config/telas/demo/<id>.json` para a demonstração.
+
+Esta nota não reescreve a decisão histórica da ADR-0008; apenas registra sua
+aplicação sob a política estrutural posterior da ADR-0021.
+
+## Nota de atualização — ADR-0022 (2026-07-14)
+
+A ADR-0022 aplica o modelo declarativo por tela à futura tela inicial real do
+produto:
+
+- o ponto de entrada principal futuro será `orquestrador.py`, diretamente na
+  raiz, reutilizando o motor compartilhado `tela/`;
+- a tela inicial real ficará reservada em `config/telas/orquestrador.json`;
+- o identificador interno será `"id": "orquestrador"`;
+- o envelope macro seguirá `cabecalho`, `corpo` e `barra_de_menus`;
+- o corpo inicial terá `console` e `dashboard` estruturalmente presentes, sem
+  entradas iniciais de dados reais ou demonstrativos.
+
+Esta nota não cria `orquestrador.py`, não cria JSON real e não define assinatura
+de execução, protocolo de Pipeline nem valores concretos de cabeçalho.
+
 ## Contexto
 
 A documentação vigente ainda segue a política de JSON por domínio ou por

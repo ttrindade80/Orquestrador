@@ -24,6 +24,44 @@ rastreabilidade:
 
 2026-07-07
 
+## Nota de atualização — ADR-0021 (2026-07-14)
+
+A ADR-0021 substitui parcialmente a política de raiz única desta ADR.
+
+Ponto preservado:
+
+- o produto real continua usando JSONs de tela em `config/telas/<id>.json`;
+- o `id` interno da tela continua coincidindo com o nome base do arquivo;
+- `config/estilo.json` permanece fora de `config/telas/`.
+
+Ponto substituído:
+
+- a formulação "todo JSON de tela em `config/telas/<id>.json`" deixa de ser
+  única para todo o repositório. A demonstração passa a ter raiz declarativa
+  própria: `config/telas/demo/<id>.json`.
+
+A futura identidade demonstrativa será `config/telas/demo/demo.json` com
+`"id": "demo"`. Não há alias entre `demo` e `orquestrador`. A futura
+`config/telas/orquestrador.json` fica reservada ao produto real.
+
+Esta nota não reescreve a decisão histórica original; explicita a superação
+parcial introduzida pela ADR-0021.
+
+## Nota de atualização — ADR-0022 (2026-07-14)
+
+A ADR-0022 define a reserva feita pela ADR-0021:
+
+- `orquestrador.py` será o ponto de entrada principal futuro do produto real,
+  diretamente na raiz;
+- `orquestrador.py` deverá usar explicitamente a raiz `config/telas/`;
+- `config/telas/orquestrador.json` será a tela inicial real;
+- o campo `"id"` dessa tela será `"orquestrador"`;
+- a identidade `orquestrador` pertence exclusivamente ao produto real e
+  continua sem alias ou fallback com `demo`.
+
+Esta nota não cria o arquivo físico e não altera a raiz demonstrativa
+`config/telas/demo/`.
+
 ## Contexto
 
 A ADR-0008 estabeleceu que cada tela terá seu próprio JSON de configuração

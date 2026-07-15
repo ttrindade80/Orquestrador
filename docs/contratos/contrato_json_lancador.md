@@ -137,7 +137,9 @@ nunca trunca nem abrevia o `texto` silenciosamente.
 **V-7. `tela_destino` é campo declarativo válido.**
 `tela_destino` é um campo declarativo formal em todo item. Sua ausência é
 inválida. Quando a validação semântica completa é executada, a tela
-referenciada deve existir como `config/telas/<tela_destino>.json`.
+referenciada deve existir na raiz declarativa explícita do ponto de entrada:
+`config/telas/<tela_destino>.json` para produto real ou
+`config/telas/demo/<tela_destino>.json` para demonstração.
 
 Nota: em ciclo inerte (renderização sem navegação ativa), `tela_destino` pode
 não ser acionado — mas permanece campo declarativo obrigatório do item. Não
@@ -165,8 +167,8 @@ Os itens abaixo são explicitamente fora do escopo deste contrato:
 
 - regras de layout interno do `lancador` (matriz/fila, vãos, sub-colunas) —
   pertencem a `contrato_lancador.md` seção 6;
-- parâmetros de layout do tipo em `config/lancador.json` (transicional por
-  ADR-0008) — pertencem ao artefato transicional;
+- parâmetros de layout do tipo em `config/elementos/lancador.json`
+  (transicional por ADR-0008 e ADR-0021) — pertencem ao artefato transicional;
 - título do `lancador` na borda — regido por `contrato_lancador.md`
   seção 4.2;
 - estilo visual do chip do item (caracteres de abertura/fechamento) —

@@ -14,6 +14,7 @@ metadata:
       - docs/adr/ADR-0008-modelo-configuracao-por-tela.md
       - docs/adr/ADR-0012-barra-de-menus-declarativa-por-tela.md
       - docs/adr/ADR-0014-barra-horizontal-termos-especificos.md
+      - docs/adr/ADR-0022-ponto-entrada-tela-inicial-orquestrador.md
     reaproveitado_de_legado: false
 ---
 
@@ -120,6 +121,13 @@ capacidade não está implementada, o chip não deve ser declarado apenas por
 ser canônico. Testes devem validar os chips declarados no JSON da tela, não
 um conjunto global obrigatório.
 
+**Barra mínima da tela real inicial (ADR-0022, 2026-07-14)**: a futura tela
+inicial real `orquestrador` deverá declarar, no mínimo, `Esc`, `?` e acesso a
+estilos. Essa regra é específica da instância `config/telas/orquestrador.json`
+e não transforma esses itens em lista global obrigatória para toda tela. O
+item de estilos deverá permanecer sem navegação para destino inexistente até
+que a tela funcional de estilos seja decidida e implementada por ciclo próprio.
+
 ---
 
 ## 5. Fonte dos valores concretos
@@ -133,7 +141,7 @@ existência, regras de ativo/inativo e forma de exibição — também pertencem
 |---|---|
 | `tela.json` da tela | Lista concreta de chips, textos, teclas, ações, regras de existência, regras de ativo/inativo e parâmetros visuais da instância |
 | `config/estilo.json` | Valores globais de aparência dos chips (presets de chip, `cor_inativo`, `cor_alerta`) |
-| `config/barra_de_menus.json` | Artefato **ativo transicional** — a reavaliar/migrar conforme ADR-0008; não é mais a fonte universal definitiva dos valores concretos da instância |
+| `config/elementos/barra_de_menus.json` | Futuro caminho do artefato **ativo transicional** — a reavaliar/migrar conforme ADR-0008 e ADR-0021; não é mais a fonte universal definitiva dos valores concretos da instância |
 
 As notações entre colchetes usadas neste contrato, como `[Esc]`, `[<][>]`,
 `[-][+]`, `[#]`, `[⇆]`, `[✥]`, `[␣]`, `[⏎]`, `[V]` e `[?]`, são
@@ -480,6 +488,20 @@ pela classe de tela; a `barra_de_menus` continua sendo espelho da declaração,
 não fonte de decisão. Chips específicos de tela de processamento não
 transformam processamento em tipo de corpo. Nenhuma regra de `[✥]` muda.
 
+### 16.1 Acesso a estilos na tela real inicial
+
+Pela ADR-0022, o acesso a estilos da tela inicial real é item específico da
+instância `orquestrador`. Ele deve estar visível desde a tela inicial real,
+mas não autoriza criar tela funcional de estilos, destino inexistente, ação
+temporária, fallback para demonstração, troca de borda, troca de envelope de
+chips ou persistência de seleção de estilo.
+
+Enquanto a tela funcional correspondente não existir, o item de estilos deve
+ser inicialmente declarativo e não navegável somente se os contratos ativos
+permitirem essa forma. Se a validação vigente exigir ação ou `tela_destino`
+existente para todo item visível, a criação física da tela real deverá
+aguardar decisão adicional do usuário.
+
 ---
 
 ## 17. Distribuição e ordem de instância
@@ -598,8 +620,9 @@ O termo `menu` permanece apenas como nome antigo/histórico do `lancador`.
 
 **R-5. Separação de responsabilidade de artefatos.**
 `tela.json` é a fonte dos dados concretos da instância. `config/estilo.json`
-é a fonte de aparência global. `config/barra_de_menus.json` é artefato ativo
-transicional a reavaliar conforme ADR-0008.
+é a fonte de aparência global. `config/elementos/barra_de_menus.json` é o
+futuro caminho do artefato ativo transicional a reavaliar conforme ADR-0008 e
+ADR-0021.
 
 **R-6. Estado dinâmico não remove chips.**
 Um chip inativo permanece na posição canônica. Nunca é removido do layout por
@@ -709,5 +732,6 @@ nem de ativação de `[✥]` (ADR-0005).
   do grupo filtrado" como atalho adiada intencionalmente para quando o caso de
   uso surgir.
 
-- **`config/barra_de_menus.json` como artefato transicional**: a reavaliar e
-  migrar para o modelo de configuração por tela (ADR-0008) em tarefa posterior.
+- **`config/elementos/barra_de_menus.json` como artefato transicional**: a
+  reavaliar e migrar para o modelo de configuração por tela (ADR-0008) em
+  tarefa posterior, preservada a organização prevista pela ADR-0021.

@@ -4,7 +4,7 @@ Executavel via:
     python tela/teste_loader.py
 
 Cobre os criterios de aceite testaveis do handoff H-0001:
-- carregamento do arquivo real config/telas/orquestrador.json;
+- carregamento do arquivo real config/telas/demo/demo.json;
 - casos de erro (arquivo ausente, JSON invalido, campos obrigatorios
   ausentes, id divergente do basename, corpo.elementos invalido,
   elemento sem id, elemento sem tipo, tipo desconhecido);
@@ -53,6 +53,8 @@ from tela.loader import (  # noqa: E402
 
 
 _RESULTADOS = []
+
+_RAIZ_TELAS_DEMO = os.path.join("config", "telas", "demo")
 
 
 def _registrar(nome, passou, detalhe=""):
@@ -135,18 +137,18 @@ def _espera_excecao(nome, fn, tipo_esperado):
 
 def teste_caminho_feliz():
     print("")
-    print("== Carregamento do arquivo real config/telas/orquestrador.json ==")
+    print("== Carregamento do arquivo real config/telas/demo/demo.json ==")
     try:
-        tela = carregar_tela(_BASE_PADRAO, "orquestrador")
+        tela = carregar_tela(_BASE_PADRAO, "demo", _RAIZ_TELAS_DEMO)
     except Exception as exc:  # pragma: no cover - diagnostico
-        _registrar("carregar_tela(orquestrador)", False,
+        _registrar("carregar_tela(demo)", False,
                    "{0}: {1}".format(type(exc).__name__, exc))
         return None
-    _registrar("carregar_tela(orquestrador)", True)
+    _registrar("carregar_tela(demo)", True)
 
     _registrar(
-        "tela.id == 'orquestrador'",
-        tela.get("id") == "orquestrador",
+        "tela.id == 'demo'",
+        tela.get("id") == "demo",
         "id={0!r}".format(tela.get("id")),
     )
     _registrar(
@@ -198,10 +200,10 @@ def teste_caminho_feliz():
         tela.get("corpo", {}).get("arranjo") == "vertical",
         "arranjo={0!r}".format(tela.get("corpo", {}).get("arranjo")),
     )
-    # H-0025: orquestrador real declara distribuicao fracao [2,1,2].
+    # H-0025: demo.json declara corpo.distribuicao fracao [2,1,2].
     dist_orq = tela.get("corpo", {}).get("distribuicao")
     _registrar(
-        "H-0025: orquestrador declara corpo.distribuicao (fracao [2,1,2])",
+        "H-0025: demo declara corpo.distribuicao (fracao [2,1,2])",
         isinstance(dist_orq, dict)
         and dist_orq.get("modo") == "fracao"
         and dist_orq.get("valores") == [2, 1, 2],
@@ -233,7 +235,7 @@ def teste_caminho_feliz():
     _registrar(
         "_raw preserva o JSON original completo",
         isinstance(tela.get("_raw"), dict)
-        and tela.get("_raw", {}).get("id") == "orquestrador",
+        and tela.get("_raw", {}).get("id") == "demo",
     )
     print("")
     print("-- Declaracao inerte preservada (DOC-B008 / DOC-B009) --")
@@ -544,9 +546,9 @@ def teste_grupo_estrutural(tmp_base):
     print("")
     print("== Grupo estrutural minimo (H-0012) ==")
 
-    print("-- Carregamento do arquivo real config/telas/grupo_minimo.json --")
+    print("-- Carregamento do arquivo real config/telas/demo/grupo_minimo.json --")
     try:
-        tela = carregar_tela(_BASE_PADRAO, "grupo_minimo")
+        tela = carregar_tela(_BASE_PADRAO, "grupo_minimo", _RAIZ_TELAS_DEMO)
         _registrar("carregar_tela(grupo_minimo) sem excecao", True)
     except Exception as exc:  # pragma: no cover - diagnostico
         _registrar("carregar_tela(grupo_minimo) sem excecao", False,
@@ -707,9 +709,9 @@ def teste_grupo_estrutural(tmp_base):
 
     print("")
     print("-- Lista plana permanece valida (preservacao) --")
-    for id_plano in ("orquestrador", "destino_minimo", "stub_b"):
+    for id_plano in ("demo", "destino_minimo", "stub_b"):
         try:
-            carregar_tela(_BASE_PADRAO, id_plano)
+            carregar_tela(_BASE_PADRAO, id_plano, _RAIZ_TELAS_DEMO)
             _registrar("lista plana '{0}' carrega sem erro".format(id_plano),
                        True)
         except Exception as exc:  # pragma: no cover - diagnostico
@@ -718,9 +720,9 @@ def teste_grupo_estrutural(tmp_base):
 
     print("")
     print("-- H-0016: os 4 JSONs ativos com distribuicao objeto canônico --")
-    for id_tela in ("orquestrador", "grupo_minimo", "destino_minimo", "stub_b"):
+    for id_tela in ("demo", "grupo_minimo", "destino_minimo", "stub_b"):
         try:
-            t = carregar_tela(_BASE_PADRAO, id_tela)
+            t = carregar_tela(_BASE_PADRAO, id_tela, _RAIZ_TELAS_DEMO)
         except Exception as exc:  # pragma: no cover - diagnostico
             _registrar(
                 "H-0016: {0} carrega (objeto canônico)".format(id_tela),
@@ -1727,7 +1729,7 @@ def teste_h0030_catalogo():
 
     for id_tela in _TELAS_H0030:
         try:
-            tela = carregar_tela(_BASE_PADRAO, id_tela)
+            tela = carregar_tela(_BASE_PADRAO, id_tela, _RAIZ_TELAS_DEMO)
         except Exception as exc:  # pragma: no cover - diagnostico
             _registrar(
                 "H-0030: carregar_tela({0}) nao lanca excecao".format(id_tela),
@@ -1769,18 +1771,18 @@ def teste_h0030_catalogo():
         )
 
     # Tipos especificos: console unico / dashboard unico / grupo matriz.
-    tela_console = carregar_tela(_BASE_PADRAO, "h0030_console_unico")
+    tela_console = carregar_tela(_BASE_PADRAO, "h0030_console_unico", _RAIZ_TELAS_DEMO)
     _registrar(
         "H-0030: console_unico corpo[0].tipo == 'console'",
         tela_console["corpo"]["elementos"][0].get("tipo") == "console",
     )
-    tela_dashboard = carregar_tela(_BASE_PADRAO, "h0030_dashboard_unico")
+    tela_dashboard = carregar_tela(_BASE_PADRAO, "h0030_dashboard_unico", _RAIZ_TELAS_DEMO)
     _registrar(
         "H-0030: dashboard_unico corpo[0].tipo == 'dashboard'",
         tela_dashboard["corpo"]["elementos"][0].get("tipo") == "dashboard",
     )
     for id_matriz in ("h0030_matriz_2x2", "h0030_matriz_3x2", "h0030_matriz_2x4"):
-        tela_matriz = carregar_tela(_BASE_PADRAO, id_matriz)
+        tela_matriz = carregar_tela(_BASE_PADRAO, id_matriz, _RAIZ_TELAS_DEMO)
         grupo = tela_matriz["corpo"]["elementos"][0]
         _registrar(
             "H-0030: {0} corpo[0].tipo == 'grupo'".format(id_matriz),
@@ -1799,8 +1801,8 @@ def teste_h0030_catalogo():
 
     # --- Integracao no lancador (H-0030 secao 14.4) ---
     print("")
-    print("-- Lancador do orquestrador: 7 itens (H-0030 secao 14.4) --")
-    orq = carregar_tela(_BASE_PADRAO, "orquestrador")
+    print("-- Lancador do demo: 7 itens (H-0030 secao 14.4) --")
+    orq = carregar_tela(_BASE_PADRAO, "demo", _RAIZ_TELAS_DEMO)
     lancador = None
     for el in orq["corpo"]["elementos"]:
         if isinstance(el, dict) and el.get("tipo") == "lancador":
@@ -1808,7 +1810,7 @@ def teste_h0030_catalogo():
             break
     itens = lancador.get("itens") if isinstance(lancador, dict) else None
     _registrar(
-        "H-0030: orquestrador possui exatamente 7 itens em lancador_principal.itens",
+        "H-0030: demo possui exatamente 7 itens em lancador_principal.itens",
         isinstance(itens, list) and len(itens) == 7,
         "n={0}".format(len(itens) if isinstance(itens, list) else "?"),
     )
@@ -1873,7 +1875,7 @@ def teste_h0030_catalogo():
     # tela_destino dos 5 novos itens resolvem para arquivos existentes.
     for it in itens[2:]:
         destino = it.get("tela_destino")
-        caminho = _BASE_PADRAO / "config" / "telas" / "{0}.json".format(destino)
+        caminho = _BASE_PADRAO / "config" / "telas" / "demo" / "{0}.json".format(destino)
         _registrar(
             "H-0030: tela_destino {0!r} resolve para arquivo existente".format(
                 destino
@@ -1883,7 +1885,7 @@ def teste_h0030_catalogo():
         )
         # Carregamento direto do destino tambem funciona.
         try:
-            carregar_tela(_BASE_PADRAO, destino)
+            carregar_tela(_BASE_PADRAO, destino, _RAIZ_TELAS_DEMO)
             resolve_load = True
         except Exception:
             resolve_load = False
@@ -1909,7 +1911,7 @@ def teste_h0030_catalogo():
     ]
     for id_perm in telas_permanentes_anteriores:
         try:
-            carregar_tela(_BASE_PADRAO, id_perm)
+            carregar_tela(_BASE_PADRAO, id_perm, _RAIZ_TELAS_DEMO)
             ok = True
         except Exception:
             ok = False
@@ -1932,6 +1934,94 @@ def teste_id_incorreto_classe():
     except Exception as exc:  # pragma: no cover - diagnostico
         _registrar("TelaIdIncorreto instanciavel", False,
                    "{0}: {1}".format(type(exc).__name__, exc))
+
+
+def teste_raiz_telas_h0032():
+    """Testa o parametro raiz_telas introduzido pelo H-0032.
+
+    Verifica:
+    - carregar_tela com raiz_demo carrega demo.json corretamente;
+    - id resultante e 'demo';
+    - chamada sem raiz nao encontra 'demo' (sem fallback para raiz produto);
+    - 'orquestrador' removido de config/telas/ (TelaArquivoNaoEncontrado);
+    - TelaIdNaoCoincideComArquivo funciona com raiz_telas explicita.
+    """
+    import json as _json
+    import tempfile
+
+    print("")
+    print("== Parametro raiz_telas (H-0032) ==")
+
+    # 1. Carrega demo com raiz explicita
+    try:
+        tela_demo = carregar_tela(_BASE_PADRAO, "demo", _RAIZ_TELAS_DEMO)
+        _registrar(
+            "H-0032: carregar_tela(demo, raiz_demo) carrega sem excecao", True
+        )
+    except Exception as exc:
+        _registrar(
+            "H-0032: carregar_tela(demo, raiz_demo) carrega sem excecao",
+            False,
+            "{0}: {1}".format(type(exc).__name__, exc),
+        )
+        return
+
+    # 2. id resultante
+    _registrar(
+        "H-0032: carregar_tela(demo, raiz_demo)[id] == 'demo'",
+        tela_demo.get("id") == "demo",
+        "id={0!r}".format(tela_demo.get("id")),
+    )
+
+    # 3. 'demo' nao existe em config/telas/ sem raiz (sem fallback)
+    _espera_excecao(
+        "H-0032: carregar_tela(demo) sem raiz => TelaArquivoNaoEncontrado (sem fallback)",
+        lambda: carregar_tela(_BASE_PADRAO, "demo"),
+        TelaArquivoNaoEncontrado,
+    )
+
+    # 4. 'orquestrador' removido de config/telas/
+    _espera_excecao(
+        "H-0032: carregar_tela(orquestrador) sem raiz => TelaArquivoNaoEncontrado",
+        lambda: carregar_tela(_BASE_PADRAO, "orquestrador"),
+        TelaArquivoNaoEncontrado,
+    )
+
+    # 5. TelaIdNaoCoincideComArquivo com raiz_telas explicita (id != basename)
+    tmp = Path(tempfile.mkdtemp(prefix="tela_raiz_h0032_"))
+    try:
+        raiz_tmp = os.path.join("config", "telas", "demo")
+        dir_tmp = tmp / "config" / "telas" / "demo"
+        dir_tmp.mkdir(parents=True, exist_ok=True)
+        conteudo = {
+            "schema": "tela.v1",
+            "id": "outro_id",
+            "cabecalho": {"titulo": "T"},
+            "barra_de_menus": {
+                "chips": [],
+                "distribuicao": {
+                    "modo": "horizontal_responsiva",
+                    "ordem": {
+                        "politica": "declaracao",
+                        "ancoras": {"primeiro": [], "ultimo": []},
+                    },
+                },
+            },
+            "corpo": {
+                "arranjo": "lista_plana",
+                "elementos": [{"id": "el", "tipo": "console"}],
+            },
+        }
+        (dir_tmp / "demo.json").write_text(
+            _json.dumps(conteudo, ensure_ascii=False), encoding="utf-8"
+        )
+        _espera_excecao(
+            "H-0032: TelaIdNaoCoincideComArquivo com raiz_telas explicita (id != basename)",
+            lambda: carregar_tela(tmp, "demo", raiz_tmp),
+            TelaIdNaoCoincideComArquivo,
+        )
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
 
 
 def main():
@@ -1957,6 +2047,7 @@ def main():
 
     TestValidacaoMatrizH0028().run_all()
     teste_h0030_catalogo()
+    teste_raiz_telas_h0032()
     teste_id_incorreto_classe()
 
     print("")

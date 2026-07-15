@@ -171,18 +171,18 @@ e não decide alinhamento por conta própria. Regra de alinhamento desconhecida
 
 **Itens concretos** (`id`, `chip`, `texto`, `tela_destino`) e **regras visuais
 da instância** (alinhamento, layout) pertencem ao `tela.json` da tela que
-instancia o `lancador`. Nenhum desses dados pertence a `config/lancador.json`
-nem a outro artefato global.
+instancia o `lancador`. Nenhum desses dados pertence a
+`config/elementos/lancador.json` nem a outro artefato global.
 
 **Parâmetros de layout do tipo** (vãos mínimos e máximos, número mínimo de
-linhas, regras de wrap) vivem em `config/lancador.json` como artefato ativo
-transicional — **a reavaliar/migrar conforme ADR-0008**. Enquanto esse
-artefato existir, o renderer deve lê-lo em tempo de execução sem hardcodar
-os valores.
+linhas, regras de wrap) vivem no futuro caminho
+`config/elementos/lancador.json` como artefato ativo transicional — **a
+reavaliar/migrar conforme ADR-0008 e ADR-0021**. Enquanto esse artefato existir,
+o renderer deve lê-lo em tempo de execução sem hardcodar os valores.
 
-Este contrato define semântica, regras e invariantes. `config/lancador.json`
-guarda parâmetros do tipo transicionalmente. `tela.json` guarda dados concretos
-da instância.
+Este contrato define semântica, regras e invariantes.
+O futuro caminho `config/elementos/lancador.json` guardará parâmetros do tipo
+transicionalmente. `tela.json` guarda dados concretos da instância.
 
 Adicionar item ao `lancador`, mudar texto, mudar chip/letra ou mudar
 `tela_destino` é **alteração declarativa no JSON da tela**. O código apenas
@@ -221,7 +221,8 @@ independentes**, alinhadas à esquerda:
   daquela coluna.
 
 **Espaço `chip`↔`texto`:** mínimo 1 caractere, máximo 3 caracteres. Parâmetros
-concretos em `config/lancador.json` (transicional por ADR-0008).
+concretos em `config/elementos/lancador.json` (transicional por ADR-0008 e
+ADR-0021).
 
 ### 6.4 Alinhamento horizontal
 
@@ -249,8 +250,8 @@ espaço disponível segundo a regra declarada:
 - O cálculo automático do renderer é apenas distribuição visual dentro da
   regra declarada — não é decisão de composição.
 
-Parâmetros concretos de vãos mínimos e máximos estão em `config/lancador.json`
-(transicional por ADR-0008).
+Parâmetros concretos de vãos mínimos e máximos estão em
+`config/elementos/lancador.json` (transicional por ADR-0008 e ADR-0021).
 
 ### 6.6 Espaçamento vertical
 
@@ -303,8 +304,9 @@ formato `borda + espaço + título + espaço + borda`. Nenhum outro formato
 
 **R-6. Proibição de hardcoding.**
 Nenhum parâmetro de layout do tipo `lancador` pode estar hardcoded no código.
-Parâmetros do tipo são lidos de `config/lancador.json` (transicional por
-ADR-0008). Regras visuais da instância são lidas do `tela.json`.
+Parâmetros do tipo serão lidos do futuro caminho
+`config/elementos/lancador.json` (transicional por ADR-0008 e ADR-0021).
+Regras visuais da instância são lidas do `tela.json`.
 
 **R-7. Largura de coluna pelo maior elemento da própria coluna.**
 A largura de cada coluna é calculada a partir do maior elemento daquela
@@ -339,7 +341,7 @@ regra declarada pela instância no `tela.json`. Regra de alinhamento desconhecid
 - [ ] O acionamento de qualquer item resulta exclusivamente em navegação para a tela de `tela_destino` — sem execução de processo, filtro de dado ou alteração de estado.
 - [ ] O `chip` de cada item usa abertura e fechamento vindos do estilo ativo, e tecla vinda do item declarado no `tela.json`, sem hardcoding pelo renderer.
 - [ ] O título do `lancador` aparece na linha de borda superior no formato `borda + espaço + título + espaço + borda`.
-- [ ] Nenhum parâmetro de layout do tipo está hardcoded no código — parâmetros do tipo vêm de `config/lancador.json`; regras da instância vêm do `tela.json`.
+- [ ] Nenhum parâmetro de layout do tipo está hardcoded no código — parâmetros do tipo vêm do futuro caminho `config/elementos/lancador.json`; regras da instância vêm do `tela.json`.
 - [ ] A largura de cada coluna é calculada pelo maior elemento daquela coluna específica.
 - [ ] `chip` e `texto` formam duas sub-colunas independentes, alinhadas à esquerda.
 - [ ] O espaço entre `chip` e `texto` está entre 1 e 3 caracteres.
@@ -354,11 +356,11 @@ regra declarada pela instância no `tela.json`. Regra de alinhamento desconhecid
 
 ## 10. Pendências em aberto
 
-- **`config/lancador.json` como artefato transicional (ADR-0008)**: os
-  parâmetros de layout do tipo vivem em `config/lancador.json` como artefato
-  ativo transicional. Devem ser reavaliados e migrados para o modelo de
-  configuração por tela conforme ADR-0008 em tarefa posterior.
-- **Campos de navegação interna em `config/lancador.json`**: vãos e alinhamento
+- **`config/elementos/lancador.json` como artefato transicional (ADR-0008,
+  ADR-0021)**: os parâmetros de layout do tipo vivem nesse futuro caminho como
+  artefato ativo transicional. Devem ser reavaliados e migrados para o modelo
+  de configuração por tela conforme ADR-0008 em tarefa posterior.
+- **Campos de navegação interna em `config/elementos/lancador.json`**: vãos e alinhamento
   já formalizados; pendente a formalização dos campos de `navegacao` (wrap
   toroidal, célula vazia) que aguardam contrato de mecanismos de
   seleção/navegação.

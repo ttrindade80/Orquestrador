@@ -1,18 +1,20 @@
 """Aplicacao demonstravel minima com borda/sair e navegacao minima
 (H-0008 / H-0009 / H-0010A / H-0022 / H-0023).
 
-Ponto de entrada executavel local que exercita a API entregue pelo
-renderer (``renderizar_tela``) sobre a tela raiz do Orquestrador e a tela
+Ponto de entrada executavel da demonstracao. Exercita a API entregue pelo
+renderer (``renderizar_tela``) sobre a tela raiz demonstrativa e a tela
 destino minima, permitindo alternar em memoria entre borda curva e reta,
 abrir a tela destino via chip do lancador e voltar via Esc.
 
-Encadeamento do pipeline herdado:
+Executavel via: python demo/demo.py
 
-    config/telas/<id_tela>.json
-        -> carregar_tela(None, id_tela)         [tela/loader.py       - H-0001]
-        -> construir_modelo(tela_raw)           [tela/modelo.py       - H-0002]
+Encadeamento do pipeline:
+
+    config/telas/demo/<id_tela>.json
+        -> carregar_tela(None, id_tela, raiz_telas)  [tela/loader.py       - H-0001]
+        -> construir_modelo(tela_raw)                [tela/modelo.py       - H-0002]
         -> ModeloTela
-        -> renderizar_tela(modelo, tipo_borda)  [tela/renderizador.py - H-0006/H-0007/H-0009/H-0010A]
+        -> renderizar_tela(modelo, tipo_borda)       [tela/renderizador.py - H-0006/H-0007/H-0009/H-0010A]
         -> str
 
 ESCOPO (H-0008):
@@ -40,7 +42,7 @@ ADICOES DO H-0009:
   renderer.
 
 ADICOES DO H-0010A (navegacao minima local):
-- Estado ganha ``tela_atual`` (default ``"orquestrador"``) e
+- Estado ganha ``tela_atual`` (default ``"demo"``) e
   ``pilha_telas`` (default ``[]``).
 - ``processar_comando`` ganha terceiro argumento opcional ``modelo=None``;
   quando ``modelo`` e fornecido e o comando coincide com o ``chip`` de
@@ -53,7 +55,7 @@ ADICOES DO H-0010A (navegacao minima local):
   de id de tela hardcoded. O texto do chip Esc (``"Sair"`` ou
   ``"Voltar"``) vem do JSON; o comportamento (sair ou voltar) vem do
   estado da demo.
-- ``main()`` recarrega o modelo via ``carregar_tela(None, tela_atual)``
+- ``main()`` recarrega o modelo via ``carregar_tela(_RAIZ_TELAS_DEMO, tela_atual)``
   sempre que ``tela_atual`` muda; renderiza apos alternar borda ou
   mudar de tela.
 - Nao implementa registry completo de telas nem registry completo de
@@ -121,6 +123,8 @@ from tela.renderizador import renderizar_tela, RenderizadorErro
 LARGURA_MINIMA_TELA = 10
 ALTURA_MINIMA_TELA = 6
 
+_RAIZ_TELAS_DEMO = os.path.join("config", "telas", "demo")
+
 
 def criar_estado_inicial():
     """Retorna o estado inicial da demonstracao.
@@ -130,13 +134,13 @@ def criar_estado_inicial():
 
     - ``tipo_borda``: ``"curva"`` (default do renderer).
     - ``saindo``: ``False``.
-    - ``tela_atual``: ``"orquestrador"`` (tela raiz).
+    - ``tela_atual``: ``"demo"`` (tela raiz da demonstracao).
     - ``pilha_telas``: ``[]`` (sem telas empilhadas).
     """
     return {
         "tipo_borda": "curva",
         "saindo": False,
-        "tela_atual": "orquestrador",
+        "tela_atual": "demo",
         "pilha_telas": [],
     }
 
@@ -169,12 +173,12 @@ def processar_comando(estado, comando, modelo=None):
         O terceiro argumento ``modelo`` e opcional (default ``None``)
         para preservar o comportamento anterior quando omitido. Estados
         sem ``tela_atual`` ou ``pilha_telas`` sao tratados com defaults
-        (``"orquestrador"`` e ``[]``).
+        (``"demo"`` e ``[]``).
     """
     novo = {
         "tipo_borda": estado["tipo_borda"],
         "saindo": estado["saindo"],
-        "tela_atual": estado.get("tela_atual", "orquestrador"),
+        "tela_atual": estado.get("tela_atual", "demo"),
         "pilha_telas": list(estado.get("pilha_telas", [])),
     }
 
@@ -222,8 +226,8 @@ def renderizar_estado(estado, modelo, largura=None, altura=None):
 
 
 def _carregar_modelo_por_id(id_tela):
-    """Helper: carrega e constroi o ModeloTela para ``id_tela``."""
-    tela_raw = carregar_tela(None, id_tela)
+    """Helper: carrega e constroi o ModeloTela para ``id_tela`` da raiz demo."""
+    tela_raw = carregar_tela(None, id_tela, _RAIZ_TELAS_DEMO)
     return construir_modelo(tela_raw)
 
 

@@ -5,7 +5,7 @@ Executavel via:
 
 Cobre os criterios de aceite testaveis do handoff H-0002:
 - construcao do modelo a partir do dict do loader (H-0001) para
-  config/telas/orquestrador.json;
+  config/telas/demo/demo.json;
 - acesso por atributo a id, schema, cabecalho, corpo, barra_de_menus;
 - corpo.arranjo e corpo.elementos acessiveis;
 - cada elemento acessivel por id e tipo;
@@ -19,6 +19,7 @@ Cobre os criterios de aceite testaveis do handoff H-0002:
 Apenas biblioteca padrao do Python.
 """
 
+import os
 import sys
 from pathlib import Path
 
@@ -41,6 +42,8 @@ from tela.modelo import (  # noqa: E402
 
 
 _RESULTADOS = []
+
+_RAIZ_TELAS_DEMO = os.path.join("config", "telas", "demo")
 
 
 def _registrar(nome, passou, detalhe=""):
@@ -79,22 +82,22 @@ def _espera_excecao(nome, fn, tipo_esperado):
 
 def teste_modelo_orquestrador():
     print("")
-    print("== Construcao do modelo para config/telas/orquestrador.json ==")
+    print("== Construcao do modelo para config/telas/demo/demo.json ==")
     try:
-        tela_raw = carregar_tela(_BASE_PADRAO, "orquestrador")
+        tela_raw = carregar_tela(_BASE_PADRAO, "demo", _RAIZ_TELAS_DEMO)
         modelo = construir_modelo(tela_raw)
     except Exception as exc:  # pragma: no cover - diagnostico
         _registrar(
-            "construir_modelo(carregar_tela(orquestrador))",
+            "construir_modelo(carregar_tela(demo))",
             False,
             "{0}: {1}".format(type(exc).__name__, exc),
         )
         return None
-    _registrar("construir_modelo(carregar_tela(orquestrador))", True)
+    _registrar("construir_modelo(carregar_tela(demo))", True)
 
     _registrar(
-        "modelo.id == 'orquestrador'",
-        modelo.id == "orquestrador",
+        "modelo.id == 'demo'",
+        modelo.id == "demo",
         "id={0!r}".format(modelo.id),
     )
     _registrar(
@@ -291,7 +294,7 @@ def teste_modelo_orquestrador():
     _registrar(
         "modelo._raw preserva JSON original completo",
         isinstance(modelo._raw, dict)
-        and modelo._raw.get("id") == "orquestrador",
+        and modelo._raw.get("id") == "demo",
     )
     _registrar(
         "modelo._raw['bindings'] preservado como dict inerte",
@@ -311,7 +314,7 @@ def teste_modelo_orquestrador():
         "modelo.diagnostico() retorna string nao vazia contendo id",
         isinstance(diag, str)
         and len(diag) > 0
-        and "orquestrador" in diag,
+        and "demo" in diag,
     )
     _registrar(
         "diagnostico contem schema, arranjo e tipo de cada elemento",
@@ -335,7 +338,7 @@ def teste_modelo_grupo_minimo():
     print("")
     print("== Construcao do modelo para config/telas/grupo_minimo.json (H-0012) ==")
     try:
-        tela_raw = carregar_tela(_BASE_PADRAO, "grupo_minimo")
+        tela_raw = carregar_tela(_BASE_PADRAO, "grupo_minimo", _RAIZ_TELAS_DEMO)
         modelo = construir_modelo(tela_raw)
     except Exception as exc:  # pragma: no cover - diagnostico
         _registrar(
@@ -826,7 +829,7 @@ class TestModeloCatalogoH0030:
         _registrar(nome, passou, detalhe)
 
     def _carregar(self, id_tela):
-        return construir_modelo(carregar_tela(_BASE_PADRAO, id_tela))
+        return construir_modelo(carregar_tela(_BASE_PADRAO, id_tela, _RAIZ_TELAS_DEMO))
 
     def test_modelo_cada_tela_nao_lanca(self):
         for id_tela in _TELAS_H0030_MODELO:
@@ -992,7 +995,7 @@ class TestModeloCatalogoH0030:
 
     def test_preservacao_validacoes_vigentes(self):
         """Telas anteriores continuam carregando no modelo sem regressao."""
-        for id_perm in ("destino_minimo", "grupo_minimo", "orquestrador"):
+        for id_perm in ("destino_minimo", "grupo_minimo", "demo"):
             try:
                 m = self._carregar(id_perm)
                 ok = m is not None

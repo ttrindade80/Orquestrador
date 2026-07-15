@@ -19,8 +19,8 @@ conteudo derivado do modelo/JSON e adiciona:
   lancador" (lidos do JSON, nao hardcoded).
 
 Secoes cobertas:
-- renderer sobre config/telas/orquestrador.json;
-- renderer sobre config/telas/destino_minimo.json (H-0010A);
+- renderer sobre config/telas/demo/demo.json;
+- renderer sobre config/telas/demo/destino_minimo.json (H-0010A);
 - modelo fabricado (usa dados do modelo, nao do JSON em disco);
 - casos de erro (None, dict, tipo_borda invalido, texto > 15 chars);
 - proibicoes de import/leitura no modulo do renderer;
@@ -35,6 +35,7 @@ Secoes cobertas:
 Apenas biblioteca padrao do Python.
 """
 
+import os
 import sys
 
 sys.dont_write_bytecode = True
@@ -63,6 +64,8 @@ from tela.renderizador import (  # noqa: E402
 
 
 _RESULTADOS = []
+
+_RAIZ_TELAS_DEMO = os.path.join("config", "telas", "demo")
 
 
 _EXPECTED_ORQUESTRADOR = (
@@ -149,9 +152,9 @@ def _espera_excecao(nome, fn, tipo_esperado):
 
 def teste_renderizador_orquestrador():
     print("")
-    print("== Renderer sobre modelo de config/telas/orquestrador.json ==")
+    print("== Renderer sobre modelo de config/telas/demo/demo.json ==")
     try:
-        tela_raw = carregar_tela(_BASE_PADRAO, "orquestrador")
+        tela_raw = carregar_tela(_BASE_PADRAO, "demo", _RAIZ_TELAS_DEMO)
         modelo = construir_modelo(tela_raw)
     except Exception as exc:  # pragma: no cover - diagnostico
         _registrar(
@@ -282,9 +285,9 @@ def teste_renderizador_orquestrador():
 
 def teste_renderizador_destino_minimo():
     print("")
-    print("== Renderer sobre modelo de config/telas/destino_minimo.json (H-0010A) ==")
+    print("== Renderer sobre modelo de config/telas/demo/destino_minimo.json (H-0010A) ==")
     try:
-        tela_raw = carregar_tela(_BASE_PADRAO, "destino_minimo")
+        tela_raw = carregar_tela(_BASE_PADRAO, "destino_minimo", _RAIZ_TELAS_DEMO)
         modelo = construir_modelo(tela_raw)
     except Exception as exc:  # pragma: no cover - diagnostico
         _registrar(
@@ -351,9 +354,9 @@ def teste_renderizador_destino_minimo():
 
 def teste_renderizador_grupo_minimo():
     print("")
-    print("== Renderer sobre modelo de config/telas/grupo_minimo.json (H-0012) ==")
+    print("== Renderer sobre modelo de config/telas/demo/grupo_minimo.json (H-0012) ==")
     try:
-        tela_raw = carregar_tela(_BASE_PADRAO, "grupo_minimo")
+        tela_raw = carregar_tela(_BASE_PADRAO, "grupo_minimo", _RAIZ_TELAS_DEMO)
         modelo = construir_modelo(tela_raw)
     except Exception as exc:  # pragma: no cover - diagnostico
         _registrar(
@@ -438,11 +441,11 @@ def teste_renderizador_grupo_minimo():
     )
 
     # CA-24 reforco: Orquestrador (lista plana) segue inalterado
-    tela_o = carregar_tela(_BASE_PADRAO, "orquestrador")
+    tela_o = carregar_tela(_BASE_PADRAO, "demo", _RAIZ_TELAS_DEMO)
     modelo_o = construir_modelo(tela_o)
     saida_o = renderizar_tela(modelo_o)
     _registrar(
-        "Orquestrador (lista plana) permanece inalterado (CA-24)",
+        "demo (lista plana) permanece inalterado (CA-24)",
         saida_o == _EXPECTED_ORQUESTRADOR,
     )
 
@@ -712,7 +715,7 @@ def teste_inercia():
     print("")
     print("== Inercia: renderer nao executa/resolve/ativa ==")
 
-    tela_raw = carregar_tela(_BASE_PADRAO, "orquestrador")
+    tela_raw = carregar_tela(_BASE_PADRAO, "demo", _RAIZ_TELAS_DEMO)
     modelo = construir_modelo(tela_raw)
     raw_antes = dict(modelo._raw)
     cabecalho_antes = dict(modelo.cabecalho)
@@ -756,7 +759,7 @@ def teste_alternancia_borda():
     print("")
     print("== Alternancia de borda em memoria (H-0007) ==")
 
-    tela_raw = carregar_tela(_BASE_PADRAO, "orquestrador")
+    tela_raw = carregar_tela(_BASE_PADRAO, "demo", _RAIZ_TELAS_DEMO)
     modelo = construir_modelo(tela_raw)
 
     try:
@@ -906,7 +909,7 @@ def teste_largura_explicita():
     print("")
     print("== Largura explicita (H-0009) ==")
 
-    tela_raw = carregar_tela(_BASE_PADRAO, "orquestrador")
+    tela_raw = carregar_tela(_BASE_PADRAO, "demo", _RAIZ_TELAS_DEMO)
     modelo = construir_modelo(tela_raw)
 
     saida_42 = renderizar_tela(modelo, largura=42)
@@ -969,16 +972,16 @@ def teste_largura_explicita():
 
 
 def _modelo_orquestrador_sem_distribuicao():
-    """Copia do modelo do orquestrador SEM corpo.distribuicao.
+    """Copia do modelo demo SEM corpo.distribuicao.
 
     H-0025 / ADR-0018 D2: a ausencia de distribuicao preserva a construcao
     orientada pelo conteudo (preenchimento externo H-0015). Usada para
     manter a cobertura H-0015 de preenchimento externo em tela vertical sem
-    distribuicao, visto que o orquestrador real agora declara
+    distribuicao, visto que o demo.json agora declara
     distribuicao (fracao [2,1,2]) e redireciona a sobra para preenchimento
     interno quando ha altura explicita.
     """
-    tela_raw = carregar_tela(_BASE_PADRAO, "orquestrador")
+    tela_raw = carregar_tela(_BASE_PADRAO, "demo", _RAIZ_TELAS_DEMO)
     corpo_sem = dict(tela_raw["corpo"])
     corpo_sem.pop("distribuicao", None)
     tela_raw_sem = dict(tela_raw)
@@ -990,15 +993,15 @@ def teste_altura_explicita():
     print("")
     print("== Altura explicita (H-0015 / ADR-0013 - ocupacao vertical) ==")
 
-    # H-0025: usa modelo do orquestrador SEM distribuicao para preservar a
+    # H-0025: usa modelo demo SEM distribuicao para preservar a
     # cobertura H-0015 de preenchimento externo (telas sem distribuicao nao
-    # sofrem alteracao de comportamento — ADR-0018 D2). O orquestrador real
+    # sofrem alteracao de comportamento — ADR-0018 D2). A tela demo
     # agora declara distribuicao, que redireciona a sobra para preenchimento
     # interno; a cobertura desse novo comportamento esta em
     # TestDistribuicaoVerticalH0025.
     modelo = _modelo_orquestrador_sem_distribuicao()
 
-    # Contabilidade verificada contra o orquestrador.json real (largura=42).
+    # Contabilidade verificada contra o demo.json (largura=42).
     # H-0016: a barra_de_menus agora e horizontal responsiva. Com 2 chips em
     # largura 42 (content_w=39), "[Esc] Sair" + "  " + "[?] Ajuda" = 21 <= 39,
     # logo cabem em linha unica -> N_linhas_barra = 1.
@@ -1417,7 +1420,7 @@ class TestLinhasBarra:
         )
 
     def test_chips_do_lancador_nao_entram_na_barra(self):
-        modelo = construir_modelo(carregar_tela(_BASE_PADRAO, "orquestrador"))
+        modelo = construir_modelo(carregar_tela(_BASE_PADRAO, "demo", _RAIZ_TELAS_DEMO))
         linhas = _linhas_barra(modelo.barra_de_menus, 39)
         junta = " ".join(linhas)
         self._r(
@@ -1585,7 +1588,7 @@ class TestLinhasBarra:
         )
 
     def test_renderizar_tela_com_distribuicao_canonica(self):
-        modelo = construir_modelo(carregar_tela(_BASE_PADRAO, "orquestrador"))
+        modelo = construir_modelo(carregar_tela(_BASE_PADRAO, "demo", _RAIZ_TELAS_DEMO))
         dist = modelo.barra_de_menus.get("distribuicao")
         self._r(
             "JSON migrado expoe distribuicao como objeto com modo canonico",
@@ -1620,7 +1623,7 @@ class TestLinhasBarra:
 
     def test_altura_minima_com_barra_horizontal(self):
         # H-0025: modelo sem distribuicao preserva o comportamento H-0015
-        # (preenchimento externo) em altura minima. O orquestrador real agora
+        # (preenchimento externo) em altura minima. A tela demo agora
         # declara distribuicao; a cobertura de distribuicao vertical esta em
         # TestDistribuicaoVerticalH0025.
         modelo = _modelo_orquestrador_sem_distribuicao()
@@ -1638,7 +1641,7 @@ class TestLinhasBarra:
         # O renderer continua exibindo lancador ([d]/[g]) no corpo e os chips
         # da barra ([Esc]/[?]) no rodape; a navegacao g/d/b/Esc (tratada pela
         # demo) depende desses chips continuarem presentes e corretos.
-        modelo = construir_modelo(carregar_tela(_BASE_PADRAO, "orquestrador"))
+        modelo = construir_modelo(carregar_tela(_BASE_PADRAO, "demo", _RAIZ_TELAS_DEMO))
         saida = renderizar_tela(modelo, largura=42)
         self._r(
             "fluxo g/d/b/Esc: lancador [d]/[g] e barra [Esc]/[?] presentes",
@@ -2601,11 +2604,11 @@ class TestArranjoH0019:
         )
         # Confirmacao de que nenhuma funcao da barra foi afetada: barra de menus
         # com chips do JSON do orquestrador continua funcionando
-        tela_raw = carregar_tela(_BASE_PADRAO, "orquestrador")
+        tela_raw = carregar_tela(_BASE_PADRAO, "demo", _RAIZ_TELAS_DEMO)
         modelo_orc = construir_modelo(tela_raw)
         saida_orc = renderizar_tela(modelo_orc, largura=42)
         self._r(
-            "horizontal: barra_de_menus do orquestrador inalterada pos-H0019",
+            "horizontal: barra_de_menus do demo inalterada pos-H0019",
             "[Esc] Sair" in saida_orc and "[?] Ajuda" in saida_orc,
         )
 
@@ -2935,11 +2938,11 @@ class TestPreenchimentoVerticalH0020:
             "[k] Ok" in saida,
         )
         # Verificar orquestrador (usa _normalizar_distribuicao, _linhas_barra)
-        tela_raw = carregar_tela(_BASE_PADRAO, "orquestrador")
+        tela_raw = carregar_tela(_BASE_PADRAO, "demo", _RAIZ_TELAS_DEMO)
         modelo_orc = construir_modelo(tela_raw)
         saida_orc = renderizar_tela(modelo_orc, largura=42)
         self._r(
-            "H0020-12: barra orquestrador inalterada (funções protegidas intactas)",
+            "H0020-12: barra demo inalterada (funções protegidas intactas)",
             "[Esc] Sair" in saida_orc and "[?] Ajuda" in saida_orc,
         )
         self._r(
@@ -2986,8 +2989,8 @@ class TestPreenchimentoBordeadoH0021:
 
     # ---------------------------------------------------------------------- 1
     def test_horizontal_fill_bordeado_orquestrador_json(self):
-        """orquestrador.json em memoria com arranjo='horizontal', largura=80, altura=30."""
-        tela_raw = carregar_tela(_BASE_PADRAO, "orquestrador")
+        """demo.json em memoria com arranjo='horizontal', largura=80, altura=30."""
+        tela_raw = carregar_tela(_BASE_PADRAO, "demo", _RAIZ_TELAS_DEMO)
         tela_raw["corpo"]["arranjo"] = "horizontal"
         modelo = construir_modelo(tela_raw)
         saida = renderizar_tela(modelo, tipo_borda="curva", largura=80, altura=30)
@@ -3021,13 +3024,13 @@ class TestPreenchimentoBordeadoH0021:
     # ---------------------------------------------------------------------- 2
     def test_horizontal_fill_bordeado_lado_a_lado_alias(self):
         """lado_a_lado produz comportamento identico ao horizontal."""
-        tela_raw_h = carregar_tela(_BASE_PADRAO, "orquestrador")
+        tela_raw_h = carregar_tela(_BASE_PADRAO, "demo", _RAIZ_TELAS_DEMO)
         tela_raw_h["corpo"]["arranjo"] = "horizontal"
         saida_h = renderizar_tela(
             construir_modelo(tela_raw_h), tipo_borda="curva", largura=80, altura=30
         )
 
-        tela_raw_l = carregar_tela(_BASE_PADRAO, "orquestrador")
+        tela_raw_l = carregar_tela(_BASE_PADRAO, "demo", _RAIZ_TELAS_DEMO)
         tela_raw_l["corpo"]["arranjo"] = "lado_a_lado"
         saida_l = renderizar_tela(
             construir_modelo(tela_raw_l), tipo_borda="curva", largura=80, altura=30
@@ -3161,7 +3164,7 @@ class TestPreenchimentoBordeadoH0021:
     # ---------------------------------------------------------------------- 7
     def test_horizontal_dashboard_sem_literal_tem_bordas(self):
         """dashboard_info sem campos literais ocupa area visual bordeada."""
-        tela_raw = carregar_tela(_BASE_PADRAO, "orquestrador")
+        tela_raw = carregar_tela(_BASE_PADRAO, "demo", _RAIZ_TELAS_DEMO)
         tela_raw["corpo"]["arranjo"] = "horizontal"
         modelo = construir_modelo(tela_raw)
         borda = self._borda()
@@ -3192,7 +3195,7 @@ class TestPreenchimentoBordeadoH0021:
     # ---------------------------------------------------------------------- 8
     def test_horizontal_filhos_preservados_em_ordem(self):
         """Filhos console, dashboard, lancador aparecem na ordem declarada."""
-        tela_raw = carregar_tela(_BASE_PADRAO, "orquestrador")
+        tela_raw = carregar_tela(_BASE_PADRAO, "demo", _RAIZ_TELAS_DEMO)
         tela_raw["corpo"]["arranjo"] = "horizontal"
         modelo = construir_modelo(tela_raw)
         saida = renderizar_tela(modelo, tipo_borda="curva", largura=80, altura=30)
@@ -3242,10 +3245,10 @@ class TestPreenchimentoBordeadoH0021:
     # ---------------------------------------------------------------------- 10
     def test_vertical_nao_regride_apos_h0021(self):
         """arranjo=vertical preserva comportamento anterior."""
-        # H-0025: o orquestrador real declara distribuicao agora. Sem altura,
+        # H-0025: o demo.json declara distribuicao agora. Sem altura,
         # a distribuicao nao se aplica (sem area distribuivel) e a saida continua
         # igual a _EXPECTED_ORQUESTRADOR (comportamento orientado pelo conteudo).
-        tela_raw = carregar_tela(_BASE_PADRAO, "orquestrador")
+        tela_raw = carregar_tela(_BASE_PADRAO, "demo", _RAIZ_TELAS_DEMO)
         modelo = construir_modelo(tela_raw)  # arranjo=vertical (padrao do JSON)
         saida = renderizar_tela(modelo, largura=42)
         self._r(
@@ -3297,7 +3300,7 @@ class TestPreenchimentoBordeadoH0021:
     # ---------------------------------------------------------------------- 13
     def test_barra_de_menus_preservada_apos_h0021(self):
         """Barra de menus e funcoes protegidas preservadas apos H-0021."""
-        tela_raw = carregar_tela(_BASE_PADRAO, "orquestrador")
+        tela_raw = carregar_tela(_BASE_PADRAO, "demo", _RAIZ_TELAS_DEMO)
         tela_raw["corpo"]["arranjo"] = "horizontal"
         modelo = construir_modelo(tela_raw)
         saida = renderizar_tela(modelo, tipo_borda="curva", largura=80, altura=30)
@@ -3705,9 +3708,9 @@ class TestDistribuicaoVerticalH0025:
 
     # ------------------------------------------------------ JSON real (D9)
     def test_json_real_orquestrador_distribui_212(self):
-        modelo = construir_modelo(carregar_tela(_BASE_PADRAO, "orquestrador"))
+        modelo = construir_modelo(carregar_tela(_BASE_PADRAO, "demo", _RAIZ_TELAS_DEMO))
         self._r(
-            "JSON real: orquestrador declara fracao [2,1,2]",
+            "JSON real: demo declara fracao [2,1,2]",
             isinstance(modelo.corpo.distribuicao, dict)
             and modelo.corpo.distribuicao.get("valores") == [2, 1, 2],
         )
@@ -3735,7 +3738,7 @@ class TestDistribuicaoVerticalH0025:
         )
 
     def test_json_real_sem_altura_preserva_conteudo_natural(self):
-        modelo = construir_modelo(carregar_tela(_BASE_PADRAO, "orquestrador"))
+        modelo = construir_modelo(carregar_tela(_BASE_PADRAO, "demo", _RAIZ_TELAS_DEMO))
         saida = renderizar_tela(modelo, largura=42)
         self._r(
             "JSON real: sem altura preserva _EXPECTED_ORQUESTRADOR (natural)",
@@ -3771,7 +3774,7 @@ class TestDistribuicaoVerticalH0025:
     def test_telas_sem_distribuicao_nao_mudam(self):
         # destino_minimo e grupo_minimo nao declaram distribuicao.
         for id_tela in ("destino_minimo", "grupo_minimo", "stub_b"):
-            modelo = construir_modelo(carregar_tela(_BASE_PADRAO, id_tela))
+            modelo = construir_modelo(carregar_tela(_BASE_PADRAO, id_tela, _RAIZ_TELAS_DEMO))
             self._r(
                 "{0}: sem distribuicao (distribuicao is None)".format(id_tela),
                 modelo.corpo.distribuicao is None,
@@ -4651,11 +4654,11 @@ class TestHierarquiaGruposH0027:
     def test_regressao_orquestrador(self):
         """renderizar_tela sobre orquestrador.json preserva saida esperada (regressao)."""
         try:
-            tela_raw = carregar_tela(_BASE_PADRAO, "orquestrador")
+            tela_raw = carregar_tela(_BASE_PADRAO, "demo", _RAIZ_TELAS_DEMO)
             modelo = construir_modelo(tela_raw)
             saida = renderizar_tela(modelo, largura=42)
             self._r(
-                "H-0027 regressao: orquestrador renderiza sem excecao",
+                "H-0027 regressao: demo renderiza sem excecao",
                 True,
             )
             self._r(
@@ -4667,14 +4670,14 @@ class TestHierarquiaGruposH0027:
                 "Menus" in saida,
             )
         except Exception as exc:
-            self._r("H-0027 regressao: orquestrador renderiza sem excecao",
+            self._r("H-0027 regressao: demo renderiza sem excecao",
                     False, str(exc))
 
     # --- Regressao: grupo_minimo.json ainda renderiza ---
     def test_regressao_grupo_minimo(self):
         """renderizar_tela sobre grupo_minimo.json renderiza sem excecao (regressao)."""
         try:
-            tela_raw = carregar_tela(_BASE_PADRAO, "grupo_minimo")
+            tela_raw = carregar_tela(_BASE_PADRAO, "grupo_minimo", _RAIZ_TELAS_DEMO)
             modelo = construir_modelo(tela_raw)
             saida = renderizar_tela(modelo, largura=42)
             self._r(
@@ -5718,7 +5721,7 @@ class TestCardinalidadeUnitariaH0029:
     # ---------------------------------------- integracao JSON real grupo_minimo
     def test_integracao_json_grupo_minimo(self):
         """Integracao loader -> modelo -> renderer com grupo_minimo.json real."""
-        modelo = construir_modelo(carregar_tela(_BASE_PADRAO, "grupo_minimo"))
+        modelo = construir_modelo(carregar_tela(_BASE_PADRAO, "grupo_minimo", _RAIZ_TELAS_DEMO))
         self._r(
             "H-0029 integracao: grupo_minimo.json distribuicao is None (sem dist)",
             modelo.corpo.distribuicao is None,
@@ -5752,7 +5755,7 @@ class TestCardinalidadeUnitariaH0029:
     def test_preservacao_jsons_sem_dist(self):
         """destino_minimo.json e stub_b.json nao declaram distribuicao: preservados."""
         for id_tela in ("destino_minimo", "stub_b"):
-            modelo = construir_modelo(carregar_tela(_BASE_PADRAO, id_tela))
+            modelo = construir_modelo(carregar_tela(_BASE_PADRAO, id_tela, _RAIZ_TELAS_DEMO))
             self._r(
                 "H-0029 preserv: {0} distribuicao is None".format(id_tela),
                 modelo.corpo.distribuicao is None,
@@ -5825,7 +5828,7 @@ _H0029_TELAS_TODAS = (
 
 
 def _h0029_caminho_json(id_tela):
-    return _BASE_PADRAO / "config" / "telas" / (id_tela + ".json")
+    return _BASE_PADRAO / "config" / "telas" / "demo" / (id_tela + ".json")
 
 
 def _h0029_dashboard_topo(saida):
@@ -5921,7 +5924,7 @@ class TestTelasPermanentesH0029:
     def test_carregamento_modelo(self):
         for id_tela in _H0029_TELAS_TODAS:
             try:
-                raw = carregar_tela(_BASE_PADRAO, id_tela)
+                raw = carregar_tela(_BASE_PADRAO, id_tela, _RAIZ_TELAS_DEMO)
                 modelo = construir_modelo(raw)
             except Exception as exc:
                 self._r(
@@ -5962,7 +5965,7 @@ class TestTelasPermanentesH0029:
             "h0029_grupo_percentual": {"modo": "percentual", "valores": [100]},
         }
         for id_tela, esperado in espec.items():
-            modelo = construir_modelo(carregar_tela(_BASE_PADRAO, id_tela))
+            modelo = construir_modelo(carregar_tela(_BASE_PADRAO, id_tela, _RAIZ_TELAS_DEMO))
             dist = modelo.corpo.distribuicao
             self._r(
                 "H-0029 JSON {0}: corpo.distribuicao == {1!r}".format(id_tela, esperado),
@@ -5982,7 +5985,7 @@ class TestTelasPermanentesH0029:
             "h0029_grupo_percentual": "grupo",
         }
         for id_tela, esperado in espec.items():
-            modelo = construir_modelo(carregar_tela(_BASE_PADRAO, id_tela))
+            modelo = construir_modelo(carregar_tela(_BASE_PADRAO, id_tela, _RAIZ_TELAS_DEMO))
             filho = modelo.corpo.elementos[0]
             self._r(
                 "H-0029 JSON {0}: filho do corpo e tipo {1!r}".format(id_tela, esperado),
@@ -6000,7 +6003,7 @@ class TestTelasPermanentesH0029:
             "h0029_grupo_percentual": {"modo": "percentual", "valores": [100]},
         }
         for id_tela in sem_dist:
-            modelo = construir_modelo(carregar_tela(_BASE_PADRAO, id_tela))
+            modelo = construir_modelo(carregar_tela(_BASE_PADRAO, id_tela, _RAIZ_TELAS_DEMO))
             grupo = modelo.corpo.elementos[0]
             dist_g = grupo._campos_inertes.get("distribuicao")
             self._r(
@@ -6018,7 +6021,7 @@ class TestTelasPermanentesH0029:
                 grupo.elementos[0].tipo == "dashboard",
             )
         for id_tela, esperado in com_dist.items():
-            modelo = construir_modelo(carregar_tela(_BASE_PADRAO, id_tela))
+            modelo = construir_modelo(carregar_tela(_BASE_PADRAO, id_tela, _RAIZ_TELAS_DEMO))
             grupo = modelo.corpo.elementos[0]
             dist_g = grupo._campos_inertes.get("distribuicao")
             self._r(
@@ -6038,7 +6041,7 @@ class TestTelasPermanentesH0029:
     # ------------------------- geometria: altura total, largura, barra (2 alturas)
     def test_geometria_altura_largura_barra(self):
         for id_tela in _H0029_TELAS_TODAS:
-            modelo = construir_modelo(carregar_tela(_BASE_PADRAO, id_tela))
+            modelo = construir_modelo(carregar_tela(_BASE_PADRAO, id_tela, _RAIZ_TELAS_DEMO))
             for altura in self.ALTURAS:
                 saida = renderizar_tela(
                     modelo, tipo_borda="curva",
@@ -6074,7 +6077,7 @@ class TestTelasPermanentesH0029:
         """Telas 11A.1-11A.3 e 11A.5-11A.7: dashboard ocupa toda a area."""
         preenche = _H0029_TELAS_DASHBOARD + _H0029_TELAS_GRUPO_DISTRIBUIDO
         for id_tela in preenche:
-            modelo = construir_modelo(carregar_tela(_BASE_PADRAO, id_tela))
+            modelo = construir_modelo(carregar_tela(_BASE_PADRAO, id_tela, _RAIZ_TELAS_DEMO))
             for altura in self.ALTURAS:
                 saida = renderizar_tela(
                     modelo, tipo_borda="curva",
@@ -6125,7 +6128,7 @@ class TestTelasPermanentesH0029:
     def test_geometria_grupo_pai_distribuido_natural(self):
         """Tela 11A.4: dashboard em altura natural; sobra estrutural do grupo."""
         id_tela = "h0029_grupo_pai_distribuido"
-        modelo = construir_modelo(carregar_tela(_BASE_PADRAO, id_tela))
+        modelo = construir_modelo(carregar_tela(_BASE_PADRAO, id_tela, _RAIZ_TELAS_DEMO))
         for altura in self.ALTURAS:
             saida = renderizar_tela(
                 modelo, tipo_borda="curva",
@@ -6192,7 +6195,7 @@ class TestTelasPermanentesH0029:
         for altura in self.ALTURAS:
             saidas[altura] = {}
             for id_tela in _H0029_TELAS_DASHBOARD:
-                modelo = construir_modelo(carregar_tela(_BASE_PADRAO, id_tela))
+                modelo = construir_modelo(carregar_tela(_BASE_PADRAO, id_tela, _RAIZ_TELAS_DEMO))
                 saidas[altura][id_tela] = renderizar_tela(
                     modelo, tipo_borda="curva",
                     largura=self.LARGURA, altura=altura,
@@ -6245,7 +6248,7 @@ class TestTelasPermanentesH0029:
         for altura in self.ALTURAS:
             saidas[altura] = {}
             for id_tela in _H0029_TELAS_GRUPO_DISTRIBUIDO:
-                modelo = construir_modelo(carregar_tela(_BASE_PADRAO, id_tela))
+                modelo = construir_modelo(carregar_tela(_BASE_PADRAO, id_tela, _RAIZ_TELAS_DEMO))
                 saidas[altura][id_tela] = renderizar_tela(
                     modelo, tipo_borda="curva",
                     largura=self.LARGURA, altura=altura,
@@ -6293,7 +6296,7 @@ class TestTelasPermanentesH0029:
     def test_area_adicional_absorvida(self):
         """Altura maior: area extra absorvida corretamente; barra permanece no fim."""
         for id_tela in _H0029_TELAS_TODAS:
-            modelo = construir_modelo(carregar_tela(_BASE_PADRAO, id_tela))
+            modelo = construir_modelo(carregar_tela(_BASE_PADRAO, id_tela, _RAIZ_TELAS_DEMO))
             s20 = renderizar_tela(
                 modelo, tipo_borda="curva", largura=self.LARGURA, altura=20
             )
@@ -6334,7 +6337,7 @@ class TestTelasPermanentesH0029:
     def test_ausencia_sobreposicao(self):
         """Nenhuma tela produz linhas duplicadas nem desaparecimento de bordas."""
         for id_tela in _H0029_TELAS_TODAS:
-            modelo = construir_modelo(carregar_tela(_BASE_PADRAO, id_tela))
+            modelo = construir_modelo(carregar_tela(_BASE_PADRAO, id_tela, _RAIZ_TELAS_DEMO))
             for altura in self.ALTURAS:
                 saida = renderizar_tela(
                     modelo, tipo_borda="curva",
@@ -6418,7 +6421,7 @@ class TestCatalogoH0030:
         _registrar(nome, passou, detalhe)
 
     def _carregar(self, id_tela):
-        return construir_modelo(carregar_tela(_BASE_PADRAO, id_tela))
+        return construir_modelo(carregar_tela(_BASE_PADRAO, id_tela, _RAIZ_TELAS_DEMO))
 
     # ---------------------------------- 14.3: render sem excecao, nao vazio
     def test_renderizar_cinco_telas(self):
@@ -7234,7 +7237,7 @@ class TestCatalogoH0030:
 
     def test_preservacao_telas_anteriores(self):
         """Telas anteriores continuam renderizando sem regressao."""
-        for id_perm in ("destino_minimo", "grupo_minimo", "orquestrador"):
+        for id_perm in ("destino_minimo", "grupo_minimo", "demo"):
             modelo = self._carregar(id_perm)
             try:
                 saida = renderizar_tela(modelo, tipo_borda="curva", largura=42)

@@ -6,7 +6,7 @@ metadata:
   scope: sistema_novo
   status: parcial
   origem_especificacao: usuario_sessao_2026-07-05
-  atualizado_em: 2026-07-11
+  atualizado_em: 2026-07-14
   reaproveitado_de_legado: false
 ---
 
@@ -48,23 +48,56 @@ defaults iniciais; o estado vivo pertence à execução.
 **Nomenclatura de arquivo**: nunca usar abreviação que misture dois termos
 já distinguidos neste glossário (ex.: nunca `barra_menu.json` — usar
 `barra_de_menus.json`). Para o corpo tipo `lancador`, o arquivo canônico é
-`config/lancador.json`; não criar `config/layout_lancador.json`.
+`config/elementos/lancador.json`; não criar `config/layout_lancador.json`.
 
 **Localização**: todos os JSON de configuração ficam em `config/`, na raiz do
 Orquestrador, irmã de `docs/` — nunca dentro de `docs/` (que é documentação
 neutra, sem dado de produção, ver `docs/INDICE.md`).
+
+**Política estrutural da ADR-0021 (2026-07-14)**:
+
+| Termo | Definição |
+|---|---|
+| motor compartilhado | `tela/`; contém conceitualmente loader, modelo, renderizador e contratos genéricos de tela. É reutilizado pela demonstração e pelo produto real. |
+| aplicação demonstrativa | `demo/`; diretório futuro, ainda não criado, destinado a pontos de entrada, utilitários e testes exclusivos da demonstração. |
+| produto real | Orquestrador operacional futuro, com telas declarativas diretamente em `config/telas/<id>.json` e ponto de entrada principal futuro `orquestrador.py`. |
+| tela demonstrativa | Tela declarativa usada pela demonstração, sob a futura raiz `config/telas/demo/<id>.json`. |
+| tela do produto real | Tela declarativa do Orquestrador real, sob `config/telas/<id>.json`. |
+| raiz declarativa da demonstração | `config/telas/demo/`, futura raiz das telas demonstrativas. |
+| raiz declarativa do produto | `config/telas/`, raiz reservada às telas do produto real. |
+
+`tela/` é motor, não ponto de entrada demonstrativo. `demo/` é aplicação
+demonstrativa futura, não uma segunda implementação de loader, modelo ou
+renderizador. Diretórios como `config/layouts/` e `config/elementos/` agrupam
+configuração global por função; não são tipos de elemento do corpo.
+
+**Política da tela inicial real pela ADR-0022 (2026-07-14)**:
+
+| Termo | Definição |
+|---|---|
+| ponto de entrada real | `orquestrador.py`; arquivo futuro diretamente na raiz, reservado ao produto real e reutilizador do motor compartilhado `tela/`. |
+| tela inicial real | `config/telas/orquestrador.json`; arquivo futuro/reservado ao produto real, com identificador interno `orquestrador`. |
+| identidade real | `orquestrador`; identidade exclusiva do produto real, distinta de `demo`. |
+| corpo inicial real | Corpo da tela inicial real composto por `console` e `dashboard`, ambos estruturalmente presentes e sem entradas iniciais de dados reais ou demonstrativos. |
+| barra mínima real | Instância de `barra_de_menus` da tela inicial real com `Esc`, `?` e acesso a estilos. O acesso a estilos não cria tela funcional, destino inexistente, alias ou fallback. |
+
+`orquestrador.py` e `config/telas/orquestrador.json` não são tratados por esta
+nomenclatura como arquivos já criados. A demonstração preserva a identidade
+`demo` na futura raiz `config/telas/demo/`. Não há alias, fallback ou busca
+ambígua entre `orquestrador` e `demo`.
 
 **Status dos artefatos JSON (modelo ADR-0008):**
 
 | Artefato | Papel no novo modelo | Status |
 |---|---|---|
 | `config/estilo.json` | Biblioteca global de aparência — mantida | ativo (seção 1) |
-| `config/layout_dado.json` | Obsoleto/transicional — rastreabilidade da migração `dado` → `console` | obsoleto; não é fonte canônica |
-| `config/layout_menu.json` | Obsoleto/transicional — rastreabilidade da migração `menu` → `lancador` | obsoleto; não é fonte canônica |
-| `config/lancador.json` | Parâmetros de layout do tipo `lancador` — a reavaliar/migrar conforme ADR-0008 | ativo transicional (seção 8.4) |
-| `config/layout_console.json` | Parâmetros de layout do tipo `console` — a reavaliar/migrar conforme ADR-0008 | ativo transicional (seção 4.4) |
-| `config/barra_de_menus.json` | Parâmetros de `barra_de_menus` — a reavaliar/migrar conforme ADR-0008 | ativo transicional (seção 5.1.3) |
-| `config/cabecalho.json` | Parâmetros de apresentação do `cabecalho` — a reavaliar/migrar conforme ADR-0008 | ativo transicional (seção 7.4) |
+| `config/telas/orquestrador.json` | Futuro caminho reservado à tela inicial real do produto, com `id: "orquestrador"` | reservado pela ADR-0022; não materializado por esta etapa |
+| `config/layouts/layout_dado.json` | Futuro caminho do artefato obsoleto/transicional — rastreabilidade da migração `dado` → `console` | obsoleto; não é fonte canônica |
+| `config/layouts/layout_menu.json` | Futuro caminho do artefato obsoleto/transicional — rastreabilidade da migração `menu` → `lancador` | obsoleto; não é fonte canônica |
+| `config/elementos/lancador.json` | Futuro caminho dos parâmetros do tipo `lancador` — a reavaliar/migrar conforme ADR-0008 e ADR-0021 | ativo transicional (seção 8.4) |
+| `config/layouts/layout_console.json` | Futuro caminho dos parâmetros de layout do tipo `console` — a reavaliar/migrar conforme ADR-0008 e ADR-0021 | ativo transicional (seção 4.4) |
+| `config/elementos/barra_de_menus.json` | Futuro caminho dos parâmetros de `barra_de_menus` — a reavaliar/migrar conforme ADR-0008 e ADR-0021 | ativo transicional (seção 5.1.3) |
+| `config/elementos/cabecalho.json` | Futuro caminho dos parâmetros de apresentação do `cabecalho` — a reavaliar/migrar conforme ADR-0008 e ADR-0021 | ativo transicional (seção 7.4) |
 | `tela.json` (por tela) | Declaração concreta de cada tela — modelo canônico ADR-0008 | contrato ativo em `docs/contratos/contrato_tela_json.md`; JSONs reais aguardam DOC-B010 |
 
 **`dashboard` não terá `config/dashboard.json` próprio.** A classe `dashboard`
@@ -319,7 +352,7 @@ ajustável manualmente via chip), o número de colunas do `lancador` é regido
 pelo eixo **`distribuicao_lancador`** (valores `fila` | `matriz`), calculado
 **automaticamente** a partir da largura real do terminal — não é declarado
 pela classe nem ajustável manualmente via chip. Algoritmo completo na
-seção 8.3; valores em `config/lancador.json`.
+seção 8.3; valores no futuro caminho `config/elementos/lancador.json`.
 
 ---
 
@@ -471,14 +504,16 @@ por tipo de corpo, não uma regra geral do sistema.
 espaço disponível (truncar com reticências, quebrar em múltiplas linhas,
 outra estratégia) — ainda não definidas, ver seção 11.
 
-### 4.4 Parametrização externa — `config/layout_console.json`
+### 4.4 Parametrização externa — `config/layouts/layout_console.json`
 
 Seguindo a política da seção 0: os valores concretos e configuráveis do layout
-do corpo tipo `console` vivem em `config/layout_console.json`, não hardcoded. Esta
-seção define o schema e a semântica; o arquivo guarda os dados.
+do corpo tipo `console` vivem no futuro caminho
+`config/layouts/layout_console.json`, não hardcoded. Esta seção define o schema
+e a semântica; o arquivo guarda os dados.
 
-`config/layout_dado.json` permanece apenas como artefato obsoleto/transicional
-de rastreabilidade da migração `dado` → `console`; não é fonte canônica nova.
+`config/layouts/layout_dado.json` permanece apenas como artefato
+obsoleto/transicional de rastreabilidade da migração `dado` → `console`; não é
+fonte canônica nova.
 
 Campos cobertos pelo arquivo:
 
@@ -618,12 +653,12 @@ de processo usando `corpo`) fica para o chat dedicado a `dashboard` — não foi
 decidida aqui, só o terceiro rótulo `Visualizar` do `[⏎]`.
 
 
-### 5.1.3 Arquivo de dados — `config/barra_de_menus.json`
+### 5.1.3 Arquivo de dados — `config/elementos/barra_de_menus.json`
 
 Seguindo a política da seção 0: a ordem canônica, os rótulos e o mapeamento
 de cada chip para o eixo de composição que controla sua existência vivem em
-`config/barra_de_menus.json`, não hardcoded. Esta seção do glossário (5.1)
-define o que cada campo do JSON significa; o JSON guarda os valores.
+`config/elementos/barra_de_menus.json`, não hardcoded. Esta seção do glossário
+(5.1) define o que cada campo do JSON significa; o JSON guarda os valores.
 
 ### 5.2 Chips específicos — categoria formal
 
@@ -764,12 +799,12 @@ O `cabecalho` tem exatamente dois campos textuais:
 
 | Campo | Função | Restrição |
 |---|---|---|
-| `titulo` | Texto curto de identificação da tela | Sem limite de caracteres definido — o estilo de apresentação é configurável via `config/cabecalho.json` |
-| `descricao` | Texto longo de contextualização | Máximo de 200 caracteres (`max_caracteres` em `config/cabecalho.json`) |
+| `titulo` | Texto curto de identificação da tela | Sem limite de caracteres definido — o estilo de apresentação é configurável via `config/elementos/cabecalho.json` |
+| `descricao` | Texto longo de contextualização | Máximo de 200 caracteres (`max_caracteres` em `config/elementos/cabecalho.json`) |
 
 **Os textos concretos de `titulo` e `descricao` pertencem à classe/tela**,
 não ao JSON de configuração global. A classe declara o conteúdo textual;
-`config/cabecalho.json` guarda somente os parâmetros de apresentação.
+`config/elementos/cabecalho.json` guarda somente os parâmetros de apresentação.
 
 ### 7.2 Schema de apresentação — `titulo`
 
@@ -805,11 +840,12 @@ não ao JSON de configuração global. A classe declara o conteúdo textual;
 - `centro`: a descrição fica centralizada na largura disponível; `recuo` é ignorado.
 - `direita`: a descrição termina a `recuo` caracteres da borda direita.
 
-### 7.4 Parametrização externa — `config/cabecalho.json`
+### 7.4 Parametrização externa — `config/elementos/cabecalho.json`
 
 Seguindo a política da seção 0: os parâmetros de apresentação do `cabecalho`
-vivem em `config/cabecalho.json`, não hardcoded. Esta seção define o schema e
-a semântica; o arquivo guarda os valores concretos de apresentação.
+vivem no futuro caminho `config/elementos/cabecalho.json`, não hardcoded. Esta
+seção define o schema e a semântica; o arquivo guarda os valores concretos de
+apresentação.
 
 O arquivo não contém textos concretos de telas (valores de `titulo` e
 `descricao`) — esses pertencem a cada classe/tela.
@@ -877,16 +913,16 @@ Em ambas as etapas, depois de achar a distribuição que cabe, os vãos
 esticam até o máximo pra preencher a sobra (ver 8.1). **Sem teto absoluto
 de colunas** — o único limite é a largura disponível.
 
-**Número mínimo de linhas**: 1 (configurável via `config/lancador.json`, ver
-8.4).
+**Número mínimo de linhas**: 1 (configurável via
+`config/elementos/lancador.json`, ver 8.4).
 
-### 8.4 Parametrização externa — `config/lancador.json`
+### 8.4 Parametrização externa — `config/elementos/lancador.json`
 
 Decisão desta sessão: as regras de vão, alinhamento e linhas mínimas do
 corpo tipo `lancador` vivem num arquivo de configuração próprio, não
 hardcoded — mesmo espírito da "proibição de hardcoding" já usada no schema
 de estilo (seção 1, `contrato_estilo.md`). Caminho do arquivo:
-`config/lancador.json` (ver política da seção 0). Não criar
+`config/elementos/lancador.json` (ver política da seção 0). Não criar
 `config/layout_lancador.json`.
 
 Campos identificados até agora (schema ainda não fechado como contrato
@@ -1016,11 +1052,11 @@ Itens que ainda não têm decisão do usuário:
   dedicado a `dashboard`.
 - **Segunda pauta de "estilos de exibição de dados no corpo"**:
   mencionada pelo usuário nesta sessão, ainda não descrita.
-- **`config/lancador.json` — campos de navegação**: vãos, alinhamento e número
+- **`config/elementos/lancador.json` — campos de navegação**: vãos, alinhamento e número
   mínimo de linhas já formalizados via ADR-0003 e `contrato_composicao_corpo.md`
   (seção 5.2). Pendente apenas a formalização dos campos de `navegacao` em
-  `config/lancador.json`, que deve aguardar o contrato de mecanismos de
-  seleção/navegação.
+  `config/elementos/lancador.json`, que deve aguardar o contrato de mecanismos
+  de seleção/navegação.
 - **Reorganização corpo × dashboard** (relatórios só-visualização usando `dashboard`
   como conteúdo principal, telas de processo usando `corpo`): mencionada
   nesta sessão, explicitamente adiada para o chat dedicado a `dashboard` — não
@@ -1039,7 +1075,8 @@ apoio (não substitui decisão do usuário):
 - Navegação: não há cursor/setas em matriz no legado; usa teclas diretas
   (`Esc`, `Tab`, `|`, `V`, `+`, `-`, `<`, `>`, `J`, `#`, `Enter`) e seleção
   por número digitado após `Enter`. Comportamento de wrap: não encontrado.
-- Resize: não há resize real por terminal no legado (`orquestrador.py` lê
+- Resize: não há resize real por terminal no legado (arquivo legado homônimo
+  `orquestrador.py`, distinto do futuro ponto de entrada real da ADR-0022, lia
   `shutil.get_terminal_size` no render, mas sem handler de `SIGWINCH`).
 - Bordas incompletas: preenchidas com célula vazia (`None` / string vazia
   + `rstrip()`).
@@ -1048,8 +1085,8 @@ Itens adiados intencionalmente (não são lacuna, são decisão de adiar):
 
 - Relação entre `[#]` (filtro de grupo) e `[␣]` (toggle de seleção) — ver
   seção 4.
-- Estrutura do chip "aciona processo" — ver seção 5.2, será extraída de
-  `orquestrador.py` quando o primeiro caso concreto for definido,
+- Estrutura do chip "aciona processo" — ver seção 5.2, será extraída do código
+  legado homônimo `orquestrador.py` quando o primeiro caso concreto for definido,
   separando lógica de processo de código de exibição (`print`) misturado.
 - Combinação de `corpo.arranjo = "horizontal"` com objeto `dashboard` presente
   ao mesmo tempo — ver seção 6.1, sem caso de uso real ainda.
@@ -1123,7 +1160,7 @@ Fechado:
 - O limite de 15 caracteres para `texto` é absoluto e verificado (não truncado).
 
 Fechado nesta etapa:
-- O nome do arquivo de configuração é **`config/lancador.json`** (decisão fechada em 2026-07-06).
+- O nome histórico do arquivo de configuração foi **`config/lancador.json`** (decisão fechada em 2026-07-06), parcialmente atualizado pela ADR-0021 para o futuro caminho `config/elementos/lancador.json`.
 
 Concluído — DOC-0008:
 - Contrato próprio do `lancador` criado em
@@ -1131,9 +1168,10 @@ Concluído — DOC-0008:
   `config/lancador.json`.
 
 Concluído — DOC-0009:
-- Artefatos vigentes migrados para `lancador`; `config/lancador.json` é o
-  arquivo canônico. `config/layout_menu.json` permanece apenas como artefato
-  obsoleto/transicional de rastreabilidade.
+- Artefatos vigentes migrados para `lancador`; `config/lancador.json` foi o
+  arquivo canônico inicial. Pela ADR-0021, o futuro caminho previsto é
+  `config/elementos/lancador.json`. `config/layouts/layout_menu.json` permanece
+  apenas como artefato obsoleto/transicional de rastreabilidade.
 
 ---
 

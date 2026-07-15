@@ -1,7 +1,7 @@
-"""Diagnostico da aplicacao demonstravel H-0008/H-0009/H-0010A/H-0022 (tela/demo.py).
+"""Diagnostico da aplicacao demonstravel H-0008/H-0009/H-0010A/H-0022 (demo/demo.py).
 
 Executavel via:
-    python tela/teste_demo.py
+    python demo/teste_demo.py
 
 Cobre os criterios de aceite testaveis dos handoffs H-0008, H-0009,
 H-0010A (navegacao minima com tela destino) e H-0022 (sessao TUI corrigida
@@ -45,20 +45,20 @@ Secao 3 - renderizar_estado:
 - renderizar_estado(..., largura=None) equivale a omitir largura (H-0009).
 
 Secao 4 - Integracao via subprocess (demo completo):
-- python tela/demo.py com input "b\ns\n" encerra com codigo 0;
+- python demo/demo.py com input "b\ns\n" encerra com codigo 0;
 - stdout contem render curva inicial;
 - stdout contem render reta apos "b";
 - stdout nao contem "\n\n" entre caixas (H-0009);
 - stdout bate com renderizar_tela(..., largura=80) curva+reta (H-0009);
 - stderr vazio;
-- config/telas/orquestrador.json inalterado apos demo;
+- config/telas/demo/demo.json inalterado apos demo;
 - subprocess com "b\n\x1b\n" encerra 0 e sai identico a "b\ns\n" (H-0009).
 
 Secao 5 - Preservacao do diagnostico:
 - gerar_diagnostico_tela() nao lanca excecao;
 - retorno de gerar_diagnostico_tela() e str;
 - retorno bate com _EXPECTED_CURVA (default curva H-0006/H-0007, sem "\n\n");
-- python tela/diagnostico.py encerra com codigo 0;
+- python demo/diagnostico.py encerra com codigo 0;
 - stdout de diagnostico.py bate com _EXPECTED_CURVA;
 - diagnostico.py nao contem sys.stdin;
 - diagnostico.py nao contem input(.
@@ -79,7 +79,7 @@ Secao 7 - Sessao TUI (H-0022 / ADR-0016):
 - 7F: Restauracao por excecao (tcsetattr + sequencias apos RuntimeError).
 - 7G: Fallback nao-TTY sem sequencias TUI via subprocess (item 11).
 
-Alem disso, verifica proibicoes de importacao em tela/demo.py e o
+Alem disso, verifica proibicoes de importacao em demo/demo.py e o
 comportamento de EOF sem "s" (encerra com codigo 0).
 
 Apenas biblioteca padrao do Python.
@@ -93,6 +93,9 @@ from pathlib import Path
 
 _BASE_PADRAO = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(_BASE_PADRAO))
+_this_dir = str(Path(__file__).resolve().parent)
+while _this_dir in sys.path:
+    sys.path.remove(_this_dir)
 
 import signal  # noqa: E402
 import subprocess  # noqa: E402
@@ -101,7 +104,7 @@ import os  # noqa: E402
 from tela.loader import carregar_tela  # noqa: E402
 from tela.modelo import construir_modelo, ModeloTela  # noqa: E402
 from tela.renderizador import renderizar_tela  # noqa: E402
-from tela.demo import (  # noqa: E402
+from demo.demo import (  # noqa: E402
     criar_estado_inicial,
     processar_comando,
     renderizar_estado,
@@ -124,8 +127,10 @@ from tela.demo import (  # noqa: E402
     LARGURA_MINIMA_TELA,
     ALTURA_MINIMA_TELA,
 )
-from tela.diagnostico import gerar_diagnostico_tela  # noqa: E402
+from demo.diagnostico import gerar_diagnostico_tela  # noqa: E402
 
+
+_RAIZ_TELAS_DEMO = os.path.join("config", "telas", "demo")
 
 _RESULTADOS = []
 
@@ -133,8 +138,8 @@ _RESULTADOS = []
 _LARGURA_SUBPROCESS = 80
 # Altura deterministica do subprocess da demo (H-0015 / H-0030). Em contexto de
 # pipe/nao-tty, ``shutil.get_terminal_size(fallback=(80, 24))`` usa o fallback
-# ``lines=24``. A partir do H-0030 o lancador do orquestrador possui 7 itens
-# (d, g, 1..5), de modo que a caixa NAVEGAR exige mais linhas e o orquestrador
+# ``lines=24``. A partir do H-0030 o lancador do demo possui 7 itens
+# (d, g, 1..5), de modo que a caixa NAVEGAR exige mais linhas e o demo
 # requer altura >= 28 em largura 80. Para garantir determinismo entre ambientes
 # (ACH-H15-03) e acomodar o lancador ampliado, o env do subprocess define
 # COLUMNS=80 e LINES=30 explicitamente; o esperado e computado com largura=80 e
@@ -275,12 +280,12 @@ def _registrar(nome, passou, detalhe=""):
 
 
 def _carregar_modelo():
-    tela_raw = carregar_tela(_BASE_PADRAO, "orquestrador")
+    tela_raw = carregar_tela(_BASE_PADRAO, "demo", _RAIZ_TELAS_DEMO)
     return construir_modelo(tela_raw)
 
 
 def _carregar_modelo_por_id(id_tela):
-    tela_raw = carregar_tela(_BASE_PADRAO, id_tela)
+    tela_raw = carregar_tela(_BASE_PADRAO, id_tela, _RAIZ_TELAS_DEMO)
     return construir_modelo(tela_raw)
 
 
@@ -305,8 +310,8 @@ def teste_estado_inicial():
         "saindo={0!r}".format(est.get("saindo")),
     )
     _registrar(
-        "estado inicial tem tela_atual == 'orquestrador' (H-0010A)",
-        est.get("tela_atual") == "orquestrador",
+        "estado inicial tem tela_atual == 'demo' (H-0010A)",
+        est.get("tela_atual") == "demo",
         "tela_atual={0!r}".format(est.get("tela_atual")),
     )
     _registrar(
@@ -434,7 +439,7 @@ def teste_navegacao_minima(modelo):
     estado_raiz = {
         "tipo_borda": "curva",
         "saindo": False,
-        "tela_atual": "orquestrador",
+        "tela_atual": "demo",
         "pilha_telas": [],
     }
 
@@ -445,8 +450,8 @@ def teste_navegacao_minima(modelo):
         "tela_atual={0!r}".format(res_d.get("tela_atual")),
     )
     _registrar(
-        "chip 'd' empilha 'orquestrador' em pilha_telas",
-        res_d["pilha_telas"] == ["orquestrador"],
+        "chip 'd' empilha 'demo' em pilha_telas",
+        res_d["pilha_telas"] == ["demo"],
         "pilha_telas={0!r}".format(res_d.get("pilha_telas")),
     )
     _registrar(
@@ -458,12 +463,12 @@ def teste_navegacao_minima(modelo):
         "tipo_borda": "curva",
         "saindo": False,
         "tela_atual": "destino_minimo",
-        "pilha_telas": ["orquestrador"],
+        "pilha_telas": ["demo"],
     }
     res_esc_volta = processar_comando(estado_interno, "\x1b")
     _registrar(
-        "Esc em tela interna volta para 'orquestrador' (pop pilha)",
-        res_esc_volta["tela_atual"] == "orquestrador"
+        "Esc em tela interna volta para 'demo' (pop pilha)",
+        res_esc_volta["tela_atual"] == "demo"
         and res_esc_volta["pilha_telas"] == [],
         "tela_atual={0!r} pilha={1!r}".format(
             res_esc_volta.get("tela_atual"), res_esc_volta.get("pilha_telas")
@@ -477,7 +482,7 @@ def teste_navegacao_minima(modelo):
     res_s_volta = processar_comando(estado_interno, "s")
     _registrar(
         "'s' em tela interna tambem volta (atalho de Esc)",
-        res_s_volta["tela_atual"] == "orquestrador"
+        res_s_volta["tela_atual"] == "demo"
         and res_s_volta["pilha_telas"] == []
         and res_s_volta["saindo"] is False,
     )
@@ -489,7 +494,7 @@ def teste_navegacao_minima(modelo):
     )
     _registrar(
         "Esc na raiz nao altera tela_atual",
-        res_esc_raiz["tela_atual"] == "orquestrador",
+        res_esc_raiz["tela_atual"] == "demo",
     )
     _registrar(
         "Esc na raiz mantem pilha_telas vazia",
@@ -499,7 +504,7 @@ def teste_navegacao_minima(modelo):
     res_chip_desconhecido = processar_comando(estado_raiz, "z", modelo)
     _registrar(
         "chip nao declarado ('z') nao altera tela_atual",
-        res_chip_desconhecido["tela_atual"] == "orquestrador",
+        res_chip_desconhecido["tela_atual"] == "demo",
     )
     _registrar(
         "chip nao declarado ('z') nao empilha",
@@ -509,13 +514,13 @@ def teste_navegacao_minima(modelo):
     estado_original = {
         "tipo_borda": "curva",
         "saindo": False,
-        "tela_atual": "orquestrador",
+        "tela_atual": "demo",
         "pilha_telas": [],
     }
     processar_comando(estado_original, "d", modelo)
     _registrar(
         "processar_comando nao modifica o dict original com chip 'd'",
-        estado_original["tela_atual"] == "orquestrador"
+        estado_original["tela_atual"] == "demo"
         and estado_original["pilha_telas"] == [],
         "estado apos chamada={0!r}".format(estado_original),
     )
@@ -524,7 +529,7 @@ def teste_navegacao_minima(modelo):
     e_esc = processar_comando(e_d, "\x1b")
     _registrar(
         "ciclo completo: raiz -> destino -> raiz",
-        e_esc["tela_atual"] == "orquestrador"
+        e_esc["tela_atual"] == "demo"
         and e_esc["pilha_telas"] == []
         and e_esc["saindo"] is False,
     )
@@ -532,7 +537,7 @@ def teste_navegacao_minima(modelo):
     estado_com_borda = {
         "tipo_borda": "reta",
         "saindo": False,
-        "tela_atual": "orquestrador",
+        "tela_atual": "demo",
         "pilha_telas": [],
     }
     res_d_reta = processar_comando(estado_com_borda, "d", modelo)
@@ -547,7 +552,7 @@ def teste_navegacao_minima(modelo):
     estado_raiz_g = {
         "tipo_borda": "curva",
         "saindo": False,
-        "tela_atual": "orquestrador",
+        "tela_atual": "demo",
         "pilha_telas": [],
     }
 
@@ -558,8 +563,8 @@ def teste_navegacao_minima(modelo):
         "tela_atual={0!r}".format(res_g.get("tela_atual")),
     )
     _registrar(
-        "chip 'g' empilha 'orquestrador' em pilha_telas (H-0013)",
-        res_g["pilha_telas"] == ["orquestrador"],
+        "chip 'g' empilha 'demo' em pilha_telas (H-0013)",
+        res_g["pilha_telas"] == ["demo"],
         "pilha_telas={0!r}".format(res_g.get("pilha_telas")),
     )
     _registrar(
@@ -571,12 +576,12 @@ def teste_navegacao_minima(modelo):
         "tipo_borda": "curva",
         "saindo": False,
         "tela_atual": "grupo_minimo",
-        "pilha_telas": ["orquestrador"],
+        "pilha_telas": ["demo"],
     }
     res_esc_grupo = processar_comando(estado_grupo_interno, "\x1b")
     _registrar(
-        "Esc em grupo_minimo volta para 'orquestrador' (H-0013)",
-        res_esc_grupo["tela_atual"] == "orquestrador"
+        "Esc em grupo_minimo volta para 'demo' (H-0013)",
+        res_esc_grupo["tela_atual"] == "demo"
         and res_esc_grupo["pilha_telas"] == [],
         "tela_atual={0!r} pilha={1!r}".format(
             res_esc_grupo.get("tela_atual"), res_esc_grupo.get("pilha_telas")
@@ -590,8 +595,8 @@ def teste_navegacao_minima(modelo):
     e_g = processar_comando(estado_raiz_g, "g", modelo)
     e_g_esc = processar_comando(e_g, "\x1b")
     _registrar(
-        "ciclo completo: orquestrador -> grupo_minimo -> orquestrador (H-0013)",
-        e_g_esc["tela_atual"] == "orquestrador"
+        "ciclo completo: demo -> grupo_minimo -> demo (H-0013)",
+        e_g_esc["tela_atual"] == "demo"
         and e_g_esc["pilha_telas"] == []
         and e_g_esc["saindo"] is False,
     )
@@ -701,7 +706,7 @@ def teste_renderizar_estado_altura(modelo):
     estado_curva = {"tipo_borda": "curva", "saindo": False, "pilha_telas": []}
 
     # CA-02: altura explicita suficiente -> exatamente `altura` linhas.
-    # H-0030: o orquestrador com 7 itens no lancador requer altura >= 29 em
+    # H-0030: o demo com 7 itens no lancador requer altura >= 29 em
     # largura 42 (fracao [2,1,2]); usa-se altura=30 para exercitar o fill.
     res_30 = renderizar_estado(
         estado_curva, modelo, largura=42, altura=30
@@ -717,7 +722,7 @@ def teste_renderizar_estado_altura(modelo):
     # responsiva em 1 linha, L_barra=3. H-0030: com 7 itens no lancador,
     # L_corpo_conteudo=14 (ITENS=3, INFO=2, NAVEGAR=9) -> n_minimo=20.
     #
-    # H-0025 secao 11.5 (item 1): o orquestrador real agora declara
+    # H-0025 secao 11.5 (item 1): o demo real agora declara
     # distribuicao (fracao [2,1,2]); em altura=20 essa distribuicao produz
     # uma cota menor que a altura natural de algum filho — terminal
     # insuficiente, caso explicitamente fora de escopo (ADR-0018 D8). Para
@@ -725,7 +730,7 @@ def teste_renderizar_estado_altura(modelo):
     # sub-cenario usa um modelo SEM distribuicao (ausencia preserva o
     # preenchimento externo H-0013/ADR-0018 D2). altura=20 nao e altura
     # suportada normativa do produto; e apenas o minimo natural desta tela.
-    tela_raw_sd = carregar_tela(_BASE_PADRAO, "orquestrador")
+    tela_raw_sd = carregar_tela(_BASE_PADRAO, "demo", _RAIZ_TELAS_DEMO)
     corpo_sd = dict(tela_raw_sd["corpo"])
     corpo_sd.pop("distribuicao", None)
     tela_raw_sd = dict(tela_raw_sd)
@@ -794,7 +799,7 @@ def teste_integracao_subprocess():
     print("")
     print("== Secao 4 - Integracao via subprocess (demo completo) ==")
 
-    caminho_json = _BASE_PADRAO / "config" / "telas" / "orquestrador.json"
+    caminho_json = _BASE_PADRAO / "config" / "telas" / "demo" / "demo.json"
     json_antes = caminho_json.read_text(encoding="utf-8")
 
     modelo = _carregar_modelo()
@@ -808,9 +813,9 @@ def teste_integracao_subprocess():
     )
     saida_esperada = esperado_curva_80 + esperado_reta_80
 
-    # H-0030: o orquestrador com 7 itens no lancador requer altura >= 28 em
+    # H-0030: o demo com 7 itens no lancador requer altura >= 28 em
     # largura 80. O env do subprocess fixa COLUMNS=80 e LINES=30 (em vez de
-    # remover as variaveis) para que a demo renderize o orquestrador em dimensao
+    # remover as variaveis) para que a demo renderize em dimensao
     # deterministica suficiente.
     env_sem_dimensoes = dict(
         (k, v) for k, v in os.environ.items() if k not in ("COLUMNS", "LINES")
@@ -819,7 +824,7 @@ def teste_integracao_subprocess():
     env_sem_dimensoes["LINES"] = str(_ALTURA_SUBPROCESS)
 
     proc = subprocess.run(
-        [sys.executable, "tela/demo.py"],
+        [sys.executable, "demo/demo.py"],
         cwd=str(_BASE_PADRAO),
         input="b\ns\n",
         capture_output=True,
@@ -828,7 +833,7 @@ def teste_integracao_subprocess():
     )
 
     _registrar(
-        "python tela/demo.py com 'b\\ns\\n' encerra com codigo 0",
+        "python demo/demo.py com 'b\\ns\\n' encerra com codigo 0",
         proc.returncode == 0,
         "returncode={0}".format(proc.returncode),
     )
@@ -869,12 +874,12 @@ def teste_integracao_subprocess():
 
     json_depois = caminho_json.read_text(encoding="utf-8")
     _registrar(
-        "config/telas/orquestrador.json inalterado apos demo",
+        "config/telas/demo/demo.json inalterado apos demo",
         json_antes == json_depois,
     )
 
     proc_esc = subprocess.run(
-        [sys.executable, "tela/demo.py"],
+        [sys.executable, "demo/demo.py"],
         cwd=str(_BASE_PADRAO),
         input="b\n\x1b\n",
         capture_output=True,
@@ -905,9 +910,9 @@ def teste_eof_sem_s():
         modelo, tipo_borda="curva",
         largura=_LARGURA_SUBPROCESS, altura=_ALTURA_SUBPROCESS,
     )
-    # H-0030: o orquestrador com 7 itens no lancador requer altura >= 28 em
+    # H-0030: o demo com 7 itens no lancador requer altura >= 28 em
     # largura 80. O env do subprocess fixa COLUMNS=80 e LINES=30 (em vez de
-    # remover as variaveis) para que a demo renderize o orquestrador em dimensao
+    # remover as variaveis) para que a demo renderize em dimensao
     # deterministica suficiente.
     env_sem_dimensoes = dict(
         (k, v) for k, v in os.environ.items() if k not in ("COLUMNS", "LINES")
@@ -916,7 +921,7 @@ def teste_eof_sem_s():
     env_sem_dimensoes["LINES"] = str(_ALTURA_SUBPROCESS)
 
     proc = subprocess.run(
-        [sys.executable, "tela/demo.py"],
+        [sys.executable, "demo/demo.py"],
         cwd=str(_BASE_PADRAO),
         input="",
         capture_output=True,
@@ -924,7 +929,7 @@ def teste_eof_sem_s():
         env=env_sem_dimensoes,
     )
     _registrar(
-        "printf '' | python tela/demo.py encerra com codigo 0",
+        "printf '' | python demo/demo.py encerra com codigo 0",
         proc.returncode == 0,
         "returncode={0}".format(proc.returncode),
     )
@@ -939,8 +944,8 @@ def teste_navegacao_subprocess():
     print("")
     print("== Secao 4b - Navegacao via subprocess (H-0010A) ==")
 
-    caminho_json_orq = _BASE_PADRAO / "config" / "telas" / "orquestrador.json"
-    caminho_json_des = _BASE_PADRAO / "config" / "telas" / "destino_minimo.json"
+    caminho_json_orq = _BASE_PADRAO / "config" / "telas" / "demo" / "demo.json"
+    caminho_json_des = _BASE_PADRAO / "config" / "telas" / "demo" / "destino_minimo.json"
     json_orq_antes = caminho_json_orq.read_text(encoding="utf-8")
     json_des_antes = caminho_json_des.read_text(encoding="utf-8")
 
@@ -963,9 +968,9 @@ def teste_navegacao_subprocess():
         largura=_LARGURA_SUBPROCESS, altura=_ALTURA_SUBPROCESS,
     )
 
-    # H-0030: o orquestrador com 7 itens no lancador requer altura >= 28 em
+    # H-0030: o demo com 7 itens no lancador requer altura >= 28 em
     # largura 80. O env do subprocess fixa COLUMNS=80 e LINES=30 (em vez de
-    # remover as variaveis) para que a demo renderize o orquestrador em dimensao
+    # remover as variaveis) para que a demo renderize em dimensao
     # deterministica suficiente.
     env_sem_dimensoes = dict(
         (k, v) for k, v in os.environ.items() if k not in ("COLUMNS", "LINES")
@@ -974,7 +979,7 @@ def teste_navegacao_subprocess():
     env_sem_dimensoes["LINES"] = str(_ALTURA_SUBPROCESS)
 
     proc_nav = subprocess.run(
-        [sys.executable, "tela/demo.py"],
+        [sys.executable, "demo/demo.py"],
         cwd=str(_BASE_PADRAO),
         input="d\n\x1b\n\x1b\n",
         capture_output=True,
@@ -1025,7 +1030,7 @@ def teste_navegacao_subprocess():
     )
 
     proc_nav_borda = subprocess.run(
-        [sys.executable, "tela/demo.py"],
+        [sys.executable, "demo/demo.py"],
         cwd=str(_BASE_PADRAO),
         input="b\nd\n\x1b\n\x1b\n",
         capture_output=True,
@@ -1061,7 +1066,7 @@ def teste_navegacao_subprocess():
     json_orq_depois = caminho_json_orq.read_text(encoding="utf-8")
     json_des_depois = caminho_json_des.read_text(encoding="utf-8")
     _registrar(
-        "orquestrador.json inalterado apos navegacao",
+        "demo.json inalterado apos navegacao",
         json_orq_antes == json_orq_depois,
     )
     _registrar(
@@ -1072,7 +1077,7 @@ def teste_navegacao_subprocess():
     print("")
     print("-- Navegacao grupo_minimo via subprocess (H-0013) --")
 
-    caminho_json_grupo = _BASE_PADRAO / "config" / "telas" / "grupo_minimo.json"
+    caminho_json_grupo = _BASE_PADRAO / "config" / "telas" / "demo" / "grupo_minimo.json"
     json_grupo_antes = caminho_json_grupo.read_text(encoding="utf-8")
 
     modelo_grupo = _carregar_modelo_por_id("grupo_minimo")
@@ -1082,7 +1087,7 @@ def teste_navegacao_subprocess():
     )
 
     proc_nav_grupo = subprocess.run(
-        [sys.executable, "tela/demo.py"],
+        [sys.executable, "demo/demo.py"],
         cwd=str(_BASE_PADRAO),
         input="g\n\x1b\n\x1b\n",
         capture_output=True,
@@ -1171,13 +1176,13 @@ def teste_preservacao_diagnostico():
     )
 
     proc = subprocess.run(
-        [sys.executable, "tela/diagnostico.py"],
+        [sys.executable, "demo/diagnostico.py"],
         cwd=str(_BASE_PADRAO),
         capture_output=True,
         text=True,
     )
     _registrar(
-        "python tela/diagnostico.py encerra com codigo 0",
+        "python demo/diagnostico.py encerra com codigo 0",
         proc.returncode == 0,
         "returncode={0}".format(proc.returncode),
     )
@@ -1186,7 +1191,7 @@ def teste_preservacao_diagnostico():
         proc.stdout == _EXPECTED_DIAGNOSTICO_CURVA_42,
     )
 
-    caminho_mod = _BASE_PADRAO / "tela" / "diagnostico.py"
+    caminho_mod = _BASE_PADRAO / "demo" / "diagnostico.py"
     texto_mod = caminho_mod.read_text(encoding="utf-8")
     _registrar(
         "diagnostico.py nao contem 'sys.stdin'",
@@ -1200,9 +1205,9 @@ def teste_preservacao_diagnostico():
 
 def teste_proibicoes_importacao_demo():
     print("")
-    print("== Proibicoes de import no modulo tela/demo.py ==")
+    print("== Proibicoes de import no modulo demo/demo.py ==")
 
-    caminho_mod = _BASE_PADRAO / "tela" / "demo.py"
+    caminho_mod = _BASE_PADRAO / "demo" / "demo.py"
     texto_mod = caminho_mod.read_text(encoding="utf-8")
 
     _registrar(
@@ -1236,7 +1241,7 @@ def teste_inspecao_codigo_demo():
     print("")
     print("== Secao 6 - Inspecao de codigo para modo sem echo (H-0009) ==")
 
-    caminho_mod = _BASE_PADRAO / "tela" / "demo.py"
+    caminho_mod = _BASE_PADRAO / "demo" / "demo.py"
     texto_mod = caminho_mod.read_text(encoding="utf-8")
 
     _registrar(
@@ -1280,7 +1285,7 @@ def teste_sessao_tui_h0022():
     import io
     from unittest.mock import patch
 
-    caminho_mod = _BASE_PADRAO / "tela" / "demo.py"
+    caminho_mod = _BASE_PADRAO / "demo" / "demo.py"
     texto_mod = caminho_mod.read_text(encoding="utf-8")
 
     # --- 7A: Inspecao de codigo ---
@@ -1648,9 +1653,9 @@ def teste_sessao_tui_h0022():
     print("")
     print("-- 7G: Fallback nao-TTY --")
 
-    # H-0030: o orquestrador com 7 itens no lancador requer altura >= 28 em
+    # H-0030: o demo com 7 itens no lancador requer altura >= 28 em
     # largura 80. O env do subprocess fixa COLUMNS=80 e LINES=30 (em vez de
-    # remover as variaveis) para que a demo renderize o orquestrador em dimensao
+    # remover as variaveis) para que a demo renderize em dimensao
     # deterministica suficiente.
     env_sem_dimensoes = dict(
         (k, v) for k, v in os.environ.items() if k not in ("COLUMNS", "LINES")
@@ -1658,7 +1663,7 @@ def teste_sessao_tui_h0022():
     env_sem_dimensoes["COLUMNS"] = str(_LARGURA_SUBPROCESS)
     env_sem_dimensoes["LINES"] = str(_ALTURA_SUBPROCESS)
     proc_pipe = subprocess.run(
-        [sys.executable, "tela/demo.py"],
+        [sys.executable, "demo/demo.py"],
         cwd=str(_BASE_PADRAO),
         input="b\ns\n",
         capture_output=True,
@@ -1694,7 +1699,7 @@ def teste_sessao_tui_h0022():
 
     # Item 11: printf 'b\n\x1b\n' deve ser identico a 'b\ns\n'
     proc_pipe_esc = subprocess.run(
-        [sys.executable, "tela/demo.py"],
+        [sys.executable, "demo/demo.py"],
         cwd=str(_BASE_PADRAO),
         input="b\n\x1b\n",
         capture_output=True,
@@ -1715,14 +1720,14 @@ def teste_sessao_tui_h0022():
     print("")
     print("-- 7H: KeyboardInterrupt durante processamento/renderizacao (ACH-BLOQ-01) --")
 
-    import tela.demo as _demo_mod_ref
+    import demo.demo as _demo_mod_ref
     from unittest.mock import patch as _patch
 
     _chamadas_7h = [0]
     _ESTADO_SAINDO_7H = {
         "tipo_borda": "curva",
         "saindo": True,
-        "tela_atual": "orquestrador",
+        "tela_atual": "demo",
         "pilha_telas": [],
     }
 
@@ -1738,15 +1743,15 @@ def teste_sessao_tui_h0022():
     # Mockar select.select para retornar fd imediatamente (sem bloqueio) e
     # mockar instalacao/restauracao do handler para evitar efeitos colaterais.
     try:
-        with _patch("tela.demo.processar_comando", side_effect=_processar_com_ki), \
-             _patch("tela.demo._ler_tecla_sessao", return_value="x"), \
-             _patch("tela.demo._apresentar_quadro"), \
-             _patch("tela.demo._iniciar_sessao_tui", return_value=[0, 0, 0, 0, 0, 0, []]), \
-             _patch("tela.demo._encerrar_sessao_tui"), \
-             _patch("tela.demo._carregar_modelo_por_id", return_value=object()), \
-             _patch("tela.demo.renderizar_estado", return_value=""), \
-             _patch("tela.demo._instalar_handler_sigwinch", return_value=signal.SIG_DFL), \
-             _patch("tela.demo._restaurar_handler_sigwinch"), \
+        with _patch("demo.demo.processar_comando", side_effect=_processar_com_ki), \
+             _patch("demo.demo._ler_tecla_sessao", return_value="x"), \
+             _patch("demo.demo._apresentar_quadro"), \
+             _patch("demo.demo._iniciar_sessao_tui", return_value=[0, 0, 0, 0, 0, 0, []]), \
+             _patch("demo.demo._encerrar_sessao_tui"), \
+             _patch("demo.demo._carregar_modelo_por_id", return_value=object()), \
+             _patch("demo.demo.renderizar_estado", return_value=""), \
+             _patch("demo.demo._instalar_handler_sigwinch", return_value=signal.SIG_DFL), \
+             _patch("demo.demo._restaurar_handler_sigwinch"), \
              _patch("select.select", return_value=([0], [], [])), \
              _patch("sys.stdin") as _stdin_7h, \
              _patch("sys.stdout") as _stdout_7h:
@@ -1781,7 +1786,7 @@ def teste_redimensionamento_reativo_h0023():
     import struct as _struct
     import io as _io
     from unittest.mock import patch as _patch, MagicMock, call as _call
-    import tela.demo as _demo_mod
+    import demo.demo as _demo_mod
 
     # --- 8.1: _par_dimensoes_valido ---
     print("")
@@ -1907,7 +1912,7 @@ def teste_redimensionamento_reativo_h0023():
 
     # Verificar que chamadas efetivas a _instalar_handler_sigwinch ocorrem
     # apenas no ramo TTY (inspecao de codigo-fonte)
-    _texto_demo_8 = (_BASE_PADRAO / "tela" / "demo.py").read_text(encoding="utf-8")
+    _texto_demo_8 = (_BASE_PADRAO / "demo" / "demo.py").read_text(encoding="utf-8")
     _linhas_demo_8 = _texto_demo_8.split("\n")
     _chamadas_efetivas_h = [
         l for l in _linhas_demo_8
@@ -2076,11 +2081,11 @@ def teste_redimensionamento_reativo_h0023():
     _pq_calls_8 = []
     _estado_saindo_8 = {
         "tipo_borda": "curva", "saindo": True,
-        "tela_atual": "orquestrador", "pilha_telas": [],
+        "tela_atual": "demo", "pilha_telas": [],
     }
     _estado_normal_8 = {
         "tipo_borda": "curva", "saindo": False,
-        "tela_atual": "orquestrador", "pilha_telas": [],
+        "tela_atual": "demo", "pilha_telas": [],
     }
 
     _captured_r_wakeup = [None]
@@ -2115,15 +2120,15 @@ def teste_redimensionamento_reativo_h0023():
             return _estado_saindo_8
         return _estado_normal_8
 
-    with _patch("tela.demo._apresentar_quadro", side_effect=_pq_side_8), \
-         _patch("tela.demo.processar_comando", side_effect=_processar_8), \
-         _patch("tela.demo._ler_tecla_sessao", return_value="x"), \
-         _patch("tela.demo._iniciar_sessao_tui", return_value=[0, 0, 0, 0, 0, 0, []]), \
-         _patch("tela.demo._encerrar_sessao_tui"), \
-         _patch("tela.demo._carregar_modelo_por_id", return_value=object()), \
-         _patch("tela.demo._obter_dimensoes_apos_sigwinch", side_effect=_sw_side_8), \
-         _patch("tela.demo._instalar_handler_sigwinch", return_value=signal.SIG_DFL), \
-         _patch("tela.demo._restaurar_handler_sigwinch"), \
+    with _patch("demo.demo._apresentar_quadro", side_effect=_pq_side_8), \
+         _patch("demo.demo.processar_comando", side_effect=_processar_8), \
+         _patch("demo.demo._ler_tecla_sessao", return_value="x"), \
+         _patch("demo.demo._iniciar_sessao_tui", return_value=[0, 0, 0, 0, 0, 0, []]), \
+         _patch("demo.demo._encerrar_sessao_tui"), \
+         _patch("demo.demo._carregar_modelo_por_id", return_value=object()), \
+         _patch("demo.demo._obter_dimensoes_apos_sigwinch", side_effect=_sw_side_8), \
+         _patch("demo.demo._instalar_handler_sigwinch", return_value=signal.SIG_DFL), \
+         _patch("demo.demo._restaurar_handler_sigwinch"), \
          _patch("os.pipe", side_effect=_pipe_capture_8), \
          _patch("select.select", side_effect=_select_side_8), \
          _patch("sys.stdin") as _stdin_8, \
@@ -2147,16 +2152,16 @@ def teste_redimensionamento_reativo_h0023():
     _sig_rest_calls = []
     _SAINDO_8b = {
         "tipo_borda": "curva", "saindo": True,
-        "tela_atual": "orquestrador", "pilha_telas": [],
+        "tela_atual": "demo", "pilha_telas": [],
     }
-    with _patch("tela.demo.processar_comando", return_value=_SAINDO_8b), \
-         _patch("tela.demo._ler_tecla_sessao", return_value="x"), \
-         _patch("tela.demo._apresentar_quadro"), \
-         _patch("tela.demo._iniciar_sessao_tui", return_value=[0, 0, 0, 0, 0, 0, []]), \
-         _patch("tela.demo._encerrar_sessao_tui"), \
-         _patch("tela.demo._carregar_modelo_por_id", return_value=object()), \
-         _patch("tela.demo._instalar_handler_sigwinch", return_value=signal.SIG_DFL), \
-         _patch("tela.demo._restaurar_handler_sigwinch",
+    with _patch("demo.demo.processar_comando", return_value=_SAINDO_8b), \
+         _patch("demo.demo._ler_tecla_sessao", return_value="x"), \
+         _patch("demo.demo._apresentar_quadro"), \
+         _patch("demo.demo._iniciar_sessao_tui", return_value=[0, 0, 0, 0, 0, 0, []]), \
+         _patch("demo.demo._encerrar_sessao_tui"), \
+         _patch("demo.demo._carregar_modelo_por_id", return_value=object()), \
+         _patch("demo.demo._instalar_handler_sigwinch", return_value=signal.SIG_DFL), \
+         _patch("demo.demo._restaurar_handler_sigwinch",
                 side_effect=lambda h: _sig_rest_calls.append(h)), \
          _patch("select.select", return_value=([0], [], [])), \
          _patch("sys.stdin") as _stdin_8b, \
@@ -2172,14 +2177,14 @@ def teste_redimensionamento_reativo_h0023():
 
     # Handler restaurado apos excecao no loop
     _sig_rest_exc = []
-    with _patch("tela.demo.processar_comando", side_effect=RuntimeError("loop fail")), \
-         _patch("tela.demo._ler_tecla_sessao", return_value="x"), \
-         _patch("tela.demo._apresentar_quadro"), \
-         _patch("tela.demo._iniciar_sessao_tui", return_value=[0, 0, 0, 0, 0, 0, []]), \
-         _patch("tela.demo._encerrar_sessao_tui"), \
-         _patch("tela.demo._carregar_modelo_por_id", return_value=object()), \
-         _patch("tela.demo._instalar_handler_sigwinch", return_value=signal.SIG_DFL), \
-         _patch("tela.demo._restaurar_handler_sigwinch",
+    with _patch("demo.demo.processar_comando", side_effect=RuntimeError("loop fail")), \
+         _patch("demo.demo._ler_tecla_sessao", return_value="x"), \
+         _patch("demo.demo._apresentar_quadro"), \
+         _patch("demo.demo._iniciar_sessao_tui", return_value=[0, 0, 0, 0, 0, 0, []]), \
+         _patch("demo.demo._encerrar_sessao_tui"), \
+         _patch("demo.demo._carregar_modelo_por_id", return_value=object()), \
+         _patch("demo.demo._instalar_handler_sigwinch", return_value=signal.SIG_DFL), \
+         _patch("demo.demo._restaurar_handler_sigwinch",
                 side_effect=lambda h: _sig_rest_exc.append(h)), \
          _patch("select.select", return_value=([0], [], [])), \
          _patch("sys.stdin") as _stdin_8c, \
@@ -2203,14 +2208,14 @@ def teste_redimensionamento_reativo_h0023():
         _order_calls.append(("close", fd))
         _orig_close(fd)
 
-    with _patch("tela.demo.processar_comando", return_value=_SAINDO_8b), \
-         _patch("tela.demo._ler_tecla_sessao", return_value="x"), \
-         _patch("tela.demo._apresentar_quadro"), \
-         _patch("tela.demo._iniciar_sessao_tui", return_value=[0, 0, 0, 0, 0, 0, []]), \
-         _patch("tela.demo._encerrar_sessao_tui"), \
-         _patch("tela.demo._carregar_modelo_por_id", return_value=object()), \
-         _patch("tela.demo._instalar_handler_sigwinch", return_value=signal.SIG_DFL), \
-         _patch("tela.demo._restaurar_handler_sigwinch",
+    with _patch("demo.demo.processar_comando", return_value=_SAINDO_8b), \
+         _patch("demo.demo._ler_tecla_sessao", return_value="x"), \
+         _patch("demo.demo._apresentar_quadro"), \
+         _patch("demo.demo._iniciar_sessao_tui", return_value=[0, 0, 0, 0, 0, 0, []]), \
+         _patch("demo.demo._encerrar_sessao_tui"), \
+         _patch("demo.demo._carregar_modelo_por_id", return_value=object()), \
+         _patch("demo.demo._instalar_handler_sigwinch", return_value=signal.SIG_DFL), \
+         _patch("demo.demo._restaurar_handler_sigwinch",
                 side_effect=lambda h: _order_calls.append(("restore_handler", h))), \
          _patch("os.close", side_effect=_close_track), \
          _patch("select.select", return_value=([0], [], [])), \
@@ -2346,14 +2351,14 @@ def teste_redimensionamento_reativo_h0023():
     print("-- 8.12: _resolver_conteudo --")
 
     _estado_rc = {"tipo_borda": "curva", "saindo": False,
-                  "tela_atual": "orquestrador", "pilha_telas": []}
-    _modelo_rc = _carregar_modelo_por_id("orquestrador")
+                  "tela_atual": "demo", "pilha_telas": []}
+    _modelo_rc = _carregar_modelo_por_id("demo")
 
     r_rc_peq = _resolver_conteudo(_estado_rc, _modelo_rc, 5, 3)
     _registrar("8.12: terminal pequeno (5,3): retorna quadro minimo",
                r_rc_peq.count("\n") == 3)
 
-    # H-0030: o orquestrador com 7 itens no lancador requer altura >= 28 em
+    # H-0030: o demo com 7 itens no lancador requer altura >= 28 em
     # largura 80; dimensoes normais usam (80, 30) para que o render ocorra.
     r_rc_ok = _resolver_conteudo(_estado_rc, _modelo_rc, 80, 30)
     _registrar("8.12: dimensoes normais (80,30): retorna render normal",
@@ -2362,7 +2367,7 @@ def teste_redimensionamento_reativo_h0023():
                _modelo_rc.corpo.arranjo is not None)
 
     from tela.renderizador import RenderizadorErro as _RenderizadorErro
-    with _patch("tela.demo.renderizar_estado", side_effect=_RenderizadorErro("r")):
+    with _patch("demo.demo.renderizar_estado", side_effect=_RenderizadorErro("r")):
         r_rc_err = _resolver_conteudo(_estado_rc, _modelo_rc, 80, 30)
     _registrar("8.12: RenderizadorErro: retorna quadro minimo",
                r_rc_err.count("\n") == 30)
@@ -2501,9 +2506,9 @@ def teste_redimensionamento_reativo_h0023():
 
     # Falha em os.pipe(): _iniciar_sessao_tui e _encerrar_sessao_tui nao chamados
     with _patch("os.pipe", side_effect=OSError("pipe fail")), \
-         _patch("tela.demo._iniciar_sessao_tui") as _mock_init_fp, \
-         _patch("tela.demo._encerrar_sessao_tui") as _mock_enc_fp, \
-         _patch("tela.demo._carregar_modelo_por_id", return_value=object()), \
+         _patch("demo.demo._iniciar_sessao_tui") as _mock_init_fp, \
+         _patch("demo.demo._encerrar_sessao_tui") as _mock_enc_fp, \
+         _patch("demo.demo._carregar_modelo_por_id", return_value=object()), \
          _patch("sys.stdin") as _mock_stdin_fp, \
          _patch("sys.stdout") as _mock_stdout_fp:
         _mock_stdin_fp.isatty.return_value = True
@@ -2530,9 +2535,9 @@ def teste_redimensionamento_reativo_h0023():
 
     with _patch("os.pipe", side_effect=_pipe_sb_track), \
          _patch("os.set_blocking", side_effect=OSError("set_blocking fail")), \
-         _patch("tela.demo._iniciar_sessao_tui") as _mock_init_sb, \
-         _patch("tela.demo._encerrar_sessao_tui") as _mock_enc_sb, \
-         _patch("tela.demo._carregar_modelo_por_id", return_value=object()), \
+         _patch("demo.demo._iniciar_sessao_tui") as _mock_init_sb, \
+         _patch("demo.demo._encerrar_sessao_tui") as _mock_enc_sb, \
+         _patch("demo.demo._carregar_modelo_por_id", return_value=object()), \
          _patch("sys.stdin") as _mock_stdin_sb, \
          _patch("sys.stdout") as _mock_stdout_sb:
         _mock_stdin_sb.isatty.return_value = True
@@ -2570,10 +2575,10 @@ def teste_redimensionamento_reativo_h0023():
         return r, w
 
     with _patch("os.pipe", side_effect=_pipe_it_track), \
-         _patch("tela.demo._iniciar_sessao_tui",
+         _patch("demo.demo._iniciar_sessao_tui",
                 side_effect=RuntimeError("init fail")), \
-         _patch("tela.demo._encerrar_sessao_tui") as _mock_enc_it, \
-         _patch("tela.demo._carregar_modelo_por_id", return_value=object()), \
+         _patch("demo.demo._encerrar_sessao_tui") as _mock_enc_it, \
+         _patch("demo.demo._carregar_modelo_por_id", return_value=object()), \
          _patch("sys.stdin") as _mock_stdin_it, \
          _patch("sys.stdout") as _mock_stdout_it:
         _mock_stdin_it.isatty.return_value = True
@@ -2605,12 +2610,12 @@ def teste_redimensionamento_reativo_h0023():
         _registrar("8.13: _iniciar_sessao_tui falha: fds fechados (pipe nao criado)", False)
 
     # _instalar_handler_sigwinch falha: handler_instalado permanece False
-    with _patch("tela.demo._instalar_handler_sigwinch",
+    with _patch("demo.demo._instalar_handler_sigwinch",
                 side_effect=OSError("signal fail")), \
-         _patch("tela.demo._iniciar_sessao_tui", return_value=[0, 0, 0, 0, 0, 0, []]), \
-         _patch("tela.demo._encerrar_sessao_tui") as _mock_enc_sig, \
-         _patch("tela.demo._restaurar_handler_sigwinch") as _mock_rest_sig, \
-         _patch("tela.demo._carregar_modelo_por_id", return_value=object()), \
+         _patch("demo.demo._iniciar_sessao_tui", return_value=[0, 0, 0, 0, 0, 0, []]), \
+         _patch("demo.demo._encerrar_sessao_tui") as _mock_enc_sig, \
+         _patch("demo.demo._restaurar_handler_sigwinch") as _mock_rest_sig, \
+         _patch("demo.demo._carregar_modelo_por_id", return_value=object()), \
          _patch("select.select", return_value=([0], [], [])), \
          _patch("sys.stdin") as _mock_stdin_sig, \
          _patch("sys.stdout") as _mock_stdout_sig:
@@ -2631,15 +2636,15 @@ def teste_redimensionamento_reativo_h0023():
     # _restaurar_handler_sigwinch silencia erros internamente (nao propaga)
     # Portanto falha interna nunca bloqueia _encerrar_sessao_tui no finally
     _cleanup_seq = []
-    with _patch("tela.demo.processar_comando", return_value=_SAINDO_8b), \
-         _patch("tela.demo._ler_tecla_sessao", return_value="x"), \
-         _patch("tela.demo._apresentar_quadro"), \
-         _patch("tela.demo._iniciar_sessao_tui", return_value=[0, 0, 0, 0, 0, 0, []]), \
-         _patch("tela.demo._encerrar_sessao_tui",
+    with _patch("demo.demo.processar_comando", return_value=_SAINDO_8b), \
+         _patch("demo.demo._ler_tecla_sessao", return_value="x"), \
+         _patch("demo.demo._apresentar_quadro"), \
+         _patch("demo.demo._iniciar_sessao_tui", return_value=[0, 0, 0, 0, 0, 0, []]), \
+         _patch("demo.demo._encerrar_sessao_tui",
                 side_effect=lambda *a: _cleanup_seq.append("encerrar")), \
-         _patch("tela.demo._carregar_modelo_por_id", return_value=object()), \
-         _patch("tela.demo._instalar_handler_sigwinch", return_value=signal.SIG_DFL), \
-         _patch("tela.demo._restaurar_handler_sigwinch",
+         _patch("demo.demo._carregar_modelo_por_id", return_value=object()), \
+         _patch("demo.demo._instalar_handler_sigwinch", return_value=signal.SIG_DFL), \
+         _patch("demo.demo._restaurar_handler_sigwinch",
                 side_effect=lambda *a: _cleanup_seq.append("restore_handler")), \
          _patch("select.select", return_value=([0], [], [])), \
          _patch("sys.stdin") as _mock_stdin_cl, \
@@ -2671,14 +2676,14 @@ def teste_redimensionamento_reativo_h0023():
     # _restaurar_handler_sigwinch tem try/except interno, logo nunca propaga;
     # a excecao original do loop (RuntimeError) e sempre preservada.
     _exc_primary = None
-    with _patch("tela.demo.processar_comando",
+    with _patch("demo.demo.processar_comando",
                 side_effect=RuntimeError("primary error")), \
-         _patch("tela.demo._ler_tecla_sessao", return_value="x"), \
-         _patch("tela.demo._apresentar_quadro"), \
-         _patch("tela.demo._iniciar_sessao_tui", return_value=[0, 0, 0, 0, 0, 0, []]), \
-         _patch("tela.demo._encerrar_sessao_tui"), \
-         _patch("tela.demo._carregar_modelo_por_id", return_value=object()), \
-         _patch("tela.demo._instalar_handler_sigwinch", return_value=signal.SIG_DFL), \
+         _patch("demo.demo._ler_tecla_sessao", return_value="x"), \
+         _patch("demo.demo._apresentar_quadro"), \
+         _patch("demo.demo._iniciar_sessao_tui", return_value=[0, 0, 0, 0, 0, 0, []]), \
+         _patch("demo.demo._encerrar_sessao_tui"), \
+         _patch("demo.demo._carregar_modelo_por_id", return_value=object()), \
+         _patch("demo.demo._instalar_handler_sigwinch", return_value=signal.SIG_DFL), \
          _patch("signal.signal", side_effect=OSError("signal fail during restore")), \
          _patch("select.select", return_value=([0], [], [])), \
          _patch("sys.stdin") as _mock_stdin_ep, \
@@ -2703,12 +2708,12 @@ def teste_redimensionamento_reativo_h0023():
         _sigwinch_installed_notty[0] = True
         return signal.SIG_DFL
 
-    # H-0030: o orquestrador com 7 itens requer altura >= 28 em largura 80;
+    # H-0030: o demo com 7 itens requer altura >= 28 em largura 80;
     # o env do nao-TTY define COLUMNS=80/LINES=30 para que a demo renderize.
     env_notty = {k: v for k, v in os.environ.items() if k not in ("COLUMNS", "LINES")}
     env_notty["COLUMNS"] = "80"
     env_notty["LINES"] = "30"
-    with _patch("tela.demo._instalar_handler_sigwinch",
+    with _patch("demo.demo._instalar_handler_sigwinch",
                 side_effect=_track_sigwinch_install), \
          _patch.dict(os.environ, env_notty, clear=False), \
          _patch("sys.stdin") as _mock_stdin_nt, \
@@ -2724,13 +2729,13 @@ def teste_redimensionamento_reativo_h0023():
     print("")
     print("-- 8.14: Regressao nao-TTY --")
 
-    # H-0030: o orquestrador com 7 itens requer altura >= 28 em largura 80;
+    # H-0030: o demo com 7 itens requer altura >= 28 em largura 80;
     # o env do nao-TTY define COLUMNS=80/LINES=30 para que a demo renderize.
     env_sem_dims = {k: v for k, v in os.environ.items() if k not in ("COLUMNS", "LINES")}
     env_sem_dims["COLUMNS"] = "80"
     env_sem_dims["LINES"] = "30"
     proc_notty = subprocess.run(
-        [sys.executable, "tela/demo.py"],
+        [sys.executable, "demo/demo.py"],
         cwd=str(_BASE_PADRAO),
         input="b\ns\n",
         capture_output=True,
@@ -2749,7 +2754,7 @@ def teste_redimensionamento_reativo_h0023():
     print("")
     print("-- 8.15: Inspecao de codigo --")
 
-    _texto_demo_insp = (_BASE_PADRAO / "tela" / "demo.py").read_text(encoding="utf-8")
+    _texto_demo_insp = (_BASE_PADRAO / "demo" / "demo.py").read_text(encoding="utf-8")
     _count_2j = _texto_demo_insp.count("\\x1b[2J")
     _registrar("8.15: \\x1b[2J aparece exatamente uma vez no codigo",
                _count_2j == 1, "count={0}".format(_count_2j))
@@ -2843,7 +2848,7 @@ def teste_redimensionamento_reativo_h0023():
         #   normal   40x30 -> tela normal (contem "ORQUESTRADOR")
         #   reduzido 30x5  -> quadro minimo ("terminal pequeno demais"): altura < 6
         #   ampliado 40x30 -> tela normal restaurada
-        # H-0030: o orquestrador com 7 itens no lancador requer altura >= 28
+        # H-0030: o demo com 7 itens no lancador requer altura >= 28
         # mesmo em largura 40; _LINS_NORM subiu de 20 para 30.
         _COLS_NORM, _LINS_NORM = 40, 30
         _COLS_RED, _LINS_RED = 30, 5
@@ -2858,7 +2863,7 @@ def teste_redimensionamento_reativo_h0023():
             _fcntl_pty.ioctl(_slave_fd, _termios_pty.TIOCSWINSZ, _win_ini)
 
             _proc_pty = subprocess.Popen(
-                [sys.executable, "tela/demo.py"],
+                [sys.executable, "demo/demo.py"],
                 stdin=_slave_fd,
                 stdout=_slave_fd,
                 stderr=_slave_fd,
@@ -3024,11 +3029,11 @@ def teste_navegacao_h0030(modelo):
     """Smoke tests do ponto de entrada real para o catalogo H-0030 (14.6).
 
     Para cada chip 1..5:
-    - processar_comando abre a tela_destino correta e empilha o orquestrador;
+    - processar_comando abre a tela_destino correta e empilha o demo;
     - subprocess (<chip>\\nEsc\\nEsc\\n) percorre o ciclo real
-      orquestrador -> chip -> tela correta -> Esc -> orquestrador -> Esc -> exit;
+      demo -> chip -> tela correta -> Esc -> demo -> Esc -> exit;
     - a tela aberta e identificada pelo seu marcador de cabecalho;
-    - o orquestrador reaparece apos Esc (retorno comprovado).
+    - o demo reaparece apos Esc (retorno comprovado).
 
     Preservacoes:
     - chips d e g continuam abrindo destino_minimo e grupo_minimo;
@@ -3049,7 +3054,7 @@ def teste_navegacao_h0030(modelo):
     estado_raiz = {
         "tipo_borda": "curva",
         "saindo": False,
-        "tela_atual": "orquestrador",
+        "tela_atual": "demo",
         "pilha_telas": [],
     }
 
@@ -3062,8 +3067,8 @@ def teste_navegacao_h0030(modelo):
             "tela_atual={0!r}".format(res.get("tela_atual")),
         )
         _registrar(
-            "H-0030 proc: chip {0!r} empilha 'orquestrador'".format(chip),
-            res["pilha_telas"] == ["orquestrador"],
+            "H-0030 proc: chip {0!r} empilha 'demo'".format(chip),
+            res["pilha_telas"] == ["demo"],
             "pilha={0!r}".format(res.get("pilha_telas")),
         )
         _registrar(
@@ -3071,7 +3076,7 @@ def teste_navegacao_h0030(modelo):
             res["saindo"] is False,
         )
 
-    # --- Ciclo real por subprocess: chip -> tela -> Esc -> orquestrador ---
+    # --- Ciclo real por subprocess: chip -> tela -> Esc -> demo ---
     env_h0030 = dict(
         (k, v) for k, v in os.environ.items() if k not in ("COLUMNS", "LINES")
     )
@@ -3088,10 +3093,10 @@ def teste_navegacao_h0030(modelo):
             modelo_dest, tipo_borda="curva",
             largura=_LARGURA_SUBPROCESS, altura=_ALTURA_SUBPROCESS,
         )
-        # Entrada: <chip> (abre) -> Esc (volta p/ orquestrador) -> Esc (sai).
+        # Entrada: <chip> (abre) -> Esc (volta p/ demo) -> Esc (sai).
         entrada = "{0}\n\x1b\n\x1b\n".format(chip)
         proc = subprocess.run(
-            [sys.executable, "tela/demo.py"],
+            [sys.executable, "demo/demo.py"],
             cwd=str(_BASE_PADRAO),
             input=entrada,
             capture_output=True,
@@ -3114,7 +3119,7 @@ def teste_navegacao_h0030(modelo):
             "marker_presente={0}".format(marker in proc.stdout),
         )
         _registrar(
-            "H-0030 demo: chip {0!r} stdout contem orquestrador apos retorno".format(
+            "H-0030 demo: chip {0!r} stdout contem demo apos retorno".format(
                 chip
             ),
             proc.stdout.count("ORQUESTRADOR") >= 2,
@@ -3128,7 +3133,7 @@ def teste_navegacao_h0030(modelo):
             all(other not in proc.stdout or other == marker
                 for other in outros_markers),
         )
-        # Saida esperada: orquestrador -> destino -> orquestrador.
+        # Saida esperada: demo -> destino -> demo.
         saida_esperada = esperado_orq + esperado_dest + esperado_orq
         _registrar(
             "H-0030 demo: chip {0!r} gera 3 renders (orq,dest,orq) largura 80 altura 30".format(
@@ -3177,7 +3182,7 @@ def teste_navegacao_h0030(modelo):
 
     # Esc na raiz encerra o subprocess (saida vigente por Esc na raiz).
     proc_esc_raiz = subprocess.run(
-        [sys.executable, "tela/demo.py"],
+        [sys.executable, "demo/demo.py"],
         cwd=str(_BASE_PADRAO),
         input="\x1b\n",
         capture_output=True,
@@ -3190,7 +3195,7 @@ def teste_navegacao_h0030(modelo):
         "returncode={0}".format(proc_esc_raiz.returncode),
     )
     _registrar(
-        "H-0030 preservacao: Esc na raiz exibe orquestrador (curva) uma vez",
+        "H-0030 preservacao: Esc na raiz exibe demo (curva) uma vez",
         "ORQUESTRADOR" in proc_esc_raiz.stdout
         and proc_esc_raiz.stdout.count("ORQUESTRADOR") == 1,
         "orq_count={0}".format(proc_esc_raiz.stdout.count("ORQUESTRADOR")),
@@ -3200,7 +3205,7 @@ def teste_navegacao_h0030(modelo):
     res_z = processar_comando(estado_raiz, "z", modelo)
     _registrar(
         "H-0030 preservacao: chip nao declarado 'z' nao altera tela_atual",
-        res_z["tela_atual"] == "orquestrador" and res_z["pilha_telas"] == [],
+        res_z["tela_atual"] == "demo" and res_z["pilha_telas"] == [],
         "tela_atual={0!r}".format(res_z.get("tela_atual")),
     )
 

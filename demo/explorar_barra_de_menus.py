@@ -4,9 +4,9 @@ Exercita _linhas_barra do renderer com cenários sintéticos gerados em
 memória, verificando invariantes e produzindo saída textual determinística.
 
 Executável via:
-    python tela/explorar_barra_de_menus.py
-    python tela/explorar_barra_de_menus.py --modo-saida resumo
-    python tela/explorar_barra_de_menus.py --modo-saida detalhado --mostrar-erros
+    python demo/explorar_barra_de_menus.py
+    python demo/explorar_barra_de_menus.py --modo-saida resumo
+    python demo/explorar_barra_de_menus.py --modo-saida detalhado --mostrar-erros
 
 Exit codes:
     0 — todos os cenários produziram resultado esperado; nenhuma violação.

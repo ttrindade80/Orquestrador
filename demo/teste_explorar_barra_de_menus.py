@@ -1,7 +1,7 @@
-"""Teste automatizado do script de exploração da barra_de_menus (H-0017).
+"""Teste automatizado do script de exploração da barra_de_menus (H-0017/H-0032).
 
 Executável via:
-    python tela/teste_explorar_barra_de_menus.py
+    python demo/teste_explorar_barra_de_menus.py
 
 Cobre os 10 casos obrigatórios do handoff H-0017.
 
@@ -17,10 +17,13 @@ from pathlib import Path
 
 _BASE = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(_BASE))
+_this_dir = str(Path(__file__).resolve().parent)
+while _this_dir in sys.path:
+    sys.path.remove(_this_dir)
 
 from tela.renderizador import _linhas_barra, RenderizadorErro  # noqa: E402
 
-_SCRIPT = str(_BASE / "tela" / "explorar_barra_de_menus.py")
+_SCRIPT = str(_BASE / "demo" / "explorar_barra_de_menus.py")
 
 _RESULTADOS = []
 
@@ -335,7 +338,7 @@ def teste_caso_8_ancora_posicao_errada():
 def teste_caso_9_exit_1_violacao_inspecao():
     print("")
     print("== Caso 9: exit code 1 para violacao inesperada (verificacao por inspecao) ==")
-    import tela.explorar_barra_de_menus as mod
+    import demo.explorar_barra_de_menus as mod
     src = Path(_SCRIPT).read_text(encoding="utf-8")
     _registrar(
         "tem_inesperado" in src,
@@ -485,7 +488,7 @@ def teste_caso_16_inv2_detecta_token_nao_declarado():
     print("")
     print("== Caso 16: INV-2 detecta token nao declarado na saida ==")
     import importlib
-    mod = importlib.import_module("tela.explorar_barra_de_menus")
+    mod = importlib.import_module("demo.explorar_barra_de_menus")
     chips = [{"id": "c1", "tecla": "Esc", "texto": "Sair"}]
     dist = _dist_canonica()
     cenario = {"chips": chips, "distribuicao": dist, "content_w": 80}
@@ -561,7 +564,7 @@ def teste_caso_19_cli_vaos_chip_texto():
 # ---------------------------------------------------------------------------
 
 def main():
-    print("Testes automatizados H-0017 — explorar_barra_de_menus.py")
+    print("Testes automatizados H-0017/H-0032 — demo/explorar_barra_de_menus.py")
     print("Base: {0}".format(_BASE))
     print("Script alvo: {0}".format(_SCRIPT))
 

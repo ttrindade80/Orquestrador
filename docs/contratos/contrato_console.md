@@ -16,6 +16,7 @@ metadata:
       - docs/adr/ADR-0005-lancador-nao-e-corpo-navegavel.md
       - docs/adr/ADR-0006-renomeacao-console-dashboard.md
       - docs/adr/ADR-0008-modelo-configuracao-por-tela.md
+      - docs/adr/ADR-0022-ponto-entrada-tela-inicial-orquestrador.md
     reaproveitado_de_legado: false
 ---
 
@@ -64,6 +65,11 @@ Propriedades fundamentais:
 |---|---|
 | Tipo `console` | Conjunto de regras, invariantes e comportamento mínimo — definido por este contrato |
 | Instância de `console` | Elemento declarado em `corpo.elementos[]` no `tela.json` de uma tela; contém política de composição, navegação, seleção, itens ou binding de itens |
+
+Pela ADR-0022, a futura tela inicial real `orquestrador` deverá conter um
+`console` estruturalmente presente e sem entradas iniciais de dados reais ou
+demonstrativos. Isso significa instância declarada no corpo, não criação por
+default nem fallback do renderer.
 
 ---
 

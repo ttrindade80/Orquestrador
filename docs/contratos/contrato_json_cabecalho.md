@@ -13,6 +13,7 @@ metadata:
     adrs_aplicadas:
       - docs/adr/ADR-0008-modelo-configuracao-por-tela.md
       - docs/adr/ADR-0009-caminho-formato-jsons-tela.md
+      - docs/adr/ADR-0022-ponto-entrada-tela-inicial-orquestrador.md
     reaproveitado_de_legado: false
 ---
 
@@ -23,7 +24,7 @@ metadata:
 Especificar a forma mínima da seção `cabecalho` dentro do JSON de tela
 concreto: os dois campos textuais obrigatórios, a separação entre textos
 concretos (que pertencem ao JSON da tela) e parâmetros universais de
-apresentação (que pertencem a `config/cabecalho.json`), e as restrições
+apresentação (que pertencem ao futuro caminho `config/elementos/cabecalho.json`), e as restrições
 que decorrem de `contrato_cabecalho.md`.
 
 ---
@@ -69,7 +70,8 @@ A forma mínima da seção `cabecalho` dentro do JSON de tela é:
 
 Não há campos adicionais no `cabecalho` do JSON de tela. Parâmetros de
 apresentação (posição, alinhamento, capitalização) vivem em
-`config/cabecalho.json`, lidos pelo renderer em tempo de execução.
+futuro caminho `config/elementos/cabecalho.json`, a serem lidos pelo renderer
+em tempo de execução quando esse caminho for criado.
 
 ---
 
@@ -77,8 +79,8 @@ apresentação (posição, alinhamento, capitalização) vivem em
 
 | Campo | Tipo | Regra |
 |---|---|---|
-| `titulo` | string | Texto curto de identificação da tela. Declarado pela classe/tela, nunca pelo renderer nem por configuração global. Sem limite de caracteres definido neste contrato — apresentação regida por `config/cabecalho.json`. |
-| `descricao` | string | Texto de contextualização. Máximo de 200 caracteres efetivos antes do truncamento (conforme `max_caracteres` em `config/cabecalho.json`). Declarado pela classe/tela. |
+| `titulo` | string | Texto curto de identificação da tela. Declarado pela classe/tela, nunca pelo renderer nem por configuração global. Sem limite de caracteres definido neste contrato — apresentação regida por `config/elementos/cabecalho.json`. |
+| `descricao` | string | Texto de contextualização. Máximo de 200 caracteres efetivos antes do truncamento (conforme `max_caracteres` em `config/elementos/cabecalho.json`). Declarado pela classe/tela. |
 
 Apenas `titulo` e `descricao` existem como campos textuais do `cabecalho`
 no JSON de tela. Nenhum outro campo textual pode ser adicionado sem nova
@@ -107,13 +109,21 @@ política do renderer.
 
 **V-5. Textos pertencem ao JSON da tela.**
 Os valores concretos de `titulo` e `descricao` são declarados no JSON de
-cada tela. Não pertencem a `config/cabecalho.json` nem a nenhum artefato
+cada tela. Não pertencem a `config/elementos/cabecalho.json` nem a nenhum artefato
 global.
+
+Pela ADR-0022, a futura tela inicial real `orquestrador` também deverá declarar
+`titulo` e `descricao` conforme este contrato, mas seus valores concretos não
+foram decididos por essa ADR. Antes da criação física de
+`config/telas/orquestrador.json`, esses valores deverão ser definidos por
+autoridade documental suficiente; este contrato não autoriza preenchê-los por
+suposição.
 
 **V-6. Parâmetros de apresentação não pertencem ao JSON de tela.**
 Posição do título, alinhamento, capitalização, `max_caracteres` e
 `recuo_lateral` são parâmetros de apresentação, não campos do JSON de tela.
-Eles pertencem a `config/cabecalho.json`, lidos em tempo de execução.
+Eles pertencem ao futuro caminho `config/elementos/cabecalho.json`, a ser lido
+em tempo de execução quando criado.
 
 ---
 
@@ -122,7 +132,7 @@ Eles pertencem a `config/cabecalho.json`, lidos em tempo de execução.
 Os itens abaixo são explicitamente fora do escopo deste contrato:
 
 - parâmetros de apresentação do `cabecalho` — cobertos por
-  `contrato_cabecalho.md` e `config/cabecalho.json`;
+  `contrato_cabecalho.md` e o futuro caminho `config/elementos/cabecalho.json`;
 - regras de renderização, alinhamento, capitalização, posição do título,
   truncamento — pertencem a `contrato_cabecalho.md`;
 - introdução de terceiro campo textual — exige atualização de
@@ -136,7 +146,8 @@ Os itens abaixo são explicitamente fora do escopo deste contrato:
 - [ ] Nenhum campo de apresentação (alinhamento, capitalização,
       `recuo_lateral`, `max_caracteres`) consta no JSON mínimo.
 - [ ] A separação entre textos concretos (JSON de tela) e parâmetros de
-      apresentação (`config/cabecalho.json`) está formalizada neste contrato.
+      apresentação (`config/elementos/cabecalho.json`) está formalizada neste
+      contrato como caminho futuro.
 - [ ] O JSON mínimo de exemplo não contradiz `contrato_cabecalho.md` nem
       `contrato_tela_json.md`.
 - [ ] Nenhuma seção deste contrato cria terceiro campo textual para `cabecalho`.

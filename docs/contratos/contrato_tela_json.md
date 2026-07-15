@@ -8,6 +8,9 @@ metadata:
   status: ativo
   rastreabilidade:
     origem_especificacao: "docs/adr/ADR-0008-modelo-configuracao-por-tela.md"
+    adrs_aplicadas:
+      - docs/adr/ADR-0021-separacao-demo-produto-politica-caminhos.md
+      - docs/adr/ADR-0022-ponto-entrada-tela-inicial-orquestrador.md
     reaproveitado_de_legado: false
 ---
 
@@ -33,6 +36,35 @@ de item de `console`.
 
 `tela.json` é a declaração configurável de uma tela. Ele descreve a
 configuração concreta que o renderer deve validar, resolver e renderizar.
+
+Pela ADR-0021, a localização física da declaração depende do ponto de entrada:
+
+```text
+produto real:  config/telas/<id>.json
+demonstracao: config/telas/demo/<id>.json
+```
+
+Cada ponto de entrada usa explicitamente a raiz correspondente. Busca ambígua,
+fallback silencioso entre raízes, duplicação do mesmo JSON e alias entre os IDs
+`demo` e `orquestrador` são proibidos.
+
+Pela ADR-0022, o ponto de entrada principal futuro do produto real será
+`orquestrador.py`, diretamente na raiz, reutilizando o motor compartilhado
+`tela/`. A tela inicial real fica reservada para:
+
+```text
+config/telas/orquestrador.json
+```
+
+com identificador:
+
+```json
+"id": "orquestrador"
+```
+
+Este contrato não trata esses arquivos como já criados e não define assinatura
+de `main`, argumentos, mecanismo de import, protocolo com Pipeline nem ciclo
+de vida da aplicação.
 
 O JSON da tela pode declarar:
 
@@ -307,6 +339,13 @@ corpo. O posicionamento de qualquer elemento é controlado pela estrutura
 declarada no `corpo` do `tela.json`, não por campo de posicionamento especial
 por tipo (ADR-0010). O compositor não conhece os campos internos de cada
 elemento — esses permanecem responsabilidade da instância declarada.
+
+Pela ADR-0022, a tela inicial real `orquestrador` deverá declarar `console` e
+`dashboard` no corpo como elementos estruturalmente presentes, ambos sem
+entradas iniciais de dados reais ou demonstrativos. Essa exigência não cria
+tipo funcional novo, não torna `dashboard` obrigatório em todas as telas e não
+reintroduz `regras_exibicao.posicao_dashboard` como eixo ativo de
+posicionamento.
 
 ---
 
@@ -603,6 +642,14 @@ distribuicao
 
 A `barra_de_menus` é uma instância declarada pela tela. Ela não decide
 composição; ela apenas expõe chips declarados.
+
+Pela ADR-0022, a instância de `barra_de_menus` da tela inicial real
+`orquestrador` deverá declarar, no mínimo, `Esc`, `?` e acesso a estilos.
+O acesso a estilos não autoriza criar tela funcional de estilos, destino
+inexistente, ação temporária, alias para demonstração ou fallback. Enquanto
+a tela funcional de estilos não existir, o item deverá permanecer declarativo
+e não navegável somente se isso for permitido pelos contratos ativos de
+`barra_de_menus` e `chip`.
 
 **Distribuição visual (ADR-0014, 2026-07-09)**: `barra_de_menus.distribuicao`
 admite duas formas aceitas:

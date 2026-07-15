@@ -16,6 +16,7 @@ metadata:
       - docs/adr/ADR-0004-estilo-cor-inativo-cor-alerta.md
       - docs/adr/ADR-0005-lancador-nao-e-corpo-navegavel.md
       - docs/adr/ADR-0008-modelo-configuracao-por-tela.md
+      - docs/adr/ADR-0022-ponto-entrada-tela-inicial-orquestrador.md
     reaproveitado_de_legado: false
 ---
 
@@ -141,6 +142,13 @@ Mapeamento conceitual:
 | `navegacao` | Representa navegação ou cursor quando aplicável — ex.: `[✥]` como dica de navegação por setas, ou `[<][>]` como paginação. Não executa lógica arbitrária. |
 | `informativo` | Exibe estado ou dica sem ação direta, se explicitamente permitido pela declaração da instância. |
 | `especifico` | Chip próprio de uma tela ou processo, com ação declarada e registrada. Declarado pela classe de tela; posicionado na faixa canônica de específicos (entre `[⏎]` e `[V]`/`[?]`). |
+
+Pela ADR-0022, o acesso a estilos da futura tela inicial real `orquestrador`
+é um chip/item específico da instância da `barra_de_menus`. Enquanto a tela
+funcional de estilos não existir, ele não pode simular destino, ação
+temporária, alias ou fallback. Se for declarado como `informativo` ou item
+não navegável, essa forma deverá ser admitida pelos contratos ativos no
+momento da criação física da tela.
 
 ---
 

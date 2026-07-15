@@ -14,6 +14,7 @@ metadata:
     adrs_aplicadas:
       - docs/adr/ADR-0008-modelo-configuracao-por-tela.md
       - docs/adr/ADR-0009-caminho-formato-jsons-tela.md
+      - docs/adr/ADR-0022-ponto-entrada-tela-inicial-orquestrador.md
     reaproveitado_de_legado: false
 ---
 
@@ -136,6 +137,14 @@ não registrada é erro de validação. Comando arbitrário (ex.: string de scri
 **V-7. Chips são declarados — nunca gerados pelo renderer.**
 O renderer não cria, não inventa, não completa chips ausentes. Percorre
 `chips[]` conforme declarado.
+
+**V-8. Acesso a estilos na tela real inicial.**
+Pela ADR-0022, a futura tela inicial real `orquestrador` deverá declarar
+`Esc`, `?` e acesso a estilos em `barra_de_menus.chips[]`. O item de estilos
+não pode apontar para tela inexistente, ação temporária, alias de demonstração
+ou fallback. Se os contratos ativos exigirem ação ou destino válido para todo
+chip visível e não admitirem item declarativo inicialmente não navegável, a
+criação física dessa tela deverá aguardar decisão adicional do usuário.
 
 ---
 
