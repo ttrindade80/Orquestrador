@@ -529,4 +529,3 @@ Dependencias obrigatorias principais:
 - definir compatibilidade transitoria antes de preservar a suite canonica;
 - definir escopo documental antes de criar ADR;
 - definir responsabilidade de `orquestrador.py` antes de cria-lo.
-

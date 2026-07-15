@@ -24,7 +24,7 @@ metadata:
 
 **Objetivo:** Auditar formalmente a ADR-0021 para verificar se ela registra fielmente as decisões explícitas do usuário (D1 a D13), se é compatível com as autoridades normativas existentes do repositório, se preserva a coerência de nomenclatura e se segue as convenções formais de ADRs recentes do projeto.
 
-**Limites da etapa:** Esta etapa é estritamente de auditoria de qualidade (QA). Não está autorizada nenhuma correção física de arquivo na ADR, aplicação documental nos contratos ou índice, alteração em código ou configurações, criação de handoffs de implementação ou execução de commits. 
+**Limites da etapa:** Esta etapa é estritamente de auditoria de qualidade (QA). Não está autorizada nenhuma correção física de arquivo na ADR, aplicação documental nos contratos ou índice, alteração em código ou configurações, criação de handoffs de implementação ou execução de commits.
 
 ---
 

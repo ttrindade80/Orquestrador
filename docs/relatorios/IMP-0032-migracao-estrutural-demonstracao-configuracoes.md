@@ -1,9 +1,9 @@
 # IMP-0032 — Relatório de Implementação
 ## Migração Estrutural: Demonstração e Configurações
 
-**Handoff:** H-0032  
-**Status:** IMPLEMENTADO  
-**Data:** 2026-07-15  
+**Handoff:** H-0032
+**Status:** IMPLEMENTADO
+**Data:** 2026-07-15
 **Executor:** Claude Sonnet 4.6 (agente de implementação)
 
 ---
