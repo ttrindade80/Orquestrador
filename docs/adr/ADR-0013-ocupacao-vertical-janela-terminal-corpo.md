@@ -249,3 +249,34 @@ Os pontos abaixo não são decididos por esta ADR:
 | Não normatizar ocupação vertical e deixar como decisão do renderer | Deixa a decisão implícita; qualquer ADR futura sobre `arranjo vertical/horizontal` poderia ser lida ambiguamente e sobrescrever/acumular a decisão |
 | Declarar ocupação vertical no `tela.json` | Quebra o princípio de que preenchimento vertical é responsabilidade do renderer; introduz estado de layout no JSON |
 | Adiar a ADR até o handoff de implementação | A decisão é pré-requisito do handoff e da preservação terminológica frente a ADR-0014; adiar acumula risco de ambiguidade |
+
+---
+
+## Substituição parcial pela ADR-0024 (2026-07-15)
+
+A **cláusula 4** desta ADR é **substituída pela ADR-0024** — Proibição de preenchimento vazio externo do corpo (2026-07-15).
+
+**Trecho original — cláusula 4 (histórico, substituído):**
+
+> "Quando o conteúdo funcional do corpo não ocupar toda a altura disponível, o renderer deve preencher o espaço restante com linhas em branco."
+
+A ADR-0024 proíbe esse preenchimento externo vazio. A área não coberta por elementos visuais não pode ser preenchida pelo renderer com linhas em branco externas ao corpo. Qualquer formulação derivada desta cláusula 4 — incluindo as referências a "preenchimento de linhas em branco" nas consequências e pendências desta ADR — é substituída pela norma da ADR-0024.
+
+**Partes que permanecem integralmente válidas:**
+
+- **Cláusula 1** — a tela deve ocupar a largura e a altura disponíveis da janela do terminal.
+- **Cláusula 2** — a altura deve passar a ser tratada como dimensão explícita do render.
+- **Cláusula 3** — o corpo deve ocupar a `altura_disponivel` entre `cabecalho` e `barra_de_menus`.
+- **Cláusula 5** — o preenchimento vertical é responsabilidade do renderer, não do JSON — agora restringido a garantir que elementos visuais ocupem toda a área.
+- **Cláusulas 6, 7, 8, 9 e 10** — integralmente preservadas; a distinção entre `corpo.arranjo` e `ocupacao_vertical_terminal` permanece obrigatória.
+
+**Nova norma complementar (ADR-0024):**
+
+A obrigação de ocupação vertical da janela continua vigente (cláusula 1). A diferença é que essa ocupação deve ser concretizada por **elementos visuais** (`console`, `dashboard` ou `lancador`), não por linhas em branco externas inseridas pelo renderer. Toda a área física entre `cabecalho` e `barra_de_menus` deve pertencer à moldura de um elemento visual.
+
+As regras DA-01 a DA-04 da ADR-0024 definem como essa ocupação integral é garantida:
+
+- **DA-01 — Cardinalidade unitária**: quando houver exatamente um descendente visual, ele ocupa toda a área disponível mesmo sem `distribuicao` declarada.
+- **DA-02 — Múltiplos elementos sem distribuição**: composição inválida quando dois ou mais elementos disputam o mesmo eixo sem `distribuicao`.
+- **DA-03 — Grupos**: toda área atribuída a grupo ou container estrutural deve ser repassada integralmente aos descendentes visuais; grupo não justifica área vazia.
+- **DA-04 — Invariante impossível**: composição que não satisfaz o invariante é rejeitada explicitamente, sem fallback silencioso.

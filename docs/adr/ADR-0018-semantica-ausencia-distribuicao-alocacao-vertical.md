@@ -121,6 +121,9 @@ Quando `corpo.distribuicao` **não** estiver declarada:
 - não repartir automaticamente toda a altura útil entre os filhos;
 - o espaço vertical excedente pode permanecer como preenchimento externo do corpo,
   conforme o comportamento de ocupação já existente (ADR-0013).
+  *(Este bullet é **substituído pela ADR-0024**: o preenchimento externo vazio é
+  proibido; a ocupação deve ser concretizada por elementos visuais conforme DA-01
+  a DA-04 da ADR-0024.)*
 
 A ausência de `distribuicao` **deixa de ser** semanticamente equivalente ao modo
 `igual`.
@@ -300,10 +303,11 @@ crescem para preencher a altura útil, e não resta espaço acumulado abaixo de
 ## Semântica da ausência de `distribuicao`
 
 Sem `corpo.distribuicao` declarada, o corpo vertical mantém a construção orientada
-pelo conteúdo: cada filho usa sua altura natural, e o espaço vertical excedente pode
-permanecer como preenchimento externo do corpo, conforme a ocupação vertical já
-normatizada pela ADR-0013. A ausência **não** é interpretada como `igual` e **não**
-dispara repartição proporcional automática da altura útil (D2).
+pelo conteúdo: cada filho usa sua altura natural. A ausência **não** é interpretada
+como `igual` e **não** dispara repartição proporcional automática da altura útil (D2).
+A ocupação integral da área deve ser garantida por elementos visuais conforme a
+ADR-0024 (DA-01 a DA-04): com um único descendente visual, ele ocupa toda a área
+(DA-01); com múltiplos elementos no mesmo eixo, a composição é inválida (DA-02).
 
 ---
 
@@ -406,8 +410,10 @@ alturas onde o conteúdo cabe (D8).
 A ADR-0013 é **preservada** quanto à ocupação vertical da janela e à existência de
 uma área útil entre `cabecalho` e `barra_de_menus`. Esta ADR **esclarece** onde o
 preenchimento fica quando existe distribuição explícita: **dentro** das áreas
-atribuídas aos filhos. Na ausência de distribuição, o preenchimento externo da
-ADR-0013 permanece o comportamento aplicável (D2).
+atribuídas aos filhos. Na ausência de distribuição, a obrigação de ocupação vertical
+da ADR-0013 continua vigente e é complementada pela ADR-0024: a ocupação deve ser
+realizada por elementos visuais, não por preenchimento externo vazio (DA-01 a DA-04
+da ADR-0024).
 
 ---
 
@@ -550,3 +556,30 @@ Contratos afetados (aplicação futura): docs/contratos/contrato_composicao_corp
 docs/contratos/contrato_json_tela_minima.md, docs/NOMENCLATURA.md e outros listados
 em "Documentos afetados".
 ```
+
+---
+
+## Substituição parcial pela ADR-0024 (2026-07-15)
+
+A ADR-0024 — Proibição de preenchimento vazio externo do corpo (2026-07-15) — substitui parcialmente a **D2** desta ADR no ponto do preenchimento externo vazio.
+
+**Trecho substituído em D2:**
+
+> "o espaço vertical excedente pode permanecer como preenchimento externo do corpo, conforme o comportamento de ocupação já existente (ADR-0013)."
+
+**Partes de D2 que permanecem válidas:**
+
+- Preservar a construção inicial orientada pelo conteúdo.
+- Cada elemento usa sua altura natural conforme o conteúdo e as regras próprias do tipo.
+- Não transformar automaticamente a ausência em modo `igual`.
+- Não repartir automaticamente toda a altura útil entre os filhos.
+- A ausência de `distribuicao` não é semanticamente equivalente ao modo `igual`.
+
+**Nova distinção normativa (ADR-0024):**
+
+A ausência de `distribuicao` passa a ter dois comportamentos distintos, dependendo da quantidade de descendentes visuais no mesmo eixo:
+
+- **Cardinalidade unitária (DA-01):** quando o container possuir exatamente um descendente visual aplicável (`console`, `dashboard` ou `lancador`), esse elemento ocupa integralmente toda a área disponível, mesmo sem `distribuicao` declarada. Isso decorre da cardinalidade unitária — não equivale a `distribuicao: igual` e não cria distribuição implícita entre múltiplos elementos.
+- **Múltiplos elementos (DA-02):** quando dois ou mais elementos disputam o mesmo eixo sem `distribuicao` declarada, a composição é inválida. A sobra não pode permanecer como preenchimento externo.
+
+O restante das decisões desta ADR (D1, D3 a D10) permanece integralmente vigente.

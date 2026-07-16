@@ -243,12 +243,12 @@ distintos podem ter distribuições distintas. Os modos formalizados são `igual
 estão registrados para ciclos futuros. Ver `contrato_composicao_corpo.md`
 seções 5.7 a 5.12.
 
-**Semântica de `corpo.distribuicao` — ausência × explícita (ADR-0018,
-2026-07-11)**: `corpo.distribuicao` é campo **opcional**. Sua ausência **não**
-equivale ao modo `igual` e **não** dispara repartição proporcional automática da
-altura útil: sem `distribuicao`, o corpo preserva a construção orientada pelo
-conteúdo — cada filho usa sua dimensão natural e a sobra permanece como
-preenchimento externo, conforme a ocupação vertical da ADR-0013. Quando
+**Semântica de `corpo.distribuicao` — ausência × explícita (ADR-0018, ADR-0024)**:
+`corpo.distribuicao` é campo **opcional**. Sua ausência **não** equivale ao modo
+`igual` e **não** dispara repartição proporcional automática da altura útil: sem
+`distribuicao`, o corpo preserva a construção orientada pelo conteúdo — cada filho
+usa sua dimensão natural. A occupação integral da área deve ser garantida pelos
+elementos visuais conforme as regras DA-01 a DA-04 (ADR-0024). Quando
 `corpo.distribuicao` é declarada em container vertical, a altura útil disponível
 (região entre `cabecalho` e `barra_de_menus`, descontadas as linhas estruturais
 dos contratos) é repartida **integralmente** entre os filhos diretos: a
@@ -262,7 +262,23 @@ tela** (declaração no `tela.json`), distinta do **algoritmo genérico** do
 renderer, que deve suportar qualquer vetor válido. Conteúdo maior que a cota é
 lacuna externa à ADR-0018 (altura mínima, overflow, truncamento, paginação,
 rejeição, degradação — nenhuma decidida aqui). Ver `contrato_composicao_corpo.md`
-seções 4.8, 4.9, 5.7 a 5.9 e a ADR-0018.
+seções 4.8, 4.9, 5.7 a 5.9 e as ADRs-0018 e ADR-0024.
+
+**Validação declarativa obrigatória (ADR-0024):**
+
+- **Um elemento visual aplicável:** a ausência de `distribuicao` é válida quando
+  o container possuir exatamente um descendente visual (`console`, `dashboard` ou
+  `lancador`); esse elemento ocupa integralmente a área disponível (DA-01).
+- **Múltiplos elementos disputando o mesmo eixo:** quando dois ou mais elementos
+  visuais disputam o mesmo eixo sem `distribuicao` declarada, a composição é
+  inválida e deve ser rejeitada explicitamente (DA-02, DA-04).
+- **Grupo:** a área atribuída ao `grupo` deve ser repassada integralmente aos
+  descendentes visuais; `grupo` não é elemento visual e não justifica área vazia
+  (DA-03).
+- **Invariante impossível:** configuração que não permita ocupação visual integral
+  da área deve ser rejeitada explicitamente — sem fallback silencioso, sem
+  distribuição implícita, sem escolha silenciosa e sem alteração automática do
+  JSON (DA-04).
 
 **Comportamentos estruturais do `grupo` — `livre` e `matriz` (ADR-0020,
 2026-07-12)**: o nó `grupo` admite dois comportamentos estruturais, selecionados
@@ -374,15 +390,17 @@ instância de tela.
 específica; não são terminologia final. Novos JSONs de tela devem usar
 `vertical`/`horizontal`, salvo compatibilidade transicional explicitada.
 
-**Ocupação vertical da janela (ADR-0013, 2026-07-09)**: a tela deve ocupar a
+**Ocupação vertical da janela (ADR-0013, ADR-0024)**: a tela deve ocupar a
 largura **e** a altura disponíveis da janela do terminal. A largura já é
 tratada dinamicamente; a `altura_disponivel` passa a ser **dimensão futura**
 da renderização da tela — o corpo deve preencher a área vertical disponível
-entre `cabecalho` e `barra_de_menus`, com preenchimento de linhas em branco
-pelo renderer quando o conteúdo declarado for menor. Esta ocupação **não**
-altera a semântica de `corpo.arranjo`: `corpo.arranjo = "vertical"` é
-composição, `ocupacao_vertical_terminal` é preenchimento da altura — termos
-específicos distintos que não colapsam.
+entre `cabecalho` e `barra_de_menus` por meio de elementos visuais (`console`,
+`dashboard` ou `lancador`), conforme DA-01 a DA-04 da ADR-0024. O renderer
+**não insere linhas em branco externas ao corpo** para completar a altura
+disponível; toda a área deve pertencer à moldura de um elemento visual. Esta
+ocupação **não** altera a semântica de `corpo.arranjo`: `corpo.arranjo =
+"vertical"` é composição, `ocupacao_vertical_terminal` é preenchimento da
+altura — termos específicos distintos que não colapsam.
 
 ---
 

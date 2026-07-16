@@ -1065,6 +1065,35 @@ def _linhas_barra(barra_de_menus, content_w):
     )
 
 
+def _contar_elementos_visuais(elementos):
+    """Conta descendentes visuais (console/dashboard/lancador) para ADR-0024.
+
+    Grupos SEM gestao propria (sem distribuicao, verticais, sem matriz) sao
+    containers estruturais transparentes: a contagem percorre seus filhos.
+    Grupos COM gestao propria (com distribuicao, horizontais ou matriciais)
+    contam como 1 unidade — eles resolvem internamente sua area.
+
+    Usado para aplicar DA-01 (cardinalidade unitaria) e detectar DA-02
+    (multiplos sem distribuicao) conforme ADR-0024.
+    """
+    count = 0
+    for elem in elementos:
+        if elem.tipo == "grupo":
+            dist_g = elem._campos_inertes.get("distribuicao")
+            arranjo_g = elem._campos_inertes.get("arranjo", "vertical")
+            estrutura_g = elem._campos_inertes.get("estrutura")
+            if (dist_g is not None
+                    or arranjo_g in ("horizontal", "lado_a_lado")
+                    or estrutura_g == "matriz"):
+                # Grupo auto-gerenciado: conta como 1 unidade visual.
+                count += 1
+            else:
+                count += _contar_elementos_visuais(elem.elementos)
+        else:
+            count += 1
+    return count
+
+
 def _caixa_de_elemento(elemento, borda, inner_w, content_w, label_max, altura_alvo=None):
     """Despacha um elemento funcional para sua caixa bordeada.
 
@@ -1107,9 +1136,18 @@ def _renderizar_container_vertical(
 ):
     """Renderiza elementos em disposicao vertical dentro de um container.
 
-    Se distribuicao e altura_disponivel sao ambos fornecidos, reparte a
-    altura entre os filhos (maiores restos). Caso contrario, cada filho usa
-    sua altura natural (orientado pelo conteudo — ADR-0018 D2).
+    Quando distribuicao e altura_disponivel sao ambos fornecidos, reparte a
+    altura entre os filhos pelos maiores restos (ADR-0018 D6/D7).
+
+    Quando distribuicao e None mas altura_disponivel e fornecida, aplica
+    ADR-0024 DA-01/DA-02/DA-04:
+    - DA-01: unico descendente visual ocupa integralmente a area disponivel.
+    - DA-02: multiplos descendentes visuais sem distribuicao sao rejeitados
+      quando ha area nao coberta pelos filhos naturais.
+    - DA-04: area disponivel sem nenhum elemento visual e rejeitada.
+
+    Quando altura_disponivel e None, cada filho usa sua altura natural
+    (orientado pelo conteudo — ADR-0018 D2).
     Grupo e despachado recursivamente via _renderizar_container (H-0027).
     """
     partes = []
@@ -1143,7 +1181,76 @@ def _renderizar_container_vertical(
                 )
                 if caixa is not None:
                     partes.append(caixa)
+    elif distribuicao is None and altura_disponivel is not None:
+        # ADR-0024: sem distribuicao mas com area delimitada.
+        # Aplica DA-01 (cardinalidade unitaria), DA-02 e DA-04.
+        n_visual = _contar_elementos_visuais(elementos)
+        if n_visual == 1:
+            # DA-01 (ADR-0024): unico descendente visual ocupa toda a area.
+            # DA-03 (ADR-0024): grupos repassam integralmente a area.
+            for elemento in elementos:
+                if elemento.tipo == "grupo":
+                    estrutura_g = elemento._campos_inertes.get("estrutura")
+                    arranjo_g = elemento._campos_inertes.get("arranjo")
+                    dist_g = elemento._campos_inertes.get("distribuicao")
+                    matriz_g = elemento._campos_inertes.get("matriz")
+                    bloco = _renderizar_container(
+                        arranjo_g, dist_g, elemento.elementos, borda,
+                        total_w, altura_disponivel,
+                        estrutura=estrutura_g, matriz_config=matriz_g,
+                    )
+                    if bloco:
+                        partes.append(bloco)
+                else:
+                    caixa = _caixa_de_elemento(
+                        elemento, borda, inner_w, content_w, label_max,
+                        altura_alvo=altura_disponivel,
+                    )
+                    if caixa is not None:
+                        partes.append(caixa)
+        else:
+            # n_visual == 0 ou > 1: renderizar com altura natural e verificar.
+            for elemento in elementos:
+                if elemento.tipo == "grupo":
+                    estrutura_g = elemento._campos_inertes.get("estrutura")
+                    arranjo_g = elemento._campos_inertes.get("arranjo")
+                    dist_g = elemento._campos_inertes.get("distribuicao")
+                    matriz_g = elemento._campos_inertes.get("matriz")
+                    bloco = _renderizar_container(
+                        arranjo_g, dist_g, elemento.elementos, borda,
+                        total_w, None,
+                        estrutura=estrutura_g, matriz_config=matriz_g,
+                    )
+                    if bloco:
+                        partes.append(bloco)
+                else:
+                    caixa = _caixa_de_elemento(
+                        elemento, borda, inner_w, content_w, label_max
+                    )
+                    if caixa is not None:
+                        partes.append(caixa)
+            # DA-02/DA-04 (ADR-0024): verificar se ha area nao coberta.
+            l_conteudo = sum(_contar_linhas(p) for p in partes)
+            l_fill = altura_disponivel - l_conteudo
+            if l_fill > 0:
+                if n_visual == 0:
+                    raise RenderizadorErro(
+                        "DA-04 (ADR-0024): composicao invalida — {0} linhas "
+                        "disponiveis sem nenhum elemento visual; toda area do "
+                        "corpo deve pertencer a console, dashboard ou "
+                        "lancador".format(l_fill)
+                    )
+                else:
+                    raise RenderizadorErro(
+                        "DA-02 (ADR-0024): composicao invalida — {0} elementos "
+                        "visuais disputam o eixo vertical sem distribuicao "
+                        "declarada; distribuicao e obrigatoria quando ha area "
+                        "a distribuir entre multiplos "
+                        "elementos".format(n_visual)
+                    )
     else:
+        # altura_disponivel e None: altura natural orientada pelo conteudo
+        # (ADR-0018 D2). Sem restricao de area, sem DA-02/DA-04.
         for elemento in elementos:
             if elemento.tipo == "grupo":
                 estrutura_g = elemento._campos_inertes.get("estrutura")
@@ -1171,12 +1278,26 @@ def _renderizar_container_horizontal(
 ):
     """Renderiza elementos em disposicao horizontal dentro de um container.
 
-    Quando larguras e None, computa a partir de distribuicao (ou uniforme
-    quando distribuicao e None). Grupo e despachado recursivamente via
-    _renderizar_container (H-0027). Para elementos funcionais, preserva o
-    comportamento de _montar_corpo_horizontal.
+    Quando larguras e None, aplica DA-01/DA-02 (ADR-0024):
+    - N == 1 sem distribuicao: participante unico recebe largura integral (DA-01).
+    - N > 1 sem distribuicao: composicao invalida rejeitada com RenderizadorErro
+      DA-02; ausencia de distribuicao nunca equivale a particionamento uniforme.
+    Quando larguras sao fornecidas externamente (ex.: matriz), usa-as diretamente.
+    Grupo e despachado recursivamente via _renderizar_container (H-0027).
     """
     N = len(elementos)
+
+    # Cardinalidade de larguras explicitas (coerente com _montar_corpo_horizontal).
+    # Validada antes de qualquer indexacao, iteracao ou renderizacao, garantindo
+    # ausencia de saida parcial e de IndexError/truncamento.
+    if larguras is not None:
+        L = len(larguras)
+        if L != N:
+            raise RenderizadorErro(
+                "cardinalidade horizontal incoerente: {0} participante(s) "
+                "para {1} largura(s) explicita(s)".format(N, L)
+            )
+
     if N == 0:
         return ""
 
@@ -1186,9 +1307,17 @@ def _renderizar_container_horizontal(
         pesos = _pesos_distribuicao(distribuicao, N)
         larguras = _distribuir_larguras(total_w, pesos)
     else:
-        base_w = total_w // N
-        resto = total_w % N
-        larguras = [base_w + (1 if i < resto else 0) for i in range(N)]
+        if N == 1:
+            # DA-01 (ADR-0024): participante unico recebe largura integral.
+            larguras = [total_w]
+        else:
+            # DA-02 (ADR-0024): multiplos elementos sem distribuicao — invalido.
+            raise RenderizadorErro(
+                "DA-02 (ADR-0024): composicao invalida — {0} elementos "
+                "disputam o eixo horizontal sem distribuicao declarada; "
+                "distribuicao e obrigatoria quando multiplos elementos "
+                "competem no mesmo eixo".format(N)
+            )
 
     for i, w in enumerate(larguras):
         if w < 10:
@@ -1354,47 +1483,59 @@ def _renderizar_container(
 
 def _montar_corpo_horizontal(elementos, borda, total_w, altura_disponivel=None,
                              larguras=None):
-    """Particionamento horizontal contíguo do corpo raiz (H-0019 / H-0020 / H-0026).
+    """Particionamento horizontal contiguo do corpo raiz (H-0019 / H-0020 / H-0026 / ADR-0024).
 
-    Quando ``larguras`` e ``None`` (ausência de ``corpo.distribuicao``):
-    distribuição uniforme implícita entre filhos diretos de corpo.elementos[],
-    com ``base_w = total_w // N`` e ``resto = total_w % N`` distribuido da
-    esquerda (maiores restos por ordem declarada, ADR-0015 D8). Este e o
-    comportamento operacional existente (H-0019/H-0020/H-0021), preservado
-    integralmente quando ``corpo.distribuicao`` esta ausente (ADR-0018 D2).
+    Quando ``larguras`` e ``None`` (ausencia de distribuicao declarada):
+    - Zero participantes: retorna string vazia — sem conteudo, sem particao.
+    - Um participante (DA-01 / ADR-0024): ``larguras = [total_w]``; o unico
+      elemento recebe integralmente a largura disponivel.
+    - Multiplos participantes (DA-02 / ADR-0024): composicao invalida —
+      ausencia de distribuicao com mais de um elemento competindo no eixo
+      horizontal e rejeitada com ``RenderizadorErro``; nao existe particionamento
+      uniforme implicito; composicao invalida e rejeitada por DA-04.
 
     Quando ``larguras`` e fornecida (lista de inteiros com soma == ``total_w``,
     ja calculada externamente via ``_distribuir_larguras`` a partir dos pesos
-    declarados em ``corpo.distribuicao``): usa essas larguras explicitas em
-    vez do particionamento uniforme, implementando os modos ``percentual`` e
-    ``fracao`` no arranjo horizontal (H-0026 / ADR-0015 D5-D8, ADR-0018 D6/D7).
+    declarados em ``corpo.distribuicao``): usa essas larguras explicitas,
+    implementando os modos ``percentual``, ``fracao`` e ``igual`` no arranjo
+    horizontal (H-0026 / ADR-0015 D5-D8, ADR-0018 D6/D7). Larguras multiplas
+    somente sao validas quando resultam de distribuicao explicita ja validada.
 
-    Grupos não são expandidos aqui: contam como slot com área visualmente
-    vazia. Esta função é preservada como exportada histórica (H-0027); o
-    caminho principal de renderizar_tela usa _renderizar_container desde
-    H-0027, que expande grupos recursivamente via _renderizar_container_horizontal.
+    Grupos nao sao expandidos aqui: contam como slot com area visualmente
+    vazia. O caminho principal de renderizar_tela usa _renderizar_container
+    desde H-0027, que expande grupos recursivamente via
+    _renderizar_container_horizontal.
 
-    altura_disponivel (H-0020): quando fornecida, cada coluna é preenchida até
-    essa altura (altura do corpo inteiro), preservando a área alocada conforme
-    ADR-0015 D5 e D10. Quando None, preserva comportamento H-0019 (normaliza
-    até altura_max). Se o conteúdo exceder altura_disponivel, mantém altura_max
-    sem truncar.
-
-    Algoritmo: ADR-0015 Decisões 8, 9, 10.
+    ``altura_disponivel`` (H-0020): quando fornecida, cada coluna e preenchida
+    ate essa altura (fill bordeado). Quando ``None``, normaliza ate altura_max
+    (comportamento H-0019). Se o conteudo exceder ``altura_disponivel``, mantem
+    altura_max sem truncar.
     """
     N = len(elementos)
+
+    if larguras is not None:
+        L = len(larguras)
+        if L != N:
+            raise RenderizadorErro(
+                "cardinalidade horizontal incoerente: {0} participante(s) "
+                "para {1} largura(s) explicita(s)".format(N, L)
+            )
+
     if N == 0:
         return ""
 
     if larguras is None:
-        # Particionamento contíguo uniforme da largura (ADR-0015 D9).
-        # N=1 cai no caminho geral: larguras=[total_w], resultado idêntico ao
-        # caminho especial anterior, mas agora suporta altura_disponivel.
-        base_w = total_w // N
-        resto = total_w % N
-        # Maiores restos: primeiras `resto` áreas recebem base_w+1 (ADR-0015 D8).
-        # Invariante: sum(larguras) == total_w.
-        larguras = [base_w + (1 if i < resto else 0) for i in range(N)]
+        if N == 1:
+            # DA-01 (ADR-0024): participante unico recebe largura integral.
+            larguras = [total_w]
+        else:
+            # DA-02 (ADR-0024): multiplos elementos sem distribuicao — invalido.
+            raise RenderizadorErro(
+                "DA-02 (ADR-0024): composicao invalida — {0} elementos "
+                "disputam o eixo horizontal sem distribuicao declarada; "
+                "distribuicao e obrigatoria quando multiplos elementos "
+                "competem no mesmo eixo".format(N)
+            )
 
     # Verificar cabimento mínimo antes de renderizar
     for i, w in enumerate(larguras):
@@ -1516,20 +1657,18 @@ def renderizar_tela(
             ``label_max = largura - 4``. ``largura < 10`` tem comportamento
             indefinido neste ciclo (nao validado, nao tratado).
         altura: altura alvo (em linhas fisicas) da saida. Quando ``None``
-            (default), o comportamento atual e preservado integralmente:
-            nenhuma linha de preenchimento e inserida e a saida tem apenas
-            as linhas das caixas (cabecalho + corpo + barra_de_menus).
-            Quando fornecida (H-0015 / ADR-0013 -- ocupacao vertical da
-            janela do terminal pelo corpo), o renderer preenche a area do
-            corpo entre o cabecalho e a barra_de_menus com linhas fisicas
-            de ``largura`` espacos ate que a saida tenha exatamente
-            ``altura`` linhas. Esse preenchimento nao vem do JSON e nao e
-            novo arranjo nem novo elemento do corpo. Se a altura for
-            insuficiente para cabecalho + barra_de_menus ou para o
-            conteudo do corpo, lancar RenderizadorErro (sem truncamento
-            silencioso). ``altura`` interage apenas com o eixo vertical;
-            ``corpo.arranjo = "vertical"`` (composicao, ADR-0011) nao e
-            reinterpretado.
+            (default), nenhuma area distribuivel e considerada e a saida
+            tem apenas as linhas das caixas (cabecalho + corpo +
+            barra_de_menus) orientadas pelo conteudo. Quando fornecida,
+            define a area disponivel do corpo (ADR-0024 DA-01 a DA-04):
+            o descendente visual unico ocupa integralmente essa area
+            (DA-01), grupos repassam a area aos filhos (DA-03), e
+            composicoes invalidas — multiplos elementos sem distribuicao
+            (DA-02) ou area sem elemento visual (DA-04) — sao rejeitadas
+            com RenderizadorErro identificavel. Preenchimento externo
+            vazio entre cabecalho e barra_de_menus e proibido (ADR-0024).
+            Se a altura for insuficiente para cabecalho + barra_de_menus
+            ou para o conteudo do corpo, lanca RenderizadorErro.
 
     Retorna:
         str com a representacao visual no formato definido pelo H-0010A:
@@ -1660,14 +1799,14 @@ def renderizar_tela(
     if linhas_barra is None:
         linhas_barra = _linhas_barra(modelo.barra_de_menus, content_w)
 
-    # H-0015 / ADR-0013: ocupacao vertical da janela do terminal pelo corpo.
-    # Quando ``altura`` e fornecida, preenche a area do corpo entre o
-    # cabecalho e a barra_de_menus com linhas fisicas de ``total_w`` espacos
-    # ate que a saida tenha exatamente ``altura`` linhas. O preenchimento e
-    # responsabilidade do renderer (nao do JSON), nao e novo arranjo nem novo
-    # elemento do corpo e nao reinterpreta ``corpo.arranjo = "vertical"``.
-    # Quando ``altura is None``, nenhum preenchimento e inserido e o caminho
-    # atual (comportamento anterior) e tomado integralmente.
+    # ADR-0024 (H-0033): verificacao pos-renderizacao de ocupacao integral.
+    # Quando ``altura`` e fornecida e o arranjo e vertical sem distribuicao,
+    # _renderizar_container_vertical ja aplicou DA-01 (unico visual ocupa
+    # toda a area) ou lancou DA-02/DA-04. Aqui apenas verificamos que nenhuma
+    # area externa ficou descoberta (guarda de seguranca para caminhos
+    # nao verticais ou casos distribuidos).
+    # Quando ``altura is None``, o corpo usa altura natural e nao ha area
+    # residual a verificar.
     if altura is not None:
         l_cab = _contar_linhas(partes[0])
         l_barra = len(linhas_barra) + 2
@@ -1692,19 +1831,15 @@ def renderizar_tela(
             )
         l_corpo_fill = l_corpo_disponivel - l_corpo_conteudo
         if l_corpo_fill > 0 and arranjo_corpo != "horizontal" and not _corpo_vertical_distribuido:
-            # Linhas fisicas de preenchimento, cada uma com exatamente
-            # ``total_w`` espacos, inseridas apos o ultimo box de elemento
-            # do corpo e antes do box da barra_de_menus. Preserva os
-            # invariantes: cada linha nao-vazia tem ``total_w`` chars e a
-            # saida nao contem "\n\n".
-            # H-0020 (A-003): guarda explícita — modo horizontal já absorveu
-            # o fill internamente em _montar_corpo_horizontal; não inserir
-            # fill externo adicional.
-            # H-0025 (D4): guarda explícita — distribuicao vertical explicita
-            # absorve toda a area util internamente nas molduras dos filhos;
-            # nao inserir fill externo adicional abaixo do ultimo filho.
-            partes.append(
-                "\n".join(" " * total_w for _ in range(l_corpo_fill))
+            # ADR-0024 DA-04: preenchimento externo vazio e proibido.
+            # _renderizar_container_vertical deve ter detectado DA-02/DA-04
+            # e lancado RenderizadorErro antes de chegar aqui. Se chegou,
+            # e um estado inesperado que tambem viola o invariante.
+            raise RenderizadorErro(
+                "DA-04 (ADR-0024): preenchimento externo vazio detectado — "
+                "{0} linhas nao pertencem a nenhum elemento visual; toda "
+                "area do corpo deve pertencer a console, dashboard ou "
+                "lancador".format(l_corpo_fill)
             )
 
     partes.append(_caixa(

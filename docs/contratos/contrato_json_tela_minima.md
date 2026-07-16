@@ -21,6 +21,7 @@ metadata:
       - docs/adr/ADR-0020-matriz-de-grupos-coordenadas-explicitas.md
       - docs/adr/ADR-0021-separacao-demo-produto-politica-caminhos.md
       - docs/adr/ADR-0022-ponto-entrada-tela-inicial-orquestrador.md
+      - docs/adr/ADR-0024-proibicao-preenchimento-vazio-corpo.md
     reaproveitado_de_legado: false
 ---
 
@@ -249,10 +250,17 @@ Campos mínimos de `grupo` com comportamento `livre` (ou ausência de `estrutura
 `distribuicao` é opcional em `estrutura: "livre"`. Sua ausência **não** equivale
 ao modo `igual` (ADR-0018, 2026-07-11): quando `distribuicao` não é declarada,
 o container preserva a construção orientada pelo conteúdo — cada filho usa sua
-altura/largura natural e a sobra permanece como preenchimento externo do
-container, conforme a ocupação já normatizada (ADR-0013), sem repartição
-proporcional automática. `igual` permanece modo válido apenas quando declarado
-explicitamente. Ver `contrato_composicao_corpo.md` seção 5.7 e a ADR-0018.
+altura/largura natural, sem repartição proporcional automática. A ausência de
+`distribuicao` **não** autoriza sobra como preenchimento externo do container;
+toda área atribuída ao grupo deve ser repassada integralmente aos descendentes
+visuais (DA-03, ADR-0024): com exatamente um descendente visual (`console`,
+`dashboard` ou `lancador`), esse elemento ocupa integralmente a área disponível,
+mesmo sem `distribuicao` declarada — decorre da cardinalidade unitária, não
+equivale a `distribuicao: igual` (DA-01); com múltiplos descendentes disputando
+o mesmo eixo, `distribuicao` é obrigatória — a ausência torna a composição
+inválida e exige rejeição explícita (DA-02, DA-04). `igual` permanece modo
+válido apenas quando declarado explicitamente. Ver `contrato_composicao_corpo.md`
+seção 5.7, ADR-0018 e ADR-0024.
 
 **Comportamento estrutural `estrutura` (ADR-0020, 2026-07-12)**: o campo
 `estrutura` é opcional e seleciona o comportamento do `grupo`.
@@ -271,11 +279,18 @@ O contrato exige que a ausência de `estrutura` **nunca** ative o comportamento
 `corpo` e `grupo` podem declarar `distribuicao`. `distribuicao` é **opcional**
 no envelope mínimo — sua ausência é válida.
 
-**Ausência de `distribuicao` não é modo `igual` (ADR-0018, 2026-07-11)**: a
-ausência **deixou de** equivaler ao modo `igual`. Quando `distribuicao` não é
+**Ausência de `distribuicao` não é modo `igual` (ADR-0018, ADR-0024)**: a
+ausência **não** equivale ao modo `igual`. Quando `distribuicao` não é
 declarada, o container preserva a construção orientada pelo conteúdo — cada filho
-usa sua dimensão natural e a sobra permanece como preenchimento externo do
-container (ADR-0013), sem repartição proporcional automática de toda a área útil.
+usa sua dimensão natural, sem repartição proporcional automática de toda a área
+útil. A ausência de `distribuicao` **não** autoriza sobra como preenchimento
+externo do container (ADR-0024): com exatamente um descendente visual aplicável,
+esse elemento ocupa integralmente a área disponível (DA-01); com múltiplos
+elementos disputando o mesmo eixo, `distribuicao` é obrigatória — a ausência
+torna a composição inválida e exige rejeição explícita (DA-02, DA-04); composição
+que não consiga atribuir toda a área a elemento visual é inválida e deve ser
+rejeitada explicitamente, sem fallback silencioso, sem distribuição implícita e
+sem alteração automática do JSON (DA-04).
 
 Quando declarada, `distribuicao` rege como a área disponível do container é
 repartida entre seus filhos diretos e **aloca área**, não apenas o tamanho do

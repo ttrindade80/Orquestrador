@@ -312,7 +312,7 @@ O renderer sempre insere uma linha em branco entre a borda e o conteúdo em
 qualquer elemento do corpo, sem exceção e sem possibilidade de supressão pela
 tela, pelo estilo ou pelo tipo de conteúdo.
 
-### 4.7 Ocupação vertical da janela (ADR-0013)
+### 4.7 Ocupação vertical da janela (ADR-0013, ADR-0024)
 
 A tela deve ocupar a largura **e** a altura disponíveis da janela do terminal.
 A largura já é tratada dinamicamente; a `altura_disponivel` é **dimensão
@@ -325,18 +325,19 @@ Distinção obrigatória (não colapsa):
 | `corpo.arranjo = "vertical"` | Ordem/composição vertical dos elementos do corpo (ADR-0011) |
 | `ocupacao_vertical_terminal` / `preenchimento_altura_corpo` | Preenchimento da altura da janela entre `cabecalho` e `barra_de_menus` (ADR-0013) |
 
-O corpo deve poder ocupar a altura disponível com **preenchimento de linhas
-em branco** adicionadas pelo renderer quando o conteúdo declarado for menor
-que a altura disponível. Esse preenchimento é **responsabilidade do
-renderer**, não do `tela.json` — o JSON não declara linhas de preenchimento.
+A tela deve ocupar integralmente a `altura_disponivel` entre `cabecalho` e
+`barra_de_menus`. Toda a área física disponível deve pertencer visualmente
+a um elemento visual — `console`, `dashboard` ou `lancador` (ADR-0024). O
+renderer **não insere linhas em branco externas ao corpo** para completar a
+altura disponível; a ocupação integral deve ser garantida pelos elementos
+visuais declarados, conforme as regras DA-01 a DA-04 (seção 5.7).
 
 A decisão de ocupação vertical **não introduz novo arranjo nem altera a
 composição** declarada em `corpo.arranjo`: uma tela com
 `corpo.arranjo = "horizontal"` também deve poder ocupar a altura disponível.
-A representação exata das linhas de preenchimento (linha visual interna à
-caixa do corpo vs. linha física com largura total) é decisão de handoff
-futuro, desde que não seja tratada como novo arranjo nem novo tipo de
-elemento do corpo.
+A implementação do mecanismo de ocupação integral por elementos visuais
+pertence ao H-0033, desde que não insira área vazia externa nem aplique
+distribuição implícita.
 
 **Mecanismo de obtenção de dimensões (ADR-0017, 2026-07-11)**: a política
 normativa de obtenção, validação e atualização de largura e altura durante a
@@ -613,7 +614,7 @@ a última termina no último caractere útil. (ADR-0015)
 
 ### 5.7 Modos de distribuição (ADR-0015, ADR-0018)
 
-#### Ausência de `distribuicao` — construção orientada pelo conteúdo (ADR-0018)
+#### Ausência de `distribuicao` — construção orientada pelo conteúdo (ADR-0018, ADR-0024)
 
 Quando um container **não** declara `distribuicao`:
 
@@ -622,14 +623,40 @@ Quando um container **não** declara `distribuicao`:
   próprias do tipo;
 - a ausência **não** equivale ao modo `igual` e **não** é fallback implícito de
   nenhum modo;
-- **não** se reparte automaticamente toda a área útil entre os filhos;
-- a sobra no eixo do arranjo pode permanecer como **preenchimento externo** do
-  container, conforme o mecanismo de ocupação já existente (ADR-0013) — no eixo
-  vertical, linhas em branco acumuladas entre o último filho e a região seguinte.
+- **não** se reparte automaticamente toda a área útil entre os filhos.
 
-Esta é a substituição normativa introduzida pela ADR-0018 (2026-07-11) sobre o
-ponto em que a ausência de `distribuicao` era tratada como equivalente ao modo
-`igual`. Ver seção 10 (relação ADR-0015 × ADR-0018).
+**DA-01 — Cardinalidade unitária (ADR-0024)**: quando o container possuir exatamente
+um descendente visual aplicável (`console`, `dashboard` ou `lancador`), esse elemento
+ocupa integralmente toda a área disponível, mesmo sem `distribuicao` declarada. Esta
+regra decorre da cardinalidade unitária: não equivale a `distribuicao: igual`, não
+cria distribuição entre múltiplos elementos e impede que qualquer sobra permaneça
+atribuída ao corpo ou ao container.
+
+**DA-02 — Múltiplos elementos sem distribuição (ADR-0024)**: quando dois ou mais
+elementos disputarem espaço no mesmo eixo sem `distribuicao` declarada, a composição
+é inválida. A ausência de `distribuicao` não significa `igual`, não autoriza o
+renderer a escolher implicitamente quem recebe a sobra, não permite preenchimento
+externo vazio e torna a composição inválida quando existir área a distribuir entre
+múltiplos elementos.
+
+**DA-03 — Grupos e containers estruturais (ADR-0024)**: toda área atribuída a um
+grupo ou container estrutural deve ser repassada integralmente aos descendentes
+visuais. Um único descendente visual ocupa integralmente a área (DA-01); múltiplos
+descendentes no mesmo eixo exigem `distribuicao` (DA-02). Nenhuma área pode
+permanecer exclusivamente atribuída ao grupo; o grupo não justifica preenchimento
+externo vazio; a ocupação visual deve ser concretizada por `console`, `dashboard`
+ou `lancador`.
+
+**DA-04 — Composição inválida (ADR-0024)**: quando uma configuração não permitir que
+toda a área do corpo pertença visualmente a `console`, `dashboard` ou `lancador`, a
+composição é inválida. O sistema deve rejeitar explicitamente a composição, interromper
+sua construção ou renderização, emitir erro identificável e não inserir área vazia
+externa, não aplicar distribuição implícita, não escolher silenciosamente um elemento,
+não alterar automaticamente o JSON e não usar fallback silencioso.
+
+A substituição normativa da ADR-0018 (2026-07-11) — em que a ausência de `distribuicao`
+deixou de ser equivalente ao modo `igual` — é complementada pela ADR-0024 (2026-07-15):
+o preenchimento externo vazio do corpo é proibido. Ver seção 10 (relação ADR-0015 × ADR-0018).
 
 #### Modo `igual` (explícito)
 
@@ -737,9 +764,10 @@ do elemento ocupa a **cota completa** e a sobra vira linhas em branco (ou espaç
 no eixo horizontal) **dentro** da moldura desse elemento. A sobra **não** fica
 acumulada externamente abaixo do último filho. No eixo vertical com distribuição
 explícita, o espaço entre a borda inferior do último elemento e a região seguinte
-(por exemplo, a `barra_de_menus`) é incorporado às áreas dos filhos. A distinção
-é normativa: **sem** `distribuicao`, a sobra pode permanecer externa (seção 5.7,
-ADR-0013); **com** `distribuicao`, a sobra é interna às molduras.
+(por exemplo, a `barra_de_menus`) é incorporado às áreas dos filhos. A distinção é normativa: **sem** `distribuicao`, aplica-se a regra de ocupação
+integral por elementos visuais — DA-01 (cardinalidade unitária) ou DA-02 e DA-04
+(composição inválida), conforme ADR-0024 (seção 5.7); **com** `distribuicao`, a
+sobra é interna às molduras (ADR-0018).
 
 ---
 
@@ -1623,8 +1651,18 @@ recuperação ocorre automaticamente no redesenho seguinte quando
       altura nem modo `igual`; a repartição só ocorre com `distribuicao` declarada
       (seção 4.8, ADR-0018).
 - [ ] A ausência de `distribuicao` preserva a construção orientada pelo conteúdo
-      (dimensão natural + preenchimento externo da ADR-0013) e não equivale ao
-      modo `igual` (seção 5.7, ADR-0018).
+      (dimensão natural); com exatamente um descendente visual, aplica-se DA-01
+      (ocupação integral, ADR-0024); com múltiplos elementos no mesmo eixo sem
+      `distribuicao`, aplica-se DA-02 (composição inválida, ADR-0024). A ausência
+      não equivale ao modo `igual` (seção 5.7, ADR-0018, ADR-0024).
+- [ ] O renderer não insere linhas em branco externas ao corpo para completar a
+      altura disponível; toda área entre `cabecalho` e `barra_de_menus` pertence
+      à moldura de um elemento visual (seção 4.7, ADR-0024).
+- [ ] Composição que não satisfaz o invariante de ocupação integral é rejeitada
+      explicitamente com erro identificável, sem fallback silencioso, sem distribuição
+      implícita, sem escolha silenciosa e sem alteração automática do JSON (DA-04, ADR-0024).
+- [ ] `grupo` não constitui elemento visual e não justifica área vazia; toda área de
+      grupo deve ser repassada integralmente aos descendentes visuais (DA-03, ADR-0024).
 - [ ] `igual` só reparte área igualmente quando declarado explicitamente; não é
       fallback implícito da ausência (seção 5.7, ADR-0018).
 - [ ] Com `distribuicao` explícita, a soma das cotas ocupa toda a área
@@ -1758,6 +1796,7 @@ A partir da ADR-0018:
 A ADR-0015 histórica **não** é reescrita por este contrato; registra-se apenas
 que o ponto conflitante foi substituído pela ADR-0018. A ADR-0013 (ocupação
 vertical) e a ADR-0017 (redimensionamento reativo) permanecem preservadas: a
-altura útil repartida pela distribuição é obtida pelo mecanismo da ADR-0017, e o
-preenchimento externo da ADR-0013 é o comportamento aplicável **na ausência** de
-distribuição.
+altura útil repartida pela distribuição é obtida pelo mecanismo da ADR-0017;
+a obrigação de ocupação vertical da ADR-0013 continua vigente e é complementada
+pela ADR-0024: a ocupação deve ser realizada por elementos visuais, não por
+preenchimento externo vazio (DA-01 a DA-04, seção 5.7).

@@ -59,6 +59,7 @@ from tela.renderizador import (  # noqa: E402
     _linhas_barra,
     _montar_corpo_horizontal,
     _pesos_distribuicao,
+    _renderizar_container_horizontal,
     renderizar_tela,
 )
 
@@ -1051,118 +1052,43 @@ def teste_altura_explicita():
         saida_min == renderizar_tela(modelo, largura=42),
     )
 
-    # CA-01: altura=21 -> 21 linhas (1 de preenchimento).
-    saida_21 = renderizar_tela(modelo, largura=42, altura=21)
-    _registrar(
-        "renderizar_tela(modelo, largura=42, altura=21) -> 21 linhas (CA-01)",
-        saida_21.count("\n") == 21,
-        "count={0}".format(saida_21.count("\n")),
+    # ADR-0024 DA-02: 3 visuais sem distribuicao + area residual e invalido.
+    # CA-01 e CA-02 tornados invalidos: o modelo sem distribuicao com 3 elementos
+    # visuais levanta RenderizadorErro quando l_fill > 0 (area nao coberta).
+    _espera_excecao(
+        "ADR-0024 DA-02: altura=21 (3 visuais sem dist, l_fill=2) -> RenderizadorErro",
+        lambda: renderizar_tela(modelo, largura=42, altura=21),
+        RenderizadorErro,
+    )
+    _espera_excecao(
+        "ADR-0024 DA-02: altura=24 (3 visuais sem dist, l_fill=5) -> RenderizadorErro",
+        lambda: renderizar_tela(modelo, largura=42, altura=24),
+        RenderizadorErro,
     )
 
-    # CA-02: altura=24 -> exatamente 24 linhas, barra preservada.
-    saida_24 = renderizar_tela(modelo, largura=42, altura=24)
-    _registrar(
-        "renderizar_tela(modelo, largura=42, altura=24) -> 24 linhas (CA-02)",
-        saida_24.count("\n") == 24,
-        "count={0}".format(saida_24.count("\n")),
-    )
-    _registrar(
-        "altura=24 preserva a barra_de_menus ('[Esc] Sair' na saida)",
-        "[Esc] Sair" in saida_24,
-    )
-
-    # Contagem de preenchimento para altura=24 (H-0016, L_barra=3):
-    #   L_corpo_disponivel = 24 - 3 - 3 = 18
-    #   L_corpo_fill = 18 - 13 = 5 (H-0034: NAVEGAR tem 8 linhas, nao 9)
-    l_corpo_fill_24 = (24 - l_cab - l_barra) - l_corpo_conteudo  # 5
-    linhas_24 = saida_24.split("\n")
-    # Identifica linhas de preenchimento: NAO usa strip() para validar
-    # a evidencia (ACH-H15-02); compara a linha inteira contra a string
-    # de `total_w` espacos.
-    fill_esperado = " " * 42
-    fills = [ln for ln in linhas_24 if ln == fill_esperado]
-    _registrar(
-        "altura=24 gera exatamente 5 linhas de preenchimento",
-        len(fills) == l_corpo_fill_24,
-        "fills={0} esperado={1}".format(len(fills), l_corpo_fill_24),
-    )
-
-    # CA-05: cada linha de preenchimento tem exatamente `largura` espacos.
-    _registrar(
-        "linhas de preenchimento tem exatamente 42 espacos (CA-05)",
-        all(ln == fill_esperado for ln in fills),
-    )
-
-    # CA-04: cada linha nao-vazia da saida tem exatamente `largura` chars.
-    larguras_24_ok = all(
-        len(ln) == 42 for ln in linhas_24 if ln != ""
-    )
-    _registrar(
-        "altura=24: cada linha nao-vazia tem exatamente 42 chars (CA-04)",
-        larguras_24_ok,
-    )
-
-    # CA-08: preenchimento fica entre o ultimo box do corpo e o box Menus.
-    # Estrutura (H-0016, L_barra=3) com 7 itens no lancador em matriz 4x2
-    # com margens verticais (H-0034):
-    # cabecalho(3) + ITENS(3) + INFO(2) + NAVEGAR(8) = 16 caixas (indices
-    # 0..15), depois 5 fills (indices 16..20), depois Menus topo no indice
-    # 21, 1 linha horizontal de chips no 22, base no 23.
-    _registrar(
-        "preenchimento entre corpo e Menus (CA-08): linha 16 = fill, "
-        "linha 20 = fill, linha 21 = '╭ Menus'",
-        linhas_24[16] == fill_esperado
-        and linhas_24[20] == fill_esperado
-        and linhas_24[21].startswith("╭ Menus"),
-        "l16={0!r} l20={1!r} l21={2!r}".format(
-            linhas_24[16], linhas_24[20], linhas_24[21][:9]
-        ),
-    )
-
-    # CA-06: cabecalho continua no topo (primeira linha comeca com '╭ ').
+    # CA-06 / CA-07: com altura=n_minimo (sem area residual), cabecalho e barra
+    # continuam corretos (verificados sobre saida_min ja computada).
     _registrar(
         "cabecalho no topo: primeira linha comeca com '╭ ORQUESTRADOR' (CA-06)",
-        saida_24.startswith("╭ ORQUESTRADOR"),
+        saida_min.startswith("╭ ORQUESTRADOR"),
     )
-
-    # CA-07: barra_de_menus no rodape: ultima linha nao-vazia termina com '╯'.
-    ultima_nao_vazia = [ln for ln in linhas_24 if ln != ""][-1]
+    ultima_nao_vazia = [ln for ln in saida_min.split("\n") if ln != ""][-1]
     _registrar(
         "barra_de_menus no rodape: ultima linha nao-vazia termina com '╯' (CA-07)",
         ultima_nao_vazia.endswith("╯"),
         "ultima={0!r}".format(ultima_nao_vazia),
     )
 
-    # Invariante preservado: saida nao contem "\n\n" (linhas de preenchimento
-    # sao espacos, nao vazias).
-    _registrar(
-        "altura=24: saida nao contem '\\n\\n' (invariante preservado)",
-        "\n\n" not in saida_24,
+    # ADR-0024 DA-02 em outras larguras e bordas com 3 visuais sem dist.
+    _espera_excecao(
+        "ADR-0024 DA-02: largura=60 altura=24 (3 visuais sem dist) -> RenderizadorErro",
+        lambda: renderizar_tela(modelo, largura=60, altura=24),
+        RenderizadorErro,
     )
-
-    # Preenchimento em outra largura: cada linha de fill tem a largura dada.
-    # H-0034: em largura=60 (content_w=57) o lancador e matriz 3x3 (3 linhas de
-    # itens, nao 4), portanto NAVEGAR tem 7 linhas (topo + 1 branco topo +
-    # 3 itens + 1 branco base + base) e L_corpo_conteudo=12 -> 6 fills.
-    saida_60_24 = renderizar_tela(modelo, largura=60, altura=24)
-    linhas_60_24 = saida_60_24.split("\n")
-    fills_60 = [ln for ln in linhas_60_24 if ln == " " * 60]
-    l_corpo_fill_60 = (24 - l_cab - l_barra) - 12  # 6
-    _registrar(
-        "largura=60 altura=24 -> 24 linhas, fills com 60 espacos",
-        saida_60_24.count("\n") == 24
-        and len(fills_60) == l_corpo_fill_60
-        and all(len(ln) == 60 for ln in linhas_60_24 if ln != ""),
-    )
-
-    # Preenchimento com borda reta: largura e contagem identicas a curva.
-    saida_24_reta = renderizar_tela(
-        modelo, largura=42, altura=24, tipo_borda="reta"
-    )
-    _registrar(
-        "altura=24 reta -> 24 linhas e rodape termina com '┘'",
-        saida_24_reta.count("\n") == 24
-        and [ln for ln in saida_24_reta.split("\n") if ln != ""][-1].endswith("┘"),
+    _espera_excecao(
+        "ADR-0024 DA-02: borda_reta altura=24 (3 visuais sem dist) -> RenderizadorErro",
+        lambda: renderizar_tela(modelo, largura=42, altura=24, tipo_borda="reta"),
+        RenderizadorErro,
     )
 
     # CA-12: altura insuficiente para o corpo (overflow) -> RenderizadorErro.
@@ -1205,11 +1131,12 @@ def teste_altura_explicita():
         RenderizadorErro,
     )
 
-    # Determinismo: duas chamadas identicas produzem saidas identicas.
+    # Determinismo: duas chamadas identicas com altura=n_minimo (sem area residual)
+    # produzem saidas identicas.
     _registrar(
         "altura explicita e deterministica (duas chamadas identicas)",
-        renderizar_tela(modelo, largura=42, altura=24)
-        == renderizar_tela(modelo, largura=42, altura=24),
+        renderizar_tela(modelo, largura=42, altura=n_minimo)
+        == renderizar_tela(modelo, largura=42, altura=n_minimo),
     )
 
 
@@ -1623,9 +1550,9 @@ class TestLinhasBarra:
         )
 
     def test_renderizar_tela_preserva_altura_h0015(self):
-        # H-0025: modelo sem distribuicao preserva o fill externo H-0015.
+        # ADR-0024 DA-02: modelo sem distribuicao com 3 visuais + area residual
+        # levanta RenderizadorErro (fill externo proibido).
         modelo = _modelo_orquestrador_sem_distribuicao()
-        saida_24 = renderizar_tela(modelo, largura=42, altura=24)
         linhas = _linhas_barra(modelo.barra_de_menus, 39)
         l_barra = len(linhas) + 2
         self._r(
@@ -1633,10 +1560,15 @@ class TestLinhasBarra:
             l_barra == 3 and len(linhas) == 1,
             "l_barra={0} linhas={1}".format(l_barra, len(linhas)),
         )
+        excecao_da02 = None
+        try:
+            renderizar_tela(modelo, largura=42, altura=24)
+        except RenderizadorErro as exc:
+            excecao_da02 = exc
         self._r(
-            "renderizar_tela(altura=24) -> 24 linhas (H-0015 preservado)",
-            saida_24.count("\n") == 24,
-            "count={0}".format(saida_24.count("\n")),
+            "ADR-0024 DA-02: sem dist + 3 visuais + altura=24 -> RenderizadorErro",
+            excecao_da02 is not None and "DA-02" in str(excecao_da02),
+            str(excecao_da02) if excecao_da02 else "nenhuma excecao",
         )
 
     def test_altura_minima_com_barra_horizontal(self):
@@ -2319,10 +2251,13 @@ class TestDistribuicaoH0018:
         self.test_tentativa_inicial_e_quebra_validos_aceitos()
 
 
-def _modelo_horizontal(arranjo, elementos_spec, largura=42, titulo_cab="H"):
+def _modelo_horizontal(arranjo, elementos_spec, largura=42, titulo_cab="H",
+                       distribuicao=None):
     """Cria ModeloTela sintético para testes de arranjo horizontal (H-0019).
 
     elementos_spec: lista de tuplas (tipo, titulo) ex: [("console","A"),("dashboard","B")]
+    distribuicao: dict de distribuicao para o corpo (ou None para ausencia declarada).
+        Composicoes horizontais com N>1 e distribuicao=None sao invalidas (DA-02).
     """
     elementos = []
     for tipo, titulo in elementos_spec:
@@ -2335,7 +2270,7 @@ def _modelo_horizontal(arranjo, elementos_spec, largura=42, titulo_cab="H"):
         id="teste_h0019",
         schema="tela.v1",
         cabecalho={"titulo": titulo_cab, "descricao": "teste h0019"},
-        corpo=Corpo(arranjo=arranjo, elementos=elementos),
+        corpo=Corpo(arranjo=arranjo, elementos=elementos, distribuicao=distribuicao),
         barra_de_menus={"chips": [{"id": "c1", "tecla": "k", "texto": "Ok"}]},
         _raw={},
     )
@@ -2406,8 +2341,10 @@ class TestArranjoH0019:
         )
 
     def test_arranjo_horizontal_dois_elementos(self):
-        """horizontal: 2 filhos diretos ficam na mesma faixa de linhas."""
-        modelo = _modelo_horizontal("horizontal", [("console", "A"), ("console", "B")])
+        """horizontal: 2 filhos diretos ficam na mesma faixa de linhas (distribuicao obrigatoria)."""
+        dist = {"modo": "igual"}
+        modelo = _modelo_horizontal("horizontal", [("console", "A"), ("console", "B")],
+                                    distribuicao=dist)
         saida_h = renderizar_tela(modelo, largura=42)
         saida_v = renderizar_tela(
             _modelo_horizontal("vertical", [("console", "A"), ("console", "B")]),
@@ -2428,9 +2365,12 @@ class TestArranjoH0019:
         )
 
     def test_arranjo_lado_a_lado_alias_horizontal(self):
-        """lado_a_lado -> alias transicional de horizontal, saida identica."""
-        modelo_h = _modelo_horizontal("horizontal", [("console", "A"), ("console", "B")])
-        modelo_l = _modelo_horizontal("lado_a_lado", [("console", "A"), ("console", "B")])
+        """lado_a_lado -> alias transicional de horizontal, saida identica (distribuicao obrigatoria)."""
+        dist = {"modo": "igual"}
+        modelo_h = _modelo_horizontal("horizontal", [("console", "A"), ("console", "B")],
+                                      distribuicao=dist)
+        modelo_l = _modelo_horizontal("lado_a_lado", [("console", "A"), ("console", "B")],
+                                      distribuicao=dist)
         self._r(
             "arranjo='lado_a_lado' == arranjo='horizontal'",
             renderizar_tela(modelo_h, largura=42)
@@ -2440,7 +2380,7 @@ class TestArranjoH0019:
     def test_arranjo_horizontal_areas_contiguas(self):
         """horizontal: bordas adjacentes coladas (││, ╮╭, ╯╰); largura total preservada."""
         modelo = _modelo_horizontal("horizontal", [("console", "A"), ("console", "B")],
-                                    largura=42)
+                                    largura=42, distribuicao={"modo": "igual"})
         saida = renderizar_tela(modelo, largura=42)
         # Extrair apenas o bloco do corpo (linhas entre cabecalho e barra)
         linhas = [ln for ln in saida.split("\n") if ln != ""]
@@ -2486,11 +2426,12 @@ class TestArranjoH0019:
 
     def test_arranjo_horizontal_resto_deterministico(self):
         """horizontal: resto distribui deterministicamente da esquerda (maiores restos)."""
-        # 100 // 3 = 33, resto 1 -> larguras = [34, 33, 33]
+        # com dist=igual e 3 elementos em 100: pesos=[1,1,1] -> [34, 33, 33]
         modelo = _modelo_horizontal(
             "horizontal",
             [("console", "A"), ("console", "B"), ("console", "C")],
             largura=100,
+            distribuicao={"modo": "igual"},
         )
         saida = renderizar_tela(modelo, largura=100)
         linhas_nao_vazias = [ln for ln in saida.split("\n") if ln != ""]
@@ -2527,6 +2468,7 @@ class TestArranjoH0019:
             "horizontal",
             [("console", "A"), ("dashboard", "B")],
             largura=42,
+            distribuicao={"modo": "igual"},
         )
         saida = renderizar_tela(modelo, largura=42)
         linhas_nao_vazias = [ln for ln in saida.split("\n") if ln != ""]
@@ -2545,10 +2487,11 @@ class TestArranjoH0019:
 
     def test_arranjo_horizontal_largura_insuficiente(self):
         """horizontal: largura insuficiente -> RenderizadorErro determinístico sem fallback."""
+        # dist=igual + N=2 + total_w=18: pesos=[1,1] -> larguras=[9,9] -> 9<10 -> erro
         modelo = _modelo_horizontal("horizontal",
                                     [("console", "A"), ("console", "B")],
-                                    largura=18)
-        # 18 // 2 = 9 < 10 -> deve gerar erro
+                                    largura=18,
+                                    distribuicao={"modo": "igual"})
         exc = self._espera_erro(
             "horizontal: largura=18 para 2 elementos -> RenderizadorErro",
             lambda: renderizar_tela(modelo, largura=18),
@@ -2566,11 +2509,12 @@ class TestArranjoH0019:
             )
 
     def test_arranjo_horizontal_tres_elementos(self):
-        """horizontal: 3 filhos diretos aparecem na mesma faixa de linhas."""
+        """horizontal: 3 filhos diretos aparecem na mesma faixa de linhas (dist obrigatoria)."""
         modelo = _modelo_horizontal(
             "horizontal",
             [("console", "A"), ("console", "B"), ("console", "C")],
             largura=42,
+            distribuicao={"modo": "igual"},
         )
         saida = renderizar_tela(modelo, largura=42)
         self._r(
@@ -2584,11 +2528,12 @@ class TestArranjoH0019:
         )
 
     def test_arranjo_horizontal_com_altura_preserva_h0015(self):
-        """horizontal: altura explícita funciona (H-0015 preservado)."""
+        """horizontal: altura explícita funciona (distribuicao obrigatoria para N>1)."""
         modelo = _modelo_horizontal(
             "horizontal",
             [("console", "A"), ("console", "B")],
             largura=42,
+            distribuicao={"modo": "igual"},
         )
         saida = renderizar_tela(modelo, largura=42, altura=40)
         self._r(
@@ -2606,11 +2551,12 @@ class TestArranjoH0019:
         )
 
     def test_arranjo_horizontal_barra_preservada(self):
-        """horizontal: barra_de_menus permanece inalterada."""
+        """horizontal: barra_de_menus permanece inalterada (distribuicao obrigatoria para N>1)."""
         modelo = _modelo_horizontal(
             "horizontal",
             [("console", "A"), ("console", "B")],
             largura=42,
+            distribuicao={"modo": "igual"},
         )
         saida = renderizar_tela(modelo, largura=42)
         self._r(
@@ -2685,8 +2631,9 @@ class TestPreenchimentoVerticalH0020:
     def _r(self, nome, passou, detalhe=""):
         _registrar(nome, passou, detalhe)
 
-    def _modelo(self, arranjo, specs, largura=42):
-        return _modelo_horizontal(arranjo, specs, largura=largura, titulo_cab="H0020")
+    def _modelo(self, arranjo, specs, largura=42, distribuicao=None):
+        return _modelo_horizontal(arranjo, specs, largura=largura, titulo_cab="H0020",
+                                  distribuicao=distribuicao)
 
     def _borda(self):
         from tela.renderizador import _BORDAS
@@ -2702,7 +2649,8 @@ class TestPreenchimentoVerticalH0020:
 
     # ------------------------------------------------------------------ 1
     def test_horizontal_alto_mantem_bordas_ate_altura_disponivel(self):
-        modelo = self._modelo("horizontal", [("console", "A"), ("console", "B")])
+        modelo = self._modelo("horizontal", [("console", "A"), ("console", "B")],
+                              distribuicao={"modo": "igual"})
         altura = 30
         saida = renderizar_tela(modelo, largura=42, altura=altura)
         self._r(
@@ -2737,7 +2685,8 @@ class TestPreenchimentoVerticalH0020:
         borda = self._borda()
         elementos = modelo.corpo.elementos
         bloco = _montar_corpo_horizontal(
-            elementos, borda, 42, altura_disponivel=l_corpo_disponivel
+            elementos, borda, 42, altura_disponivel=l_corpo_disponivel,
+            larguras=[21, 21],
         )
         linhas_bloco = bloco.split("\n")
         self._r(
@@ -2754,7 +2703,8 @@ class TestPreenchimentoVerticalH0020:
     # ------------------------------------------------------------------ 3
     def test_horizontal_sem_linhas_externas_apos_bloco(self):
         """Após H-0020 o bloco absorve l_corpo_disponivel linhas; zero fill externo."""
-        modelo = self._modelo("horizontal", [("console", "A"), ("console", "B")])
+        modelo = self._modelo("horizontal", [("console", "A"), ("console", "B")],
+                              distribuicao={"modo": "igual"})
         altura = 40
         saida = renderizar_tela(modelo, largura=42, altura=altura)
         l_corpo_disponivel = altura - 3 - 3  # 34
@@ -2768,7 +2718,7 @@ class TestPreenchimentoVerticalH0020:
         borda = self._borda()
         bloco = _montar_corpo_horizontal(
             modelo.corpo.elementos, borda, 42,
-            altura_disponivel=l_corpo_disponivel
+            altura_disponivel=l_corpo_disponivel, larguras=[21, 21],
         )
         self._r(
             "H0020-3: bloco tem exatamente l_corpo_disponivel linhas internamente",
@@ -2779,7 +2729,8 @@ class TestPreenchimentoVerticalH0020:
     # ------------------------------------------------------------------ 4
     def test_horizontal_bordas_adjacentes_em_linhas_preenchidas(self):
         """Bordas ││ e ╮╭ presentes nas linhas estruturais (topo/conteúdo/base)."""
-        modelo = self._modelo("horizontal", [("console", "A"), ("console", "B")])
+        modelo = self._modelo("horizontal", [("console", "A"), ("console", "B")],
+                              distribuicao={"modo": "igual"})
         saida = renderizar_tela(modelo, largura=42, altura=25)
         self._r(
             "H0020-4: '││' presente nas linhas de conteúdo do bloco horizontal",
@@ -2801,7 +2752,8 @@ class TestPreenchimentoVerticalH0020:
     # ------------------------------------------------------------------ 5
     def test_horizontal_largura_total_em_todas_linhas_preenchidas(self):
         """Todas as linhas do bloco (inclusive fill) têm exatamente total_w chars."""
-        modelo = self._modelo("horizontal", [("console", "A"), ("console", "B")])
+        modelo = self._modelo("horizontal", [("console", "A"), ("console", "B")],
+                              distribuicao={"modo": "igual"})
         altura = 20
         saida = renderizar_tela(modelo, largura=42, altura=altura)
         linhas_nv = [ln for ln in saida.split("\n") if ln != ""]
@@ -2818,14 +2770,16 @@ class TestPreenchimentoVerticalH0020:
     # ------------------------------------------------------------------ 6
     def test_horizontal_colunas_diferentes_preenchidas_mesma_altura(self):
         """console (3 linhas) e dashboard (2 linhas): ambas preenchidas até l_corpo_disponivel."""
-        modelo = self._modelo(
+        # Teste geometrico: fornece larguras explicitas (DA-02 exige distribuicao
+        # para N>1 via caminho publico; helper requer larguras explicitas para N>1).
+        modelo_legado = self._modelo(
             "horizontal", [("console", "A"), ("dashboard", "B")]
         )
         l_corpo_disponivel = 25 - 3 - 3  # altura=25 → 19
         borda = self._borda()
         bloco = _montar_corpo_horizontal(
-            modelo.corpo.elementos, borda, 42,
-            altura_disponivel=l_corpo_disponivel
+            modelo_legado.corpo.elementos, borda, 42,
+            altura_disponivel=l_corpo_disponivel, larguras=[21, 21],
         )
         linhas_bloco = bloco.split("\n")
         self._r(
@@ -2833,7 +2787,11 @@ class TestPreenchimentoVerticalH0020:
             len(linhas_bloco) == l_corpo_disponivel,
             "len={0}".format(len(linhas_bloco)),
         )
-        # Verificar via renderizar_tela também
+        # Verificar via renderizar_tela com distribuicao declarada (DA-02 obrigatoria para N>1)
+        modelo = self._modelo(
+            "horizontal", [("console", "A"), ("dashboard", "B")],
+            distribuicao={"modo": "igual"},
+        )
         saida = renderizar_tela(modelo, largura=42, altura=25)
         self._r(
             "H0020-6: renderizar_tela altura=25 -> 25 linhas",
@@ -2842,7 +2800,7 @@ class TestPreenchimentoVerticalH0020:
 
     # ------------------------------------------------------------------ 7
     def test_vertical_preserva_comportamento_atual(self):
-        """vertical: fill externo H-0015 continua funcionando (sem alteração)."""
+        """vertical: DA-01 (ADR-0024) - unico visual ocupa area integral."""
         modelo = self._modelo("vertical", [("console", "A")])
         altura = 20
         saida = renderizar_tela(modelo, largura=42, altura=altura)
@@ -2855,12 +2813,13 @@ class TestPreenchimentoVerticalH0020:
             "H0020-7: vertical barra presente",
             "╭ Menus" in saida,
         )
-        # Fill externo: linhas de espaços entre corpo e barra
+        # DA-01 (ADR-0024): unico visual preenche internamente toda a area.
+        # Nenhuma linha de espacos entre corpo e barra (fill externo proibido).
         linhas = saida.split("\n")
         fill_ext = [ln for ln in linhas if ln == " " * 42]
         self._r(
-            "H0020-7: vertical fill externo H-0015 presente (linhas de espacos)",
-            len(fill_ext) > 0,
+            "H0020-7: DA-01 (ADR-0024) - sem fill externo, console ocupa area integral",
+            len(fill_ext) == 0,
             "fills={0}".format(len(fill_ext)),
         )
 
@@ -2899,8 +2858,11 @@ class TestPreenchimentoVerticalH0020:
     # ------------------------------------------------------------------ 10
     def test_lado_a_lado_preserva_comportamento_horizontal(self):
         """lado_a_lado: alias horizontal com fill vertical interno (H-0020)."""
-        modelo_h = self._modelo("horizontal", [("console", "A"), ("console", "B")])
-        modelo_l = self._modelo("lado_a_lado", [("console", "A"), ("console", "B")])
+        dist = {"modo": "igual"}
+        modelo_h = self._modelo("horizontal", [("console", "A"), ("console", "B")],
+                                distribuicao=dist)
+        modelo_l = self._modelo("lado_a_lado", [("console", "A"), ("console", "B")],
+                                distribuicao=dist)
         altura = 25
         saida_h = renderizar_tela(modelo_h, largura=42, altura=altura)
         saida_l = renderizar_tela(modelo_l, largura=42, altura=altura)
@@ -2922,13 +2884,14 @@ class TestPreenchimentoVerticalH0020:
     # ------------------------------------------------------------------ 11
     def test_horizontal_sem_altura_preserva_h0019(self):
         """Sem altura: _montar_corpo_horizontal normaliza até altura_max (H-0019 preservado)."""
-        modelo = self._modelo("horizontal", [("console", "A"), ("dashboard", "B")])
+        # Teste geometrico via chamada direta com larguras explicitas.
         # console: 3 linhas; dashboard sem campos: 2 linhas; altura_max = 3
-        saida_sem = renderizar_tela(modelo, largura=42)
         # Com altura_disponivel=None -> normaliza até 3
+        modelo_legado = self._modelo("horizontal", [("console", "A"), ("dashboard", "B")])
         borda = self._borda()
         bloco_sem = _montar_corpo_horizontal(
-            modelo.corpo.elementos, borda, 42, altura_disponivel=None
+            modelo_legado.corpo.elementos, borda, 42, altura_disponivel=None,
+            larguras=[21, 21],
         )
         linhas_bloco = bloco_sem.split("\n")
         self._r(
@@ -2936,6 +2899,10 @@ class TestPreenchimentoVerticalH0020:
             len(linhas_bloco) == 3,
             "len={0}".format(len(linhas_bloco)),
         )
+        # Via renderizar_tela com distribuicao valida (DA-02: multiplos elementos requerem distribuicao)
+        modelo = self._modelo("horizontal", [("console", "A"), ("dashboard", "B")],
+                              distribuicao={"modo": "igual"})
+        saida_sem = renderizar_tela(modelo, largura=42)
         # TestArranjoH0019.test_arranjo_horizontal_padding_inferior continua passando
         linhas_nv = [ln for ln in saida_sem.split("\n") if ln != ""]
         self._r(
@@ -2946,7 +2913,8 @@ class TestPreenchimentoVerticalH0020:
     # ------------------------------------------------------------------ 12
     def test_barra_de_menus_preservada_apos_h0020(self):
         """Barra de menus com chips corretos; funções protegidas intactas."""
-        modelo = self._modelo("horizontal", [("console", "A"), ("console", "B")])
+        modelo = self._modelo("horizontal", [("console", "A"), ("console", "B")],
+                              distribuicao={"modo": "igual"})
         saida = renderizar_tela(modelo, largura=42, altura=25)
         self._r(
             "H0020-12: barra presente na saida horizontal com altura",
@@ -3074,7 +3042,8 @@ class TestPreenchimentoBordeadoH0021:
         borda = self._borda()
         h = 15
         bloco = _montar_corpo_horizontal(
-            modelo.corpo.elementos, borda, 42, altura_disponivel=h
+            modelo.corpo.elementos, borda, 42, altura_disponivel=h,
+            larguras=[21, 21],
         )
         linhas_bloco = bloco.split("\n")
 
@@ -3108,7 +3077,8 @@ class TestPreenchimentoBordeadoH0021:
         borda = self._borda()
         h = 15
         bloco = _montar_corpo_horizontal(
-            modelo.corpo.elementos, borda, 42, altura_disponivel=h
+            modelo.corpo.elementos, borda, 42, altura_disponivel=h,
+            larguras=[21, 21],
         )
         linhas_bloco = bloco.split("\n")
 
@@ -3140,7 +3110,8 @@ class TestPreenchimentoBordeadoH0021:
         borda = self._borda()
         h = 10
         bloco = _montar_corpo_horizontal(
-            modelo.corpo.elementos, borda, 42, altura_disponivel=h
+            modelo.corpo.elementos, borda, 42, altura_disponivel=h,
+            larguras=[21, 21],
         )
         linhas_bloco = bloco.split("\n")
 
@@ -3165,7 +3136,8 @@ class TestPreenchimentoBordeadoH0021:
         borda = self._borda()
         h = 20
         bloco = _montar_corpo_horizontal(
-            modelo.corpo.elementos, borda, 42, altura_disponivel=h
+            modelo.corpo.elementos, borda, 42, altura_disponivel=h,
+            larguras=[14, 14, 14],
         )
         linhas_bloco = bloco.split("\n")
 
@@ -3187,9 +3159,10 @@ class TestPreenchimentoBordeadoH0021:
         tela_raw["corpo"]["arranjo"] = "horizontal"
         modelo = construir_modelo(tela_raw)
         borda = self._borda()
-        # larguras=[27, 27, 26], dashboard eh coluna 1 (inicio no char 27)
+        # larguras=[27, 27, 26]: 80//3=26, 80%3=2 -> primeiras 2 areas recebem 27
         bloco = _montar_corpo_horizontal(
-            modelo.corpo.elementos, borda, 80, altura_disponivel=24
+            modelo.corpo.elementos, borda, 80, altura_disponivel=24,
+            larguras=[27, 27, 26],
         )
         linhas_bloco = bloco.split("\n")
 
@@ -3241,7 +3214,8 @@ class TestPreenchimentoBordeadoH0021:
         modelo = self._modelo("horizontal", [("console", "A"), ("dashboard", "B")])
         borda = self._borda()
         bloco = _montar_corpo_horizontal(
-            modelo.corpo.elementos, borda, 42, altura_disponivel=None
+            modelo.corpo.elementos, borda, 42, altura_disponivel=None,
+            larguras=[21, 21],
         )
         linhas_bloco = bloco.split("\n")
 
@@ -3274,14 +3248,18 @@ class TestPreenchimentoBordeadoH0021:
             "H0021-10: vertical sem altura preserva _EXPECTED_ORQUESTRADOR",
             saida == _EXPECTED_ORQUESTRADOR,
         )
-        # H-0015 external fill e preservado para telas SEM distribuicao.
+        # ADR-0024 DA-02: modelo sem distribuicao com 3 visuais + area residual
+        # e invalido (fill externo proibido pelo ADR-0024).
         modelo_sd = _modelo_orquestrador_sem_distribuicao()
-        saida_24 = renderizar_tela(modelo_sd, largura=42, altura=24)
-        fill_ext = [ln for ln in saida_24.split("\n") if ln == " " * 42]
+        excecao_da02 = None
+        try:
+            renderizar_tela(modelo_sd, largura=42, altura=24)
+        except RenderizadorErro as exc:
+            excecao_da02 = exc
         self._r(
-            "H0021-10: vertical sem distribuicao com altura=24 mantem fill externo de espacos",
-            len(fill_ext) > 0,
-            "fills={0}".format(len(fill_ext)),
+            "H0021-10: ADR-0024 DA-02 - sem dist + 3 visuais + altura=24 -> RenderizadorErro",
+            excecao_da02 is not None and "DA-02" in str(excecao_da02),
+            str(excecao_da02) if excecao_da02 else "nenhuma excecao",
         )
 
     # ---------------------------------------------------------------------- 11
@@ -3564,20 +3542,17 @@ class TestDistribuicaoVerticalH0025:
             corpo_none == [3, 3, 3],
             "corpo={0}".format(corpo_none),
         )
-        # Com altura suficiente, ausencia NAO distribui cota: preenchimento
-        # externo H-0015 (linhas de espacos abaixo do ultimo filho).
-        saida_24 = renderizar_tela(modelo, largura=42, altura=24)
-        corpo_24 = _corpo_alturas(saida_24)
+        # ADR-0024 DA-02: ausencia de distribuicao com 3 visuais + area residual
+        # e invalida (fill externo proibido pelo ADR-0024).
+        excecao_da02 = None
+        try:
+            renderizar_tela(modelo, largura=42, altura=24)
+        except RenderizadorErro as exc:
+            excecao_da02 = exc
         self._r(
-            "ausencia: com altura=24, filhos permanecem com altura natural",
-            corpo_24 == [3, 3, 3],
-            "corpo={0}".format(corpo_24),
-        )
-        fill_ext = [ln for ln in saida_24.split("\n") if ln == " " * 42]
-        self._r(
-            "ausencia: preenchimento externo H-0015 presente (sem distribuicao)",
-            len(fill_ext) == 9,
-            "fills={0}".format(len(fill_ext)),
+            "ausencia: com altura=24 e 3 visuais -> DA-02 (ADR-0024)",
+            excecao_da02 is not None and "DA-02" in str(excecao_da02),
+            str(excecao_da02) if excecao_da02 else "nenhuma excecao",
         )
 
     def test_ausencia_nao_materializa_igual_no_modelo(self):
@@ -4184,39 +4159,36 @@ class TestDistribuicaoHorizontalH0026:
         )
 
     # ------------------------------- T-NR01 ausencia de distribuicao sem regressao
-    def test_ausencia_distribuicao_preserva_uniforme(self):
-        # Sem distribuicao, o particionamento uniforme (base_w, resto da esquerda)
-        # deve permanecer: ausencia NAO equivale a igual e nao dispara proporcao.
+    def test_ausencia_distribuicao_rejeita_multiplos_participantes(self):
+        # QA-H0033-IMP-HIGH-001: ausencia de distribuicao com multiplos elementos
+        # no eixo horizontal deve ser rejeitada explicitamente (DA-02/ADR-0024).
+        # Ausencia NAO equivale a igual; composicao invalida -> RenderizadorErro.
         modelo_sem = _modelo_horizontal(
             "horizontal", [("console", "A"), ("console", "B")], largura=42,
         )
-        saida_sem = renderizar_tela(modelo_sem, largura=42)
-        larguras_sem = self._larguras_das_areas(saida_sem, ["A", "B"])
-        if larguras_sem is None:
-            self._r("T-NR01: larguras (sem dist) detectadas", False)
-            return
-        # Uniforme: 42//2=21, resto 0 -> [21,21] (coincide com [1,1] neste caso,
-        # mas o caminho percorrido e o uniforme, nao o de distribuicao).
+        erro_correto = False
+        try:
+            renderizar_tela(modelo_sem, largura=42)
+        except RenderizadorErro as e:
+            erro_correto = "DA-02" in str(e)
         self._r(
-            "T-NR01: ausencia -> particionamento uniforme [21,21]",
-            larguras_sem == [21, 21],
-            "larguras={0}".format(larguras_sem),
+            "T-NR01: ausencia dist horizontal 2 elem -> RenderizadorErro DA-02",
+            erro_correto,
         )
-        # 3 elementos em largura 100: uniforme [34,33,33] (da esquerda).
+        # 3 elementos: tambem deve ser rejeitado por DA-02.
         modelo_sem3 = _modelo_horizontal(
             "horizontal",
             [("console", "A"), ("console", "B"), ("console", "C")],
             largura=100,
         )
-        saida_sem3 = renderizar_tela(modelo_sem3, largura=100)
-        larguras_sem3 = self._larguras_das_areas(saida_sem3, ["A", "B", "C"])
-        if larguras_sem3 is None:
-            self._r("T-NR01: larguras 3 (sem dist) detectadas", False)
-            return
+        erro_correto3 = False
+        try:
+            renderizar_tela(modelo_sem3, largura=100)
+        except RenderizadorErro as e:
+            erro_correto3 = "DA-02" in str(e)
         self._r(
-            "T-NR01: ausencia 3 elem 100 -> [34,33,33] (uniforme da esquerda)",
-            larguras_sem3 == [34, 33, 33],
-            "larguras={0}".format(larguras_sem3),
+            "T-NR01: ausencia dist horizontal 3 elem -> RenderizadorErro DA-02",
+            erro_correto3,
         )
 
     # ------------------------------- T-NR02 distribuicao vertical H-0025 sem regressao
@@ -4332,18 +4304,20 @@ class TestDistribuicaoHorizontalH0026:
         self.test_t09_bordas_em_contato()
         self.test_t10_largura_total_preservada()
         self.test_t11_preenchimento_interno_conteudo_menor_que_cota()
-        self.test_ausencia_distribuicao_preserva_uniforme()
+        self.test_ausencia_distribuicao_rejeita_multiplos_participantes()
         self.test_distribuicao_vertical_h0025_nao_regride()
         self.test_rejeicoes_loader_preservadas()
 
 
-def _modelo_hierarquico(corpo_arranjo, corpo_elementos, largura=42, titulo_cab="H"):
+def _modelo_hierarquico(corpo_arranjo, corpo_elementos, largura=42, titulo_cab="H",
+                        corpo_distribuicao=None):
     """Cria ModeloTela sintetico com corpo hierarquico para testes H-0027."""
     return ModeloTela(
         id="teste_h0027",
         schema="tela.v1",
         cabecalho={"titulo": titulo_cab, "descricao": "teste hierarquia"},
-        corpo=Corpo(arranjo=corpo_arranjo, elementos=corpo_elementos),
+        corpo=Corpo(arranjo=corpo_arranjo, elementos=corpo_elementos,
+                    distribuicao=corpo_distribuicao),
         barra_de_menus={"chips": [{"id": "c1", "tecla": "k", "texto": "Ok"}]},
         _raw={},
     )
@@ -4478,7 +4452,7 @@ class TestHierarquiaGruposH0027:
             _grupo("g1", "horizontal", [
                 _funcional("c1", "console", "ESQUERDA"),
                 _funcional("c2", "console", "DIREITA"),
-            ]),
+            ], distribuicao={"modo": "igual"}),
         ])
         saida = renderizar_tela(modelo, largura=42)
         self._r(
@@ -4546,7 +4520,7 @@ class TestHierarquiaGruposH0027:
                 _grupo("g2", "horizontal", [
                     _funcional("e", "console", "ESQQ"),
                     _funcional("d", "console", "DIRR"),
-                ]),
+                ], distribuicao={"modo": "igual"}),
             ]),
         ])
         saida = renderizar_tela(modelo, largura=42)
@@ -4635,7 +4609,7 @@ class TestHierarquiaGruposH0027:
             _grupo("g1", "horizontal", [
                 _funcional("e", "console", "ESQQ"),
                 _funcional("d", "console", "DIRR"),
-            ]),
+            ], distribuicao={"modo": "igual"}),
             _funcional("base", "lancador"),
         ])
         saida = renderizar_tela(modelo, largura=42)
@@ -4768,13 +4742,13 @@ class TestHierarquiaGruposH0027:
             _grupo("g1", "lado_a_lado", [
                 _funcional("c1", "console", "ALFA"),
                 _funcional("c2", "console", "BETA"),
-            ]),
+            ], distribuicao={"modo": "igual"}),
         ])
         modelo_hor = _modelo_hierarquico("vertical", [
             _grupo("g1", "horizontal", [
                 _funcional("c1", "console", "ALFA"),
                 _funcional("c2", "console", "BETA"),
-            ]),
+            ], distribuicao={"modo": "igual"}),
         ])
         saida_lal = renderizar_tela(modelo_lal, largura=42)
         saida_hor = renderizar_tela(modelo_hor, largura=42)
@@ -4813,7 +4787,7 @@ class TestHierarquiaGruposH0027:
             _grupo("g2", "vertical", [
                 _funcional("c2", "console", "BETA"),
             ]),
-        ])
+        ], corpo_distribuicao={"modo": "igual"})
         saida = renderizar_tela(modelo, largura=42)
         linhas = saida.split("\n")
         self._r(
@@ -4933,10 +4907,10 @@ class TestHierarquiaGruposH0027:
                     _grupo("g3", "horizontal", [
                         _funcional("f1", "console", "FA"),
                         _funcional("f2", "console", "FB"),
-                    ]),
+                    ], distribuicao={"modo": "igual"}),
                 ]),
                 _funcional("topo", "dashboard", "TOPO"),
-            ]),
+            ], distribuicao={"modo": "igual"}),
         ])
         saida = renderizar_tela(modelo, largura=80)
         linhas = saida.split("\n")
@@ -5283,7 +5257,7 @@ class TestCardinalidadeUnitariaH0029:
 
     # -------------------------------------------------- M01: ausencia funcional
     def test_M01_ausencia_funcional_preserva_natural(self):
-        """M01: corpo sem dist, 1 funcional direto -> altura natural preservada."""
+        """M01: corpo sem dist, 1 funcional direto -> DA-01 ocupa area integral."""
         saida = self._render(
             [_funcional("d1", "dashboard", "D1")],
             altura=self.ALTURA,
@@ -5295,14 +5269,14 @@ class TestCardinalidadeUnitariaH0029:
         )
         corpo_alts = _corpo_alturas(saida)
         self._r(
-            "H-0029 M01: funcional preserva altura natural (dashboard sem campos = 2 linhas)",
-            corpo_alts == [2],
+            "H-0029 M01: DA-01 (ADR-0024) - funcional ocupa area integral (14 linhas)",
+            corpo_alts == [14],
             "corpo_alturas={0}".format(corpo_alts),
         )
         fill_ext = [l for l in saida.splitlines() if l == " " * self.LARGURA]
         self._r(
-            "H-0029 M01: fill externo H-0015 presente (ausencia de dist)",
-            len(fill_ext) > 0,
+            "H-0029 M01: DA-01 - sem fill externo (proibido por ADR-0024)",
+            len(fill_ext) == 0,
             "fill_ext={0}".format(len(fill_ext)),
         )
 
@@ -5382,11 +5356,12 @@ class TestCardinalidadeUnitariaH0029:
             saida_pc == saida_ig,
         )
 
-    # ---- M05: corpo=igual, grupo sem dist, 1 filho -> grupo recebe cota; filho natural
+    # ---- M05: corpo=igual, grupo sem dist, 1 filho -> DA-01 repassa cota ao filho
     def test_M05_igual_grupo_sem_dist_1filho(self):
-        """M05: corpo=igual, grupo sem dist, 1 filho -> grupo recebe cota; filho permanece natural.
+        """M05: corpo=igual, grupo sem dist, 1 filho -> DA-01 ocupa cota integral.
 
         Reproduz o defeito pre-H-0029: output era 8 linhas em vez de 20.
+        Apos ADR-0024 DA-01: grupo repassa cota integralmente ao unico filho.
         """
         saida = self._render(
             [_grupo("g1", "vertical", [_funcional("d1", "dashboard", "D1")])],
@@ -5400,8 +5375,8 @@ class TestCardinalidadeUnitariaH0029:
         )
         corpo_alts = _corpo_alturas(saida)
         self._r(
-            "H-0029 M05: filho interno permanece em altura natural (2 linhas)",
-            corpo_alts == [2],
+            "H-0029 M05: DA-01 (ADR-0024) - filho ocupa cota integral (14 linhas)",
+            corpo_alts == [14],
             "corpo_alturas={0}".format(corpo_alts),
         )
         self._r(
@@ -5409,7 +5384,6 @@ class TestCardinalidadeUnitariaH0029:
             _h0029_barra_posicao(saida, self.ALTURA) == self.ALTURA - 3,
             "barra_pos={0}".format(_h0029_barra_posicao(saida, self.ALTURA)),
         )
-        # A soma de linhas do corpo (2 dashboard + fill) == l_corpo_disponivel
         linhas = saida.splitlines()
         corpo_linhas = linhas[3:self.ALTURA - 3]
         self._r(
@@ -5440,9 +5414,9 @@ class TestCardinalidadeUnitariaH0029:
             saida_fr == saida_ig,
         )
 
-    # ---- M07: corpo sem dist, grupo=igual, 1 filho -> grupo natural; dist interna
+    # ---- M07: corpo sem dist, grupo=igual, 1 filho -> DA-01 repassa area ao grupo
     def test_M07_ausencia_corpo_grupo_igual_1filho(self):
-        """M07: corpo sem dist, grupo=igual, 1 filho -> grupo raiz permanece natural."""
+        """M07: corpo sem dist, grupo=igual, 1 filho -> DA-01 repassa area integral ao grupo."""
         saida = self._render(
             [_grupo("g1", "vertical", [_funcional("d1", "dashboard", "D1")],
                     distribuicao={"modo": "igual"})],
@@ -5453,17 +5427,18 @@ class TestCardinalidadeUnitariaH0029:
             _h0029_linhas_totais(saida) == self.ALTURA,
             "got={0}".format(_h0029_linhas_totais(saida)),
         )
-        # Sem area disponivel, dist do grupo nao atua; filho usa altura natural
+        # DA-01 (ADR-0024): grupo e unico descendente visual -> recebe area integral.
+        # DA-03: grupo estrutural repassa area ao filho interno.
         corpo_alts = _corpo_alturas(saida)
         self._r(
-            "H-0029 M07: filho interno permanece natural (sem area do corpo)",
-            corpo_alts == [2],
+            "H-0029 M07: DA-01+DA-03 - filho ocupa area integral (14 linhas)",
+            corpo_alts == [14],
             "corpo_alturas={0}".format(corpo_alts),
         )
         fill_ext = [l for l in saida.splitlines() if l == " " * self.LARGURA]
         self._r(
-            "H-0029 M07: fill externo presente (corpo sem dist -> H-0015)",
-            len(fill_ext) > 0,
+            "H-0029 M07: DA-01 - sem fill externo (proibido por ADR-0024)",
+            len(fill_ext) == 0,
         )
 
     # -------------------------------------------------- M08: fracao[1] interno
@@ -5751,18 +5726,18 @@ class TestCardinalidadeUnitariaH0029:
             _h0029_linhas_totais(saida20) == 20,
             "got={0}".format(_h0029_linhas_totais(saida20)),
         )
-        # filho interno em altura natural (sem dist no corpo)
+        # DA-01 (ADR-0024): grupo contem 1 visual -> area integral repassada ao filho.
         corpo_alts = _corpo_alturas(saida20)
         self._r(
-            "H-0029 integracao: grupo_minimo.json filho natural sem dist no corpo",
-            len(corpo_alts) == 1 and corpo_alts[0] < 14,
+            "H-0029 integracao: grupo_minimo.json DA-01 - filho ocupa area integral (14 linhas)",
+            len(corpo_alts) == 1 and corpo_alts[0] == 14,
             "corpo_alturas={0}".format(corpo_alts),
         )
-        # Fill externo presente (corpus sem dist)
+        # Sem fill externo (ADR-0024 DA-01)
         fill_ext = [l for l in saida20.splitlines() if l == " " * 42]
         self._r(
-            "H-0029 integracao: grupo_minimo.json fill externo H-0015 presente",
-            len(fill_ext) > 0,
+            "H-0029 integracao: grupo_minimo.json sem fill externo (ADR-0024 DA-01)",
+            len(fill_ext) == 0,
         )
         saida_sem = renderizar_tela(modelo, largura=42)
         self._r(
@@ -6143,9 +6118,9 @@ class TestTelasPermanentesH0029:
                     "linhas_externas={0}".format(len(entre)),
                 )
 
-    # ----------------------------- geometria: grupo_pai_distribuido (natural)
+    # ----------------------------- geometria: grupo_pai_distribuido (DA-01)
     def test_geometria_grupo_pai_distribuido_natural(self):
-        """Tela 11A.4: dashboard em altura natural; sobra estrutural do grupo."""
+        """Tela 11A.4: DA-01 (ADR-0024) - dashboard ocupa area integral do grupo."""
         id_tela = "h0029_grupo_pai_distribuido"
         modelo = construir_modelo(carregar_tela(_BASE_PADRAO, id_tela, _RAIZ_TELAS_DEMO))
         for altura in self.ALTURAS:
@@ -6157,40 +6132,29 @@ class TestTelasPermanentesH0029:
             topo = _h0029_dashboard_topo(saida)
             base = _h0029_dashboard_base(saida)
             barra = _h0029_barra_topo(saida)
-            # Dashboard em altura natural: topo 3, base 5 (3 linhas fisicas).
+            l_corpo_disponivel = altura - 3 - 3  # l_cab=3, l_barra=3
+            # DA-01 (ADR-0024): grupo repassa cota integral ao unico visual filho.
+            # Dashboard expande de 2 linhas naturais para l_corpo_disponivel linhas.
             self._r(
-                "H-0029 JSON {0} alt={1}: dashboard natural topo == 3".format(
+                "H-0029 JSON {0} alt={1}: dashboard topo == 3".format(
                     id_tela, altura
                 ),
                 topo == 3,
                 "topo={0}".format(topo),
             )
             self._r(
-                "H-0029 JSON {0} alt={1}: dashboard natural base == 5".format(
-                    id_tela, altura
+                "H-0029 JSON {0} alt={1}: DA-01 - dashboard base == altura-4 ({2})".format(
+                    id_tela, altura, altura - 4
                 ),
-                base == 5,
+                base == altura - 4,
                 "base={0}".format(base),
             )
-            # NAO exige expansao do dashboard ate a barra.
+            # DA-01: dashboard ocupa toda a area; barra imediatamente apos (gap==0).
             self._r(
-                "H-0029 JSON {0} alt={1}: dashboard NAO expandido ate a barra".format(
-                    id_tela, altura
-                ),
-                base < barra - 1,
+                "H-0029 JSON {0} alt={1}: DA-01 - borda inferior imediatamente "
+                "antes da barra (gap == 0)".format(id_tela, altura),
+                base >= 0 and barra == base + 1,
                 "base={0} barra={1}".format(base, barra),
-            )
-            # Sobra como linhas estruturais (branco total) entre dashboard e barra.
-            estruturais = [
-                l for l in linhas[base + 1:barra] if l == " " * self.LARGURA
-            ]
-            esperado_estruturais = barra - base - 1
-            self._r(
-                "H-0029 JSON {0} alt={1}: linhas estruturais restantes == {2}".format(
-                    id_tela, altura, esperado_estruturais
-                ),
-                len(estruturais) == esperado_estruturais,
-                "estruturais={0}".format(len(estruturais)),
             )
             self._r(
                 "H-0029 JSON {0} alt={1}: barra_topo == altura-3 ({2})".format(
@@ -6199,7 +6163,6 @@ class TestTelasPermanentesH0029:
                 barra == altura - 3,
                 "barra={0}".format(barra),
             )
-            # Ausencia de sobreposicao: base < barra e total == altura.
             self._r(
                 "H-0029 JSON {0} alt={1}: sem sobreposicao (base < barra)".format(
                     id_tela, altura
@@ -6329,28 +6292,18 @@ class TestTelasPermanentesH0029:
                 barra20 == 17 and barra30 == 27,
                 "barra20={0} barra30={1}".format(barra20, barra30),
             )
-            if id_tela == "h0029_grupo_pai_distribuido":
-                # Dashboard permanece natural em ambas as alturas.
-                base20 = _h0029_dashboard_base(s20)
-                base30 = _h0029_dashboard_base(s30)
-                self._r(
-                    "H-0029 JSON {0}: dashboard natural preservado (base 5 em ambas)".format(
-                        id_tela
-                    ),
-                    base20 == 5 and base30 == 5,
-                    "base20={0} base30={1}".format(base20, base30),
-                )
-            else:
-                # Dashboard distribuido: borda inferior acompanha a nova cota.
-                base20 = _h0029_dashboard_base(s20)
-                base30 = _h0029_dashboard_base(s30)
-                self._r(
-                    "H-0029 JSON {0}: borda inferior acompanha cota (16->26)".format(
-                        id_tela
-                    ),
-                    base20 == 16 and base30 == 26,
-                    "base20={0} base30={1}".format(base20, base30),
-                )
+            # DA-01 (ADR-0024): todos os JSONs h0029_* expandem o dashboard
+            # para preencher a area disponivel, incluindo grupo_pai_distribuido
+            # (grupo sem dist interna recebe area via DA-01 e repassa ao filho).
+            base20 = _h0029_dashboard_base(s20)
+            base30 = _h0029_dashboard_base(s30)
+            self._r(
+                "H-0029 JSON {0}: borda inferior acompanha cota (16->26)".format(
+                    id_tela
+                ),
+                base20 == 16 and base30 == 26,
+                "base20={0} base30={1}".format(base20, base30),
+            )
 
     # ----------------------------------- ausencia de sobreposicao (geral)
     def test_ausencia_sobreposicao(self):
@@ -8448,6 +8401,1362 @@ class TestDistribuicaoResponsivaH0034:
         self.test_caminho_legado_valida_texto()
 
 
+_H0033_TELAS_TODAS = (
+    "demo",
+    "destino_minimo",
+    "grupo_minimo",
+    "stub_b",
+    "h0029_dashboard_fracao",
+    "h0029_dashboard_igual",
+    "h0029_dashboard_percentual",
+    "h0029_grupo_fracao",
+    "h0029_grupo_igual",
+    "h0029_grupo_pai_distribuido",
+    "h0029_grupo_percentual",
+    "h0030_console_unico",
+    "h0030_dashboard_unico",
+    "h0030_matriz_2x2",
+    "h0030_matriz_2x4",
+    "h0030_matriz_3x2",
+)
+
+# JSONs de matriz exigem altura_disponivel para distribuir linhas (sem natural).
+_H0033_TELAS_MATRIZ = ("h0030_matriz_2x2", "h0030_matriz_2x4", "h0030_matriz_3x2")
+
+# JSONs que renderizam em altura natural (todos exceto matriz).
+_H0033_TELAS_ALTURA_NATURAL = tuple(
+    t for t in _H0033_TELAS_TODAS if t not in _H0033_TELAS_MATRIZ
+)
+
+# JSONs compatíveis com altura=20 em largura=42 (elemento unico ou dist explicita).
+# demo.json excluido: lancador gera overflow de conteudo em alturas pequenas.
+_H0033_TELAS_ALTURA_20 = tuple(t for t in _H0033_TELAS_TODAS if t != "demo")
+
+
+class TestOcupacaoIntegralCorpoH0033:
+    """Testes focais de ADR-0024 (proibicao de preenchimento externo vazio).
+
+    Cobre DA-01 (cardinalidade unitaria), DA-02 (multiplos sem distribuicao),
+    DA-03 (grupos repassam area) e DA-04 (composicao impossivel). Inclui
+    inventario de todos os 16 JSONs permanentes em duas dimensoes.
+    """
+
+    LARGURA = 42
+    ALTURA = 20
+    LARGURA_B = 80
+    ALTURA_B = 30
+
+    def _r(self, nome, passou, detalhe=""):
+        _registrar(nome, passou, detalhe)
+
+    def _espera_erro(self, nome, fn, msg_contem=""):
+        try:
+            fn()
+            self._r(nome, False, "nenhuma excecao levantada")
+            return None
+        except RenderizadorErro as exc:
+            ok = not msg_contem or msg_contem in str(exc)
+            self._r(nome, ok, str(exc))
+            return exc
+
+    def _render(self, elementos, corpo_dist=None, altura=None, largura=None):
+        m = _modelo_h0029(elementos, corpo_dist=corpo_dist)
+        kw = {"largura": largura or self.LARGURA}
+        if altura is not None:
+            kw["altura"] = altura
+        return renderizar_tela(m, **kw)
+
+    # ----------------------------------------------------------------- DA-01
+    def test_DA01_visual_direto_ocupa_area_integral(self):
+        """DA-01: unico visual direto preenche toda a area disponivel."""
+        saida = self._render(
+            [_funcional("d1", "dashboard", "D1")],
+            altura=self.ALTURA,
+        )
+        self._r(
+            "H-0033 DA-01: total == altura",
+            _h0029_linhas_totais(saida) == self.ALTURA,
+        )
+        corpo_alts = _corpo_alturas(saida)
+        self._r(
+            "H-0033 DA-01: visual direto ocupa l_corpo_disponivel=14",
+            corpo_alts == [14],
+            "corpo_alturas={0}".format(corpo_alts),
+        )
+        fill_ext = [l for l in saida.splitlines() if l == " " * self.LARGURA]
+        self._r(
+            "H-0033 DA-01: sem fill externo (proibido por ADR-0024)",
+            len(fill_ext) == 0,
+        )
+
+    def test_DA01_visual_via_grupo_transparente(self):
+        """DA-01: visual aninhado em grupo sem dist recebe area integral."""
+        saida = self._render(
+            [_grupo("g1", "vertical", [_funcional("d1", "dashboard", "D1")])],
+            altura=self.ALTURA,
+        )
+        corpo_alts = _corpo_alturas(saida)
+        self._r(
+            "H-0033 DA-01+DA-03: visual via grupo transparente ocupa 14 linhas",
+            corpo_alts == [14],
+            "corpo_alturas={0}".format(corpo_alts),
+        )
+        fill_ext = [l for l in saida.splitlines() if l == " " * self.LARGURA]
+        self._r(
+            "H-0033 DA-01+DA-03: sem fill externo",
+            len(fill_ext) == 0,
+        )
+
+    def test_DA01_fill_interno_preservado(self):
+        """DA-01: fill interno (dentro das bordas) e valido e distinto do externo."""
+        saida = self._render(
+            [_funcional("d1", "dashboard", "D1")],
+            altura=self.ALTURA,
+        )
+        linhas = saida.splitlines()
+        # Fill externo sao linhas de N espacos (sem borda)
+        fill_ext = [l for l in linhas if l == " " * self.LARGURA]
+        # Fill interno sao linhas comecando e terminando com borda vertical
+        fill_int = [l for l in linhas if l.startswith("│") and l.endswith("│")
+                    and l[1:-1].strip() == ""]
+        self._r(
+            "H-0033 DA-01: sem fill externo e com fill interno",
+            len(fill_ext) == 0 and len(fill_int) > 0,
+            "ext={0} int={1}".format(len(fill_ext), len(fill_int)),
+        )
+
+    def test_DA01_equivalencia_com_distribuicao(self):
+        """DA-01 sem dist produz saida identica a dist explicita com 1 elemento."""
+        saida_sem = self._render(
+            [_funcional("d1", "dashboard", "D1")],
+            altura=self.ALTURA,
+        )
+        saida_com = self._render(
+            [_funcional("d1", "dashboard", "D1")],
+            corpo_dist={"modo": "igual"},
+            altura=self.ALTURA,
+        )
+        self._r(
+            "H-0033 DA-01: sem dist == com dist explícita (1 visual)",
+            saida_sem == saida_com,
+        )
+
+    # ----------------------------------------------------------------- DA-02
+    def test_DA02_dois_visuais_sem_dist_erro(self):
+        """DA-02: 2 visuais sem distribuicao com area residual levanta RenderizadorErro."""
+        self._espera_erro(
+            "H-0033 DA-02: 2 visuais sem dist + l_fill>0 -> RenderizadorErro",
+            lambda: self._render(
+                [_funcional("a", "console", "A"), _funcional("b", "dashboard", "B")],
+                altura=self.ALTURA,
+            ),
+            "DA-02",
+        )
+
+    def test_DA02_tres_visuais_sem_dist_erro(self):
+        """DA-02: 3 visuais sem distribuicao levanta RenderizadorErro."""
+        exc = self._espera_erro(
+            "H-0033 DA-02: 3 visuais sem dist -> RenderizadorErro",
+            lambda: self._render(
+                [_funcional("a", "console", "A"),
+                 _funcional("b", "dashboard", "B"),
+                 _funcional("c", "console", "C")],
+                altura=self.ALTURA,
+            ),
+            "DA-02",
+        )
+        if exc is not None:
+            self._r(
+                "H-0033 DA-02: mensagem menciona 'distribuicao'",
+                "distribuicao" in str(exc),
+                str(exc),
+            )
+
+    def test_DA02_com_distribuicao_ok(self):
+        """DA-02: multiplos visuais COM distribuicao explicita funciona (sem erro)."""
+        saida = self._render(
+            [_funcional("a", "console", "A"), _funcional("b", "dashboard", "B")],
+            corpo_dist={"modo": "igual"},
+            altura=self.ALTURA,
+        )
+        self._r(
+            "H-0033 DA-02: 2 visuais com dist=igual -> total == altura",
+            _h0029_linhas_totais(saida) == self.ALTURA,
+        )
+        corpo_alts = _corpo_alturas(saida)
+        self._r(
+            "H-0033 DA-02: com dist -> soma das cotas == l_corpo_disponivel",
+            sum(corpo_alts) == 14,
+            "corpo_alturas={0}".format(corpo_alts),
+        )
+
+    def test_DA02_sem_area_residual_ok(self):
+        """DA-02: multiplos visuais sem dist sem area residual nao levanta erro."""
+        # 3 elementos naturais; l_corpo_disponivel = 19-3-3 = 13 = l_corpo_natural.
+        # l_fill = 0 -> sem DA-02.
+        modelo_sd = _modelo_orquestrador_sem_distribuicao()
+        n_natural = 19  # l_cab(3) + l_corpo(13) + l_barra(3) = 19
+        saida = renderizar_tela(modelo_sd, largura=42, altura=n_natural)
+        # renderizar_tela termina com '\n'; count('\n') == numero de linhas fisicas.
+        self._r(
+            "H-0033 DA-02: sem dist + l_fill==0 -> sem erro (altura natural)",
+            saida.count("\n") == n_natural,
+            "count={0}".format(saida.count("\n")),
+        )
+
+    # ----------------------------------------------------------------- DA-03
+    def test_DA03_grupo_com_dist_repassa_area(self):
+        """DA-03: grupo com dist propria recebe area e distribui internamente."""
+        saida = self._render(
+            [_grupo("g1", "vertical", [
+                _funcional("a", "console", "A"),
+                _funcional("b", "dashboard", "B"),
+            ], distribuicao={"modo": "igual"})],
+            altura=self.ALTURA,
+        )
+        self._r(
+            "H-0033 DA-03: grupo com dist recebe area -> total == altura",
+            _h0029_linhas_totais(saida) == self.ALTURA,
+        )
+        corpo_alts = _corpo_alturas(saida)
+        self._r(
+            "H-0033 DA-03: filhos do grupo somam l_corpo_disponivel=14",
+            sum(corpo_alts) == 14,
+            "corpo_alturas={0}".format(corpo_alts),
+        )
+
+    def test_DA03_grupo_transparente_repassa_area_integral(self):
+        """DA-03: grupo sem dist e transparente; visual filho recebe area integral."""
+        saida = self._render(
+            [_grupo("g1", "vertical", [_funcional("d1", "console", "C1")])],
+            altura=self.ALTURA,
+        )
+        corpo_alts = _corpo_alturas(saida)
+        self._r(
+            "H-0033 DA-03: grupo transparente -> visual recebe 14 linhas",
+            corpo_alts == [14],
+            "corpo_alturas={0}".format(corpo_alts),
+        )
+
+    # ----------------------------------------------------------------- DA-04
+    def test_DA04_zero_visuais_com_area_erro(self):
+        """DA-04: corpo sem visuais e com area disponivel levanta RenderizadorErro."""
+        modelo = ModeloTela(
+            id="teste_da04",
+            schema="tela.v1",
+            cabecalho={"titulo": "DA04", "descricao": "sem visuais"},
+            corpo=Corpo(arranjo="vertical", elementos=[], distribuicao=None),
+            barra_de_menus={"chips": [{"id": "e", "tecla": "Esc", "texto": "Sair"}]},
+            _raw={},
+        )
+        exc = None
+        try:
+            renderizar_tela(modelo, largura=42, altura=self.ALTURA)
+        except RenderizadorErro as e:
+            exc = e
+        self._r(
+            "H-0033 DA-04: 0 visuais + altura > 0 -> RenderizadorErro",
+            exc is not None,
+            str(exc) if exc else "nenhuma excecao",
+        )
+        if exc is not None:
+            self._r(
+                "H-0033 DA-04: mensagem menciona 'DA-04' ou 'visual'",
+                "DA-04" in str(exc) or "visual" in str(exc),
+                str(exc),
+            )
+
+    # ---------------------------------------------------------------- inventário
+    def test_inventario_16_jsons_altura_natural(self):
+        """Inventario: 13 JSONs (exceto matriz) renderizam sem erro em altura natural."""
+        for id_tela in _H0033_TELAS_ALTURA_NATURAL:
+            try:
+                raw = carregar_tela(_BASE_PADRAO, id_tela, _RAIZ_TELAS_DEMO)
+                modelo = construir_modelo(raw)
+                saida = renderizar_tela(modelo, largura=self.LARGURA)
+                self._r(
+                    "H-0033 INV: {0} renderiza em largura={1} sem erro".format(
+                        id_tela, self.LARGURA
+                    ),
+                    isinstance(saida, str) and len(saida) > 0,
+                )
+            except Exception as exc:
+                self._r(
+                    "H-0033 INV: {0} renderiza em largura={1} sem erro".format(
+                        id_tela, self.LARGURA
+                    ),
+                    False,
+                    "{0}: {1}".format(type(exc).__name__, exc),
+                )
+
+    def test_inventario_15_jsons_com_altura_20(self):
+        """Inventario: 15 JSONs (exceto demo) renderizam a 42x20 sem fill externo."""
+        for id_tela in _H0033_TELAS_ALTURA_20:
+            try:
+                raw = carregar_tela(_BASE_PADRAO, id_tela, _RAIZ_TELAS_DEMO)
+                modelo = construir_modelo(raw)
+                saida = renderizar_tela(modelo, largura=self.LARGURA, altura=self.ALTURA)
+                linhas_total = _h0029_linhas_totais(saida)
+                fill_ext = [l for l in saida.splitlines() if l == " " * self.LARGURA]
+                self._r(
+                    "H-0033 INV 42x20: {0} -> {1} linhas, sem fill externo".format(
+                        id_tela, self.ALTURA
+                    ),
+                    linhas_total == self.ALTURA and len(fill_ext) == 0,
+                    "linhas={0} fill_ext={1}".format(linhas_total, len(fill_ext)),
+                )
+            except Exception as exc:
+                self._r(
+                    "H-0033 INV 42x20: {0} -> {1} linhas, sem fill externo".format(
+                        id_tela, self.ALTURA
+                    ),
+                    False,
+                    "{0}: {1}".format(type(exc).__name__, exc),
+                )
+
+    def test_inventario_15_jsons_com_altura_30_largura_80(self):
+        """Inventario: 15 JSONs (exceto demo) renderizam a 80x30 sem fill externo."""
+        for id_tela in _H0033_TELAS_ALTURA_20:
+            try:
+                raw = carregar_tela(_BASE_PADRAO, id_tela, _RAIZ_TELAS_DEMO)
+                modelo = construir_modelo(raw)
+                saida = renderizar_tela(
+                    modelo, largura=self.LARGURA_B, altura=self.ALTURA_B
+                )
+                linhas_total = _h0029_linhas_totais(saida)
+                fill_ext = [l for l in saida.splitlines() if l == " " * self.LARGURA_B]
+                self._r(
+                    "H-0033 INV 80x30: {0} -> {1} linhas, sem fill externo".format(
+                        id_tela, self.ALTURA_B
+                    ),
+                    linhas_total == self.ALTURA_B and len(fill_ext) == 0,
+                    "linhas={0} fill_ext={1}".format(linhas_total, len(fill_ext)),
+                )
+            except Exception as exc:
+                self._r(
+                    "H-0033 INV 80x30: {0} -> {1} linhas, sem fill externo".format(
+                        id_tela, self.ALTURA_B
+                    ),
+                    False,
+                    "{0}: {1}".format(type(exc).__name__, exc),
+                )
+
+    # ------------------------------------------------- destino_minimo / grupo_minimo
+    def test_destino_minimo_sem_fill_externo(self):
+        """destino_minimo.json: DA-01 - dashboard ocupa area integral sem fill externo."""
+        modelo = construir_modelo(
+            carregar_tela(_BASE_PADRAO, "destino_minimo", _RAIZ_TELAS_DEMO)
+        )
+        saida = renderizar_tela(modelo, largura=self.LARGURA, altura=self.ALTURA)
+        corpo_alts = _corpo_alturas(saida)
+        fill_ext = [l for l in saida.splitlines() if l == " " * self.LARGURA]
+        self._r(
+            "H-0033 destino_minimo: DA-01 -> corpo_alts==[14], sem fill externo",
+            corpo_alts == [14] and len(fill_ext) == 0,
+            "corpo_alturas={0} fill_ext={1}".format(corpo_alts, len(fill_ext)),
+        )
+
+    def test_grupo_minimo_sem_fill_externo(self):
+        """grupo_minimo.json: DA-01+DA-03 - visual via grupo ocupa area sem fill externo."""
+        modelo = construir_modelo(
+            carregar_tela(_BASE_PADRAO, "grupo_minimo", _RAIZ_TELAS_DEMO)
+        )
+        saida = renderizar_tela(modelo, largura=self.LARGURA, altura=self.ALTURA)
+        corpo_alts = _corpo_alturas(saida)
+        fill_ext = [l for l in saida.splitlines() if l == " " * self.LARGURA]
+        self._r(
+            "H-0033 grupo_minimo: DA-01+DA-03 -> corpo_alts==[14], sem fill externo",
+            corpo_alts == [14] and len(fill_ext) == 0,
+            "corpo_alturas={0} fill_ext={1}".format(corpo_alts, len(fill_ext)),
+        )
+
+    # ---- Helpers horizontais (QA-H0033-IMP-HIGH-001 / QA-H0033-IMP-MED-001) ----
+    def _render_h(self, elementos, corpo_dist=None, altura=None, largura=None):
+        """Helper: cria modelo com corpo horizontal para testes focais H1-H6."""
+        m = ModeloTela(
+            id="teste_h0033_h",
+            schema="tela.v1",
+            cabecalho={"titulo": "H0033H", "descricao": "h0033 horizontal"},
+            corpo=Corpo(arranjo="horizontal", elementos=elementos,
+                        distribuicao=corpo_dist),
+            barra_de_menus={"chips": [{"id": "esc", "tecla": "Esc", "texto": "Sair"}]},
+            _raw={},
+        )
+        kw = {"largura": largura or self.LARGURA}
+        if altura is not None:
+            kw["altura"] = altura
+        return renderizar_tela(m, **kw)
+
+    # ----------------------------------------------------------------- H1
+    def test_H1_horizontal_um_participante_sem_dist(self):
+        """H1 (DA-01): corpo horizontal com 1 elemento sem dist e valido."""
+        try:
+            saida = self._render_h([_funcional("a", "console", "A")])
+            self._r(
+                "H-0033 H1: horizontal 1 elem sem dist -> valido (DA-01)",
+                bool(saida.strip()),
+            )
+        except RenderizadorErro as exc:
+            self._r(
+                "H-0033 H1: horizontal 1 elem sem dist -> valido (DA-01)",
+                False,
+                str(exc),
+            )
+
+    # ----------------------------------------------------------------- H2
+    def test_H2_horizontal_dois_sem_dist_rejeita(self):
+        """H2 (DA-02): corpo horizontal com 2 elementos sem dist levanta RenderizadorErro.
+
+        Achado QA-H0033-IMP-HIGH-001: implementacao anterior aceitava composicao
+        invalida e particionava largura uniformemente; agora deve rejeitar.
+        """
+        self._espera_erro(
+            "H-0033 H2: horizontal 2 elem sem dist -> RenderizadorErro DA-02",
+            lambda: self._render_h(
+                [_funcional("a", "console", "A"), _funcional("b", "console", "B")],
+            ),
+            "DA-02",
+        )
+
+    # ----------------------------------------------------------------- H3
+    def test_H3_horizontal_grupo_multiplos_sem_dist_rejeita(self):
+        """H3 (DA-02): grupo interno com arranjo horizontal e 2 filhos sem dist e rejeitado."""
+        self._espera_erro(
+            "H-0033 H3: grupo horizontal 2 filhos sem dist -> RenderizadorErro DA-02",
+            lambda: self._render(
+                [_grupo("g1", "horizontal", [
+                    _funcional("a", "console", "A"),
+                    _funcional("b", "console", "B"),
+                ])],
+                altura=self.ALTURA,
+            ),
+            "DA-02",
+        )
+
+    # ----------------------------------------------------------------- H4
+    def test_H4_horizontal_aninhado_nao_bypassa_DA02(self):
+        """H4 (DA-02): container horizontal aninhado em grupo nao bypassa DA-02."""
+        self._espera_erro(
+            "H-0033 H4: horizontal aninhado (grupo>grupo_h) -> RenderizadorErro DA-02",
+            lambda: self._render(
+                [_grupo("g1", "vertical", [
+                    _grupo("g2", "horizontal", [
+                        _funcional("a", "console", "A"),
+                        _funcional("b", "console", "B"),
+                    ]),
+                ])],
+                altura=self.ALTURA,
+            ),
+            "DA-02",
+        )
+
+    # ----------------------------------------------------------------- H5
+    def test_H5_horizontal_com_distribuicao_valido(self):
+        """H5 (DA-02): corpo horizontal com distribuicao explicita e valido."""
+        try:
+            saida = self._render_h(
+                [_funcional("a", "console", "A"), _funcional("b", "console", "B")],
+                corpo_dist={"modo": "igual"},
+            )
+            linhas = [l for l in saida.split("\n") if l]
+            self._r(
+                "H-0033 H5: horizontal com dist=igual -> saida valida",
+                bool(saida.strip()),
+            )
+            self._r(
+                "H-0033 H5: horizontal com dist=igual -> largura preservada",
+                all(len(l) == self.LARGURA for l in linhas),
+                "invalidas={0}".format([len(l) for l in linhas if len(l) != self.LARGURA]),
+            )
+        except RenderizadorErro as exc:
+            self._r(
+                "H-0033 H5: horizontal com dist=igual -> saida valida",
+                False,
+                str(exc),
+            )
+
+    # ----------------------------------------------------------------- H6
+    def test_H6_matriz_nao_e_rejeitada(self):
+        """H6: grupo com estrutura='matriz' nao e rejeitado por DA-02 (caminho distinto)."""
+        try:
+            grupo_m = _grupo_matriz_render_h0028("gm", n_linhas=2, n_colunas=2)
+            saida = self._render([grupo_m], altura=self.ALTURA)
+            self._r(
+                "H-0033 H6: matriz 2x2 em corpo vertical -> renderiza sem DA-02",
+                bool(saida.strip()),
+            )
+        except RenderizadorErro as exc:
+            self._r(
+                "H-0033 H6: matriz 2x2 em corpo vertical -> renderiza sem DA-02",
+                False,
+                str(exc),
+            )
+
+    def run_all(self):
+        print("")
+        print("== TestOcupacaoIntegralCorpoH0033: ADR-0024 DA-01 a DA-04 ==")
+        self.test_DA01_visual_direto_ocupa_area_integral()
+        self.test_DA01_visual_via_grupo_transparente()
+        self.test_DA01_fill_interno_preservado()
+        self.test_DA01_equivalencia_com_distribuicao()
+        self.test_DA02_dois_visuais_sem_dist_erro()
+        self.test_DA02_tres_visuais_sem_dist_erro()
+        self.test_DA02_com_distribuicao_ok()
+        self.test_DA02_sem_area_residual_ok()
+        self.test_DA03_grupo_com_dist_repassa_area()
+        self.test_DA03_grupo_transparente_repassa_area_integral()
+        self.test_DA04_zero_visuais_com_area_erro()
+        self.test_inventario_16_jsons_altura_natural()
+        self.test_inventario_15_jsons_com_altura_20()
+        self.test_inventario_15_jsons_com_altura_30_largura_80()
+        self.test_destino_minimo_sem_fill_externo()
+        self.test_grupo_minimo_sem_fill_externo()
+        self.test_H1_horizontal_um_participante_sem_dist()
+        self.test_H2_horizontal_dois_sem_dist_rejeita()
+        self.test_H3_horizontal_grupo_multiplos_sem_dist_rejeita()
+        self.test_H4_horizontal_aninhado_nao_bypassa_DA02()
+        self.test_H5_horizontal_com_distribuicao_valido()
+        self.test_H6_matriz_nao_e_rejeitada()
+
+
+class TestHelperHorizontalH0033Patch2:
+    """Testes focais para _montar_corpo_horizontal e caminho publico horizontal
+    apos segundo patch H-0033 (QA-H0033-POSPATCH-IMP-MED-001).
+
+    P1. zero participantes retorna vazio;
+    P2. um participante sem larguras recebe total_w (DA-01/ADR-0024);
+    P3. dois participantes sem larguras sao rejeitados (DA-02/ADR-0024);
+    P4. tres participantes sem larguras sao rejeitados (DA-02/ADR-0024);
+    P5. larguras explicitas validas sao respeitadas;
+    P6. largura insuficiente por elemento e rejeitada;
+    P7. nenhuma saida parcial e produzida antes do erro (DA-02);
+    P8. caminho publico com dist=fracao e valido;
+    P9. caminho publico com dist=percentual e valido;
+    P10. eixo vertical com distribuicao nao regrediu.
+    """
+
+    def _r(self, nome, passou, detalhe=""):
+        _registrar(nome, passou, detalhe)
+
+    def _espera_erro(self, nome, fn, prefixo=None):
+        try:
+            fn()
+            self._r(nome, False, "nenhuma excecao levantada")
+            return None
+        except RenderizadorErro as exc:
+            ok = (prefixo is None) or (prefixo in str(exc))
+            self._r(nome, ok, str(exc))
+            return exc
+        except Exception as exc:
+            self._r(nome, False, "excecao inesperada: {0!r}".format(exc))
+            return None
+
+    def _borda(self):
+        from tela.renderizador import _BORDAS
+        return _BORDAS["curva"]
+
+    def _elem(self, tipo="console", titulo="A"):
+        campos = {"titulo": titulo}
+        if tipo == "lancador":
+            campos["itens"] = []
+        return ElementoCorpo(id=titulo.lower(), tipo=tipo, _campos_inertes=campos)
+
+    def _modelo_h(self, elementos, corpo_dist=None, largura=42):
+        return ModeloTela(
+            id="teste_patch2",
+            schema="tela.v1",
+            cabecalho={"titulo": "P2", "descricao": "patch2"},
+            corpo=Corpo(arranjo="horizontal", elementos=elementos,
+                        distribuicao=corpo_dist),
+            barra_de_menus={"chips": [{"id": "e", "tecla": "Esc", "texto": "Sair"}]},
+            _raw={},
+        )
+
+    # ------------------------------------------------------------------ P1
+    def test_P1_helper_zero_participantes_retorna_vazio(self):
+        """P1: _montar_corpo_horizontal com zero elementos retorna string vazia."""
+        borda = self._borda()
+        resultado = _montar_corpo_horizontal([], borda, 42)
+        self._r(
+            "P1: _montar_corpo_horizontal([]) -> ''",
+            resultado == "",
+            "resultado={0!r}".format(resultado),
+        )
+
+    # ------------------------------------------------------------------ P2
+    def test_P2_helper_um_participante_recebe_total_w(self):
+        """P2 (DA-01): _montar_corpo_horizontal com 1 elemento recebe total_w."""
+        borda = self._borda()
+        elem = self._elem("console", "A")
+        resultado = _montar_corpo_horizontal([elem], borda, 42)
+        linhas = resultado.split("\n")
+        self._r(
+            "P2: _montar_corpo_horizontal(1 elem, larguras=None) -> largura=42",
+            all(len(ln) == 42 for ln in linhas if ln),
+            "larguras={0}".format([len(ln) for ln in linhas if ln]),
+        )
+        self._r(
+            "P2: _montar_corpo_horizontal(1 elem) -> resultado nao vazio",
+            bool(resultado.strip()),
+        )
+
+    # ------------------------------------------------------------------ P3
+    def test_P3_helper_dois_participantes_sem_larguras_rejeita(self):
+        """P3 (DA-02): _montar_corpo_horizontal com 2 elementos e larguras=None levanta DA-02."""
+        borda = self._borda()
+        elem_a = self._elem("console", "A")
+        elem_b = self._elem("console", "B")
+        self._espera_erro(
+            "P3: _montar_corpo_horizontal(2 elem, larguras=None) -> RenderizadorErro DA-02",
+            lambda: _montar_corpo_horizontal([elem_a, elem_b], borda, 42),
+            "DA-02",
+        )
+
+    # ------------------------------------------------------------------ P4
+    def test_P4_helper_tres_participantes_sem_larguras_rejeita(self):
+        """P4 (DA-02): _montar_corpo_horizontal com 3 elementos e larguras=None levanta DA-02."""
+        borda = self._borda()
+        elems = [self._elem("console", c) for c in ("A", "B", "C")]
+        self._espera_erro(
+            "P4: _montar_corpo_horizontal(3 elem, larguras=None) -> RenderizadorErro DA-02",
+            lambda: _montar_corpo_horizontal(elems, borda, 42),
+            "DA-02",
+        )
+
+    # ------------------------------------------------------------------ P5
+    def test_P5_helper_larguras_explicitas_validas_respeitadas(self):
+        """P5: _montar_corpo_horizontal com larguras explicitas validas renderiza corretamente."""
+        borda = self._borda()
+        elem_a = self._elem("console", "A")
+        elem_b = self._elem("dashboard", "B")
+        resultado = _montar_corpo_horizontal(
+            [elem_a, elem_b], borda, 42, larguras=[21, 21]
+        )
+        linhas = resultado.split("\n")
+        self._r(
+            "P5: larguras=[21,21] -> todas as linhas tem 42 chars",
+            all(len(ln) == 42 for ln in linhas),
+            "erros={0}".format([len(ln) for ln in linhas if len(ln) != 42]),
+        )
+        self._r(
+            "P5: larguras=[21,21] -> resultado nao vazio",
+            bool(resultado.strip()),
+        )
+
+    # ------------------------------------------------------------------ P6
+    def test_P6_helper_largura_insuficiente_rejeitada(self):
+        """P6: largura por area abaixo de 10 e rejeitada com RenderizadorErro."""
+        borda = self._borda()
+        elem_a = self._elem("console", "A")
+        elem_b = self._elem("console", "B")
+        self._espera_erro(
+            "P6: larguras=[5, 37] -> RenderizadorErro (w<10 em area 0)",
+            lambda: _montar_corpo_horizontal(
+                [elem_a, elem_b], borda, 42, larguras=[5, 37]
+            ),
+        )
+
+    # ------------------------------------------------------------------ P7
+    def test_P7_helper_sem_saida_parcial_antes_do_erro(self):
+        """P7: DA-02 impede qualquer saida parcial antes de lancar RenderizadorErro."""
+        borda = self._borda()
+        elems = [self._elem("console", c) for c in ("A", "B")]
+        saida_parcial = []
+        erro_capturado = None
+        try:
+            resultado = _montar_corpo_horizontal(elems, borda, 42)
+            saida_parcial.append(resultado)
+        except RenderizadorErro as exc:
+            erro_capturado = exc
+        self._r(
+            "P7: DA-02 lanca erro antes de produzir saida parcial",
+            erro_capturado is not None and len(saida_parcial) == 0,
+            "erro={0!r} saida_parcial={1}".format(
+                str(erro_capturado) if erro_capturado else None, saida_parcial
+            ),
+        )
+
+    # ------------------------------------------------------------------ P8
+    def test_P8_publico_horizontal_dist_fracao_valido(self):
+        """P8: caminho publico com dist=fracao no horizontal e valido."""
+        modelo = self._modelo_h(
+            [self._elem("console", "A"), self._elem("console", "B")],
+            corpo_dist={"modo": "fracao", "valores": [2, 1]},
+            largura=42,
+        )
+        try:
+            saida = renderizar_tela(modelo, largura=42)
+            linhas = [ln for ln in saida.split("\n") if ln]
+            self._r(
+                "P8: horizontal dist=fracao -> saida valida, largura=42",
+                all(len(ln) == 42 for ln in linhas),
+                "erros={0}".format([len(ln) for ln in linhas if len(ln) != 42]),
+            )
+        except RenderizadorErro as exc:
+            self._r("P8: horizontal dist=fracao -> saida valida", False, str(exc))
+
+    # ------------------------------------------------------------------ P9
+    def test_P9_publico_horizontal_dist_percentual_valido(self):
+        """P9: caminho publico com dist=percentual no horizontal e valido."""
+        modelo = self._modelo_h(
+            [self._elem("console", "A"), self._elem("dashboard", "B")],
+            corpo_dist={"modo": "percentual", "valores": [60, 40]},
+            largura=100,
+        )
+        try:
+            saida = renderizar_tela(modelo, largura=100)
+            linhas = [ln for ln in saida.split("\n") if ln]
+            self._r(
+                "P9: horizontal dist=percentual -> saida valida, largura=100",
+                all(len(ln) == 100 for ln in linhas),
+                "erros={0}".format([len(ln) for ln in linhas if len(ln) != 100]),
+            )
+        except RenderizadorErro as exc:
+            self._r("P9: horizontal dist=percentual -> saida valida", False, str(exc))
+
+    # ----------------------------------------------------------------- P10
+    def test_P10_vertical_com_distribuicao_nao_regrediu(self):
+        """P10: eixo vertical com distribuicao explicita nao regrediu (regressao)."""
+        modelo = ModeloTela(
+            id="teste_p10",
+            schema="tela.v1",
+            cabecalho={"titulo": "P10", "descricao": "regressao vertical"},
+            corpo=Corpo(
+                arranjo="vertical",
+                elementos=[
+                    _funcional("a", "console", "A"),
+                    _funcional("b", "dashboard", "B"),
+                ],
+                distribuicao={"modo": "igual"},
+            ),
+            barra_de_menus={"chips": [{"id": "e", "tecla": "Esc", "texto": "Sair"}]},
+            _raw={},
+        )
+        try:
+            saida = renderizar_tela(modelo, largura=42, altura=20)
+            self._r(
+                "P10: vertical dist=igual altura=20 -> 20 linhas",
+                saida.count("\n") == 20,
+                "count={0}".format(saida.count("\n")),
+            )
+        except RenderizadorErro as exc:
+            self._r("P10: vertical dist=igual nao regrediu", False, str(exc))
+
+    def run_all(self):
+        print("")
+        print("== TestHelperHorizontalH0033Patch2: helper e caminho publico ==")
+        self.test_P1_helper_zero_participantes_retorna_vazio()
+        self.test_P2_helper_um_participante_recebe_total_w()
+        self.test_P3_helper_dois_participantes_sem_larguras_rejeita()
+        self.test_P4_helper_tres_participantes_sem_larguras_rejeita()
+        self.test_P5_helper_larguras_explicitas_validas_respeitadas()
+        self.test_P6_helper_largura_insuficiente_rejeitada()
+        self.test_P7_helper_sem_saida_parcial_antes_do_erro()
+        self.test_P8_publico_horizontal_dist_fracao_valido()
+        self.test_P9_publico_horizontal_dist_percentual_valido()
+        self.test_P10_vertical_com_distribuicao_nao_regrediu()
+
+
+class TestCardinalidadeHorizontalH0033Patch3:
+    """Testes focais de cardinalidade em _montar_corpo_horizontal.
+
+    Verifica rejeicao de larguras explicitas com cardinalidade incoerente
+    (QA-H0033-POSPATCH2-IMP-LOW-001).
+
+    C1. N=0, L=0 -> comportamento coerente (retorna '');
+    C2. N=0, L=1 -> rejeicao;
+    C3. N=1, L=0 -> rejeicao;
+    C4. N=1, L=1 -> sucesso;
+    C5. N=1, L=2 -> rejeicao;
+    C6. N=2, L=1 -> rejeicao;
+    C7. N=2, L=2 -> sucesso;
+    C8. N=2, L=3 -> rejeicao;
+    C9. N=3, L=2 -> rejeicao;
+    C10. erro antes de renderizacao parcial (participantes instrumentados);
+    C11. mensagem informa N e L;
+    C12. larguras=None preserva DA-01 (N=1) e DA-02 (N>1).
+    """
+
+    def _r(self, nome, passou, detalhe=""):
+        _registrar(nome, passou, detalhe)
+
+    def _borda(self):
+        from tela.renderizador import _BORDAS
+        return _BORDAS["curva"]
+
+    def _elem(self, titulo="A"):
+        campos = {"titulo": titulo}
+        return ElementoCorpo(id=titulo.lower(), tipo="console", _campos_inertes=campos)
+
+    def _espera_card_erro(self, nome, fn):
+        try:
+            fn()
+            self._r(nome, False, "nenhuma excecao levantada")
+        except RenderizadorErro as exc:
+            ok = "cardinalidade horizontal incoerente" in str(exc)
+            self._r(nome, ok, str(exc)[:120])
+        except Exception as exc:
+            self._r(nome, False, "excecao inesperada: {0!r}".format(exc))
+
+    # ------------------------------------------------------------------ C1-C2
+    def test_C1_C2_zero_participantes(self):
+        """C1: N=0, L=0 -> ''; C2: N=0, L=1 -> rejeicao."""
+        borda = self._borda()
+        resultado = _montar_corpo_horizontal([], borda, 42, larguras=[])
+        self._r(
+            "C1: N=0, L=0 -> resultado vazio",
+            resultado == "",
+            "resultado={0!r}".format(resultado),
+        )
+        self._espera_card_erro(
+            "C2: N=0, L=1 -> RenderizadorErro cardinalidade",
+            lambda: _montar_corpo_horizontal([], borda, 42, larguras=[42]),
+        )
+
+    # ------------------------------------------------------------------ C3-C5
+    def test_C3_C4_C5_um_participante(self):
+        """C3: N=1, L=0 -> rejeicao; C4: N=1, L=1 -> sucesso; C5: N=1, L=2 -> rejeicao."""
+        borda = self._borda()
+        e = self._elem("A")
+        self._espera_card_erro(
+            "C3: N=1, L=0 -> RenderizadorErro cardinalidade",
+            lambda: _montar_corpo_horizontal([e], borda, 42, larguras=[]),
+        )
+        try:
+            resultado = _montar_corpo_horizontal([e], borda, 42, larguras=[42])
+            linhas = [ln for ln in resultado.split("\n") if ln]
+            ok = bool(linhas) and all(len(ln) == 42 for ln in linhas)
+            self._r(
+                "C4: N=1, L=1 -> sucesso e largura=42",
+                ok,
+                "larguras_obs={0}".format([len(ln) for ln in linhas]),
+            )
+        except RenderizadorErro as exc:
+            self._r("C4: N=1, L=1 -> sucesso", False, str(exc))
+        self._espera_card_erro(
+            "C5: N=1, L=2 -> RenderizadorErro cardinalidade",
+            lambda: _montar_corpo_horizontal([e], borda, 42, larguras=[21, 21]),
+        )
+
+    # ------------------------------------------------------------------ C6-C9
+    def test_C6_C7_C8_C9_dois_e_tres_participantes(self):
+        """C6-C9: cardinalidade incoerente rejeita; coerente aceita."""
+        borda = self._borda()
+        ea = self._elem("A")
+        eb = self._elem("B")
+        ec = self._elem("C")
+        self._espera_card_erro(
+            "C6: N=2, L=1 -> RenderizadorErro cardinalidade",
+            lambda: _montar_corpo_horizontal([ea, eb], borda, 42, larguras=[42]),
+        )
+        try:
+            resultado = _montar_corpo_horizontal(
+                [ea, eb], borda, 42, larguras=[28, 14]
+            )
+            linhas = [ln for ln in resultado.split("\n") if ln]
+            ok = bool(linhas) and all(len(ln) == 42 for ln in linhas)
+            self._r(
+                "C7: N=2, L=2 -> sucesso e largura total=42",
+                ok,
+                "larguras_obs={0}".format([len(ln) for ln in linhas]),
+            )
+        except RenderizadorErro as exc:
+            self._r("C7: N=2, L=2 -> sucesso", False, str(exc))
+        self._espera_card_erro(
+            "C8: N=2, L=3 -> RenderizadorErro cardinalidade",
+            lambda: _montar_corpo_horizontal(
+                [ea, eb], borda, 42, larguras=[14, 14, 14]
+            ),
+        )
+        self._espera_card_erro(
+            "C9: N=3, L=2 -> RenderizadorErro cardinalidade",
+            lambda: _montar_corpo_horizontal(
+                [ea, eb, ec], borda, 42, larguras=[21, 21]
+            ),
+        )
+
+    # ----------------------------------------------------------------- C10
+    def test_C10_erro_antes_de_renderizacao(self):
+        """C10: erro de cardinalidade ocorre antes de qualquer renderizacao.
+
+        Usa elementos instrumentados: o acesso a .tipo so ocorre dentro do
+        loop de renderizacao. Se o erro for levantado antes do loop, .tipo
+        nunca e acessado e o rastreador permanece vazio.
+        """
+        tracker = []
+
+        class _ElemInstrumentado:
+            id = "instrumento"
+            _campos_inertes = {"titulo": "T"}
+
+            @property
+            def tipo(self):
+                tracker.append("tipo_acessado")
+                return "console"
+
+        borda = self._borda()
+        e1 = _ElemInstrumentado()
+        e2 = _ElemInstrumentado()
+        erro_levantado = False
+        try:
+            _montar_corpo_horizontal([e1, e2], borda, 42, larguras=[42])
+        except RenderizadorErro:
+            erro_levantado = True
+        self._r(
+            "C10: erro de cardinalidade e levantado antes da renderizacao",
+            erro_levantado and len(tracker) == 0,
+            "erro={0} tracker={1}".format(erro_levantado, tracker),
+        )
+
+    # ----------------------------------------------------------------- C11
+    def test_C11_mensagem_informa_cardinalidades(self):
+        """C11: mensagem de erro informa N e L observados."""
+        borda = self._borda()
+        ea = self._elem("A")
+        eb = self._elem("B")
+        msg = None
+        try:
+            _montar_corpo_horizontal([ea, eb], borda, 42, larguras=[42])
+        except RenderizadorErro as exc:
+            msg = str(exc)
+        self._r(
+            "C11: mensagem contem 'cardinalidade horizontal incoerente'",
+            msg is not None and "cardinalidade horizontal incoerente" in msg,
+            "msg={0!r}".format(msg),
+        )
+        self._r(
+            "C11: mensagem informa N=2 e L=1",
+            msg is not None and "2 participante" in msg and "1 largura" in msg,
+            "msg={0!r}".format(msg),
+        )
+
+    # ----------------------------------------------------------------- C12
+    def test_C12_larguras_none_preserva_DA01_e_DA02(self):
+        """C12: larguras=None preserva DA-01 (N=1) e DA-02 (N>1)."""
+        borda = self._borda()
+        ea = self._elem("A")
+        eb = self._elem("B")
+        try:
+            resultado = _montar_corpo_horizontal([ea], borda, 42)
+            linhas = [ln for ln in resultado.split("\n") if ln]
+            ok = bool(linhas) and all(len(ln) == 42 for ln in linhas)
+            self._r(
+                "C12a: N=1, larguras=None -> DA-01 (largura integral 42)",
+                ok,
+                "larguras_obs={0}".format([len(ln) for ln in linhas]),
+            )
+        except RenderizadorErro as exc:
+            self._r("C12a: DA-01", False, str(exc))
+        try:
+            _montar_corpo_horizontal([ea, eb], borda, 42)
+            self._r("C12b: N=2, larguras=None -> DA-02", False, "sem excecao")
+        except RenderizadorErro as exc:
+            self._r(
+                "C12b: N=2, larguras=None -> DA-02",
+                "DA-02" in str(exc),
+                str(exc)[:120],
+            )
+
+    def run_all(self):
+        print("")
+        print("== TestCardinalidadeHorizontalH0033Patch3: cardinalidade larguras explicitas ==")
+        self.test_C1_C2_zero_participantes()
+        self.test_C3_C4_C5_um_participante()
+        self.test_C6_C7_C8_C9_dois_e_tres_participantes()
+        self.test_C10_erro_antes_de_renderizacao()
+        self.test_C11_mensagem_informa_cardinalidades()
+        self.test_C12_larguras_none_preserva_DA01_e_DA02()
+
+
+class TestCardinalidadeHorizontalH0033Patch4:
+    """Testes focais de cardinalidade em _renderizar_container_horizontal.
+
+    Atinge diretamente o helper horizontal recursivo, equivalente ao
+    _montar_corpo_horizontal ja corrigido no terceiro patch. Verifica rejeicao
+    de larguras explicitas com cardinalidade incoerente
+    (QA-H0033-POSPATCH3-IMP-LOW-001): lista curta nao produz IndexError e
+    lista longa nao e truncada silenciosamente.
+
+    H1. N=0, L=0 -> comportamento coerente (retorna '');
+    H2. N=0, L=1 -> rejeicao;
+    H3. N=1, L=0 -> rejeicao;
+    H4. N=1, L=1 -> sucesso;
+    H5. N=1, L=2 -> rejeicao;
+    H6. N=2, L=1 -> rejeicao (sem IndexError);
+    H7. N=2, L=2 -> sucesso;
+    H8. N=2, L=3 -> rejeicao (sem truncamento);
+    H9. N=3, L=2 -> rejeicao;
+    H10. N=3, L=3 -> sucesso;
+    H11. lista longa (N=2, L=3) rejeitada com RenderizadorErro, sem truncamento
+         nem saida parcial (tracker externo vazio); rejeita sucesso, IndexError
+         e excecao generica;
+    H12. lista curta (N=2, L=1) rejeitada com RenderizadorErro, sem IndexError;
+    H13. erro ocorre antes de qualquer renderizacao (participantes instrumentados);
+    H14. mensagem informa N e L;
+    H15. larguras=None preserva DA-01 (N=1) e DA-02 (N>1);
+    H16. distribuicao explicita coerente permanece valida.
+    """
+
+    def _r(self, nome, passou, detalhe=""):
+        _registrar(nome, passou, detalhe)
+
+    def _borda(self):
+        from tela.renderizador import _BORDAS
+        return _BORDAS["curva"]
+
+    def _elem(self, titulo="A"):
+        campos = {"titulo": titulo}
+        return ElementoCorpo(id=titulo.lower(), tipo="console", _campos_inertes=campos)
+
+    def _espera_card_erro(self, nome, fn):
+        """Exige RenderizadorErro de cardinalidade; rejeita IndexError/sucesso/outras."""
+        try:
+            fn()
+            self._r(nome, False, "nenhuma excecao levantada (sucesso/truncamento)")
+        except RenderizadorErro as exc:
+            ok = "cardinalidade horizontal incoerente" in str(exc)
+            self._r(nome, ok, str(exc)[:120])
+        except IndexError as exc:
+            self._r(nome, False, "IndexError (lista curta sem guarda): {0!r}".format(exc))
+        except Exception as exc:
+            self._r(nome, False, "excecao inesperada: {0!r}".format(exc))
+
+    # ------------------------------------------------------------------ H1-H2
+    def test_H1_H2_zero_participantes(self):
+        """H1: N=0, L=0 -> ''; H2: N=0, L=1 -> rejeicao."""
+        borda = self._borda()
+        resultado = _renderizar_container_horizontal(
+            None, [], borda, 42, None, larguras=[]
+        )
+        self._r(
+            "H1: N=0, L=0 -> resultado vazio",
+            resultado == "",
+            "resultado={0!r}".format(resultado),
+        )
+        self._espera_card_erro(
+            "H2: N=0, L=1 -> RenderizadorErro cardinalidade",
+            lambda: _renderizar_container_horizontal(
+                None, [], borda, 42, None, larguras=[42]
+            ),
+        )
+
+    # ------------------------------------------------------------------ H3-H5
+    def test_H3_H4_H5_um_participante(self):
+        """H3: N=1, L=0 -> rejeicao; H4: N=1, L=1 -> sucesso; H5: N=1, L=2 -> rejeicao."""
+        borda = self._borda()
+        e = self._elem("A")
+        self._espera_card_erro(
+            "H3: N=1, L=0 -> RenderizadorErro cardinalidade",
+            lambda: _renderizar_container_horizontal(
+                None, [e], borda, 42, None, larguras=[]
+            ),
+        )
+        try:
+            resultado = _renderizar_container_horizontal(
+                None, [e], borda, 42, None, larguras=[42]
+            )
+            linhas = [ln for ln in resultado.split("\n") if ln]
+            # Esperado independente: participante unico com largura integral.
+            ok = bool(linhas) and all(len(ln) == 42 for ln in linhas)
+            self._r(
+                "H4: N=1, L=1 -> sucesso e largura=42",
+                ok,
+                "larguras_obs={0}".format([len(ln) for ln in linhas]),
+            )
+        except RenderizadorErro as exc:
+            self._r("H4: N=1, L=1 -> sucesso", False, str(exc))
+        self._espera_card_erro(
+            "H5: N=1, L=2 -> RenderizadorErro cardinalidade",
+            lambda: _renderizar_container_horizontal(
+                None, [e], borda, 42, None, larguras=[21, 21]
+            ),
+        )
+
+    # -------------------------------------------------------- H6-H10
+    def test_H6_H7_H8_H9_H10_dois_e_tres_participantes(self):
+        """H6-H10: cardinalidade incoerente rejeita; coerente aceita."""
+        borda = self._borda()
+        ea = self._elem("A")
+        eb = self._elem("B")
+        ec = self._elem("C")
+        # H6: N=2, L=1 -> rejeicao (prova que lista curta nao gera IndexError).
+        self._espera_card_erro(
+            "H6: N=2, L=1 -> RenderizadorErro cardinalidade",
+            lambda: _renderizar_container_horizontal(
+                None, [ea, eb], borda, 42, None, larguras=[42]
+            ),
+        )
+        try:
+            resultado = _renderizar_container_horizontal(
+                None, [ea, eb], borda, 42, None, larguras=[28, 14]
+            )
+            linhas = [ln for ln in resultado.split("\n") if ln]
+            # Esperado independente: 28 + 14 = 42 em cada linha.
+            ok = bool(linhas) and all(len(ln) == 42 for ln in linhas)
+            self._r(
+                "H7: N=2, L=2 -> sucesso e largura total=42",
+                ok,
+                "larguras_obs={0}".format([len(ln) for ln in linhas]),
+            )
+        except RenderizadorErro as exc:
+            self._r("H7: N=2, L=2 -> sucesso", False, str(exc))
+        # H8: N=2, L=3 -> rejeicao (prova que lista longa nao e truncada).
+        self._espera_card_erro(
+            "H8: N=2, L=3 -> RenderizadorErro cardinalidade",
+            lambda: _renderizar_container_horizontal(
+                None, [ea, eb], borda, 42, None, larguras=[14, 14, 14]
+            ),
+        )
+        self._espera_card_erro(
+            "H9: N=3, L=2 -> RenderizadorErro cardinalidade",
+            lambda: _renderizar_container_horizontal(
+                None, [ea, eb, ec], borda, 42, None, larguras=[21, 21]
+            ),
+        )
+        try:
+            resultado = _renderizar_container_horizontal(
+                None, [ea, eb, ec], borda, 42, None, larguras=[14, 14, 14]
+            )
+            linhas = [ln for ln in resultado.split("\n") if ln]
+            # Esperado independente: 14 + 14 + 14 = 42 em cada linha.
+            ok = bool(linhas) and all(len(ln) == 42 for ln in linhas)
+            self._r(
+                "H10: N=3, L=3 -> sucesso e largura total=42",
+                ok,
+                "larguras_obs={0}".format([len(ln) for ln in linhas]),
+            )
+        except RenderizadorErro as exc:
+            self._r("H10: N=3, L=3 -> sucesso", False, str(exc))
+
+    # -------------------------------------------------------- H11-H12
+    def test_H11_H12_sem_IndexError_e_sem_truncamento(self):
+        """H11: lista longa rejeitada com RenderizadorErro (sem truncamento, sem saida parcial).
+
+        Cenario material: 2 participantes (N=2) e 3 larguras explicitas (L=3),
+        atingindo diretamente _renderizar_container_horizontal.
+
+        Sem a guarda de cardinalidade, o loop de renderizacao iteraria apenas os
+        dois participantes existentes (enumerate(elementos)) e descartaria
+        silenciosamente a terceira largura excedente, produzindo linhas de
+        largura 28. H11 deve exigir RenderizadorErro, rejeitando sucesso,
+        IndexError e qualquer excecao generica.
+
+        A prova de ausencia de saida parcial usa participantes instrumentados
+        cujo acesso a .tipo so ocorre dentro do loop de renderizacao
+        (for i, elemento in enumerate(elementos)). Se o erro de cardinalidade
+        for levantado antes do loop, .tipo nunca e acessado e o tracker
+        permanece vazio — provando que nenhum participante foi renderizado e
+        nenhuma funcao descendente foi alcancada. A prova nao depende apenas da
+        ausencia de uma largura/texto especifico na saida.
+
+        H12: lista curta (N=2, L=1) rejeitada com RenderizadorErro, sem IndexError.
+        """
+        borda = self._borda()
+
+        # Participantes instrumentados: tracker externo a funcao sob teste.
+        # O acesso a .tipo so acontece dentro do loop de renderizacao; se a
+        # guarda de cardinalidade rejeitar antes do loop, tracker permanece [].
+        tracker = []
+
+        class _ElemInstrumentado:
+            def __init__(self, tid):
+                self.id = tid
+                self._campos_inertes = {"titulo": tid}
+
+            @property
+            def tipo(self):
+                tracker.append("tipo_acessado:{0}".format(self.id))
+                return "console"
+
+        e1 = _ElemInstrumentado("A")
+        e2 = _ElemInstrumentado("B")
+
+        classe_erro = None
+        mensagem = None
+        sucesso = False
+        try:
+            _renderizar_container_horizontal(
+                None, [e1, e2], borda, 42, None, larguras=[14, 14, 14]
+            )
+            sucesso = True
+        except IndexError as exc:
+            classe_erro = "IndexError"
+            mensagem = str(exc)
+        except RenderizadorErro as exc:
+            classe_erro = "RenderizadorErro"
+            mensagem = str(exc)
+        except Exception as exc:
+            # Excecao generica reprova: so RenderizadorErro e aceito.
+            classe_erro = type(exc).__name__
+            mensagem = str(exc)
+
+        # (1) Exige RenderizadorErro; reprova sucesso, IndexError e excecao generica.
+        self._r(
+            "H11: N=2, L=3 levanta RenderizadorErro (rejeita sucesso/IndexError/generico)",
+            classe_erro == "RenderizadorErro" and not sucesso,
+            "sucesso={0} classe_erro={1} msg={2!r}".format(sucesso, classe_erro, mensagem),
+        )
+        # (2) Mensagem informa contexto horizontal, N=2 e L=3.
+        self._r(
+            "H11: mensagem informa horizontal, 2 participantes e 3 larguras",
+            classe_erro == "RenderizadorErro"
+            and mensagem is not None
+            and "horizontal" in mensagem
+            and "2 participante" in mensagem
+            and "3 largura" in mensagem,
+            "msg={0!r}".format(mensagem),
+        )
+        # (3) A largura excedente nao e ignorada: erro capturado, sem saida.
+        #     A prova e material: o tracker permanece vazio, o que detectaria o
+        #     caminho de renderizacao (e consequente truncamento) caso a guarda
+        #     estivesse ausente. Nao basta verificar ausencia de largura 28.
+        self._r(
+            "H11: ausencia de saida parcial (tracker vazio, nenhum participante renderizado)",
+            classe_erro == "RenderizadorErro" and len(tracker) == 0,
+            "classe_erro={0} tracker={1}".format(classe_erro, tracker),
+        )
+
+        # H12: sem a guarda, N=2/L=1 levantaria IndexError ao indexar larguras[1].
+        ea = self._elem("A")
+        eb = self._elem("B")
+        h12_index_error = False
+        h12_card_erro = False
+        try:
+            _renderizar_container_horizontal(
+                None, [ea, eb], borda, 42, None, larguras=[42]
+            )
+        except IndexError:
+            h12_index_error = True
+        except RenderizadorErro as exc:
+            h12_card_erro = "cardinalidade horizontal incoerente" in str(exc)
+        except Exception:
+            pass
+        self._r(
+            "H12: N=2, L=1 levanta RenderizadorErro (nao IndexError)",
+            h12_card_erro and not h12_index_error,
+            "card_erro={0} index_error={1}".format(h12_card_erro, h12_index_error),
+        )
+
+    # -------------------------------------------------------- H13
+    def test_H13_erro_antes_de_renderizacao(self):
+        """H13: erro de cardinalidade ocorre antes de qualquer renderizacao.
+
+        Usa elementos instrumentados: o acesso a .tipo so ocorre dentro do
+        loop de renderizacao de _renderizar_container_horizontal. Se o erro
+        for levantado antes do loop, .tipo nunca e acessado e o rastreador
+        permanece vazio — provando ausencia de saida parcial e que nenhuma
+        funcao descendente (_caixa_de_elemento/_renderizar_container) foi
+        alcancada.
+        """
+        tracker = []
+
+        class _ElemInstrumentado:
+            id = "instrumento"
+            _campos_inertes = {"titulo": "T"}
+
+            @property
+            def tipo(self):
+                tracker.append("tipo_acessado")
+                return "console"
+
+        borda = self._borda()
+        e1 = _ElemInstrumentado()
+        e2 = _ElemInstrumentado()
+        erro_card = False
+        try:
+            _renderizar_container_horizontal(
+                None, [e1, e2], borda, 42, None, larguras=[42]
+            )
+        except RenderizadorErro as exc:
+            erro_card = "cardinalidade horizontal incoerente" in str(exc)
+        except Exception:
+            pass
+        self._r(
+            "H13: erro de cardinalidade antes da renderizacao (tracker vazio)",
+            erro_card and len(tracker) == 0,
+            "erro_card={0} tracker={1}".format(erro_card, tracker),
+        )
+
+    # -------------------------------------------------------- H14
+    def test_H14_mensagem_informa_cardinalidades(self):
+        """H14: mensagem de erro informa contexto horizontal, N e L observados."""
+        borda = self._borda()
+        ea = self._elem("A")
+        eb = self._elem("B")
+        msg = None
+        try:
+            _renderizar_container_horizontal(
+                None, [ea, eb], borda, 42, None, larguras=[42]
+            )
+        except RenderizadorErro as exc:
+            msg = str(exc)
+        self._r(
+            "H14: mensagem contem 'cardinalidade horizontal incoerente'",
+            msg is not None and "cardinalidade horizontal incoerente" in msg,
+            "msg={0!r}".format(msg),
+        )
+        self._r(
+            "H14: mensagem informa N=2 e L=1",
+            msg is not None and "2 participante" in msg and "1 largura" in msg,
+            "msg={0!r}".format(msg),
+        )
+
+    # -------------------------------------------------------- H15-H16
+    def test_H15_H16_regressao_larguras_none_e_dist(self):
+        """H15: larguras=None preserva DA-01/DA-02; H16: distribuicao explicita valida."""
+        borda = self._borda()
+        ea = self._elem("A")
+        eb = self._elem("B")
+        try:
+            resultado = _renderizar_container_horizontal(
+                None, [ea], borda, 42, None
+            )
+            linhas = [ln for ln in resultado.split("\n") if ln]
+            ok = bool(linhas) and all(len(ln) == 42 for ln in linhas)
+            self._r(
+                "H15a: N=1, larguras=None -> DA-01 (largura integral 42)",
+                ok,
+                "larguras_obs={0}".format([len(ln) for ln in linhas]),
+            )
+        except RenderizadorErro as exc:
+            self._r("H15a: DA-01", False, str(exc))
+        try:
+            _renderizar_container_horizontal(None, [ea, eb], borda, 42, None)
+            self._r("H15b: N=2, larguras=None -> DA-02", False, "sem excecao")
+        except RenderizadorErro as exc:
+            self._r(
+                "H15b: N=2, larguras=None -> DA-02",
+                "DA-02" in str(exc),
+                str(exc)[:120],
+            )
+        # H16: distribuicao explicita coerente continua valida (caminho publico).
+        dist = {"modo": "igual"}
+        try:
+            resultado = _renderizar_container_horizontal(
+                dist, [ea, eb], borda, 42, None
+            )
+            linhas = [ln for ln in resultado.split("\n") if ln]
+            ok = bool(linhas) and all(len(ln) == 42 for ln in linhas)
+            self._r(
+                "H16: N=2, distribuicao=igual -> sucesso sem regressao",
+                ok,
+                "larguras_obs={0}".format([len(ln) for ln in linhas]),
+            )
+        except RenderizadorErro as exc:
+            self._r("H16: distribuicao=igual", False, str(exc))
+
+    def run_all(self):
+        print("")
+        print("== TestCardinalidadeHorizontalH0033Patch4: cardinalidade larguras explicitas em _renderizar_container_horizontal ==")
+        self.test_H1_H2_zero_participantes()
+        self.test_H3_H4_H5_um_participante()
+        self.test_H6_H7_H8_H9_H10_dois_e_tres_participantes()
+        self.test_H11_H12_sem_IndexError_e_sem_truncamento()
+        self.test_H13_erro_antes_de_renderizacao()
+        self.test_H14_mensagem_informa_cardinalidades()
+        self.test_H15_H16_regressao_larguras_none_e_dist()
+
+
 def main():
     print("Diagnostico H-0010A - renderer declarativo (curva/reta)")
     print("Base padrao: {0}".format(_BASE_PADRAO))
@@ -8477,6 +9786,10 @@ def main():
     TestTelasPermanentesH0029().run_all()
     TestCatalogoH0030().run_all()
     TestDistribuicaoResponsivaH0034().run_all()
+    TestOcupacaoIntegralCorpoH0033().run_all()
+    TestHelperHorizontalH0033Patch2().run_all()
+    TestCardinalidadeHorizontalH0033Patch3().run_all()
+    TestCardinalidadeHorizontalH0033Patch4().run_all()
 
     print("")
     print("== Resumo ==")

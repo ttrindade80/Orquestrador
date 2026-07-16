@@ -1305,10 +1305,11 @@ Regras normativas derivadas da ADR-0018:
   verticalmente; por si só **não** reparte proporcionalmente a altura nem implica
   modo `igual`. `arranjo` permanece válido sem `corpo.distribuicao`.
 - **Ausência de `corpo.distribuicao` ≠ modo `igual`** — quando `corpo.distribuicao`
-  não é declarada, cada filho usa sua **altura natural** e a sobra permanece como
-  preenchimento externo do corpo (`ocupacao_vertical_terminal`, ADR-0013); não há
-  repartição proporcional automática. A ausência **não** é fallback do modo
-  `igual`.
+  não é declarada, cada filho usa sua **altura natural** e a ocupação integral da
+  área deve ser garantida pelos elementos visuais conforme DA-01 a DA-04 (ADR-0024):
+  com um único descendente visual, ele ocupa toda a área (DA-01); com múltiplos
+  elementos no mesmo eixo, a composição é inválida (DA-02). Não há repartição
+  proporcional automática. A ausência **não** é fallback do modo `igual`.
 - **Modo `igual` é explícito** — `igual` divide a área igualmente entre filhos
   diretos apenas quando declarado; não é o significado implícito da ausência.
 - **Distribuição explícita aloca `área alocada`** — com `corpo.distribuicao`
@@ -1325,11 +1326,45 @@ Regras normativas derivadas da ADR-0018:
   ADR-0018; um vetor válido não se torna inválido porque o conteúdo não cabe em
   altura pequena.
 
-A ADR-0013 e a ADR-0017 permanecem preservadas: a altura útil repartida pela
-distribuição é obtida pelo mecanismo da ADR-0017, e o preenchimento externo da
-ADR-0013 é o comportamento aplicável **na ausência** de distribuição. A
-especificação normativa completa está na ADR-0018 e em
+A ADR-0013 (cláusulas 1–3, 5–10) e a ADR-0017 permanecem preservadas: a altura
+útil repartida pela distribuição é obtida pelo mecanismo da ADR-0017; a ocupação
+integral da área na ausência de distribuição deve ser garantida por elementos
+visuais conforme DA-01 a DA-04 da ADR-0024 — não por preenchimento externo vazio.
+A especificação normativa completa está na ADR-0018, na ADR-0024 e em
 `contrato_composicao_corpo.md` seções 4.8, 4.9, 5.7 a 5.9 e 10.
+
+---
+
+### 14.2 Glossário da proibição de preenchimento vazio externo do corpo (ADR-0024)
+
+A ADR-0024 (2026-07-15) proíbe o preenchimento externo vazio do corpo e introduz
+os termos normativos abaixo. Esta seção é a referência terminológica canônica;
+a especificação normativa completa está na ADR-0024 e em
+`contrato_composicao_corpo.md` seção 5.7.
+
+| Termo | Definição normativa | Não confundir com |
+|---|---|---|
+| **elemento visual** | Nó de corpo do tipo `console`, `dashboard` ou `lancador` — taxonomia fechada; única categoria que pode concretizar ocupação visual da área do corpo (ADR-0024) | `grupo` (estrutural, não visual) |
+| **grupo** | Nó estrutural de agrupamento; não é elemento visual; não pode justificar área vazia; toda área atribuída a ele deve ser repassada aos descendentes visuais (DA-03) | elemento visual; não satisfaz ocupação sozinho |
+| **espaço externo proibido** | Linhas, colunas ou células fora das molduras dos elementos visuais, pertencentes apenas ao corpo ou a container estrutural; inserção pelo renderer é proibida pela ADR-0024 | espaço interno (preenchimento dentro da moldura de um elemento visual) |
+| **espaço interno** | Linhas em branco **dentro** da moldura de um elemento visual, resultado de distribuição explícita com cota maior que o conteúdo — permitido e distinto do espaço externo | espaço externo proibido |
+| **cardinalidade unitária** | Situação em que um corpo ou container tem exatamente um descendente visual; esse elemento ocupa integralmente toda a área disponível mesmo sem `distribuicao` declarada — não equivale a `distribuicao: igual` (DA-01) | modo `igual`; distribuição implícita |
+| **composição inválida** | Configuração em que dois ou mais elementos disputam o mesmo eixo sem `distribuicao` declarada, ou em que o invariante de ocupação visual integral não pode ser satisfeito; deve ser rejeitada explicitamente, sem fallback silencioso (DA-02, DA-04) | ausência de `distribuicao` com descendente único (DA-01, que é válida) |
+
+Regras normativas derivadas da ADR-0024:
+
+- **Elemento visual é o único que justifica área** — `console`, `dashboard` e
+  `lancador` são os únicos tipos de corpo que podem concretizar a ocupação visual
+  da área; `grupo` não satisfaz esse critério.
+- **Toda área do corpo deve pertencer a elemento visual** — nenhuma linha, coluna
+  ou célula entre `cabecalho` e `barra_de_menus` pode ficar atribuída apenas ao
+  corpo ou a container estrutural; o renderer não completa com linhas externas.
+- **DA-01 não é distribuição implícita** — um único descendente visual ocupa toda
+  a área por cardinalidade unitária, não porque o renderer aplicou `igual`
+  silenciosamente.
+- **DA-04 é rejeição, não fallback** — quando o invariante não pode ser satisfeito,
+  a composição é rejeitada com erro identificável; sem distribuição implícita, sem
+  escolha silenciosa, sem alteração automática do JSON.
 
 ---
 
