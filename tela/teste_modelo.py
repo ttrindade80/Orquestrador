@@ -1018,6 +1018,220 @@ class TestModeloCatalogoH0030:
         self.test_preservacao_validacoes_vigentes()
 
 
+def teste_parametros_tipo_h0034():
+    """Cobertura dos 10 pontos de H-0034 ALTO-002: parametros_tipo em ElementoCorpo."""
+    print("")
+    print("== H-0034 ALTO-002: parametros_tipo em ElementoCorpo (modelo) ==")
+
+    params_demo = {
+        "vaos": {
+            "chip_texto": {"minimo": 1, "maximo": 3},
+            "entre_itens_colunas_margem": {"minimo": 2, "maximo": 5},
+        },
+        "vertical": {"margem_borda_superior": 1, "margem_borda_inferior": 1},
+        "verificacao": {"texto": {"max_caracteres": 15}},
+    }
+
+    # Ponto 1: ElementoCorpo aceita e preserva parametros_tipo
+    el = ElementoCorpo(
+        id="l1", tipo="lancador",
+        _campos_inertes={"titulo": "Nav", "itens": []},
+        parametros_tipo=params_demo,
+    )
+    _registrar(
+        "H-0034: ElementoCorpo aceita parametros_tipo",
+        el.parametros_tipo is params_demo,
+    )
+
+    # Ponto 2: separação: _campos_inertes não contém parametros_tipo
+    _registrar(
+        "H-0034: _campos_inertes nao contem parametros_tipo",
+        "parametros_tipo" not in el._campos_inertes,
+    )
+
+    # Ponto 3: layout.alinhamento permanece em _campos_inertes
+    el_alin = ElementoCorpo(
+        id="l2", tipo="lancador",
+        _campos_inertes={"titulo": "Nav", "layout": {"alinhamento": "centro"}, "itens": []},
+        parametros_tipo=params_demo,
+    )
+    _registrar(
+        "H-0034: layout.alinhamento preservado em _campos_inertes com parametros_tipo definido",
+        el_alin._campos_inertes.get("layout", {}).get("alinhamento") == "centro"
+        and el_alin.parametros_tipo is params_demo,
+    )
+
+    # Ponto 4: propagação direta (lancador no nível raiz do corpo)
+    raw_direto = {
+        "schema": "tela.v1", "id": "h34_direto",
+        "cabecalho": {"titulo": "T", "descricao": "d"},
+        "corpo": {"elementos": [{"id": "l1", "tipo": "lancador", "itens": []}]},
+        "barra_de_menus": {"chips": []},
+        "_raw": {},
+        "_config_lancador": params_demo,
+    }
+    try:
+        m_direto = construir_modelo(raw_direto)
+        lanc = m_direto.corpo.elementos[0]
+        _registrar(
+            "H-0034: propagacao direta: lancador no corpo raiz recebe parametros_tipo",
+            lanc.parametros_tipo == params_demo,
+        )
+    except Exception as exc:
+        _registrar("H-0034: propagacao direta", False, str(exc))
+
+    # Ponto 5: propagação recursiva (lancador dentro de grupo)
+    raw_rec = {
+        "schema": "tela.v1", "id": "h34_rec",
+        "cabecalho": {"titulo": "T", "descricao": "d"},
+        "corpo": {"elementos": [
+            {"id": "g1", "tipo": "grupo", "arranjo": "vertical",
+             "elementos": [{"id": "l1", "tipo": "lancador", "itens": []}]},
+        ]},
+        "barra_de_menus": {"chips": []},
+        "_raw": {},
+        "_config_lancador": params_demo,
+    }
+    try:
+        m_rec = construir_modelo(raw_rec)
+        g = m_rec.corpo.elementos[0]
+        lanc_rec = g.elementos[0] if g.elementos else None
+        _registrar(
+            "H-0034: propagacao recursiva: lancador dentro de grupo recebe parametros_tipo",
+            lanc_rec is not None and lanc_rec.parametros_tipo == params_demo,
+        )
+    except Exception as exc:
+        _registrar("H-0034: propagacao recursiva", False, str(exc))
+
+    # Ponto 6: ausência em outros tipos (console, dashboard)
+    raw_misto = {
+        "schema": "tela.v1", "id": "h34_misto",
+        "cabecalho": {"titulo": "T", "descricao": "d"},
+        "corpo": {"elementos": [
+            {"id": "c1", "tipo": "console"},
+            {"id": "d1", "tipo": "dashboard"},
+            {"id": "l1", "tipo": "lancador", "itens": []},
+        ]},
+        "barra_de_menus": {"chips": []},
+        "_raw": {},
+        "_config_lancador": params_demo,
+    }
+    try:
+        m_misto = construir_modelo(raw_misto)
+        console = m_misto.corpo.elementos[0]
+        dash = m_misto.corpo.elementos[1]
+        lanc_m = m_misto.corpo.elementos[2]
+        _registrar(
+            "H-0034: console nao recebe parametros_tipo (fica None)",
+            console.parametros_tipo is None,
+        )
+        _registrar(
+            "H-0034: dashboard nao recebe parametros_tipo (fica None)",
+            dash.parametros_tipo is None,
+        )
+        _registrar(
+            "H-0034: lancador no misto recebe parametros_tipo",
+            lanc_m.parametros_tipo == params_demo,
+        )
+    except Exception as exc:
+        _registrar("H-0034: ausencia em outros tipos", False, str(exc))
+
+    # Ponto 7: pipeline real — carregar_tela + construir_modelo
+    try:
+        tela_raw = carregar_tela(_BASE_PADRAO, "demo", _RAIZ_TELAS_DEMO)
+        modelo_real = construir_modelo(tela_raw)
+        lancadores = modelo_real.elementos_por_tipo("lancador")
+        _registrar(
+            "H-0034: pipeline real: lancador da demo tem parametros_tipo nao-None",
+            len(lancadores) > 0 and all(
+                l.parametros_tipo is not None for l in lancadores
+            ),
+        )
+        if lancadores:
+            pt = lancadores[0].parametros_tipo
+            _registrar(
+                "H-0034: pipeline real: chip_texto.minimo == 1",
+                pt.get("vaos", {}).get("chip_texto", {}).get("minimo") == 1,
+            )
+            _registrar(
+                "H-0034: pipeline real: verificacao.texto.max_caracteres == 15",
+                pt.get("verificacao", {}).get("texto", {}).get("max_caracteres") == 15,
+            )
+    except Exception as exc:
+        _registrar("H-0034: pipeline real", False, str(exc))
+
+    # Ponto 8: em memória com valores diferentes
+    params_alt = {
+        "vaos": {
+            "chip_texto": {"minimo": 2, "maximo": 4},
+            "entre_itens_colunas_margem": {"minimo": 3, "maximo": 6},
+        },
+        "vertical": {"margem_borda_superior": 2, "margem_borda_inferior": 2},
+        "verificacao": {"texto": {"max_caracteres": 3}},
+    }
+    raw_alt = {
+        "schema": "tela.v1", "id": "h34_alt",
+        "cabecalho": {"titulo": "T", "descricao": "d"},
+        "corpo": {"elementos": [{"id": "l1", "tipo": "lancador", "itens": []}]},
+        "barra_de_menus": {"chips": []},
+        "_raw": {},
+        "_config_lancador": params_alt,
+    }
+    try:
+        m_alt = construir_modelo(raw_alt)
+        pt_alt = m_alt.corpo.elementos[0].parametros_tipo
+        _registrar(
+            "H-0034: parametros_tipo em memoria com valores alternativos e propagado corretamente",
+            pt_alt == params_alt
+            and pt_alt.get("vaos", {}).get("chip_texto", {}).get("minimo") == 2,
+        )
+        _registrar(
+            "H-0034: verificacao.texto.max_caracteres alternativo (3) propagado corretamente",
+            pt_alt.get("verificacao", {}).get("texto", {}).get("max_caracteres") == 3,
+        )
+    except Exception as exc:
+        _registrar("H-0034: valores alternativos", False, str(exc))
+
+    # Ponto 9: identidade (parametros_tipo e o mesmo dict de _config_lancador)
+    raw_id = {
+        "schema": "tela.v1", "id": "h34_id",
+        "cabecalho": {"titulo": "T", "descricao": "d"},
+        "corpo": {"elementos": [{"id": "l1", "tipo": "lancador", "itens": []}]},
+        "barra_de_menus": {"chips": []},
+        "_raw": {},
+        "_config_lancador": params_demo,
+    }
+    try:
+        m_id = construir_modelo(raw_id)
+        _registrar(
+            "H-0034: parametros_tipo e o mesmo objeto que _config_lancador (sem copia desnecessaria)",
+            m_id.corpo.elementos[0].parametros_tipo is params_demo,
+        )
+    except Exception as exc:
+        _registrar("H-0034: identidade de objeto", False, str(exc))
+
+    # Ponto 10: retrocompatibilidade — raw sem _config_lancador nao levanta erro
+    raw_sem = {
+        "schema": "tela.v1", "id": "h34_sem",
+        "cabecalho": {"titulo": "T", "descricao": "d"},
+        "corpo": {"elementos": [{"id": "l1", "tipo": "lancador", "itens": []}]},
+        "barra_de_menus": {"chips": []},
+        "_raw": {},
+        # sem _config_lancador
+    }
+    try:
+        m_sem = construir_modelo(raw_sem)
+        _registrar(
+            "H-0034: construir_modelo sem _config_lancador nao levanta erro (parametros_tipo=None)",
+            m_sem.corpo.elementos[0].parametros_tipo is None,
+        )
+    except Exception as exc:
+        _registrar(
+            "H-0034: construir_modelo sem _config_lancador nao levanta erro (parametros_tipo=None)",
+            False, str(exc),
+        )
+
+
 def main():
     print("Diagnostico H-0002 - modelo interno normalizado de tela")
     print("Base padrao: {0}".format(_BASE_PADRAO))
@@ -1029,6 +1243,7 @@ def main():
     teste_hierarquia_grupos_adr0019_modelo()
     TestModeloMatrizH0028().run_all()
     TestModeloCatalogoH0030().run_all()
+    teste_parametros_tipo_h0034()
 
     print("")
     print("== Resumo ==")

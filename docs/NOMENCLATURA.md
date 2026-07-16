@@ -783,6 +783,44 @@ está em `contrato_tela_json.md` seção 24.
 - Comportamento não-TTY permanece inalterado; `SIGWINCH` não é tratado fora de sessão TTY.
 - `ncurses`, `curses`, `textual` e `rich` permanecem proibidos para esta capacidade.
 
+### 6.3 Grandezas de largura do `lancador` e gatilho por área interna (ADR-0023)
+
+Os termos abaixo são a autoridade terminológica para a largura mínima funcional
+do `lancador` e para o gatilho do quadro mínimo global por insuficiência de
+área interna. A política normativa completa está em
+`docs/contratos/contrato_lancador.md` seção 6.7 e na ADR-0023.
+
+| Termo | Definição |
+|---|---|
+| `area_lancador_w` | Largura total efetivamente alocada ao elemento `lancador` pela composição — inclui bordas e padding externos da caixa completa |
+| `lancador_caixa_min_w` | Largura mínima total da caixa do `lancador`; inclui as unidades estruturais obrigatórias (bordas e padding externos). Relação: `lancador_caixa_min_w = coluna_minima_content_w + largura_estrutural_da_caixa` |
+| `coluna_minima_content_w` (largura mínima funcional do `lancador`) | Largura mínima do conteúdo necessária para representar integralmente uma coluna válida completa, sem bordas nem padding externo da caixa; é a menor largura de conteúdo para a qual existe ao menos uma distribuição válida dos itens declarados |
+| `coluna válida completa` | Uma coluna do `lancador` cujo conteúdo — chip, vão e texto — cabe integralmente na largura disponível, com todos os itens visíveis e sem truncamento, overflow, omissão ou paginação |
+| `content_w` | Largura de conteúdo do `lancador`, obtida descontando bordas e padding externos de `area_lancador_w`; é o domínio de comparação com `coluna_minima_content_w` |
+| `quadro mínimo global acionado por inviabilidade do lancador` | O mesmo `quadro mínimo de terminal pequeno` (ADR-0017, seção 6.2) acionado quando `area_lancador_w < lancador_caixa_min_w`, mesmo que `terminal_w` seja maior; o escopo visual é idêntico e global — toda a tela ou sessão TUI normal é substituída |
+| `fallback local do lancador` | **Proibido.** Nenhum estado visual, mensagem, truncamento, omissão ou variante restrita à caixa ou área do `lancador` é permitido quando a coluna mínima não couber. O único resultado admissível é o quadro mínimo global. |
+| `recuperação automática por redesenho` | A cada redesenho, o renderer reavalia as grandezas de largura; quando `area_lancador_w >= lancador_caixa_min_w`, o quadro mínimo desaparece e a tela normal é reconstruída sem ação do usuário |
+
+**Distinções obrigatórias (não colapsam)**:
+
+| Termo | Significado | Não confundir com |
+|---|---|---|
+| `area_lancador_w` | Largura total da caixa alocada ao `lancador` (inclui bordas/padding) | `coluna_minima_content_w` (grandeza de conteúdo, exclui bordas/padding) |
+| `lancador_caixa_min_w` | Largura mínima da caixa do `lancador` (inclui bordas/padding) | `coluna_minima_content_w` (largura de conteúdo, exclui bordas/padding) |
+| `coluna_minima_content_w` | Largura mínima do conteúdo para uma coluna válida (exclui bordas/padding) | `area_lancador_w` ou `lancador_caixa_min_w` (são larguras de caixa) |
+| `terminal_w` | Largura total do terminal ou viewport | Qualquer grandeza interna do `lancador` — não comparável diretamente |
+| `quadro mínimo global` | Substitui integralmente toda a tela normal | `fallback local do lancador` — este é proibido |
+
+**Regras normativas derivadas da ADR-0023**:
+
+- `coluna_minima_content_w` é calculada a partir dos parâmetros de `config/elementos/lancador.json`; nenhum valor é hardcoded.
+- A comparação normativa usa grandezas no mesmo domínio: `content_w` contra `coluna_minima_content_w` (domínio do conteúdo), ou `area_lancador_w` contra `lancador_caixa_min_w` (domínio da caixa).
+- É proibido comparar `terminal_w` contra `coluna_minima_content_w`.
+- É proibido comparar `area_lancador_w` contra `coluna_minima_content_w` sem converter bordas e padding.
+- O gatilho por `area_lancador_w < lancador_caixa_min_w` aciona o mesmo estado canônico global da ADR-0017, com o mesmo alcance visual.
+- A regra aplica-se exclusivamente ao `lancador`; não é criada regra genérica de falha global para outros componentes sem autoridade explícita.
+- A recuperação é automática: a cada redesenho, quando `area_lancador_w >= lancador_caixa_min_w`, o quadro mínimo desaparece e a tela normal é reconstruída.
+
 ---
 
 ## 7. Cabeçalho

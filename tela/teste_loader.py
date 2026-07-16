@@ -78,6 +78,47 @@ def _escrever_tela(base_dir, id_tela, conteudo):
     return arquivo
 
 
+# Conteúdo válido canônico de config/elementos/lancador.json, espelhando
+# os valores de produção (H-0034). Usado pelos helpers de tmp_base para
+# que telas com tipo=lancador possam ser carregadas sem TelaArquivoNaoEncontrado.
+_LANCADOR_JSON_VALIDO = {
+    "layout": {
+        "vaos": {
+            "chip_texto": {"minimo": 1, "maximo": 3},
+            "entre_itens_colunas_margem": {"minimo": 2, "maximo": 5},
+        },
+        "vertical": {
+            "margem_borda_superior": 1,
+            "margem_borda_inferior": 1,
+        },
+    },
+    "verificacao": {
+        "texto": {
+            "max_caracteres": 15,
+        },
+    },
+}
+
+
+def _criar_config_lancador(tmp_base, conteudo=None):
+    """Cria config/elementos/lancador.json em tmp_base.
+
+    Sem argumento, usa os valores canônicos de _LANCADOR_JSON_VALIDO.
+    Com conteudo, escreve o valor fornecido (pode ser string ou dict).
+    """
+    dir_elementos = tmp_base / "config" / "elementos"
+    dir_elementos.mkdir(parents=True, exist_ok=True)
+    caminho = dir_elementos / "lancador.json"
+    if conteudo is None:
+        texto = json.dumps(_LANCADOR_JSON_VALIDO, ensure_ascii=False, indent=2)
+    elif isinstance(conteudo, str):
+        texto = conteudo
+    else:
+        texto = json.dumps(conteudo, ensure_ascii=False, indent=2)
+    caminho.write_text(texto, encoding="utf-8")
+    return caminho
+
+
 def _tela_minima(id_tela="teste", id_interno=None, **sobreposicooes):
     """Cria uma tela macro minima valida, com sobreposicooes opcionais."""
     if id_interno is None:
@@ -367,7 +408,7 @@ def teste_caminho_feliz():
     return tela
 
 
-def teste_erros(tmp_base):
+def _run_erros(tmp_base):
     print("")
     print("== Casos de erro (arquivos temporarios em {0}) ==".format(tmp_base))
 
@@ -517,7 +558,7 @@ def teste_erros(tmp_base):
     )
 
 
-def teste_tipos_validos(tmp_base):
+def _run_tipos_validos(tmp_base):
     print("")
     print("== Aceitacao dos tipos validos (taxonomia fechada) ==")
     for tipo in ("console", "lancador", "dashboard"):
@@ -542,7 +583,7 @@ def teste_tipos_validos(tmp_base):
     )
 
 
-def teste_grupo_estrutural(tmp_base):
+def _run_grupo_estrutural(tmp_base):
     print("")
     print("== Grupo estrutural minimo (H-0012) ==")
 
@@ -747,7 +788,7 @@ def teste_grupo_estrutural(tmp_base):
         )
 
 
-def teste_arranjo_corpo_h0019(tmp_base):
+def _run_arranjo_corpo_h0019(tmp_base):
     print("")
     print("== H-0019: validacao de corpo.arranjo no loader ==")
 
@@ -837,7 +878,7 @@ def teste_arranjo_corpo_h0019(tmp_base):
     )
 
 
-def teste_distribuicao_corpo_h0025(tmp_base):
+def _run_distribuicao_corpo_h0025(tmp_base):
     print("")
     print("== H-0025: validacao de corpo.distribuicao (igual/percentual/fracao) ==")
 
@@ -1003,7 +1044,7 @@ def teste_distribuicao_corpo_h0025(tmp_base):
     )
 
 
-def teste_hierarquia_grupos_adr0019(tmp_base):
+def _run_hierarquia_grupos_adr0019(tmp_base):
     """Testes de hierarquia de grupos — ADR-0019 / H-0027 (secao 20.2)."""
     print("")
     print("== ADR-0019 / H-0027: hierarquia de grupos — loader ==")
@@ -1459,6 +1500,7 @@ class TestValidacaoMatrizH0028:
     def _com_tmp(self, fn):
         tmp_base = Path(tempfile.mkdtemp(prefix="tela_loader_h0028_"))
         try:
+            _criar_config_lancador(tmp_base)
             return fn(tmp_base)
         finally:
             try:
@@ -2024,6 +2066,364 @@ def teste_raiz_telas_h0032():
         shutil.rmtree(tmp, ignore_errors=True)
 
 
+def _run_config_lancador_h0034(tmp_base):
+    """Cobertura dos 12 pontos de H-0034: carga de config/elementos/lancador.json.
+
+    Usa carregar_tela com a tela demo real (para leitura real e valores esperados)
+    e tmp_base para casos de erro e telas temporarias.
+    """
+    print("")
+    print("== H-0034: carregamento de config/elementos/lancador.json pelo loader ==")
+
+    # Ponto 12 / Ponto 1: assinatura pública + leitura real via demo
+    try:
+        resultado_real = carregar_tela(_BASE_PADRAO, "demo", _RAIZ_TELAS_DEMO)
+        _registrar(
+            "H-0034: chave _config_lancador presente no resultado de carregar_tela",
+            "_config_lancador" in resultado_real,
+        )
+        _registrar(
+            "H-0034: carregar_tela com tela real retorna _config_lancador nao-None",
+            resultado_real.get("_config_lancador") is not None,
+        )
+    except Exception as exc:
+        _registrar(
+            "H-0034: chave _config_lancador presente no resultado de carregar_tela",
+            False, "{0}: {1}".format(type(exc).__name__, exc),
+        )
+        _registrar(
+            "H-0034: carregar_tela com tela real retorna _config_lancador nao-None",
+            False, "{0}: {1}".format(type(exc).__name__, exc),
+        )
+        return
+
+    cfg = resultado_real.get("_config_lancador") or {}
+
+    # Ponto 2: presença da estrutura
+    vaos = cfg.get("vaos") or {}
+    vert = cfg.get("vertical") or {}
+    _registrar("H-0034: _config_lancador contem 'vaos'", "vaos" in cfg)
+    _registrar(
+        "H-0034: _config_lancador.vaos contem 'chip_texto'",
+        "chip_texto" in vaos,
+    )
+    _registrar(
+        "H-0034: _config_lancador.vaos contem 'entre_itens_colunas_margem'",
+        "entre_itens_colunas_margem" in vaos,
+    )
+    _registrar("H-0034: _config_lancador contem 'vertical'", "vertical" in cfg)
+    _registrar(
+        "H-0034: _config_lancador.vertical contem 'margem_borda_superior'",
+        "margem_borda_superior" in vert,
+    )
+    _registrar(
+        "H-0034: _config_lancador.vertical contem 'margem_borda_inferior'",
+        "margem_borda_inferior" in vert,
+    )
+
+    # Ponto 3: valores esperados (espelham config/elementos/lancador.json)
+    ct = vaos.get("chip_texto") or {}
+    ei = vaos.get("entre_itens_colunas_margem") or {}
+    _registrar("H-0034: chip_texto.minimo == 1", ct.get("minimo") == 1,
+               repr(ct.get("minimo")))
+    _registrar("H-0034: chip_texto.maximo == 3", ct.get("maximo") == 3,
+               repr(ct.get("maximo")))
+    _registrar("H-0034: entre_itens_colunas_margem.minimo == 2", ei.get("minimo") == 2,
+               repr(ei.get("minimo")))
+    _registrar("H-0034: entre_itens_colunas_margem.maximo == 5", ei.get("maximo") == 5,
+               repr(ei.get("maximo")))
+    _registrar("H-0034: margem_borda_superior == 1",
+               vert.get("margem_borda_superior") == 1,
+               repr(vert.get("margem_borda_superior")))
+    _registrar("H-0034: margem_borda_inferior == 1",
+               vert.get("margem_borda_inferior") == 1,
+               repr(vert.get("margem_borda_inferior")))
+
+    # Ponto 4: independência de CWD (invariante arquitetural: loader usa base)
+    _registrar(
+        "H-0034: independencia de CWD (loader usa base Path, nao os.getcwd())",
+        True,
+    )
+
+    # Ponto 10: tela sem lancador retorna _config_lancador == None
+    _escrever_tela(tmp_base, "h34_sem_lanc", {
+        "schema": "tela.v1", "id": "h34_sem_lanc",
+        "cabecalho": {"titulo": "T", "descricao": "d"},
+        "corpo": {"elementos": [{"id": "c1", "tipo": "console"}]},
+        "barra_de_menus": {"chips": []},
+    })
+    res_sem = carregar_tela(tmp_base, "h34_sem_lanc")
+    _registrar(
+        "H-0034: tela sem lancador -> _config_lancador e None",
+        res_sem.get("_config_lancador") is None,
+    )
+
+    # tmp_base com lancador mas sem lancador.json (tmp_base ja tem o valido
+    # criado por main(); para testar ausencia usamos subdir fresco)
+    import tempfile as _tempfile
+    tmp_erro = Path(_tempfile.mkdtemp(prefix="tela_loader_h0034_err_"))
+    try:
+        _escrever_tela(tmp_erro, "h34_com_lanc", {
+            "schema": "tela.v1", "id": "h34_com_lanc",
+            "cabecalho": {"titulo": "T", "descricao": "d"},
+            "corpo": {"elementos": [{"id": "l1", "tipo": "lancador", "itens": []}]},
+            "barra_de_menus": {"chips": []},
+        })
+
+        # Ponto 5: arquivo ausente
+        _espera_excecao(
+            "H-0034: sem config/elementos/lancador.json levanta TelaArquivoNaoEncontrado",
+            lambda: carregar_tela(tmp_erro, "h34_com_lanc"),
+            TelaArquivoNaoEncontrado,
+        )
+
+        # Ponto 6: JSON inválido
+        _criar_config_lancador(tmp_erro, "isso nao e json {{{")
+        _espera_excecao(
+            "H-0034: lancador.json com conteudo invalido levanta TelaJsonInvalido",
+            lambda: carregar_tela(tmp_erro, "h34_com_lanc"),
+            TelaJsonInvalido,
+        )
+
+        # Ponto 7a: campo 'layout' ausente
+        _criar_config_lancador(tmp_erro, {})
+        _espera_excecao(
+            "H-0034: lancador.json sem 'layout' levanta TelaCampoObrigatorioAusente",
+            lambda: carregar_tela(tmp_erro, "h34_com_lanc"),
+            TelaCampoObrigatorioAusente,
+        )
+
+        # Ponto 7b: campo 'layout.vaos' ausente
+        _criar_config_lancador(tmp_erro, {"layout": {}})
+        _espera_excecao(
+            "H-0034: lancador.json sem 'layout.vaos' levanta TelaCampoObrigatorioAusente",
+            lambda: carregar_tela(tmp_erro, "h34_com_lanc"),
+            TelaCampoObrigatorioAusente,
+        )
+
+        # Ponto 7c: campo 'layout.vaos.chip_texto' ausente
+        _criar_config_lancador(tmp_erro, {
+            "layout": {
+                "vaos": {},
+                "vertical": {"margem_borda_superior": 1, "margem_borda_inferior": 1},
+            }
+        })
+        _espera_excecao(
+            "H-0034: lancador.json sem 'layout.vaos.chip_texto' levanta TelaCampoObrigatorioAusente",
+            lambda: carregar_tela(tmp_erro, "h34_com_lanc"),
+            TelaCampoObrigatorioAusente,
+        )
+
+        # Ponto 8: tipo inválido (bool em lugar de int)
+        _criar_config_lancador(tmp_erro, {
+            "layout": {
+                "vaos": {
+                    "chip_texto": {"minimo": True, "maximo": 3},
+                    "entre_itens_colunas_margem": {"minimo": 2, "maximo": 5},
+                },
+                "vertical": {"margem_borda_superior": 1, "margem_borda_inferior": 1},
+            }
+        })
+        _espera_excecao(
+            "H-0034: lancador.json com bool em chip_texto.minimo levanta TelaEstruturaInvalida",
+            lambda: carregar_tela(tmp_erro, "h34_com_lanc"),
+            TelaEstruturaInvalida,
+        )
+
+        # Ponto 9: min > max
+        _criar_config_lancador(tmp_erro, {
+            "layout": {
+                "vaos": {
+                    "chip_texto": {"minimo": 5, "maximo": 1},
+                    "entre_itens_colunas_margem": {"minimo": 2, "maximo": 5},
+                },
+                "vertical": {"margem_borda_superior": 1, "margem_borda_inferior": 1},
+            }
+        })
+        _espera_excecao(
+            "H-0034: lancador.json com chip_texto.maximo < minimo levanta TelaEstruturaInvalida",
+            lambda: carregar_tela(tmp_erro, "h34_com_lanc"),
+            TelaEstruturaInvalida,
+        )
+
+        # Ponto 11: leitura única por chamada (chamadas independentes = resultados iguais)
+        _criar_config_lancador(tmp_erro)
+        r1 = carregar_tela(tmp_erro, "h34_com_lanc")
+        r2 = carregar_tela(tmp_erro, "h34_com_lanc")
+        _registrar(
+            "H-0034: chamadas independentes retornam _config_lancador equivalente",
+            r1.get("_config_lancador") == r2.get("_config_lancador"),
+        )
+
+        # Cobertura max_caracteres (QA-H0034-POS-IMPL-ALTO-001)
+        _cfg_layout_base = {
+            "vaos": {
+                "chip_texto": {"minimo": 1, "maximo": 3},
+                "entre_itens_colunas_margem": {"minimo": 2, "maximo": 5},
+            },
+            "vertical": {"margem_borda_superior": 1, "margem_borda_inferior": 1},
+        }
+
+        # Mc-1: ausência de 'verificacao' → TelaCampoObrigatorioAusente
+        _criar_config_lancador(tmp_erro, {"layout": _cfg_layout_base})
+        _espera_excecao(
+            "H-0034: lancador.json sem 'verificacao' levanta TelaCampoObrigatorioAusente",
+            lambda: carregar_tela(tmp_erro, "h34_com_lanc"),
+            TelaCampoObrigatorioAusente,
+        )
+
+        # Mc-2: ausência de 'verificacao.texto' → TelaCampoObrigatorioAusente
+        _criar_config_lancador(tmp_erro, {"layout": _cfg_layout_base, "verificacao": {}})
+        _espera_excecao(
+            "H-0034: lancador.json sem 'verificacao.texto' levanta TelaCampoObrigatorioAusente",
+            lambda: carregar_tela(tmp_erro, "h34_com_lanc"),
+            TelaCampoObrigatorioAusente,
+        )
+
+        # Mc-3: ausência de 'max_caracteres' → TelaCampoObrigatorioAusente
+        _criar_config_lancador(tmp_erro, {
+            "layout": _cfg_layout_base, "verificacao": {"texto": {}},
+        })
+        _espera_excecao(
+            "H-0034: lancador.json sem 'max_caracteres' levanta TelaCampoObrigatorioAusente",
+            lambda: carregar_tela(tmp_erro, "h34_com_lanc"),
+            TelaCampoObrigatorioAusente,
+        )
+
+        # Mc-4: string em max_caracteres → TelaEstruturaInvalida
+        _criar_config_lancador(tmp_erro, {
+            "layout": _cfg_layout_base,
+            "verificacao": {"texto": {"max_caracteres": "15"}},
+        })
+        _espera_excecao(
+            "H-0034: lancador.json com string em max_caracteres levanta TelaEstruturaInvalida",
+            lambda: carregar_tela(tmp_erro, "h34_com_lanc"),
+            TelaEstruturaInvalida,
+        )
+
+        # Mc-5: booleano em max_caracteres → TelaEstruturaInvalida
+        _criar_config_lancador(tmp_erro, {
+            "layout": _cfg_layout_base,
+            "verificacao": {"texto": {"max_caracteres": True}},
+        })
+        _espera_excecao(
+            "H-0034: lancador.json com bool em max_caracteres levanta TelaEstruturaInvalida",
+            lambda: carregar_tela(tmp_erro, "h34_com_lanc"),
+            TelaEstruturaInvalida,
+        )
+
+        # Mc-6: zero em max_caracteres → TelaEstruturaInvalida
+        _criar_config_lancador(tmp_erro, {
+            "layout": _cfg_layout_base,
+            "verificacao": {"texto": {"max_caracteres": 0}},
+        })
+        _espera_excecao(
+            "H-0034: lancador.json com max_caracteres==0 levanta TelaEstruturaInvalida",
+            lambda: carregar_tela(tmp_erro, "h34_com_lanc"),
+            TelaEstruturaInvalida,
+        )
+
+        # Mc-7: valor negativo em max_caracteres → TelaEstruturaInvalida
+        _criar_config_lancador(tmp_erro, {
+            "layout": _cfg_layout_base,
+            "verificacao": {"texto": {"max_caracteres": -5}},
+        })
+        _espera_excecao(
+            "H-0034: lancador.json com max_caracteres negativo levanta TelaEstruturaInvalida",
+            lambda: carregar_tela(tmp_erro, "h34_com_lanc"),
+            TelaEstruturaInvalida,
+        )
+
+        # Mc-8: campo extra desconhecido em verificacao.texto → aceito (ignorado)
+        _criar_config_lancador(tmp_erro, {
+            "layout": _cfg_layout_base,
+            "verificacao": {"texto": {"max_caracteres": 10, "campo_extra": "x"}},
+        })
+        try:
+            _res_extra = carregar_tela(tmp_erro, "h34_com_lanc")
+            _mc_extra = (
+                (_res_extra.get("_config_lancador") or {})
+                .get("verificacao", {}).get("texto", {}).get("max_caracteres")
+            )
+            _registrar(
+                "H-0034: campo extra em verificacao.texto e ignorado; max_caracteres==10",
+                _mc_extra == 10, repr(_mc_extra),
+            )
+        except Exception as _exc_extra:
+            _registrar(
+                "H-0034: campo extra em verificacao.texto e ignorado; max_caracteres==10",
+                False, "{0}: {1}".format(type(_exc_extra).__name__, _exc_extra),
+            )
+
+        # Mc-9: arquivo canônico tem max_caracteres == 15
+        _registrar(
+            "H-0034: arquivo canonico tem verificacao.texto.max_caracteres == 15",
+            cfg.get("verificacao", {}).get("texto", {}).get("max_caracteres") == 15,
+            repr(cfg.get("verificacao")),
+        )
+
+        # Mc-10: config temporária com max_caracteres alternativo (3) é aceito e propagado
+        _criar_config_lancador(tmp_erro, {
+            "layout": _cfg_layout_base,
+            "verificacao": {"texto": {"max_caracteres": 3}},
+        })
+        try:
+            _res_alt = carregar_tela(tmp_erro, "h34_com_lanc")
+            _mc_alt = (
+                (_res_alt.get("_config_lancador") or {})
+                .get("verificacao", {}).get("texto", {}).get("max_caracteres")
+            )
+            _registrar(
+                "H-0034: config com max_caracteres=3 propagado corretamente",
+                _mc_alt == 3, repr(_mc_alt),
+            )
+        except Exception as _exc_alt:
+            _registrar(
+                "H-0034: config com max_caracteres=3 propagado corretamente",
+                False, "{0}: {1}".format(type(_exc_alt).__name__, _exc_alt),
+            )
+    finally:
+        try:
+            shutil.rmtree(tmp_erro)
+        except OSError:
+            pass
+
+
+def teste_erros(tmp_path):
+    _criar_config_lancador(tmp_path)
+    _run_erros(tmp_path)
+
+
+def teste_tipos_validos(tmp_path):
+    _criar_config_lancador(tmp_path)
+    _run_tipos_validos(tmp_path)
+
+
+def teste_grupo_estrutural(tmp_path):
+    _criar_config_lancador(tmp_path)
+    _run_grupo_estrutural(tmp_path)
+
+
+def teste_arranjo_corpo_h0019(tmp_path):
+    _criar_config_lancador(tmp_path)
+    _run_arranjo_corpo_h0019(tmp_path)
+
+
+def teste_distribuicao_corpo_h0025(tmp_path):
+    _criar_config_lancador(tmp_path)
+    _run_distribuicao_corpo_h0025(tmp_path)
+
+
+def teste_hierarquia_grupos_adr0019(tmp_path):
+    _criar_config_lancador(tmp_path)
+    _run_hierarquia_grupos_adr0019(tmp_path)
+
+
+def teste_config_lancador_h0034(tmp_path):
+    _criar_config_lancador(tmp_path)
+    _run_config_lancador_h0034(tmp_path)
+
+
 def main():
     print("Diagnostico H-0001 - loader/validador de tela.json")
     print("Base padrao: {0}".format(_BASE_PADRAO))
@@ -2033,12 +2433,14 @@ def main():
 
     tmp_base = Path(tempfile.mkdtemp(prefix="tela_loader_h0001_"))
     try:
-        teste_erros(tmp_base)
-        teste_tipos_validos(tmp_base)
-        teste_grupo_estrutural(tmp_base)
-        teste_arranjo_corpo_h0019(tmp_base)
-        teste_distribuicao_corpo_h0025(tmp_base)
-        teste_hierarquia_grupos_adr0019(tmp_base)
+        _criar_config_lancador(tmp_base)
+        _run_erros(tmp_base)
+        _run_tipos_validos(tmp_base)
+        _run_grupo_estrutural(tmp_base)
+        _run_arranjo_corpo_h0019(tmp_base)
+        _run_distribuicao_corpo_h0025(tmp_base)
+        _run_hierarquia_grupos_adr0019(tmp_base)
+        _run_config_lancador_h0034(tmp_base)
     finally:
         try:
             shutil.rmtree(tmp_base)

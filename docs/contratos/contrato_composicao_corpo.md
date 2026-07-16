@@ -25,6 +25,7 @@ metadata:
       - docs/adr/ADR-0019-profundidade-grupos-multiplicidade-cardinalidade-dashboard.md
       - docs/adr/ADR-0020-matriz-de-grupos-coordenadas-explicitas.md
       - docs/adr/ADR-0022-ponto-entrada-tela-inicial-orquestrador.md
+      - docs/adr/ADR-0023-largura-minima-funcional-lancador.md
     reaproveitado_de_legado: false
 ---
 
@@ -771,6 +772,21 @@ menor que a mínima normal deve ter política determinística. Representação
 compacta futura com `...` é política de overflow/compactação — não fallback de
 composição. Não pode haver truncamento silencioso nem fallback silencioso para
 outro arranjo.
+
+**Área do `lancador` insuficiente como gatilho global (ADR-0023)**: a largura
+alocada ao `lancador` pela composição (`area_lancador_w`) é a base para avaliar
+a viabilidade de sua caixa. Quando `area_lancador_w < lancador_caixa_min_w`,
+a composição não pode ser considerada válida para produzir uma tela normal
+contratualmente correta — a impossibilidade deve ser elevada ao quadro mínimo
+canônico global (`quadro mínimo de terminal pequeno`, ADR-0017), com o mesmo
+alcance visual: toda a tela normal é substituída; nenhum componente permanece
+visível. O resultado não é um elemento local truncado. Não é criado quadro
+mínimo local restrito ao `lancador` ou à área que lhe foi alocada. A
+recuperação ocorre automaticamente no redesenho seguinte: quando
+`area_lancador_w >= lancador_caixa_min_w`, a tela normal é reconstruída sem
+ação do usuário. Esta regra aplica-se exclusivamente ao `lancador`; não é
+criada regra genérica de falha global para qualquer outro filho sem autoridade
+explícita.
 
 ---
 
@@ -1532,6 +1548,17 @@ para `livre`. O loader deverá futuramente gerar erro determinístico.
 não contam como níveis. Um `grupo` filho dentro de uma célula matricial conta
 normalmente como nível de grupo.
 
+**R-33. Área do `lancador` insuficiente aciona o quadro mínimo global (ADR-0023).**
+Quando a largura alocada ao `lancador` pela composição (`area_lancador_w`) for
+inferior à largura mínima da caixa (`lancador_caixa_min_w`), o quadro mínimo
+canônico global (`quadro mínimo de terminal pequeno`, ADR-0017) é acionado com
+o mesmo alcance visual da ADR-0017 — toda a tela normal é substituída. Não é
+criado quadro mínimo local restrito ao `lancador`. A impossibilidade é elevada
+ao quadro global, não resolvida por truncamento, omissão ou mensagem local. A
+recuperação ocorre automaticamente no redesenho seguinte quando
+`area_lancador_w >= lancador_caixa_min_w`. A regra aplica-se exclusivamente ao
+`lancador`.
+
 ---
 
 ## 8. Critérios de validação
@@ -1645,6 +1672,16 @@ normalmente como nível de grupo.
       opcional; ausência de `distribuicao` segue ADR-0018 (ADR-0020, D4).
 - [ ] `estrutura: "matriz"` não cria nível de profundidade extra; linhas, colunas
       e células não contam como nível de grupo (R-32, ADR-0020; ADR-0019, D1).
+- [ ] Quando `area_lancador_w < lancador_caixa_min_w`, o quadro mínimo canônico
+      global é acionado; nenhum componente da tela normal permanece visível;
+      nenhum estado local, mensagem ou truncamento é criado dentro do `lancador`
+      (R-33, ADR-0023).
+- [ ] A regra de área insuficiente do `lancador` aplica-se exclusivamente ao
+      `lancador`; não é criada regra genérica de falha global para outros
+      elementos sem autoridade explícita (R-33, ADR-0023).
+- [ ] A recuperação após insuficiência de `area_lancador_w` é automática e
+      reavaliada em cada redesenho; quando `area_lancador_w >= lancador_caixa_min_w`,
+      a tela normal é reconstruída sem ação do usuário (R-33, ADR-0023).
 
 ---
 

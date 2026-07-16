@@ -11,6 +11,7 @@ metadata:
     adrs_aplicadas:
       - docs/adr/ADR-0021-separacao-demo-produto-politica-caminhos.md
       - docs/adr/ADR-0022-ponto-entrada-tela-inicial-orquestrador.md
+      - docs/adr/ADR-0023-largura-minima-funcional-lancador.md
     reaproveitado_de_legado: false
 ---
 
@@ -955,6 +956,36 @@ TUI deve:
 O quadro mínimo deve ser substituído automaticamente pela tela normal quando
 dimensões suficientes forem restauradas. Nenhuma classe ou nome de exceção é
 normativo por esta política.
+
+### Área do `lancador` insuficiente por composição (ADR-0023)
+
+Quando as dimensões totais do terminal não são, por si sós, o problema, mas
+a área internamente alocada ao `lancador` pela composição
+(`area_lancador_w`) for inferior à largura mínima da caixa
+(`lancador_caixa_min_w`) — tornando impossível representar o `lancador` em
+ao menos uma coluna válida completa —, a tela normal também se torna
+inutilizável. O mesmo quadro mínimo canônico global (`quadro mínimo de
+terminal pequeno`, ADR-0017) deve ser acionado.
+
+Regras normativas:
+
+- o resultado é global: toda a tela ou sessão TUI normal é substituída
+  integralmente;
+- nenhum componente da tela normal — cabeçalho, corpo, `lancador`,
+  dashboards, `barra_de_menus` — permanece visível enquanto o quadro mínimo
+  estiver ativo;
+- não é criado quadro mínimo local restrito à área ou caixa do `lancador`;
+- nenhuma mensagem, estado visual ou variante local é produzido dentro do
+  `lancador`;
+- nenhum campo JSON novo é introduzido; o gatilho é calculado pelo renderer
+  a partir da composição e das dimensões disponíveis;
+- a regra aplica-se exclusivamente ao `lancador`; outros componentes seguem
+  as políticas já aprovadas.
+
+A recuperação ocorre pelo mesmo mecanismo reativo global (ADR-0017): a cada
+redesenho, o renderer reavalia `area_lancador_w`; quando
+`area_lancador_w >= lancador_caixa_min_w`, o quadro mínimo desaparece e a
+tela normal é reconstruída automaticamente, sem ação do usuário.
 
 ### Preservações da seção 23
 

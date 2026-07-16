@@ -52,6 +52,7 @@ class ElementoCorpo:
     tipo: str
     _campos_inertes: dict = field(default_factory=dict, repr=False)
     elementos: list = field(default_factory=list, repr=False)
+    parametros_tipo: dict | None = field(default=None, repr=False)
 
 
 @dataclass
@@ -131,7 +132,7 @@ class ModeloTela:
         return "\n".join(linhas)
 
 
-def _construir_elementos_recursivo(elementos_raw, id_pai):
+def _construir_elementos_recursivo(elementos_raw, id_pai, parametros_lancador=None):
     """Constroi recursivamente a lista de ElementoCorpo a partir de uma lista raw.
 
     Tipos funcionais (console/lancador/dashboard) produzem ElementoCorpo com
@@ -139,6 +140,10 @@ def _construir_elementos_recursivo(elementos_raw, id_pai):
     elementos preenchido recursivamente (ADR-0019 D2/D3 — ate 3 niveis).
     O loader (ADR-0019 / H-0027) ja garantiu a validade estrutural antes de
     chegar aqui.
+
+    parametros_lancador: dict validado de config/elementos/lancador.json
+        (subset de 'layout'), propagado para cada ElementoCorpo do tipo
+        'lancador' como parametros_tipo (H-0034). None para telas sem lancador.
     """
     resultado = []
     for sub_indice, sub_el in enumerate(elementos_raw):
@@ -164,7 +169,9 @@ def _construir_elementos_recursivo(elementos_raw, id_pai):
             sub_raw = sub_el.get("elementos", [])
             if not isinstance(sub_raw, list):
                 sub_raw = []
-            sub_elementos = _construir_elementos_recursivo(sub_raw, sub_id)
+            sub_elementos = _construir_elementos_recursivo(
+                sub_raw, sub_id, parametros_lancador
+            )
             inertes = {
                 chave: valor
                 for chave, valor in sub_el.items()
@@ -184,11 +191,13 @@ def _construir_elementos_recursivo(elementos_raw, id_pai):
                 for chave, valor in sub_el.items()
                 if chave not in ("id", "tipo")
             }
+            params = parametros_lancador if sub_tipo == "lancador" else None
             resultado.append(
                 ElementoCorpo(
                     id=sub_id,
                     tipo=sub_tipo,
                     _campos_inertes=inertes,
+                    parametros_tipo=params,
                 )
             )
         else:
@@ -229,6 +238,10 @@ def construir_modelo(tela_raw: dict) -> ModeloTela:
                 "Campo esperado ausente no dict do loader: {0!r}".format(chave)
             )
 
+    # H-0034: parametros normativos do tipo lancador, carregados pelo loader
+    # de config/elementos/lancador.json. None quando nao ha lancador na tela.
+    parametros_lancador = tela_raw.get("_config_lancador")
+
     corpo_raw = tela_raw["corpo"]
     if not isinstance(corpo_raw, dict):
         raise ModeloTelaErro("'corpo' nao e um dict")
@@ -268,7 +281,9 @@ def construir_modelo(tela_raw: dict) -> ModeloTela:
             sub_raw = elemento.get("elementos", [])
             if not isinstance(sub_raw, list):
                 sub_raw = []
-            sub_elementos = _construir_elementos_recursivo(sub_raw, elemento["id"])
+            sub_elementos = _construir_elementos_recursivo(
+                sub_raw, elemento["id"], parametros_lancador
+            )
             inertes = {
                 chave: valor
                 for chave, valor in elemento.items()
@@ -288,11 +303,13 @@ def construir_modelo(tela_raw: dict) -> ModeloTela:
                 for chave, valor in elemento.items()
                 if chave not in ("id", "tipo")
             }
+            params = parametros_lancador if tipo == "lancador" else None
             elementos.append(
                 ElementoCorpo(
                     id=elemento["id"],
                     tipo=elemento["tipo"],
                     _campos_inertes=inertes,
+                    parametros_tipo=params,
                 )
             )
 

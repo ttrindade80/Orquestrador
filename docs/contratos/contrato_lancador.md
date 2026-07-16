@@ -14,6 +14,7 @@ metadata:
       - docs/adr/ADR-0003-vaos-elasticos-menu.md
       - docs/adr/ADR-0005-lancador-nao-e-corpo-navegavel.md
       - docs/adr/ADR-0008-modelo-configuracao-por-tela.md
+      - docs/adr/ADR-0023-largura-minima-funcional-lancador.md
     reaproveitado_de_legado: false
 ---
 
@@ -261,6 +262,109 @@ Parâmetros concretos de vãos mínimos e máximos estão em
 | Entre último item e borda inferior | Mínimo 1 linha em branco |
 | Entre elementos consecutivos | Mínimo 0, máximo 2 linhas em branco |
 
+### 6.7 Largura mínima funcional e fallback global (ADR-0023)
+
+Esta seção declara o limite inferior de validade das representações do
+`lancador` e o comportamento quando esse limite não é atingido.
+
+**Grandezas de largura**
+
+Esta seção distingue quatro grandezas, que não devem ser confundidas entre si:
+
+- **`terminal_w`**: largura total do terminal ou viewport.
+- **`area_lancador_w`**: largura total efetivamente alocada ao elemento
+  `lancador` pela composição — inclui a caixa completa com bordas e padding
+  externos.
+- **`lancador_caixa_min_w`**: largura mínima total da caixa do `lancador`,
+  incluindo as unidades estruturais obrigatórias (bordas e padding externos).
+  Relação conceitual:
+  `lancador_caixa_min_w = coluna_minima_content_w + largura_estrutural_da_caixa`
+- **`coluna_minima_content_w`** (largura mínima funcional do `lancador`):
+  largura mínima do conteúdo necessária para representar integralmente uma
+  coluna válida completa, sem bordas nem padding externo da caixa. É a menor
+  largura de conteúdo para a qual existe ao menos uma distribuição válida do
+  conjunto de itens declarados.
+
+A comparação normativa deve usar grandezas no mesmo domínio:
+
+```text
+content_w < coluna_minima_content_w    (domínio do conteúdo)
+```
+
+ou, equivalentemente:
+
+```text
+area_lancador_w < lancador_caixa_min_w    (domínio da caixa completa)
+```
+
+Não é válido comparar `terminal_w` com `coluna_minima_content_w`, nem
+comparar `area_lancador_w` com `coluna_minima_content_w` sem converter bordas
+e padding.
+
+A fórmula de `coluna_minima_content_w`:
+
+```text
+coluna_minima_content_w = vao_margem_min
+                        + max_chip_sub_w + vao_chip_texto_min + max_texto_sub_w
+                        + vao_margem_min
+```
+
+onde:
+- `max_chip_sub_w = max(len(item["chip"]) + 2  para item em itens)`
+- `max_texto_sub_w = max(len(item["texto"])     para item em itens)`
+- `vao_margem_min` e `vao_chip_texto_min` vêm de `config/elementos/lancador.json`
+
+Todos os parâmetros numéricos de vão provêm de `config/elementos/lancador.json`
+sem hardcoding. Bordas e padding da caixa pertencem ao cálculo de
+`lancador_caixa_min_w` e não devem ser incluídos em `coluna_minima_content_w`.
+
+**Sequência normativa de decisão do renderer**
+
+```text
+obter area_lancador_w (largura total alocada ao lancador pela composição)
+→ converter para content_w (descontar bordas e padding da caixa)
+→ testar fila
+→ testar matrizes válidas (n_rows = 2 .. n_itens, decrescente em colunas)
+→ testar coluna mínima válida (n_col = 1, n_rows = n_itens)
+→ se coluna mínima não couber: acionar o quadro mínimo canônico global
+```
+
+A verificação da coluna mínima não é um novo modo de layout; é o limite
+inferior de validade das representações do `lancador`. O fallback final é o
+quadro mínimo canônico global (`quadro mínimo de terminal pequeno`, ADR-0017) —
+não uma disposição parcial nem um estado local.
+
+**Fallback global — proibições**
+
+Quando a coluna mínima não couber (`content_w < coluna_minima_content_w`):
+
+- o quadro mínimo canônico global (`quadro mínimo de terminal pequeno`,
+  ADR-0017) substitui integralmente toda a tela ou sessão TUI normal;
+- nenhuma representação do `lancador` é renderizada;
+- nenhum componente da tela normal permanece visível;
+- é proibido renderizar mensagem dentro da caixa ou área do `lancador`;
+- é proibido criar estado visual local restrito ao `lancador`;
+- é proibido truncar textos ou chips para forçar encaixe;
+- é proibido permitir overflow horizontal;
+- é proibido omitir, duplicar ou reordenar itens;
+- é proibido paginar o `lancador`;
+- é proibido criar rolagem específica;
+- é proibido criar mensagem nova específica para o `lancador`.
+
+**Recuperação automática**
+
+O estado de quadro mínimo não é permanente. A cada redesenho:
+
+- o renderer recalcula as grandezas de largura e a sequência de decisão;
+- quando `content_w >= coluna_minima_content_w` (equivalente a
+  `area_lancador_w >= lancador_caixa_min_w`), o quadro mínimo desaparece;
+- a tela normal é reconstruída integralmente;
+- o `lancador` volta à representação normal (fila ou matriz, conforme couber),
+  recalculada a partir da largura atual;
+- não é necessária ação do usuário;
+- não é necessário reiniciar a aplicação;
+- não há persistência do estado de quadro mínimo entre redesenhos.
+
 ---
 
 ## 7. Relação com `barra_de_menus`
@@ -325,6 +429,35 @@ O renderer não decide o alinhamento horizontal do bloco de itens. Aplica a
 regra declarada pela instância no `tela.json`. Regra de alinhamento desconhecida
 é erro de validação.
 
+**R-11. Grandezas de largura no mesmo domínio (ADR-0023).**
+A comparação normativa de cabimento usa grandezas no mesmo domínio: `content_w`
+contra `coluna_minima_content_w` (domínio do conteúdo), ou `area_lancador_w`
+contra `lancador_caixa_min_w` (domínio da caixa). Nunca `terminal_w` contra
+`coluna_minima_content_w`. Nunca `area_lancador_w` contra
+`coluna_minima_content_w` sem converter bordas e padding. Os parâmetros de
+`coluna_minima_content_w` provêm de `config/elementos/lancador.json` sem
+hardcoding.
+
+**R-12. Fallback global quando coluna mínima não couber (ADR-0023).**
+Quando `content_w < coluna_minima_content_w` (equivalente:
+`area_lancador_w < lancador_caixa_min_w`), o renderer aciona o quadro mínimo
+canônico global (ADR-0017). Nenhuma representação parcial, mensagem local ou
+variante visual restrita ao `lancador` é permitida nessa condição.
+
+**R-13. Proibição absoluta de fallback local (ADR-0023).**
+Nenhum estado visual restrito ao `lancador` pode ser criado quando a coluna
+mínima não couber. A ausência de representação válida do `lancador` torna a
+tela normal inutilizável; o único resultado admissível é o quadro mínimo
+canônico global. Mensagem, truncamento, omissão ou variante visual local são
+proibidos.
+
+**R-14. Recuperação automática por redesenho (ADR-0023).**
+O estado de quadro mínimo provocado por insuficiência de `area_lancador_w` é
+reavaliado em cada redesenho. Quando `area_lancador_w >= lancador_caixa_min_w`,
+a tela normal é reconstruída automaticamente, sem ação do usuário e sem
+reinicialização. O `lancador` retorna à distribuição válida (`fila` ou
+`matriz`, conforme a largura atual).
+
 ---
 
 ## 9. Critérios de validação
@@ -351,6 +484,12 @@ regra declarada pela instância no `tela.json`. Regra de alinhamento desconhecid
 - [ ] O renderer não cria item não declarado no `tela.json`.
 - [ ] O renderer não hardcoda item, texto, chip ou destino.
 - [ ] O `lancador` não é navegável por `[✥]` nem pelas setas da `barra_de_menus`.
+- [ ] O renderer calcula `coluna_minima_content_w` a partir de `config/elementos/lancador.json`; nenhum parâmetro de vão está hardcoded (R-11, ADR-0023).
+- [ ] A comparação normativa de cabimento usa grandezas no mesmo domínio: `content_w` contra `coluna_minima_content_w`, ou `area_lancador_w` contra `lancador_caixa_min_w`; nunca `terminal_w` contra `coluna_minima_content_w` (R-11, ADR-0023).
+- [ ] Quando `content_w < coluna_minima_content_w`, o renderer aciona o quadro mínimo canônico global; nenhuma representação do `lancador` permanece visível (R-12, ADR-0023).
+- [ ] Nenhuma mensagem, estado visual ou variante local é criado dentro da caixa ou área do `lancador` quando a coluna mínima não couber (R-13, ADR-0023).
+- [ ] Nenhum item é truncado, omitido, duplicado, reordenado ou paginado para forçar encaixe quando a coluna mínima não couber (R-13, ADR-0023).
+- [ ] O estado de quadro mínimo é reavaliado em cada redesenho; quando `area_lancador_w >= lancador_caixa_min_w`, a tela normal é reconstruída automaticamente sem ação do usuário (R-14, ADR-0023).
 
 ---
 

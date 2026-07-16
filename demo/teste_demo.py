@@ -157,13 +157,10 @@ _EXPECTED_CURVA = (
     "╭ INFO ────────────────────────────────────────────────────────────────────────╮\n"
     "╰──────────────────────────────────────────────────────────────────────────────╯\n"
     "╭ NAVEGAR ─────────────────────────────────────────────────────────────────────╮\n"
-    "│ [d] Destino                                                                  │\n"
-    "│ [g] Grupo Min.                                                               │\n"
-    "│ [1] Console                                                                  │\n"
-    "│ [2] Dashboard                                                                │\n"
-    "│ [3] Matriz 2x2                                                               │\n"
-    "│ [4] Matriz 3x2                                                               │\n"
-    "│ [5] Matriz 2x4                                                               │\n"
+    "│                                                                              │\n"
+    "│      [d] Destino        [1] Console       [3] Matriz 2x2     [5] Matriz 2x4  │\n"
+    "│      [g] Grupo Min.     [2] Dashboard     [4] Matriz 3x2                     │\n"
+    "│                                                                              │\n"
     "╰──────────────────────────────────────────────────────────────────────────────╯\n"
     "╭ Menus ───────────────────────────────────────────────────────────────────────╮\n"
     "│  [Esc] Sair  [?] Ajuda                                                       │\n"
@@ -180,13 +177,10 @@ _EXPECTED_RETA = (
     "┌ INFO ────────────────────────────────────────────────────────────────────────┐\n"
     "└──────────────────────────────────────────────────────────────────────────────┘\n"
     "┌ NAVEGAR ─────────────────────────────────────────────────────────────────────┐\n"
-    "│ [d] Destino                                                                  │\n"
-    "│ [g] Grupo Min.                                                               │\n"
-    "│ [1] Console                                                                  │\n"
-    "│ [2] Dashboard                                                                │\n"
-    "│ [3] Matriz 2x2                                                               │\n"
-    "│ [4] Matriz 3x2                                                               │\n"
-    "│ [5] Matriz 2x4                                                               │\n"
+    "│                                                                              │\n"
+    "│      [d] Destino        [1] Console       [3] Matriz 2x2     [5] Matriz 2x4  │\n"
+    "│      [g] Grupo Min.     [2] Dashboard     [4] Matriz 3x2                     │\n"
+    "│                                                                              │\n"
     "└──────────────────────────────────────────────────────────────────────────────┘\n"
     "┌ Menus ───────────────────────────────────────────────────────────────────────┐\n"
     "│  [Esc] Sair  [?] Ajuda                                                       │\n"
@@ -204,13 +198,12 @@ _EXPECTED_DIAGNOSTICO_CURVA_42 = (
     "╭ INFO ──────────────────────────────────╮\n"
     "╰────────────────────────────────────────╯\n"
     "╭ NAVEGAR ───────────────────────────────╮\n"
-    "│ [d] Destino                            │\n"
-    "│ [g] Grupo Min.                         │\n"
-    "│ [1] Console                            │\n"
-    "│ [2] Dashboard                          │\n"
-    "│ [3] Matriz 2x2                         │\n"
-    "│ [4] Matriz 3x2                         │\n"
-    "│ [5] Matriz 2x4                         │\n"
+    "│                                        │\n"
+    "│     [d] Destino        [3] Matriz 2x2  │\n"
+    "│     [g] Grupo Min.     [4] Matriz 3x2  │\n"
+    "│     [1] Console        [5] Matriz 2x4  │\n"
+    "│     [2] Dashboard                      │\n"
+    "│                                        │\n"
     "╰────────────────────────────────────────╯\n"
     "╭ Menus ─────────────────────────────────╮\n"
     "│  [Esc] Sair  [?] Ajuda                 │\n"
@@ -719,16 +712,17 @@ def teste_renderizar_estado_altura(modelo):
 
     # CA-01 / CA-03: altura minima sem preenchimento, saida identica
     # ao comportamento natural (sem altura). H-0016: com a barra horizontal
-    # responsiva em 1 linha, L_barra=3. H-0030: com 7 itens no lancador,
-    # L_corpo_conteudo=14 (ITENS=3, INFO=2, NAVEGAR=9) -> n_minimo=20.
+    # responsiva em 1 linha, L_barra=3. H-0030/H-0034: com 7 itens no lancador
+    # em matriz 4x2 com margens verticais, NAVEGAR tem 8 linhas,
+    # L_corpo_conteudo=13 (ITENS=3, INFO=2, NAVEGAR=8) -> n_minimo=19.
     #
     # H-0025 secao 11.5 (item 1): o demo real agora declara
-    # distribuicao (fracao [2,1,2]); em altura=20 essa distribuicao produz
+    # distribuicao (fracao [2,1,2]); em altura=19 essa distribuicao produz
     # uma cota menor que a altura natural de algum filho — terminal
     # insuficiente, caso explicitamente fora de escopo (ADR-0018 D8). Para
     # preservar a cobertura "altura minima sem fill = saida natural", o
     # sub-cenario usa um modelo SEM distribuicao (ausencia preserva o
-    # preenchimento externo H-0013/ADR-0018 D2). altura=20 nao e altura
+    # preenchimento externo H-0013/ADR-0018 D2). altura=19 nao e altura
     # suportada normativa do produto; e apenas o minimo natural desta tela.
     tela_raw_sd = carregar_tela(_BASE_PADRAO, "demo", _RAIZ_TELAS_DEMO)
     corpo_sd = dict(tela_raw_sd["corpo"])
@@ -736,18 +730,18 @@ def teste_renderizar_estado_altura(modelo):
     tela_raw_sd = dict(tela_raw_sd)
     tela_raw_sd["corpo"] = corpo_sd
     modelo_sd = construir_modelo(tela_raw_sd)
-    res_20 = renderizar_estado(
-        estado_curva, modelo_sd, largura=42, altura=20
+    res_19 = renderizar_estado(
+        estado_curva, modelo_sd, largura=42, altura=19
     )
     _registrar(
-        "renderizar_estado(..., altura=20, sem distribuicao) -> 20 linhas (sem fill)",
-        res_20.count("\n") == 20,
-        "count={0}".format(res_20.count("\n")),
+        "renderizar_estado(..., altura=19, sem distribuicao) -> 19 linhas (sem fill)",
+        res_19.count("\n") == 19,
+        "count={0}".format(res_19.count("\n")),
     )
     _registrar(
-        "renderizar_estado(..., altura=20, sem distribuicao) == "
+        "renderizar_estado(..., altura=19, sem distribuicao) == "
         "renderizar_estado(..., largura=42) [sem altura]",
-        res_20 == renderizar_estado(estado_curva, modelo_sd, largura=42),
+        res_19 == renderizar_estado(estado_curva, modelo_sd, largura=42),
     )
 
     # altura=None preserva o comportamento atual.
