@@ -57,7 +57,7 @@ Foram verificadas as 10 decisões explícitas estabelecidas pelo usuário:
 
 ## 5. Verificação de fidelidade
 
-A `ADR-0026` registra com absoluta fidelidade cada uma das 10 decisões explícitas do usuário. 
+A `ADR-0026` registra com absoluta fidelidade cada uma das 10 decisões explícitas do usuário.
 *   Não foram inventadas políticas que extrapolassem as decisões de negócio ou de arquitetura propostas pelo usuário.
 *   Nenhuma escolha alternativa foi imposta sem que houvesse uma decisão anterior documentada.
 *   Nenhum detalhe de implementação (tais como nomes específicos de APIs, assinaturas de métodos, etc.) foi indevidamente normatizado.

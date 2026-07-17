@@ -418,4 +418,3 @@ A aplicação documental desta ADR só poderá ocorrer depois de:
 - QA independente da ADR;
 - ausência de bloqueio documental;
 - identificação nominal dos documentos afetados.
-
