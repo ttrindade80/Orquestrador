@@ -15,6 +15,7 @@ metadata:
       - docs/adr/ADR-0008-modelo-configuracao-por-tela.md
       - docs/adr/ADR-0009-caminho-formato-jsons-tela.md
       - docs/adr/ADR-0022-ponto-entrada-tela-inicial-orquestrador.md
+      - docs/adr/ADR-0025-distribuicao-matricial-configuravel-nivel-unico-conteudo-elementos.md
     reaproveitado_de_legado: false
 ---
 
@@ -255,3 +256,129 @@ que exista contrato próprio do tipo correspondente.
       com as 8 seções obrigatórias.
 - [ ] O JSON mínimo não contradiz `contrato_console.md` nem
       `contrato_tela_json.md`.
+
+---
+
+## 10. Distribuição matricial de nível único (ADR-0025)
+
+A ADR-0025 (2026-07-16) permite que o `console` adote a capacidade de
+distribuição matricial configurável de nível único mediante declaração explícita
+no seu JSON em `corpo.elementos[]`.
+
+### 10.1 Localização do campo
+
+O campo `distribuicao_matricial` é declarado no nível do elemento `console`,
+ao lado dos demais campos do envelope:
+
+```json
+{
+  "id": "console_principal",
+  "tipo": "console",
+  "titulo": "Console",
+  "origem_dados": null,
+  "itens": [],
+  "politica_composicao": { "alinhamento": "esquerda", "overflow_normal": "cortar_direita" },
+  "politica_navegacao":  { "navegavel": false },
+  "politica_selecao":    "nenhuma",
+  "politica_paginacao":  "sem",
+  "politica_exibicao":   { "modo_verboso": false },
+  "distribuicao_matricial": {
+    "formacao": {
+      "politica": "preferencia_linhas",
+      "colunas": { "minimo": 1 },
+      "linhas":  { "minimo": 1 }
+    },
+    "ordem": "por_linha",
+    "dimensionamento": {
+      "colunas": { "politica": "maior_da_coluna" },
+      "linhas":  { "politica": "maior_da_linha" }
+    },
+    "espacamento": {
+      "margem_superior":  { "minimo": 1 },
+      "margem_inferior":  { "minimo": 1 },
+      "margem_esquerda":  { "minimo": 1 },
+      "margem_direita":   { "minimo": 1 },
+      "vao_horizontal":   { "minimo": 2 },
+      "vao_vertical":     { "minimo": 0 }
+    },
+    "distribuicao_horizontal": { "politica": "inicio" },
+    "distribuicao_vertical":   { "politica": "inicio" },
+    "ordem_expansao": {
+      "horizontal": "margens_primeiro_depois_vaos",
+      "vertical":   "uniforme_margens_e_vaos"
+    },
+    "politica_resto": {
+      "horizontal": "ao_ultimo",
+      "vertical":   "ao_ultimo"
+    },
+    "alinhamento_interno": {
+      "horizontal": "inicio",
+      "vertical":   "topo"
+    }
+  }
+}
+```
+
+O exemplo acima é ilustrativo. Valores concretos pertencem ao JSON da tela.
+
+### 10.2 Vocabulário de campos
+
+O vocabulário de campos de `distribuicao_matricial` para o `console` é idêntico
+ao definido em `contrato_json_dashboard.md` seções 9.2 e 9.2.1. Todos os
+campos, valores permitidos, obrigatoriedades, rejeições e regras de tratamento
+se aplicam sem exceção, incluindo o tratamento normativo de `"minimo_fixo"`
+definido na seção 9.2.1 daquele contrato.
+
+### 10.3 Substituição de políticas geométricas quando `distribuicao_matricial` está presente (DEC-APP-0025-03)
+
+Quando `distribuicao_matricial` for declarado em um `console`, as políticas
+existentes relacionadas à organização geométrica do conteúdo são
+**integralmente substituídas** pela nova configuração.
+
+**Políticas substituídas** quando `distribuicao_matricial` está presente:
+
+| Política substituída | Fonte da política antiga | Substituída por |
+|---|---|---|
+| Alinhamento horizontal do bloco (`politica_composicao.alinhamento`) | `contrato_json_console.md` seção 5 | `distribuicao_horizontal.politica` + `espacamento.margem_*` |
+| Espaçamento universal entre borda e conteúdo | `contrato_composicao_corpo.md` seção 4.6 | `espacamento.margem_*` declarado em `distribuicao_matricial` |
+| Quantidade ou ajuste de colunas (`colunas_ajustavel`) | `contrato_composicao_corpo.md` seção 4.4 | `formacao.colunas.*` declarado em `distribuicao_matricial` |
+| Alinhamento de colunas interno | Regras internas do `console` | `alinhamento_interno.*` declarado em `distribuicao_matricial` |
+| Vãos entre participantes e colunas | Políticas internas do `console` | `espacamento.vao_*` declarado em `distribuicao_matricial` |
+| Formação e distribuição geométrica do conjunto de participantes | Políticas herdadas de layout | Todas as sub-configurações de `distribuicao_matricial` |
+
+As políticas substituídas **não coexistem, não complementam, não concorrem
+e não são herdadas parcialmente** pela nova configuração. Quando
+`distribuicao_matricial` está presente, ela é a única autoridade geométrica
+para o conjunto organizado.
+
+**Políticas preservadas** mesmo quando `distribuicao_matricial` está presente
+(não são políticas de layout ou distribuição geométrica):
+
+- `politica_composicao.overflow_normal` — tratamento de overflow de conteúdo;
+- `politica_navegacao` — navegabilidade por `[✥]` e comportamento do cursor;
+- `politica_selecao` — política de seleção de itens;
+- `politica_paginacao` — paginação do conteúdo (explicitamente fora do escopo
+  da ADR-0025);
+- `politica_exibicao` — modo inicial e modo verboso;
+- `acao_enter` por item — ações funcionais declarativas;
+- `filtro_de_grupo`, `formacao_de_selecao` — capacidades funcionais;
+- `origem_dados` — vínculo de dados;
+- `itens[]` — conteúdo declarado dos itens.
+
+**Quando `distribuicao_matricial` está ausente**: todas as políticas anteriores
+do `console` continuam vigentes integralmente. JSONs existentes preservam o
+comportamento. Nenhuma migração automática ocorre. Nenhum default novo é
+aplicado.
+
+### 10.4 Compatibilidade com JSONs existentes
+
+A ausência do campo `distribuicao_matricial` em um JSON de `console` existente
+preserva integralmente o comportamento anterior. Não há migração automática, não
+há reescrita do JSON e não há default estrutural que reorganize instâncias
+existentes.
+
+### 10.5 Fallback
+
+Quando nenhuma formação válida conseguir acomodar todos os participantes e todos
+os mínimos, o estado exibido é o `quadro mínimo de terminal pequeno` (ADR-0017,
+ADR-0023). Não é criada variante concorrente de estado de fallback.

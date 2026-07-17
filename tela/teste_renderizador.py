@@ -9757,6 +9757,417 @@ class TestCardinalidadeHorizontalH0033Patch4:
         self.test_H15_H16_regressao_larguras_none_e_dist()
 
 
+class TestDistribuicaoMatricialH0035:
+    """Integracao do renderer com distribuicao_matricial (H-0035 / ADR-0025).
+
+    Cobre (contrato H-0035 secoes 37.3-37.6): dashboard com e sem o campo;
+    console substituindo politicas geometricas quando presente e preservando-as
+    quando ausente; lancador com precedencia quando presente e ADR-0001/2/3
+    preservados quando ausente; compatibilidade (ausencia = comportamento
+    anterior); fallback via quadro minimo; ausencia de dupla autoridade.
+
+    Expectativas geometricas derivadas por geometria fechada, nao pelo proprio
+    algoritmo de producao.
+    """
+
+    def _dm(self, **over):
+        base = {
+            "formacao": {"politica": "matriz_fixa",
+                         "linhas": {"fixo": 2}, "colunas": {"fixo": 2}},
+            "ordem": "por_linha",
+            "dimensionamento": {
+                "colunas": {"politica": "minimo_fixo", "minimo": 5},
+                "linhas": {"politica": "minimo_fixo", "minimo": 1},
+            },
+            "espacamento": {
+                "margem_superior": {"minimo": 0},
+                "margem_inferior": {"minimo": 0},
+                "margem_esquerda": {"minimo": 0},
+                "margem_direita": {"minimo": 0},
+                "vao_horizontal": {"minimo": 1},
+                "vao_vertical": {"minimo": 0},
+            },
+            "distribuicao_horizontal": {"politica": "inicio"},
+            "distribuicao_vertical": {"politica": "inicio"},
+            "ordem_expansao": {"horizontal": "uniforme_margens_e_vaos",
+                               "vertical": "uniforme_margens_e_vaos"},
+            "politica_resto": {"horizontal": "ao_ultimo", "vertical": "ao_ultimo"},
+            "alinhamento_interno": {"horizontal": "inicio", "vertical": "topo"},
+        }
+        base.update(over)
+        return base
+
+    def _modelo_dashboard(self, com_dm):
+        campos = [
+            {"id": "c1", "rotulo": "", "fonte": "literal", "valor": "AA"},
+            {"id": "c2", "rotulo": "", "fonte": "literal", "valor": "BB"},
+            {"id": "c3", "rotulo": "", "fonte": "literal", "valor": "CC"},
+            {"id": "c4", "rotulo": "", "fonte": "literal", "valor": "DD"},
+        ]
+        el = ElementoCorpo(
+            id="dash", tipo="dashboard",
+            _campos_inertes={"titulo": "Grade", "campos": campos},
+            distribuicao_matricial=self._dm() if com_dm else None,
+        )
+        corpo = Corpo(arranjo="vertical",
+                      elementos=[el],
+                      distribuicao={"modo": "igual"})
+        return ModeloTela(
+            id="t", schema="tela.v1",
+            cabecalho={"titulo": "T", "descricao": "D"},
+            corpo=corpo,
+            barra_de_menus={"chips": [
+                {"id": "e", "tipo": "acao", "tecla": "Esc", "texto": "Sair"}]},
+            _raw={},
+        )
+
+    def test_dashboard_com_grade(self):
+        # 2x2, coluna largura 5, vao_h 1, ordem por_linha, alinhamento inicio.
+        # Participante 0 "AA" em (0,0) x=0; participante 1 "BB" em (0,1) x=6.
+        # Linha 0 do corpo: "AA" nas colunas 0-1 e "BB" a partir da coluna 6.
+        m = self._modelo_dashboard(com_dm=True)
+        saida = renderizar_tela(m, largura=42, altura=14)
+        linhas = saida.split("\n")
+        # Localiza a caixa GRADE.
+        idx = next(i for i, l in enumerate(linhas) if "GRADE" in l)
+        # Primeira linha de conteudo do dashboard.
+        conteudo0 = linhas[idx + 1]
+        # Formato de _linha_conteudo: "│ " + content + "│".
+        corpo0 = conteudo0[2:2 + 39]
+        ok_aa = corpo0[0:2] == "AA"
+        ok_bb = corpo0[6:8] == "BB"
+        _registrar("H0035 dashboard grade AA@0 BB@6",
+                   ok_aa and ok_bb, repr(corpo0[:10]))
+        conteudo1 = linhas[idx + 2]
+        corpo1 = conteudo1[2:2 + 39]
+        ok_cc = corpo1[0:2] == "CC"
+        ok_dd = corpo1[6:8] == "DD"
+        _registrar("H0035 dashboard grade CC/DD segunda linha",
+                   ok_cc and ok_dd, repr(corpo1[:10]))
+
+    def test_dashboard_sem_preserva(self):
+        # Sem o campo: comportamento anterior (uma linha por campo literal).
+        m = self._modelo_dashboard(com_dm=False)
+        saida = renderizar_tela(m, largura=42, altura=14)
+        # Cada valor aparece em sua propria linha (comportamento _linhas_dashboard).
+        _registrar("H0035 dashboard sem campo preserva (AA e BB em linhas)",
+                   "│ AA " in saida and "│ BB " in saida)
+
+    def test_ordem_preservada(self):
+        # A grade nao reordena; participantes preservam a sequencia declarada.
+        m = self._modelo_dashboard(com_dm=True)
+        saida = renderizar_tela(m, largura=42, altura=14)
+        pos_aa = saida.find("AA")
+        pos_bb = saida.find("BB")
+        pos_cc = saida.find("CC")
+        pos_dd = saida.find("DD")
+        _registrar("H0035 ordem preservada AA<BB<CC<DD",
+                   pos_aa < pos_bb < pos_cc < pos_dd,
+                   "{0},{1},{2},{3}".format(pos_aa, pos_bb, pos_cc, pos_dd))
+
+    def test_sem_perda_nem_duplicacao(self):
+        m = self._modelo_dashboard(com_dm=True)
+        saida = renderizar_tela(m, largura=42, altura=14)
+        _registrar("H0035 dashboard sem perda",
+                   all(saida.count(v) == 1 for v in ("AA", "BB", "CC", "DD")))
+
+    def test_console_com_substitui(self):
+        itens = [
+            {"id": "l1", "texto": "XX"},
+            {"id": "l2", "texto": "YY"},
+        ]
+        el = ElementoCorpo(
+            id="con", tipo="console",
+            _campos_inertes={"titulo": "Console", "itens": itens},
+            distribuicao_matricial=self._dm(
+                formacao={"politica": "matriz_fixa",
+                          "linhas": {"fixo": 1}, "colunas": {"fixo": 2}}),
+        )
+        corpo = Corpo(arranjo="vertical", elementos=[el],
+                      distribuicao={"modo": "igual"})
+        m = ModeloTela(id="t", schema="tela.v1",
+                       cabecalho={"titulo": "T", "descricao": "D"},
+                       corpo=corpo,
+                       barra_de_menus={"chips": [
+                           {"id": "e", "tipo": "acao", "tecla": "Esc",
+                            "texto": "Sair"}]},
+                       _raw={})
+        saida = renderizar_tela(m, largura=42, altura=12)
+        # Com a grade, XX e YY aparecem lado a lado na mesma linha (1x2).
+        for l in saida.split("\n"):
+            if "XX" in l and "YY" in l:
+                _registrar("H0035 console com: XX e YY na mesma linha (grade)",
+                           True)
+                break
+        else:
+            _registrar("H0035 console com: XX e YY na mesma linha (grade)", False)
+
+    def test_console_sem_preserva(self):
+        # Sem o campo, console mantem o placeholder de escopo "(console)".
+        el = ElementoCorpo(
+            id="con", tipo="console",
+            _campos_inertes={"titulo": "Console"},
+        )
+        corpo = Corpo(arranjo="vertical", elementos=[el], distribuicao=None)
+        m = ModeloTela(id="t", schema="tela.v1",
+                       cabecalho={"titulo": "T", "descricao": "D"},
+                       corpo=corpo,
+                       barra_de_menus={"chips": [
+                           {"id": "e", "tipo": "acao", "tecla": "Esc",
+                            "texto": "Sair"}]},
+                       _raw={})
+        saida = renderizar_tela(m, largura=42)
+        _registrar("H0035 console sem campo preserva placeholder",
+                   "(console)" in saida)
+
+    def _modelo_lancador(self, com_dm):
+        itens = [
+            {"id": "i1", "chip": "A", "texto": "um", "tela_destino": "t"},
+            {"id": "i2", "chip": "B", "texto": "do", "tela_destino": "t"},
+            {"id": "i3", "chip": "C", "texto": "tr", "tela_destino": "t"},
+            {"id": "i4", "chip": "D", "texto": "qu", "tela_destino": "t"},
+        ]
+        params = {
+            "vaos": {
+                "chip_texto": {"minimo": 1, "maximo": 3},
+                "entre_itens_colunas_margem": {"minimo": 2, "maximo": 5},
+            },
+            "vertical": {"margem_borda_superior": 1, "margem_borda_inferior": 1},
+            "verificacao": {"texto": {"max_caracteres": 15}},
+        }
+        el = ElementoCorpo(
+            id="lan", tipo="lancador",
+            _campos_inertes={"titulo": "Lancador", "itens": itens},
+            parametros_tipo=params,
+            distribuicao_matricial=self._dm(
+                dimensionamento={
+                    "colunas": {"politica": "maior_da_coluna"},
+                    "linhas": {"politica": "minimo_fixo", "minimo": 1}},
+            ) if com_dm else None,
+        )
+        corpo = Corpo(arranjo="vertical", elementos=[el],
+                      distribuicao={"modo": "igual"})
+        return ModeloTela(id="t", schema="tela.v1",
+                          cabecalho={"titulo": "T", "descricao": "D"},
+                          corpo=corpo,
+                          barra_de_menus={"chips": [
+                              {"id": "e", "tipo": "acao", "tecla": "Esc",
+                               "texto": "Sair"}]},
+                          _raw={})
+
+    def test_lancador_com_precedencia(self):
+        # Com o campo: grade 2x2 por_linha. [A] um e [B] do na primeira linha.
+        m = self._modelo_lancador(com_dm=True)
+        saida = renderizar_tela(m, largura=42, altura=14)
+        achou = False
+        for l in saida.split("\n"):
+            if "[A] um" in l and "[B] do" in l:
+                achou = True
+                break
+        _registrar("H0035 lancador com: [A] um e [B] do na mesma linha", achou)
+
+    def test_lancador_sem_preserva(self):
+        # Sem o campo: politica historica (ADR-0001/2/3). Todos os itens numa
+        # unica fila (cabendo em 42 chars) — comportamento _linhas_lancador.
+        m = self._modelo_lancador(com_dm=False)
+        saida = renderizar_tela(m, largura=42, altura=14)
+        # Fila: todos os quatro itens na mesma linha.
+        achou_fila = False
+        for l in saida.split("\n"):
+            if all(t in l for t in ("[A] um", "[B] do", "[C] tr", "[D] qu")):
+                achou_fila = True
+                break
+        _registrar("H0035 lancador sem campo preserva fila historica",
+                   achou_fila)
+
+    def test_fallback_quadro_minimo(self):
+        # Grade que nao cabe -> quadro minimo canonico global.
+        el = ElementoCorpo(
+            id="dash", tipo="dashboard",
+            _campos_inertes={"titulo": "Grade", "campos": [
+                {"id": "c1", "rotulo": "", "fonte": "literal", "valor": "X"},
+                {"id": "c2", "rotulo": "", "fonte": "literal", "valor": "Y"},
+            ]},
+            distribuicao_matricial=self._dm(
+                formacao={"politica": "matriz_fixa",
+                          "linhas": {"fixo": 1}, "colunas": {"fixo": 2}},
+                dimensionamento={
+                    "colunas": {"politica": "minimo_fixo", "minimo": 40},
+                    "linhas": {"politica": "minimo_fixo", "minimo": 1}}),
+        )
+        corpo = Corpo(arranjo="vertical", elementos=[el],
+                      distribuicao={"modo": "igual"})
+        m = ModeloTela(id="t", schema="tela.v1",
+                       cabecalho={"titulo": "T", "descricao": "D"},
+                       corpo=corpo,
+                       barra_de_menus={"chips": [
+                           {"id": "e", "tipo": "acao", "tecla": "Esc",
+                            "texto": "Sair"}]},
+                       _raw={})
+        saida = renderizar_tela(m, largura=42, altura=14)
+        _registrar("H0035 fallback -> quadro minimo canonico",
+                   "terminal pequeno demais" in saida and "GRADE" not in saida)
+
+    def test_telas_permanentes_carregam(self):
+        # As telas h0035_* de conteudo carregam e renderizam pelo pipeline.
+        ids = [
+            "h0035_pref_linhas", "h0035_pref_colunas", "h0035_matriz_fixa_cabe",
+            "h0035_uma_linha", "h0035_uma_coluna", "h0035_console_com",
+            "h0035_console_sem", "h0035_lancador_com", "h0035_lancador_sem",
+            "h0035_dashboard_com", "h0035_dashboard_sem",
+            "h0035_minimo_fixo_excedido", "h0035_tres_centralizados",
+        ]
+        todas_ok = True
+        for id_tela in ids:
+            try:
+                raw = carregar_tela(_BASE_PADRAO, id_tela, _RAIZ_TELAS_DEMO)
+                modelo = construir_modelo(raw)
+                saida = renderizar_tela(modelo, largura=44, altura=16)
+                if saida.count("\n") != 16:
+                    todas_ok = False
+            except Exception as exc:  # pragma: no cover
+                todas_ok = False
+                _registrar("H0035 tela permanente {0}".format(id_tela),
+                           False, "{0}: {1}".format(type(exc).__name__, exc))
+        _registrar("H0035 telas permanentes carregam e renderizam", todas_ok)
+
+    def test_minimo_fixo_nao_cresce(self):
+        # DEC-APP-0025-01: coluna minimo_fixo=5 nao cresce por conteudo maior.
+        # 1x1, participante "ABCDEFGH" (8) em coluna de 5: coluna permanece 5.
+        # Prova comportamental: fronteira interna recebe o conteudo integral.
+        import inspect
+        import tela.renderizador as _mod
+        chamadas = []
+        _original = _mod._renderizar_participante_na_celula
+
+        def _espiao(canvas, texto_integral, cel_x, cel_y, cel_w, cel_h,
+                    canvas_h, area_w, alinh_h, alinh_v):
+            chamadas.append({
+                "texto_integral": texto_integral,
+                "cel_w": cel_w,
+                "cel_h": cel_h,
+            })
+            return _original(
+                canvas, texto_integral, cel_x, cel_y, cel_w, cel_h,
+                canvas_h, area_w, alinh_h, alinh_v,
+            )
+
+        _mod._renderizar_participante_na_celula = _espiao
+        try:
+            el = ElementoCorpo(
+                id="dash", tipo="dashboard",
+                _campos_inertes={"titulo": "Grade", "campos": [
+                    {"id": "c1", "rotulo": "", "fonte": "literal",
+                     "valor": "ABCDEFGH"}]},
+                distribuicao_matricial=self._dm(
+                    formacao={"politica": "matriz_fixa",
+                              "linhas": {"fixo": 1}, "colunas": {"fixo": 1}},
+                    dimensionamento={
+                        "colunas": {"politica": "minimo_fixo", "minimo": 5},
+                        "linhas": {"politica": "minimo_fixo", "minimo": 1}},
+                    distribuicao_horizontal={"politica": "inicio"}),
+            )
+            corpo = Corpo(arranjo="vertical", elementos=[el],
+                          distribuicao={"modo": "igual"})
+            m = ModeloTela(id="t", schema="tela.v1",
+                           cabecalho={"titulo": "T", "descricao": "D"},
+                           corpo=corpo,
+                           barra_de_menus={"chips": [
+                               {"id": "e", "tipo": "acao", "tecla": "Esc",
+                                "texto": "Sair"}]},
+                           _raw={})
+            saida = renderizar_tela(m, largura=42, altura=12)
+            linhas = saida.split("\n")
+            # 1: Formacao valida (grade renderizada).
+            idx = next((i for i, l in enumerate(linhas) if "GRADE" in l), -1)
+            _registrar("H0035 minimo_fixo: formacao externa valida",
+                       idx >= 0, "idx GRADE = {0}".format(idx))
+            # 2: Fronteira interna foi chamada pelo distribuidor externo.
+            _registrar(
+                "H0035 minimo_fixo: fronteira interna chamada",
+                len(chamadas) >= 1,
+                "chamadas = {0}".format(len(chamadas)),
+            )
+            # 3: Conteudo integral "ABCDEFGH" recebido pela fronteira interna.
+            conteudo_recebido = chamadas[0]["texto_integral"] if chamadas else ""
+            _registrar(
+                "H0035 minimo_fixo: conteudo integral ABCDEFGH recebido",
+                conteudo_recebido == "ABCDEFGH",
+                "recebido = {0!r}".format(conteudo_recebido),
+            )
+            # 4: Largura da celula recebida e 5 (dimensao externa nao cresceu).
+            cel_w_recebida = chamadas[0]["cel_w"] if chamadas else -1
+            _registrar(
+                "H0035 minimo_fixo: largura da celula e 5",
+                cel_w_recebida == 5,
+                "cel_w = {0}".format(cel_w_recebida),
+            )
+            # 5: Auxiliar — sem [:cel_w] no corpo da funcao matricial externa.
+            from tela.renderizador import _linhas_distribuicao_matricial as _ldm
+            fonte = inspect.getsource(_ldm)
+            _registrar(
+                "H0035 minimo_fixo: [:cel_w] ausente na camada matricial (auxiliar)",
+                "[:cel_w]" not in fonte,
+                "[:cel_w] no fonte = {0}".format("[:cel_w]" in fonte),
+            )
+        finally:
+            _mod._renderizar_participante_na_celula = _original
+
+    def test_fronteira_interna_celula(self):
+        # Prova direta de _renderizar_participante_na_celula:
+        # recebe conteudo integral, respeita a area fisica, nao invade vizinha.
+        from tela.renderizador import _renderizar_participante_na_celula
+        # Canvas 10 colunas x 1 linha; celula largura 5 em x=0.
+        canvas = [[" "] * 10]
+        _renderizar_participante_na_celula(
+            canvas=canvas,
+            texto_integral="ABCDEFGH",
+            cel_x=0, cel_y=0, cel_w=5, cel_h=1,
+            canvas_h=1, area_w=10,
+            alinh_h="inicio", alinh_v="topo",
+        )
+        linha = "".join(canvas[0])
+        _registrar(
+            "H0035 fronteira_interna: primeiros 5 chars escritos na celula",
+            linha[:5] == "ABCDE",
+            "canvas = {0!r}".format(linha),
+        )
+        _registrar(
+            "H0035 fronteira_interna: celula vizinha nao invadida (pos 5-9)",
+            linha[5:] == "     ",
+            "pos5-9 = {0!r}".format(linha[5:]),
+        )
+        # Celula em x=5: conteudo breve nao invade celula em x=0.
+        canvas2 = [[" "] * 10]
+        _renderizar_participante_na_celula(
+            canvas=canvas2,
+            texto_integral="XY",
+            cel_x=5, cel_y=0, cel_w=5, cel_h=1,
+            canvas_h=1, area_w=10,
+            alinh_h="inicio", alinh_v="topo",
+        )
+        linha2 = "".join(canvas2[0])
+        _registrar(
+            "H0035 fronteira_interna: vizinha direita nao invade esquerda",
+            linha2[:5] == "     " and linha2[5:7] == "XY",
+            "canvas = {0!r}".format(linha2),
+        )
+
+    def run_all(self):
+        self.test_dashboard_com_grade()
+        self.test_dashboard_sem_preserva()
+        self.test_ordem_preservada()
+        self.test_sem_perda_nem_duplicacao()
+        self.test_console_com_substitui()
+        self.test_console_sem_preserva()
+        self.test_lancador_com_precedencia()
+        self.test_lancador_sem_preserva()
+        self.test_fallback_quadro_minimo()
+        self.test_telas_permanentes_carregam()
+        self.test_minimo_fixo_nao_cresce()
+        self.test_fronteira_interna_celula()
+
+
 def main():
     print("Diagnostico H-0010A - renderer declarativo (curva/reta)")
     print("Base padrao: {0}".format(_BASE_PADRAO))
@@ -9790,6 +10201,7 @@ def main():
     TestHelperHorizontalH0033Patch2().run_all()
     TestCardinalidadeHorizontalH0033Patch3().run_all()
     TestCardinalidadeHorizontalH0033Patch4().run_all()
+    TestDistribuicaoMatricialH0035().run_all()
 
     print("")
     print("== Resumo ==")

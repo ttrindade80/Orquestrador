@@ -1,0 +1,51 @@
+{
+  "schema": "tela.v1",
+  "id": "h0035_lancador_sem",
+  "cabecalho": {
+    "titulo": "H0035 Lancador Sem",
+    "descricao": "Lancador sem distribuicao_matricial (ADR-0001/0002/0003 preservados)"
+  },
+  "corpo": {
+    "arranjo": "vertical",
+    "distribuicao": {
+      "modo": "igual"
+    },
+    "elementos": [
+      {
+        "id": "lan",
+        "tipo": "lancador",
+        "titulo": "Lancador",
+        "itens": [
+          {
+            "id": "it1",
+            "chip": "K1",
+            "texto": "Item 1",
+            "tela_destino": "h0035_catalogo"
+          },
+          {
+            "id": "it2",
+            "chip": "K2",
+            "texto": "Item 2",
+            "tela_destino": "h0035_catalogo"
+          },
+          {
+            "id": "it3",
+            "chip": "K3",
+            "texto": "Item 3",
+            "tela_destino": "h0035_catalogo"
+          }
+        ]
+      }
+    ]
+  },
+  "barra_de_menus": {
+    "chips": [
+      {
+        "id": "chip_esc",
+        "tipo": "acao",
+        "tecla": "Esc",
+        "texto": "Sair"
+      }
+    ]
+  }
+}

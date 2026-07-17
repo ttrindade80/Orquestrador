@@ -12,6 +12,7 @@ metadata:
       - docs/adr/ADR-0021-separacao-demo-produto-politica-caminhos.md
       - docs/adr/ADR-0022-ponto-entrada-tela-inicial-orquestrador.md
       - docs/adr/ADR-0023-largura-minima-funcional-lancador.md
+      - docs/adr/ADR-0025-distribuicao-matricial-configuravel-nivel-unico-conteudo-elementos.md
     reaproveitado_de_legado: false
 ---
 
@@ -1118,3 +1119,129 @@ Pendências obrigatórias derivadas deste contrato:
 - definir formato real dos JSONs de tela;
 - criar draft do JSON da tela raiz do Orquestrador;
 - arquivar artefatos históricos/transicionais ao fechamento da Fase 0.
+
+---
+
+## 30. Distribuição matricial configurável de nível único (ADR-0025)
+
+A ADR-0025 (2026-07-16) define a capacidade genérica de distribuição matricial
+configurável de nível único do conteúdo dos elementos. Esta seção registra as
+regras gerais e remete aos contratos específicos para as validações por tipo de
+elemento.
+
+### 30.1 Capacidade declarativa genérica
+
+Um elemento do tipo `dashboard`, `console` ou `lancador` pode declarar, no
+nível do seu próprio JSON em `corpo.elementos[]`, um campo opcional
+`distribuicao_matricial`. Quando presente, esse campo controla a organização
+interna dos participantes imediatos do elemento dentro da sua área útil.
+
+A capacidade é **opcional** e exige **adoção explícita**: a ausência do campo
+`distribuicao_matricial` preserva integralmente o comportamento contratual
+anterior do elemento, sem nenhuma reorganização silenciosa.
+
+### 30.2 Local declarativo
+
+O campo `distribuicao_matricial` pertence ao JSON do **elemento organizador** —
+o elemento funcional que organiza diretamente o conjunto de participantes.
+
+```text
+corpo.elementos[]
+└── elemento (dashboard | console | lancador)
+    └── distribuicao_matricial (opcional)
+```
+
+A configuração não é declarada no `corpo` nem em elementos ancestrais. Ela não
+se propaga a descendentes e não cria herança entre níveis.
+
+### 30.3 Escopo de nível único
+
+`distribuicao_matricial` organiza **somente** os participantes imediatos do
+elemento declarante. A configuração:
+
+- não achata participantes de níveis diferentes;
+- não reorganiza descendentes implicitamente;
+- não cria recursão;
+- não cria herança;
+- não cria cascata;
+- não combina margens ou vãos de níveis diferentes;
+- não propaga fallback entre níveis.
+
+A semântica multinível permanece **fora do escopo** da ADR-0025 e deste
+contrato. Um participante pode futuramente conter outra organização interna,
+mas é tratado como uma unidade única perante o nível externo.
+
+### 30.4 Área útil
+
+Todos os cálculos de `distribuicao_matricial` ocorrem dentro da **área útil**
+já entregue ao conteúdo do elemento pela composição do corpo. A capacidade não
+redefine a área útil do elemento, não autoriza espaço externo indevido no corpo
+(ADR-0024) e não reabre as regras de ocupação integral do corpo (ADR-0024).
+
+As margens declaradas em `distribuicao_matricial` são medidas **internas** ao
+elemento — distintas do preenchimento externo proibido pela ADR-0024.
+
+### 30.5 Compatibilidade
+
+- JSONs existentes **não mudam silenciosamente**: a ausência de
+  `distribuicao_matricial` preserva o comportamento anterior;
+- a nova capacidade não introduz default estrutural capaz de reorganizar
+  elementos existentes;
+- não existe migração automática;
+- não existe reescrita automática de JSON;
+- campos desconhecidos dentro de `distribuicao_matricial` são rejeitados por
+  validação controlada, conforme a política ativa dos contratos;
+- configurações inválidas são rejeitadas de modo controlado, com erro
+  identificável, sem fallback silencioso.
+
+### 30.6 Paginação fora do escopo
+
+Esta capacidade **não define** paginação do conjunto de participantes. Ficam
+fora do escopo:
+
+- páginas;
+- capacidade por página;
+- navegação entre páginas;
+- indicadores de página;
+- controles de paginação;
+- divisão ou compactação do conjunto.
+
+### 30.7 Fallback por impossibilidade geométrica
+
+Quando nenhuma formação válida conseguir acomodar todos os participantes e
+todos os mínimos dentro da área útil, o estado exibido é o **quadro mínimo de
+terminal pequeno** já estabelecido pela ADR-0017 e ADR-0023. Não é criada
+variante concorrente de estado de fallback.
+
+Neste fallback, são proibidos:
+
+- paginação automática;
+- ocultação de participantes;
+- truncamento do conjunto;
+- perda, duplicação ou sobreposição de participantes;
+- coordenadas negativas;
+- redução silenciosa de mínimos;
+- alteração automática do JSON;
+- renderização parcial;
+- seleção silenciosa de subconjunto.
+
+A recuperação é automática e determinística: quando a área voltar a ser
+suficiente, o renderer reconstrói integralmente a distribuição.
+
+### 30.8 Elementos autorizados
+
+Os tipos de elemento autorizados a declarar `distribuicao_matricial` são:
+`dashboard`, `console` e `lancador`. Outros tipos de elemento precisam de
+autorização explícita por ADR antes de adotar a capacidade.
+
+### 30.9 Remissões aos contratos específicos
+
+As validações por tipo de elemento e os exemplos de JSON estão nos contratos
+específicos:
+
+- `contrato_json_dashboard.md` — seção 9 (ADR-0025);
+- `contrato_json_console.md` — seção 10 (ADR-0025);
+- `contrato_json_lancador.md` — seção 9 (ADR-0025).
+
+A terminologia canônica está em `docs/NOMENCLATURA.md` seção 16.
+A especificação normativa completa está na ADR-0025.

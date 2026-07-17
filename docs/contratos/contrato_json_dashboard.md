@@ -16,6 +16,7 @@ metadata:
       - docs/adr/ADR-0009-caminho-formato-jsons-tela.md
       - docs/adr/ADR-0010-composicao-hierarquica-corpo-dashboard.md
       - docs/adr/ADR-0022-ponto-entrada-tela-inicial-orquestrador.md
+      - docs/adr/ADR-0025-distribuicao-matricial-configuravel-nivel-unico-conteudo-elementos.md
     reaproveitado_de_legado: false
 ---
 
@@ -213,3 +214,154 @@ que exista contrato próprio do tipo de conteúdo correspondente.
       com as 7 seções obrigatórias.
 - [ ] O JSON mínimo não contradiz `contrato_tela_json.md` nem
       `contrato_composicao_corpo.md`.
+
+---
+
+## 9. Distribuição matricial de nível único (ADR-0025)
+
+A ADR-0025 (2026-07-16) permite que o `dashboard` adote a capacidade de
+distribuição matricial configurável de nível único mediante declaração explícita
+no seu JSON em `corpo.elementos[]`.
+
+### 9.1 Localização do campo
+
+O campo `distribuicao_matricial` é declarado no nível do elemento `dashboard`,
+ao lado dos demais campos do envelope:
+
+```json
+{
+  "id": "dashboard_principal",
+  "tipo": "dashboard",
+  "titulo": "Resumo",
+  "conteudo": { "tipo": "placeholder", "binding": null },
+  "regras_exibicao": {},
+  "distribuicao_matricial": {
+    "formacao": {
+      "politica": "preferencia_colunas",
+      "colunas": { "minimo": 2, "maximo": 4 },
+      "linhas":  { "minimo": 1 }
+    },
+    "ordem": "por_coluna",
+    "dimensionamento": {
+      "colunas": { "politica": "maior_da_coluna" },
+      "linhas":  { "politica": "maior_da_linha" }
+    },
+    "espacamento": {
+      "margem_superior":  { "minimo": 1 },
+      "margem_inferior":  { "minimo": 1 },
+      "margem_esquerda":  { "minimo": 2 },
+      "margem_direita":   { "minimo": 2 },
+      "vao_horizontal":   { "minimo": 2 },
+      "vao_vertical":     { "minimo": 1 }
+    },
+    "distribuicao_horizontal": { "politica": "centro" },
+    "distribuicao_vertical":   { "politica": "inicio" },
+    "ordem_expansao": {
+      "horizontal": "uniforme_margens_e_vaos",
+      "vertical":   "uniforme_margens_e_vaos"
+    },
+    "politica_resto": {
+      "horizontal": "ao_ultimo",
+      "vertical":   "ao_ultimo"
+    },
+    "alinhamento_interno": {
+      "horizontal": "inicio",
+      "vertical":   "topo"
+    }
+  }
+}
+```
+
+O exemplo acima é ilustrativo. Valores concretos pertencem ao JSON da tela.
+
+### 9.2 Vocabulário de campos
+
+| Campo | Tipo | Obrigatório quando | Valores |
+|---|---|---|---|
+| `formacao.politica` | string | sempre | `"preferencia_linhas"`, `"preferencia_colunas"`, `"matriz_fixa"` |
+| `formacao.linhas.minimo` | int ≥ 1 | opcional | só para políticas responsivas |
+| `formacao.linhas.maximo` | int ≥ minimo | opcional | só para políticas responsivas |
+| `formacao.linhas.fixo` | int ≥ 1 | `politica == "matriz_fixa"` | inválido nas demais políticas |
+| `formacao.colunas.minimo` | int ≥ 1 | opcional | só para políticas responsivas |
+| `formacao.colunas.maximo` | int ≥ minimo | opcional | só para políticas responsivas |
+| `formacao.colunas.fixo` | int ≥ 1 | `politica == "matriz_fixa"` | inválido nas demais políticas |
+| `ordem` | string | sempre | `"por_linha"`, `"por_coluna"` |
+| `dimensionamento.colunas.politica` | string | sempre | `"maior_da_coluna"`, `"uniforme"`, `"minimo_fixo"` |
+| `dimensionamento.colunas.minimo` | int ≥ 0 | `politica == "minimo_fixo"` | — |
+| `dimensionamento.linhas.politica` | string | sempre | `"maior_da_linha"`, `"uniforme"`, `"minimo_fixo"` |
+| `dimensionamento.linhas.minimo` | int ≥ 0 | `politica == "minimo_fixo"` | — |
+| `espacamento.margem_superior` | `{minimo, maximo?}` | sempre | int ≥ 0 |
+| `espacamento.margem_inferior` | `{minimo, maximo?}` | sempre | int ≥ 0 |
+| `espacamento.margem_esquerda` | `{minimo, maximo?}` | sempre | int ≥ 0 |
+| `espacamento.margem_direita` | `{minimo, maximo?}` | sempre | int ≥ 0 |
+| `espacamento.vao_horizontal` | `{minimo, maximo?}` | sempre | int ≥ 0 |
+| `espacamento.vao_vertical` | `{minimo, maximo?}` | sempre | int ≥ 0 |
+| `distribuicao_horizontal.politica` | string | sempre | `"inicio"`, `"centro"`, `"fim"`, `"entre_participantes"`, `"uniforme"`, `"margens_limitadas"` |
+| `distribuicao_vertical.politica` | string | sempre | `"inicio"`, `"centro"`, `"fim"`, `"entre_linhas"`, `"uniforme"`, `"margens_limitadas"` |
+| `ordem_expansao.horizontal` | string | sempre | `"margens_primeiro_depois_vaos"`, `"uniforme_margens_e_vaos"`, `"vaos_primeiro_depois_margens"` |
+| `ordem_expansao.vertical` | string | sempre | `"margens_primeiro_depois_vaos"`, `"uniforme_margens_e_vaos"`, `"vaos_primeiro_depois_margens"` |
+| `politica_resto.horizontal` | string | sempre | `"ao_primeiro"`, `"ao_ultimo"` |
+| `politica_resto.vertical` | string | sempre | `"ao_primeiro"`, `"ao_ultimo"` |
+| `alinhamento_interno.horizontal` | string | sempre | `"inicio"`, `"centro"`, `"fim"` |
+| `alinhamento_interno.vertical` | string | sempre | `"topo"`, `"centro"`, `"base"` |
+
+Campos desconhecidos dentro de `distribuicao_matricial` são rejeitados por
+validação controlada. Não há defaults implícitos: todos os campos marcados como
+"sempre" obrigatórios devem ser declarados quando `distribuicao_matricial` é
+presente.
+
+### 9.2.1 Tratamento quando participante excede a dimensão `minimo_fixo` (DEC-APP-0025-01)
+
+Quando `dimensionamento.colunas.politica` ou `dimensionamento.linhas.politica`
+for `"minimo_fixo"` e um participante exigir dimensão superior ao valor
+declarado em `dimensionamento.*.minimo`, aplicam-se as seguintes regras:
+
+- A dimensão externa declarada **não cresce automaticamente** por exigência
+  interna do participante.
+- A formação externa **não se torna inválida** exclusivamente por essa
+  exigência interna.
+- O participante **trata internamente seu conteúdo** dentro da área recebida.
+- Aplicam-se as autoridades ativas de organização interna do participante:
+  ADR-0025 seções 7 e 8 (o participante é tratado como unidade única no nível
+  externo; a distribuição interna de `B` é responsabilidade própria de `B`);
+  `contrato_composicao_corpo.md` seção 11.1 (separação de responsabilidades
+  entre composição hierárquica, distribuição de área e distribuição interna de
+  participantes); e o contrato específico do elemento participante.
+- A distribuição externa **não reorganiza, não achata e não interpreta
+  diretamente os descendentes** do participante.
+- A responsabilidade pelo conteúdo interno permanece no participante e no
+  contrato de seu conteúdo.
+
+Este contrato **não introduz** truncamento, quebra, rolagem, paginação,
+propagação de fallback, redução de mínimos ou crescimento externo automático
+como resposta a essa condição.
+
+A área externa ainda pode receber espaço excedente por sua própria política de
+distribuição (`distribuicao_horizontal`, `distribuicao_vertical`,
+`ordem_expansao`). Essa ampliação decorre da política de distribuição externa,
+não da exigência interna do participante.
+
+O literal `"minimo_fixo"` permanece semanticamente coerente com essa regra:
+ele fixa o requisito externo declarado sem transferir para o nível externo a
+exigência dimensional do conteúdo interno do participante. O mínimo é externo,
+fixo e inviolável; a organização interna é responsabilidade do participante.
+
+### 9.3 Compatibilidade com JSONs existentes
+
+A ausência do campo `distribuicao_matricial` em um JSON de `dashboard` existente
+preserva integralmente o comportamento anterior. Não há migração automática, não
+há reescrita do JSON e não há default estrutural que reorganize instâncias
+existentes.
+
+### 9.4 Fallback
+
+Quando nenhuma formação válida conseguir acomodar todos os participantes e todos
+os mínimos, o estado exibido é o `quadro mínimo de terminal pequeno` (ADR-0017,
+ADR-0023). Não é criada variante concorrente de estado de fallback.
+
+### 9.5 Pendência de alinhamento horizontal do `dashboard`
+
+A questão pendente de alinhamento horizontal do `dashboard` (seção 11 de
+`docs/NOMENCLATURA.md` — centralizado vs. bloco à esquerda com sobra à direita)
+não é resolvida por esta aplicação documental. A reconciliação permanece como
+tarefa futura explicitamente identificada.

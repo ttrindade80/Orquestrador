@@ -2424,6 +2424,201 @@ def teste_config_lancador_h0034(tmp_path):
     _run_config_lancador_h0034(tmp_path)
 
 
+def _dm_valida():
+    """Config distribuicao_matricial valida minima (26 caminhos)."""
+    return {
+        "formacao": {"politica": "preferencia_linhas", "linhas": {"minimo": 1}},
+        "ordem": "por_linha",
+        "dimensionamento": {
+            "colunas": {"politica": "uniforme"},
+            "linhas": {"politica": "uniforme"},
+        },
+        "espacamento": {
+            "margem_superior": {"minimo": 0},
+            "margem_inferior": {"minimo": 0},
+            "margem_esquerda": {"minimo": 1},
+            "margem_direita": {"minimo": 1},
+            "vao_horizontal": {"minimo": 1},
+            "vao_vertical": {"minimo": 0},
+        },
+        "distribuicao_horizontal": {"politica": "inicio"},
+        "distribuicao_vertical": {"politica": "inicio"},
+        "ordem_expansao": {"horizontal": "uniforme_margens_e_vaos",
+                           "vertical": "uniforme_margens_e_vaos"},
+        "politica_resto": {"horizontal": "ao_ultimo", "vertical": "ao_ultimo"},
+        "alinhamento_interno": {"horizontal": "inicio", "vertical": "topo"},
+    }
+
+
+def _tela_com_dm(tmp_base, id_tela, dm):
+    """Escreve uma tela com um dashboard portando distribuicao_matricial=dm."""
+    tela = {
+        "schema": "tela.v1",
+        "id": id_tela,
+        "cabecalho": {"titulo": "T", "descricao": "D"},
+        "corpo": {
+            "arranjo": "vertical",
+            "distribuicao": {"modo": "igual"},
+            "elementos": [
+                {
+                    "id": "dash", "tipo": "dashboard", "titulo": "G",
+                    "campos": [
+                        {"id": "c1", "rotulo": "A", "fonte": "literal",
+                         "valor": "um"}],
+                    "distribuicao_matricial": dm,
+                }
+            ],
+        },
+        "barra_de_menus": {"chips": []},
+    }
+    _escrever_tela(tmp_base, id_tela, tela)
+
+
+def _run_distribuicao_matricial_h0035(tmp_base):
+    print("")
+    print("-- H-0035: validacao de distribuicao_matricial --")
+
+    # 1) Estrutura valida completa e minima aceita.
+    _tela_com_dm(tmp_base, "dm_valida", _dm_valida())
+    try:
+        carregar_tela(tmp_base, "dm_valida")
+        _registrar("H0035 dm valida aceita", True)
+    except Exception as exc:  # pragma: no cover
+        _registrar("H0035 dm valida aceita", False,
+                   "{0}: {1}".format(type(exc).__name__, exc))
+
+    # 2) Ausencia do campo preserva o carregamento (compatibilidade).
+    tela_sem = {
+        "schema": "tela.v1", "id": "dm_ausente",
+        "cabecalho": {"titulo": "T", "descricao": "D"},
+        "corpo": {"arranjo": "vertical", "distribuicao": {"modo": "igual"},
+                  "elementos": [{"id": "d", "tipo": "dashboard", "titulo": "G",
+                                 "campos": []}]},
+        "barra_de_menus": {"chips": []},
+    }
+    _escrever_tela(tmp_base, "dm_ausente", tela_sem)
+    try:
+        carregar_tela(tmp_base, "dm_ausente")
+        _registrar("H0035 ausencia do campo aceita", True)
+    except Exception as exc:  # pragma: no cover
+        _registrar("H0035 ausencia do campo aceita", False, str(exc))
+
+    def _rejeita(nome, mutacao):
+        dm = _dm_valida()
+        mutacao(dm)
+        _tela_com_dm(tmp_base, "dm_inv", dm)
+        _espera_excecao(
+            nome, lambda: carregar_tela(tmp_base, "dm_inv"),
+            TelaEstruturaInvalida,
+        )
+
+    # 3) Tipo incorreto (nao objeto).
+    _tela_com_dm(tmp_base, "dm_inv", None)
+    _espera_excecao(
+        "H0035 dm nao objeto rejeitado",
+        lambda: carregar_tela(tmp_base, "dm_inv"),
+        TelaEstruturaInvalida,
+    )
+
+    # 4) Campo desconhecido.
+    _rejeita("H0035 campo desconhecido rejeitado",
+             lambda dm: dm.update({"desconhecido": 1}))
+
+    # 5) Campo obrigatorio ausente.
+    _rejeita("H0035 campo obrigatorio ausente rejeitado",
+             lambda dm: dm.pop("ordem"))
+
+    # 6) Literal fora do vocabulario.
+    _rejeita("H0035 ordem literal invalido rejeitado",
+             lambda dm: dm.update({"ordem": "diagonal"}))
+    _rejeita("H0035 formacao politica invalida rejeitada",
+             lambda dm: dm["formacao"].update({"politica": "xxx"}))
+    _rejeita("H0035 dist_h literal invalido rejeitado",
+             lambda dm: dm["distribuicao_horizontal"].update({"politica": "z"}))
+    _rejeita("H0035 alinhamento_v literal invalido rejeitado",
+             lambda dm: dm["alinhamento_interno"].update({"vertical": "meio"}))
+
+    # 7) Numero negativo em medida.
+    _rejeita("H0035 margem minimo negativo rejeitado",
+             lambda dm: dm["espacamento"]["margem_esquerda"].update({"minimo": -1}))
+
+    # 8) Maximo menor que minimo.
+    _rejeita("H0035 maximo < minimo rejeitado",
+             lambda dm: dm["espacamento"]["vao_horizontal"].update(
+                 {"minimo": 3, "maximo": 1}))
+
+    # 9) matriz_fixa incompleta (falta fixo).
+    _rejeita("H0035 matriz_fixa sem fixo rejeitada",
+             lambda dm: dm.__setitem__("formacao",
+                                       {"politica": "matriz_fixa",
+                                        "linhas": {"fixo": 2}}))
+
+    # 10) minimo/maximo em matriz_fixa (combinacao invalida).
+    _rejeita("H0035 matriz_fixa com minimo rejeitada",
+             lambda dm: dm.__setitem__(
+                 "formacao",
+                 {"politica": "matriz_fixa",
+                  "linhas": {"fixo": 2, "minimo": 1},
+                  "colunas": {"fixo": 2}}))
+
+    # 11) fixo em politica responsiva (combinacao invalida).
+    _rejeita("H0035 preferencia com fixo rejeitada",
+             lambda dm: dm.__setitem__(
+                 "formacao",
+                 {"politica": "preferencia_linhas", "linhas": {"fixo": 2}}))
+
+    # 12) minimo_fixo sem minimo (dependencia obrigatoria ausente).
+    _rejeita("H0035 minimo_fixo sem minimo rejeitado",
+             lambda dm: dm["dimensionamento"]["colunas"].__setitem__(
+                 "politica", "minimo_fixo"))
+
+    # 13) minimo presente sem minimo_fixo (combinacao invalida).
+    _rejeita("H0035 minimo sem minimo_fixo rejeitado",
+             lambda dm: dm["dimensionamento"]["linhas"].update({"minimo": 3}))
+
+    # 14) formacao.linhas.maximo < minimo.
+    _rejeita("H0035 formacao maximo < minimo rejeitado",
+             lambda dm: dm["formacao"].__setitem__(
+                 "linhas", {"minimo": 3, "maximo": 1}))
+
+    # 15) medida com campo desconhecido.
+    _rejeita("H0035 medida campo desconhecido rejeitado",
+             lambda dm: dm["espacamento"]["margem_direita"].update({"foo": 1}))
+
+    # 16) valido em grupo (elemento funcional interno).
+    tela_grupo = {
+        "schema": "tela.v1", "id": "dm_grupo",
+        "cabecalho": {"titulo": "T", "descricao": "D"},
+        "corpo": {"arranjo": "vertical", "distribuicao": {"modo": "igual"},
+                  "elementos": [{
+                      "id": "g1", "tipo": "grupo", "estrutura": "livre",
+                      "arranjo": "vertical", "distribuicao": {"modo": "igual"},
+                      "elementos": [{
+                          "id": "dash", "tipo": "dashboard", "titulo": "G",
+                          "campos": [],
+                          "distribuicao_matricial": _dm_valida()}]}]},
+        "barra_de_menus": {"chips": []},
+    }
+    _escrever_tela(tmp_base, "dm_grupo", tela_grupo)
+    try:
+        carregar_tela(tmp_base, "dm_grupo")
+        _registrar("H0035 dm valido em grupo aceito", True)
+    except Exception as exc:  # pragma: no cover
+        _registrar("H0035 dm valido em grupo aceito", False, str(exc))
+
+    # 17) invalido em grupo rejeitado.
+    dm_inv = _dm_valida()
+    dm_inv["ordem"] = "diagonal"
+    tela_grupo["corpo"]["elementos"][0]["elementos"][0][
+        "distribuicao_matricial"] = dm_inv
+    _escrever_tela(tmp_base, "dm_grupo", tela_grupo)
+    _espera_excecao(
+        "H0035 dm invalido em grupo rejeitado",
+        lambda: carregar_tela(tmp_base, "dm_grupo"),
+        TelaEstruturaInvalida,
+    )
+
+
 def main():
     print("Diagnostico H-0001 - loader/validador de tela.json")
     print("Base padrao: {0}".format(_BASE_PADRAO))
@@ -2441,6 +2636,7 @@ def main():
         _run_distribuicao_corpo_h0025(tmp_base)
         _run_hierarquia_grupos_adr0019(tmp_base)
         _run_config_lancador_h0034(tmp_base)
+        _run_distribuicao_matricial_h0035(tmp_base)
     finally:
         try:
             shutil.rmtree(tmp_base)

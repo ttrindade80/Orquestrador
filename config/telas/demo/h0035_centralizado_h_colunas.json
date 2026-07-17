@@ -1,0 +1,101 @@
+{
+  "schema": "tela.v1",
+  "id": "h0035_centralizado_h_colunas",
+  "cabecalho": {
+    "titulo": "H0035 Centro H",
+    "descricao": "12 partic. pref_colunas 3-4 cols — pol_h=centro"
+  },
+  "corpo": {
+    "arranjo": "vertical",
+    "distribuicao": {
+      "modo": "igual"
+    },
+    "elementos": [
+      {
+        "id": "d",
+        "tipo": "dashboard",
+        "titulo": "Grade",
+        "campos": [
+          {"id": "c01", "rotulo": "P01", "fonte": "literal", "valor": "Dado P01"},
+          {"id": "c02", "rotulo": "P02", "fonte": "literal", "valor": "Dado P02"},
+          {"id": "c03", "rotulo": "P03", "fonte": "literal", "valor": "Dado P03"},
+          {"id": "c04", "rotulo": "P04", "fonte": "literal", "valor": "Dado P04"},
+          {"id": "c05", "rotulo": "P05", "fonte": "literal", "valor": "Dado P05"},
+          {"id": "c06", "rotulo": "P06", "fonte": "literal", "valor": "Dado P06"},
+          {"id": "c07", "rotulo": "P07", "fonte": "literal", "valor": "Dado P07"},
+          {"id": "c08", "rotulo": "P08", "fonte": "literal", "valor": "Dado P08"},
+          {"id": "c09", "rotulo": "P09", "fonte": "literal", "valor": "Dado P09"},
+          {"id": "c10", "rotulo": "P10", "fonte": "literal", "valor": "Dado P10"},
+          {"id": "c11", "rotulo": "P11", "fonte": "literal", "valor": "Dado P11"},
+          {"id": "c12", "rotulo": "P12", "fonte": "literal", "valor": "Dado P12"}
+        ],
+        "distribuicao_matricial": {
+          "formacao": {
+            "politica": "preferencia_colunas",
+            "colunas": {
+              "minimo": 3,
+              "maximo": 4
+            }
+          },
+          "ordem": "por_linha",
+          "dimensionamento": {
+            "colunas": {
+              "politica": "uniforme"
+            },
+            "linhas": {
+              "politica": "uniforme"
+            }
+          },
+          "espacamento": {
+            "margem_esquerda": {
+              "minimo": 1
+            },
+            "margem_direita": {
+              "minimo": 1
+            },
+            "margem_superior": {
+              "minimo": 0
+            },
+            "margem_inferior": {
+              "minimo": 0
+            },
+            "vao_horizontal": {
+              "minimo": 1
+            },
+            "vao_vertical": {
+              "minimo": 0
+            }
+          },
+          "distribuicao_horizontal": {
+            "politica": "centro"
+          },
+          "distribuicao_vertical": {
+            "politica": "inicio"
+          },
+          "ordem_expansao": {
+            "horizontal": "uniforme_margens_e_vaos",
+            "vertical": "uniforme_margens_e_vaos"
+          },
+          "politica_resto": {
+            "horizontal": "ao_ultimo",
+            "vertical": "ao_ultimo"
+          },
+          "alinhamento_interno": {
+            "horizontal": "inicio",
+            "vertical": "topo"
+          }
+        }
+      }
+    ]
+  },
+  "barra_de_menus": {
+    "chips": [
+      {
+        "id": "chip_esc",
+        "tipo": "acao",
+        "tecla": "Esc",
+        "texto": "Sair"
+      }
+    ]
+  }
+}

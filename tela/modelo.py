@@ -53,6 +53,12 @@ class ElementoCorpo:
     _campos_inertes: dict = field(default_factory=dict, repr=False)
     elementos: list = field(default_factory=list, repr=False)
     parametros_tipo: dict | None = field(default=None, repr=False)
+    # H-0035 / ADR-0025: configuracao de distribuicao matricial de nivel unico,
+    # declarada explicitamente por elementos funcionais (dashboard/console/
+    # lancador). None quando ausente (preserva comportamento anterior). O
+    # loader ja validou os 26 caminhos antes de chegar aqui; o modelo apenas
+    # transporta o dict fiel, sem defaults estruturais e sem logica geometrica.
+    distribuicao_matricial: dict | None = field(default=None, repr=False)
 
 
 @dataclass
@@ -189,15 +195,17 @@ def _construir_elementos_recursivo(elementos_raw, id_pai, parametros_lancador=No
             inertes = {
                 chave: valor
                 for chave, valor in sub_el.items()
-                if chave not in ("id", "tipo")
+                if chave not in ("id", "tipo", "distribuicao_matricial")
             }
             params = parametros_lancador if sub_tipo == "lancador" else None
+            dm = sub_el.get("distribuicao_matricial")
             resultado.append(
                 ElementoCorpo(
                     id=sub_id,
                     tipo=sub_tipo,
                     _campos_inertes=inertes,
                     parametros_tipo=params,
+                    distribuicao_matricial=dm,
                 )
             )
         else:
@@ -301,15 +309,17 @@ def construir_modelo(tela_raw: dict) -> ModeloTela:
             inertes = {
                 chave: valor
                 for chave, valor in elemento.items()
-                if chave not in ("id", "tipo")
+                if chave not in ("id", "tipo", "distribuicao_matricial")
             }
             params = parametros_lancador if tipo == "lancador" else None
+            dm = elemento.get("distribuicao_matricial")
             elementos.append(
                 ElementoCorpo(
                     id=elemento["id"],
                     tipo=elemento["tipo"],
                     _campos_inertes=inertes,
                     parametros_tipo=params,
+                    distribuicao_matricial=dm,
                 )
             )
 

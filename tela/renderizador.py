@@ -66,6 +66,10 @@ Apenas biblioteca padrao do Python.
 """
 
 from tela.modelo import ModeloTela
+from tela.distribuicao_matricial import (
+    calcular_distribuicao,
+    alinhar_na_celula,
+)
 
 
 class RenderizadorErro(Exception):
@@ -1094,6 +1098,183 @@ def _contar_elementos_visuais(elementos):
     return count
 
 
+def _participantes_distribuicao_matricial(elemento):
+    """Extrai os participantes imediatos de um elemento funcional para a grade.
+
+    H-0035 / ADR-0025: os "participantes" organizados pela distribuicao
+    matricial de nivel unico sao as unidades de conteudo do elemento:
+
+    - dashboard: cada campo (rotulo + valor literal), na ordem declarada;
+    - lancador:  cada item ``[chip] texto``, na ordem declarada;
+    - console:   cada item de conteudo, na ordem declarada.
+
+    Retorna lista de strings (uma por participante, texto de identidade). A
+    ordem original e preservada: a grade so muda a celula, nunca a sequencia.
+    """
+    if elemento.tipo == "dashboard":
+        participantes = []
+        campos = elemento._campos_inertes.get("campos", []) or []
+        for campo in campos:
+            if not isinstance(campo, dict):
+                continue
+            if campo.get("fonte") == "literal":
+                rotulo = campo.get("rotulo")
+                valor = campo.get("valor", "")
+                if rotulo:
+                    participantes.append("{0}: {1}".format(rotulo, valor))
+                else:
+                    participantes.append("{0}".format(valor))
+        return participantes
+    if elemento.tipo == "lancador":
+        participantes = []
+        itens = elemento._campos_inertes.get("itens", []) or []
+        for item in itens:
+            if not isinstance(item, dict):
+                continue
+            chip = item.get("chip", "")
+            texto = item.get("texto", "")
+            participantes.append("[{0}] {1}".format(chip, texto))
+        return participantes
+    if elemento.tipo == "console":
+        participantes = []
+        itens = elemento._campos_inertes.get("itens", []) or []
+        for item in itens:
+            if isinstance(item, dict):
+                texto = item.get("texto", item.get("valor", ""))
+                participantes.append("{0}".format(texto))
+            else:
+                participantes.append("{0}".format(item))
+        return participantes
+    return []
+
+
+def _renderizar_participante_na_celula(
+    canvas, texto_integral, cel_x, cel_y, cel_w, cel_h,
+    canvas_h, area_w, alinh_h, alinh_v
+):
+    """Fronteira interna: escreve o conteudo integral do participante na celula.
+
+    Recebe o conteudo integral e a area calculada; escreve no canvas os
+    caracteres que cabem fisicamente dentro dos limites da celula, sem
+    invadir celulas vizinhas. A decisao de visibilidade pertence a esta
+    camada interna, nao ao distribuidor externo (H-0035 §17; DEC-APP-0025-01).
+    """
+    dx, dy = alinhar_na_celula(
+        len(texto_integral), 1, cel_w, cel_h, alinh_h, alinh_v
+    )
+    px = cel_x + dx
+    py = cel_y + dy
+    cel_x_fim = cel_x + cel_w
+    for k, ch in enumerate(texto_integral):
+        cx = px + k
+        if 0 <= py < canvas_h and 0 <= cx < area_w and cx < cel_x_fim:
+            canvas[py][cx] = ch
+
+
+def _linhas_distribuicao_matricial(elemento, content_w, altura_alvo):
+    """Renderiza os participantes de um elemento em grade (motor centralizado).
+
+    H-0035 / ADR-0025: usa ``calcular_distribuicao`` para organizar os
+    participantes imediatos do elemento dentro da area util (``content_w`` de
+    largura por ``altura_alvo - 2`` de altura interna). Devolve a lista de
+    linhas de conteudo (cada uma com no maximo ``content_w`` caracteres) para
+    ser embrulhada por ``_caixa``.
+
+    Quando o motor sinaliza fallback (nenhuma formacao cabe), sinaliza o quadro
+    minimo canonico global (mecanismo ADR-0017/ADR-0023) e devolve ``[]`` — o
+    ``renderizar_tela`` substitui integralmente a tela pelo quadro minimo.
+
+    Determinismo: a saida depende apenas do elemento, ``content_w`` e
+    ``altura_alvo``. Sem estado residual, sem efeito parcial antes de erro.
+    """
+    config = elemento.distribuicao_matricial
+    participantes = _participantes_distribuicao_matricial(elemento)
+    n = len(participantes)
+
+    # Altura util interna da caixa: total menos topo e base (2 linhas de borda).
+    # Quando altura_alvo e None, usa a altura natural minima (uma linha por
+    # linha da grade sera resolvida pelo motor com area suficiente).
+    if altura_alvo is not None:
+        area_h = max(0, altura_alvo - 2)
+    else:
+        area_h = None
+    area_w = content_w
+
+    if n == 0:
+        return []
+
+    # Requisito minimo interno de cada participante: largura = comprimento do
+    # texto; altura = 1 linha. DEC-APP-0025-01: quando minimo_fixo e excedido,
+    # o participante recebe a area calculada e trata seu conteudo internamente;
+    # o distribuidor externo NAO cresce a coluna/linha por essa exigencia.
+    min_ws = [len(p) for p in participantes]
+    min_hs = [1 for _ in participantes]
+
+    # Altura util para o motor. Quando altura_alvo e None (composicao orientada
+    # pelo conteudo), estimamos uma area suficiente para a formacao caber, de
+    # modo que a caixa cresca naturalmente. Usamos um limite generoso baseado
+    # no numero de participantes; o motor selecionara a formacao preferida.
+    if area_h is None:
+        # Estimativa: cada participante em sua propria linha caberia; deixamos
+        # o motor decidir com area vertical folgada.
+        area_h_calc = max(1, n) + 8
+    else:
+        area_h_calc = area_h
+
+    resultado = calcular_distribuicao(
+        area_w=area_w,
+        area_h=area_h_calc,
+        n_participantes=n,
+        config=config,
+        min_ws=min_ws,
+        min_hs=min_hs,
+    )
+
+    if resultado["fallback"]:
+        global _quadro_minimo_lancador_ativo
+        _quadro_minimo_lancador_ativo = True
+        return []
+
+    grade = resultado["grade"]
+    n_linhas, n_colunas = resultado["formacao"]
+
+    # Altura efetivamente ocupada pela grade (para modo orientado pelo conteudo).
+    if area_h is None:
+        ocupada_h = (
+            grade["margem_sup"] + grade["margem_inf"]
+            + sum(grade["alturas_linhas"])
+            + sum(grade["vaos_v"])
+        )
+        canvas_h = max(1, ocupada_h)
+    else:
+        canvas_h = area_h
+
+    # Canvas de caracteres (linhas x colunas) preenchido com espacos.
+    canvas = [[" "] * area_w for _ in range(canvas_h)]
+
+    alinh = config["alinhamento_interno"]
+    alinh_h = alinh["horizontal"]
+    alinh_v = alinh["vertical"]
+
+    for celula in resultado["celulas"]:
+        # DEC-APP-0025-01: a camada matricial entrega o conteudo integral ao
+        # participante; a fronteira interna decide a visibilidade fisica.
+        _renderizar_participante_na_celula(
+            canvas=canvas,
+            texto_integral=participantes[celula["participante"]],
+            cel_x=celula["x"],
+            cel_y=celula["y"],
+            cel_w=celula["largura"],
+            cel_h=celula["altura"],
+            canvas_h=canvas_h,
+            area_w=area_w,
+            alinh_h=alinh_h,
+            alinh_v=alinh_v,
+        )
+
+    return ["".join(linha) for linha in canvas]
+
+
 def _caixa_de_elemento(elemento, borda, inner_w, content_w, label_max, altura_alvo=None):
     """Despacha um elemento funcional para sua caixa bordeada.
 
@@ -1109,6 +1290,25 @@ def _caixa_de_elemento(elemento, borda, inner_w, content_w, label_max, altura_al
     Quando ``None``, preserva o comportamento anterior (topo + conteudo +
     base, sem preenchimento interno).
     """
+    # H-0035 / ADR-0025: quando o elemento funcional declara distribuicao_
+    # matricial, ela organiza os participantes imediatos em grade. Para console
+    # substitui as politicas geometricas antigas (DEC-APP-0025-03); para
+    # lancador tem precedencia sobre ADR-0001/0002/0003 (DEC-APP-0025-02); para
+    # dashboard organiza os campos. Ausencia preserva o comportamento anterior.
+    dm = getattr(elemento, "distribuicao_matricial", None)
+    if dm is not None and elemento.tipo in ("console", "dashboard", "lancador"):
+        rotulo_padrao = {
+            "console": "CONSOLE",
+            "dashboard": "DASHBOARD",
+            "lancador": "LANCADOR",
+        }[elemento.tipo]
+        titulo_el = elemento._campos_inertes.get("titulo", rotulo_padrao)
+        linhas = _linhas_distribuicao_matricial(elemento, content_w, altura_alvo)
+        return _caixa(
+            titulo_el.upper(), linhas,
+            borda, inner_w, content_w, label_max, altura_alvo,
+        )
+
     if elemento.tipo == "console":
         titulo_el = elemento._campos_inertes.get("titulo", "CONSOLE")
         return _caixa(

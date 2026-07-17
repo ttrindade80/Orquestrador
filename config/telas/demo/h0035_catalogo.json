@@ -1,0 +1,183 @@
+{
+  "schema": "tela.v1",
+  "id": "h0035_catalogo",
+  "cabecalho": {
+    "titulo": "H0035 Catalogo",
+    "descricao": "Validacao sequencial — 25 telas, teclas 1-9 e A-P"
+  },
+  "corpo": {
+    "arranjo": "vertical",
+    "distribuicao": {
+      "modo": "igual"
+    },
+    "elementos": [
+      {
+        "id": "catalogo_lancador",
+        "tipo": "lancador",
+        "titulo": "Telas",
+        "itens": [
+          {
+            "id": "nav1",
+            "chip": "1",
+            "texto": "pref_linhas",
+            "tela_destino": "h0035_pref_linhas"
+          },
+          {
+            "id": "nav2",
+            "chip": "2",
+            "texto": "pref_colunas",
+            "tela_destino": "h0035_pref_colunas"
+          },
+          {
+            "id": "nav3",
+            "chip": "3",
+            "texto": "matriz 3x4 H+V",
+            "tela_destino": "h0035_matriz_fixa_cabe"
+          },
+          {
+            "id": "nav4",
+            "chip": "4",
+            "texto": "matriz 4x4 fb",
+            "tela_destino": "h0035_matriz_fixa_quadro_minimo"
+          },
+          {
+            "id": "nav5",
+            "chip": "5",
+            "texto": "centro h",
+            "tela_destino": "h0035_centralizado_h_colunas"
+          },
+          {
+            "id": "nav6",
+            "chip": "6",
+            "texto": "esquerda",
+            "tela_destino": "h0035_esquerda_margens_min_max"
+          },
+          {
+            "id": "nav7",
+            "chip": "7",
+            "texto": "h uniforme",
+            "tela_destino": "h0035_h_uniforme"
+          },
+          {
+            "id": "nav8",
+            "chip": "8",
+            "texto": "h limitadas",
+            "tela_destino": "h0035_h_margens_limitadas"
+          },
+          {
+            "id": "nav9",
+            "chip": "9",
+            "texto": "v min",
+            "tela_destino": "h0035_v_margens_min"
+          },
+          {
+            "id": "nav10",
+            "chip": "A",
+            "texto": "v min max",
+            "tela_destino": "h0035_v_margens_min_max"
+          },
+          {
+            "id": "nav11",
+            "chip": "B",
+            "texto": "v uniforme",
+            "tela_destino": "h0035_v_uniforme"
+          },
+          {
+            "id": "nav12",
+            "chip": "C",
+            "texto": "1 centralizado",
+            "tela_destino": "h0035_um_centralizado"
+          },
+          {
+            "id": "nav13",
+            "chip": "D",
+            "texto": "3 centralizados",
+            "tela_destino": "h0035_tres_centralizados"
+          },
+          {
+            "id": "nav14",
+            "chip": "E",
+            "texto": "4 centralizados",
+            "tela_destino": "h0035_quatro_centralizados"
+          },
+          {
+            "id": "nav15",
+            "chip": "F",
+            "texto": "min fixo",
+            "tela_destino": "h0035_minimo_fixo_excedido"
+          },
+          {
+            "id": "nav16",
+            "chip": "G",
+            "texto": "uma linha",
+            "tela_destino": "h0035_uma_linha"
+          },
+          {
+            "id": "nav17",
+            "chip": "H",
+            "texto": "uma coluna",
+            "tela_destino": "h0035_uma_coluna"
+          },
+          {
+            "id": "nav18",
+            "chip": "I",
+            "texto": "resto h",
+            "tela_destino": "h0035_resto_horizontal"
+          },
+          {
+            "id": "nav19",
+            "chip": "J",
+            "texto": "resto v",
+            "tela_destino": "h0035_resto_vertical"
+          },
+          {
+            "id": "nav20",
+            "chip": "K",
+            "texto": "console com dm",
+            "tela_destino": "h0035_console_com"
+          },
+          {
+            "id": "nav21",
+            "chip": "L",
+            "texto": "console sem dm",
+            "tela_destino": "h0035_console_sem"
+          },
+          {
+            "id": "nav22",
+            "chip": "M",
+            "texto": "lancador com dm",
+            "tela_destino": "h0035_lancador_com"
+          },
+          {
+            "id": "nav23",
+            "chip": "N",
+            "texto": "lancador sem dm",
+            "tela_destino": "h0035_lancador_sem"
+          },
+          {
+            "id": "nav24",
+            "chip": "O",
+            "texto": "dash com dm",
+            "tela_destino": "h0035_dashboard_com"
+          },
+          {
+            "id": "nav25",
+            "chip": "P",
+            "texto": "dash sem dm",
+            "tela_destino": "h0035_dashboard_sem"
+          }
+        ]
+      }
+    ]
+  },
+  "barra_de_menus": {
+    "chips": [
+      {
+        "id": "chip_esc",
+        "tipo": "acao",
+        "tecla": "Esc",
+        "texto": "Sair"
+      }
+    ]
+  }
+}

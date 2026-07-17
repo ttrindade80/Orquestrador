@@ -1,0 +1,42 @@
+{
+  "schema": "tela.v1",
+  "id": "h0035_console_sem",
+  "cabecalho": {
+    "titulo": "H0035 Console Sem",
+    "descricao": "Console sem distribuicao_matricial (comportamento anterior preservado)"
+  },
+  "corpo": {
+    "arranjo": "vertical",
+    "distribuicao": {
+      "modo": "igual"
+    },
+    "elementos": [
+      {
+        "id": "con",
+        "tipo": "console",
+        "titulo": "Console",
+        "itens": [
+          {
+            "id": "l1",
+            "texto": "Linha alfa"
+          },
+          {
+            "id": "l2",
+            "texto": "Linha bravo"
+          }
+        ],
+        "overflow_normal": "paginar"
+      }
+    ]
+  },
+  "barra_de_menus": {
+    "chips": [
+      {
+        "id": "chip_esc",
+        "tipo": "acao",
+        "tecla": "Esc",
+        "texto": "Sair"
+      }
+    ]
+  }
+}

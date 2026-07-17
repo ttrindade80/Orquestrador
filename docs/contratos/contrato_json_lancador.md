@@ -14,6 +14,7 @@ metadata:
     adrs_aplicadas:
       - docs/adr/ADR-0008-modelo-configuracao-por-tela.md
       - docs/adr/ADR-0009-caminho-formato-jsons-tela.md
+      - docs/adr/ADR-0025-distribuicao-matricial-configuravel-nivel-unico-conteudo-elementos.md
     reaproveitado_de_legado: false
 ---
 
@@ -189,3 +190,124 @@ Os itens abaixo são explicitamente fora do escopo deste contrato:
 - [ ] `lancador` não é navegável por `[✥]` está declarado.
 - [ ] O JSON mínimo não contradiz `contrato_lancador.md` nem
       `contrato_tela_json.md`.
+
+---
+
+## 9. Distribuição matricial de nível único (ADR-0025)
+
+A ADR-0025 (2026-07-16) permite que o `lancador` adote a capacidade de
+distribuição matricial configurável de nível único mediante declaração explícita
+no seu JSON em `corpo.elementos[]`. Esta seção formaliza a adoção explícita e
+mapeia os parâmetros específicos existentes.
+
+### 9.1 Localização do campo
+
+O campo `distribuicao_matricial` é declarado no nível do elemento `lancador`,
+ao lado dos demais campos do envelope:
+
+```json
+{
+  "id": "lancador_principal",
+  "tipo": "lancador",
+  "titulo": "Navegar",
+  "itens": [],
+  "regras_exibicao": {
+    "alinhamento": "esquerda"
+  },
+  "distribuicao_matricial": {
+    "formacao": {
+      "politica": "preferencia_colunas",
+      "colunas": { "minimo": 1 },
+      "linhas":  { "minimo": 1 }
+    },
+    "ordem": "por_coluna",
+    "dimensionamento": {
+      "colunas": { "politica": "maior_da_coluna" },
+      "linhas":  { "politica": "maior_da_linha" }
+    },
+    "espacamento": {
+      "margem_superior":  { "minimo": 1 },
+      "margem_inferior":  { "minimo": 1 },
+      "margem_esquerda":  { "minimo": 2, "maximo": 5 },
+      "margem_direita":   { "minimo": 2 },
+      "vao_horizontal":   { "minimo": 2, "maximo": 5 },
+      "vao_vertical":     { "minimo": 0, "maximo": 2 }
+    },
+    "distribuicao_horizontal": { "politica": "inicio" },
+    "distribuicao_vertical":   { "politica": "inicio" },
+    "ordem_expansao": {
+      "horizontal": "vaos_primeiro_depois_margens",
+      "vertical":   "uniforme_margens_e_vaos"
+    },
+    "politica_resto": {
+      "horizontal": "ao_ultimo",
+      "vertical":   "ao_ultimo"
+    },
+    "alinhamento_interno": {
+      "horizontal": "inicio",
+      "vertical":   "topo"
+    }
+  }
+}
+```
+
+O exemplo acima é ilustrativo e não substitui as políticas específicas ativas.
+Valores concretos pertencem ao JSON da tela.
+
+### 9.2 Vocabulário de campos
+
+O vocabulário de campos de `distribuicao_matricial` para o `lancador` é idêntico
+ao definido em `contrato_json_dashboard.md` seções 9.2 e 9.2.1. Todos os campos,
+valores permitidos, obrigatoriedades, rejeições e regras de tratamento se aplicam
+sem exceção, incluindo o tratamento normativo de `"minimo_fixo"` definido na
+seção 9.2.1 daquele contrato.
+
+### 9.3 Compatibilidade com JSONs existentes e parâmetros específicos
+
+A ausência de `distribuicao_matricial` preserva integralmente as políticas
+específicas do `lancador`:
+
+- algoritmo automático de cálculo de colunas (ADR-0001): modo `fila` ou
+  `matriz` calculado a partir da largura real do terminal;
+- bloco à esquerda com sobra à direita (ADR-0002);
+- vãos elásticos entre itens com mínimos e máximos (ADR-0003);
+- largura mínima funcional e fallback global (ADR-0023);
+- parâmetros de `config/elementos/lancador.json` (transicional).
+
+### 9.4 Precedência quando `distribuicao_matricial` está presente (DEC-APP-0025-02)
+
+Quando `distribuicao_matricial` for declarado em um `lancador`, essa
+configuração tem precedência sobre as políticas das ADR-0001, ADR-0002 e
+ADR-0003 que tratem das mesmas responsabilidades. Ver `contrato_lancador.md`
+seção 11.3 para a tabela normativa completa de precedência.
+
+| Campo em `distribuicao_matricial` | Política substituída | Regra |
+|---|---|---|
+| `formacao.politica` | Algoritmo automático fila/matriz (ADR-0001) | `distribuicao_matricial` tem precedência quando presente |
+| `distribuicao_horizontal.politica` + `espacamento.margem_direita` | Bloco à esquerda + sobra à direita (ADR-0002) | `distribuicao_matricial` tem precedência quando presente |
+| `espacamento.vao_horizontal` | Vãos elásticos entre itens/colunas (ADR-0003) | `distribuicao_matricial` tem precedência quando presente |
+| `espacamento.margem_esquerda` / `margem_direita` | Margens borda↔elemento (ADR-0003) | `distribuicao_matricial` tem precedência quando presente |
+
+As políticas substituídas **não concorrem, não complementam e não coexistem**
+com `distribuicao_matricial` quando o campo está presente.
+
+**Quando `distribuicao_matricial` está ausente**: ADR-0001, ADR-0002 e ADR-0003
+permanecem vigentes integralmente. Os parâmetros de
+`config/elementos/lancador.json` não são alterados por esta aplicação.
+
+### 9.5 Divergência do H-0034
+
+A divergência da política geométrica do H-0034 não é corrigida por esta
+aplicação documental nem pelo PATCH_APLICACAO_ADR. A correção geométrica do
+`lancador` continua sendo ciclo documental próprio, independente da ADR-0025.
+
+A reconciliação entre `distribuicao_matricial` e as políticas das ADR-0001,
+ADR-0002 e ADR-0003 foi formalizada pela seção 9.4 (DEC-APP-0025-02) e pela
+seção 11.3 de `contrato_lancador.md`. A H-0034 é divergência distinta e
+permanece separada.
+
+### 9.6 Fallback
+
+Quando `distribuicao_matricial` for declarado e nenhuma formação válida couber,
+o estado exibido é o `quadro mínimo de terminal pequeno` (ADR-0017, ADR-0023).
+As regras da seção 6.7 de `contrato_lancador.md` permanecem vigentes.

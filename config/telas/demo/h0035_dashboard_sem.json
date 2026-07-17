@@ -1,0 +1,51 @@
+{
+  "schema": "tela.v1",
+  "id": "h0035_dashboard_sem",
+  "cabecalho": {
+    "titulo": "H0035 Dash Sem",
+    "descricao": "Dashboard antigo sem distribuicao_matricial (comportamento preservado)"
+  },
+  "corpo": {
+    "arranjo": "vertical",
+    "distribuicao": {
+      "modo": "igual"
+    },
+    "elementos": [
+      {
+        "id": "d",
+        "tipo": "dashboard",
+        "titulo": "Grade",
+        "campos": [
+          {
+            "id": "c1",
+            "rotulo": "P1",
+            "fonte": "literal",
+            "valor": "Alfa"
+          },
+          {
+            "id": "c2",
+            "rotulo": "P2",
+            "fonte": "literal",
+            "valor": "Bravo"
+          },
+          {
+            "id": "c3",
+            "rotulo": "P3",
+            "fonte": "literal",
+            "valor": "Charlie"
+          }
+        ]
+      }
+    ]
+  },
+  "barra_de_menus": {
+    "chips": [
+      {
+        "id": "chip_esc",
+        "tipo": "acao",
+        "tecla": "Esc",
+        "texto": "Sair"
+      }
+    ]
+  }
+}

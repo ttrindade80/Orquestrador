@@ -1232,6 +1232,99 @@ def teste_parametros_tipo_h0034():
         )
 
 
+def _dm_modelo():
+    return {
+        "formacao": {"politica": "matriz_fixa",
+                     "linhas": {"fixo": 2}, "colunas": {"fixo": 2}},
+        "ordem": "por_coluna",
+        "dimensionamento": {
+            "colunas": {"politica": "minimo_fixo", "minimo": 5},
+            "linhas": {"politica": "uniforme"},
+        },
+        "espacamento": {
+            "margem_superior": {"minimo": 0}, "margem_inferior": {"minimo": 0},
+            "margem_esquerda": {"minimo": 1}, "margem_direita": {"minimo": 1},
+            "vao_horizontal": {"minimo": 1}, "vao_vertical": {"minimo": 0},
+        },
+        "distribuicao_horizontal": {"politica": "centro"},
+        "distribuicao_vertical": {"politica": "fim"},
+        "ordem_expansao": {"horizontal": "vaos_primeiro_depois_margens",
+                           "vertical": "margens_primeiro_depois_vaos"},
+        "politica_resto": {"horizontal": "ao_primeiro", "vertical": "ao_ultimo"},
+        "alinhamento_interno": {"horizontal": "centro", "vertical": "base"},
+    }
+
+
+def teste_distribuicao_matricial_h0035_modelo():
+    """Propagacao fiel de distribuicao_matricial no modelo (H-0035 / ADR-0025)."""
+    print("")
+    print("== H-0035 / ADR-0025: distribuicao_matricial no modelo ==")
+
+    dm = _dm_modelo()
+    raw_com = _raw_tela("m_dm", {
+        "arranjo": "vertical", "distribuicao": {"modo": "igual"},
+        "elementos": [{
+            "id": "dash", "tipo": "dashboard", "titulo": "G", "campos": [],
+            "distribuicao_matricial": dm,
+        }],
+    })
+    modelo = construir_modelo(raw_com)
+    el = modelo.corpo.elementos[0]
+
+    _registrar("H0035 modelo armazena distribuicao_matricial",
+               el.distribuicao_matricial is not None)
+    # Transporte fiel: dict identico ao declarado (sem defaults, sem alteracao).
+    _registrar("H0035 modelo transporta dm identico ao declarado",
+               el.distribuicao_matricial == dm)
+    # Todos os 26 caminhos preservados: verificacao de alguns pontos-chave.
+    d = el.distribuicao_matricial
+    caminhos_ok = (
+        d["formacao"]["politica"] == "matriz_fixa"
+        and d["formacao"]["linhas"]["fixo"] == 2
+        and d["formacao"]["colunas"]["fixo"] == 2
+        and d["ordem"] == "por_coluna"
+        and d["dimensionamento"]["colunas"]["politica"] == "minimo_fixo"
+        and d["dimensionamento"]["colunas"]["minimo"] == 5
+        and d["dimensionamento"]["linhas"]["politica"] == "uniforme"
+        and d["espacamento"]["margem_esquerda"]["minimo"] == 1
+        and d["distribuicao_horizontal"]["politica"] == "centro"
+        and d["distribuicao_vertical"]["politica"] == "fim"
+        and d["ordem_expansao"]["horizontal"] == "vaos_primeiro_depois_margens"
+        and d["politica_resto"]["horizontal"] == "ao_primeiro"
+        and d["alinhamento_interno"]["vertical"] == "base"
+    )
+    _registrar("H0035 modelo preserva os 26 caminhos", caminhos_ok)
+
+    # dm nao vaza para _campos_inertes (extraido para o campo estrutural).
+    _registrar("H0035 dm removido de _campos_inertes",
+               "distribuicao_matricial" not in el._campos_inertes)
+
+    # Ausencia -> None (sem default estrutural novo).
+    raw_sem = _raw_tela("m_dm2", {
+        "arranjo": "vertical", "distribuicao": {"modo": "igual"},
+        "elementos": [{"id": "d", "tipo": "dashboard", "titulo": "G",
+                       "campos": []}],
+    })
+    modelo_sem = construir_modelo(raw_sem)
+    _registrar("H0035 ausencia -> distribuicao_matricial None",
+               modelo_sem.corpo.elementos[0].distribuicao_matricial is None)
+
+    # Propagacao para funcional interno de grupo.
+    raw_grupo = _raw_tela("m_dm_g", {
+        "arranjo": "vertical", "distribuicao": {"modo": "igual"},
+        "elementos": [{
+            "id": "g1", "tipo": "grupo", "arranjo": "vertical",
+            "distribuicao": {"modo": "igual"},
+            "elementos": [{
+                "id": "dash", "tipo": "dashboard", "titulo": "G", "campos": [],
+                "distribuicao_matricial": dm}]}],
+    })
+    modelo_g = construir_modelo(raw_grupo)
+    dash_interno = modelo_g.corpo.elementos[0].elementos[0]
+    _registrar("H0035 dm propagado a funcional interno de grupo",
+               dash_interno.distribuicao_matricial == dm)
+
+
 def main():
     print("Diagnostico H-0002 - modelo interno normalizado de tela")
     print("Base padrao: {0}".format(_BASE_PADRAO))
@@ -1244,6 +1337,7 @@ def main():
     TestModeloMatrizH0028().run_all()
     TestModeloCatalogoH0030().run_all()
     teste_parametros_tipo_h0034()
+    teste_distribuicao_matricial_h0035_modelo()
 
     print("")
     print("== Resumo ==")

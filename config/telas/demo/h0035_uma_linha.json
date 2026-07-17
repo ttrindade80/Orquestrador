@@ -1,0 +1,107 @@
+{
+  "schema": "tela.v1",
+  "id": "h0035_uma_linha",
+  "cabecalho": {
+    "titulo": "H0035 Uma Linha",
+    "descricao": "Formacao de uma unica linha"
+  },
+  "corpo": {
+    "arranjo": "vertical",
+    "distribuicao": {
+      "modo": "igual"
+    },
+    "elementos": [
+      {
+        "id": "d",
+        "tipo": "dashboard",
+        "titulo": "Grade",
+        "campos": [
+          {
+            "id": "c1",
+            "rotulo": "P1",
+            "fonte": "literal",
+            "valor": "Alfa"
+          },
+          {
+            "id": "c2",
+            "rotulo": "P2",
+            "fonte": "literal",
+            "valor": "Bravo"
+          },
+          {
+            "id": "c3",
+            "rotulo": "P3",
+            "fonte": "literal",
+            "valor": "Charlie"
+          }
+        ],
+        "distribuicao_matricial": {
+          "formacao": {
+            "politica": "preferencia_linhas",
+            "linhas": {
+              "minimo": 1,
+              "maximo": 1
+            }
+          },
+          "ordem": "por_linha",
+          "dimensionamento": {
+            "colunas": {
+              "politica": "uniforme"
+            },
+            "linhas": {
+              "politica": "uniforme"
+            }
+          },
+          "espacamento": {
+            "margem_esquerda": {
+              "minimo": 1
+            },
+            "margem_direita": {
+              "minimo": 1
+            },
+            "margem_superior": {
+              "minimo": 0
+            },
+            "margem_inferior": {
+              "minimo": 0
+            },
+            "vao_horizontal": {
+              "minimo": 1
+            },
+            "vao_vertical": {
+              "minimo": 0
+            }
+          },
+          "distribuicao_horizontal": {
+            "politica": "inicio"
+          },
+          "distribuicao_vertical": {
+            "politica": "inicio"
+          },
+          "ordem_expansao": {
+            "horizontal": "uniforme_margens_e_vaos",
+            "vertical": "uniforme_margens_e_vaos"
+          },
+          "politica_resto": {
+            "horizontal": "ao_ultimo",
+            "vertical": "ao_ultimo"
+          },
+          "alinhamento_interno": {
+            "horizontal": "inicio",
+            "vertical": "topo"
+          }
+        }
+      }
+    ]
+  },
+  "barra_de_menus": {
+    "chips": [
+      {
+        "id": "chip_esc",
+        "tipo": "acao",
+        "tecla": "Esc",
+        "texto": "Sair"
+      }
+    ]
+  }
+}

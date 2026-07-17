@@ -1,0 +1,101 @@
+{
+  "schema": "tela.v1",
+  "id": "h0035_lancador_com",
+  "cabecalho": {
+    "titulo": "H0035 Lancador Com",
+    "descricao": "12 itens lancador com distribuicao_matricial pref_colunas 2 cols"
+  },
+  "corpo": {
+    "arranjo": "vertical",
+    "distribuicao": {
+      "modo": "igual"
+    },
+    "elementos": [
+      {
+        "id": "lan",
+        "tipo": "lancador",
+        "titulo": "Lancador",
+        "itens": [
+          {"id": "it01", "chip": "I01", "texto": "Item P01", "tela_destino": "h0035_catalogo"},
+          {"id": "it02", "chip": "I02", "texto": "Item P02", "tela_destino": "h0035_catalogo"},
+          {"id": "it03", "chip": "I03", "texto": "Item P03", "tela_destino": "h0035_catalogo"},
+          {"id": "it04", "chip": "I04", "texto": "Item P04", "tela_destino": "h0035_catalogo"},
+          {"id": "it05", "chip": "I05", "texto": "Item P05", "tela_destino": "h0035_catalogo"},
+          {"id": "it06", "chip": "I06", "texto": "Item P06", "tela_destino": "h0035_catalogo"},
+          {"id": "it07", "chip": "I07", "texto": "Item P07", "tela_destino": "h0035_catalogo"},
+          {"id": "it08", "chip": "I08", "texto": "Item P08", "tela_destino": "h0035_catalogo"},
+          {"id": "it09", "chip": "I09", "texto": "Item P09", "tela_destino": "h0035_catalogo"},
+          {"id": "it10", "chip": "I10", "texto": "Item P10", "tela_destino": "h0035_catalogo"},
+          {"id": "it11", "chip": "I11", "texto": "Item P11", "tela_destino": "h0035_catalogo"},
+          {"id": "it12", "chip": "I12", "texto": "Item P12", "tela_destino": "h0035_catalogo"}
+        ],
+        "distribuicao_matricial": {
+          "formacao": {
+            "politica": "preferencia_colunas",
+            "colunas": {
+              "minimo": 2,
+              "maximo": 2
+            }
+          },
+          "ordem": "por_linha",
+          "dimensionamento": {
+            "colunas": {
+              "politica": "uniforme"
+            },
+            "linhas": {
+              "politica": "uniforme"
+            }
+          },
+          "espacamento": {
+            "margem_esquerda": {
+              "minimo": 1
+            },
+            "margem_direita": {
+              "minimo": 1
+            },
+            "margem_superior": {
+              "minimo": 0
+            },
+            "margem_inferior": {
+              "minimo": 0
+            },
+            "vao_horizontal": {
+              "minimo": 1
+            },
+            "vao_vertical": {
+              "minimo": 0
+            }
+          },
+          "distribuicao_horizontal": {
+            "politica": "inicio"
+          },
+          "distribuicao_vertical": {
+            "politica": "inicio"
+          },
+          "ordem_expansao": {
+            "horizontal": "uniforme_margens_e_vaos",
+            "vertical": "uniforme_margens_e_vaos"
+          },
+          "politica_resto": {
+            "horizontal": "ao_ultimo",
+            "vertical": "ao_ultimo"
+          },
+          "alinhamento_interno": {
+            "horizontal": "inicio",
+            "vertical": "topo"
+          }
+        }
+      }
+    ]
+  },
+  "barra_de_menus": {
+    "chips": [
+      {
+        "id": "chip_esc",
+        "tipo": "acao",
+        "tecla": "Esc",
+        "texto": "Sair"
+      }
+    ]
+  }
+}

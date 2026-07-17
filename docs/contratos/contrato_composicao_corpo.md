@@ -26,6 +26,7 @@ metadata:
       - docs/adr/ADR-0020-matriz-de-grupos-coordenadas-explicitas.md
       - docs/adr/ADR-0022-ponto-entrada-tela-inicial-orquestrador.md
       - docs/adr/ADR-0023-largura-minima-funcional-lancador.md
+      - docs/adr/ADR-0025-distribuicao-matricial-configuravel-nivel-unico-conteudo-elementos.md
     reaproveitado_de_legado: false
 ---
 
@@ -1800,3 +1801,55 @@ altura útil repartida pela distribuição é obtida pelo mecanismo da ADR-0017;
 a obrigação de ocupação vertical da ADR-0013 continua vigente e é complementada
 pela ADR-0024: a ocupação deve ser realizada por elementos visuais, não por
 preenchimento externo vazio (DA-01 a DA-04, seção 5.7).
+
+---
+
+## 11. Fronteira com a distribuição interna de participantes (ADR-0025)
+
+A ADR-0025 (2026-07-16) introduz a capacidade de distribuição matricial
+configurável de nível único do conteúdo dos elementos. Esta seção delimita a
+fronteira entre a composição hierárquica estrutural do corpo e essa capacidade.
+
+### 11.1 Separação de responsabilidades
+
+| Capacidade | Operada por | Regida por |
+|---|---|---|
+| Composição hierárquica do corpo | Árvore de `grupo` e containers estruturais | ADR-0015, ADR-0018, ADR-0019, ADR-0020 |
+| Distribuição de área entre filhos diretos | Campo `distribuicao` no container (`corpo` ou `grupo`) | ADR-0015, ADR-0018 |
+| Distribuição interna de participantes de um elemento | Campo `distribuicao_matricial` no elemento funcional | ADR-0025 |
+
+### 11.2 O que a ADR-0025 não altera
+
+A ADR-0025 **não altera**:
+
+- a árvore estrutural do corpo;
+- a semântica de `distribuicao` entre filhos de um container;
+- a profundidade máxima de grupos;
+- a composição hierárquica;
+- as regras DA-01 a DA-04 de ocupação integral (ADR-0024);
+- a proibição de espaço externo indevido no corpo (ADR-0024);
+- a distribuição da `barra_de_menus` (ADR-0014);
+- os comportamentos `livre` e `matriz` do nó `grupo` (ADR-0020).
+
+### 11.3 Distinções obrigatórias
+
+| Termo | Contexto | Não confundir com |
+|---|---|---|
+| `distribuicao` (área) | Campo de `corpo` ou `grupo` — aloca área entre filhos diretos | `distribuicao_matricial` (ADR-0025) — organiza participantes dentro do elemento |
+| `distribuicao_matricial` | Campo opcional do elemento funcional (`dashboard`, `console`, `lancador`) — organiza participantes imediatos na área útil | `distribuicao` (área); `matriz de grupos` (ADR-0020) |
+| `margem interna` (ADR-0025) | Distância configurável dentro da área útil do elemento | `espaço externo proibido` (ADR-0024) |
+| `matriz de grupos` (ADR-0020) | Grade bidimensional do nó estrutural `grupo` na árvore do corpo | Distribuição matricial dos participantes de elemento funcional (ADR-0025) |
+
+### 11.4 Ocupação integral do corpo e margens internas
+
+A capacidade de distribuição matricial de nível único opera **dentro** da área
+útil já entregue ao elemento pela composição do corpo. As margens declaradas em
+`distribuicao_matricial` pertencem à distribuição interna do conteúdo do
+elemento e são distintas do preenchimento externo proibido pela ADR-0024.
+
+O fato de um elemento declarar `distribuicao_matricial` não autoriza:
+
+- retenção de área do corpo;
+- espaço externo indevido;
+- redefinição da área útil entregue;
+- violação das regras de ocupação integral (ADR-0024, DA-01 a DA-04).

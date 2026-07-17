@@ -301,6 +301,108 @@ def teste_proibicoes_importacao():
     )
 
 
+def teste_telas_h0035_diagnostico():
+    """Diagnostico das telas permanentes h0035_* (H-0035 / ADR-0025).
+
+    Verifica que cada tela de conteudo carrega, constroi e renderiza pelo
+    pipeline (carregar -> construir -> renderizar) via gerar_diagnostico_tela,
+    com identidade material (o titulo do cabecalho aparece na saida). Verifica
+    tambem que uma configuracao invalida e rejeitada por erro de dominio.
+    """
+    print("")
+    print("== H-0035: diagnostico das telas permanentes ==")
+
+    from tela.loader import carregar_tela, TelaEstruturaInvalida  # noqa: E402
+    from tela.modelo import construir_modelo  # noqa: E402
+    from tela.renderizador import renderizar_tela  # noqa: E402
+    import os  # noqa: E402
+    import tempfile  # noqa: E402
+    import json  # noqa: E402
+
+    raiz = os.path.join("config", "telas", "demo")
+
+    # Telas de conteudo (nao o catalogo, que exige terminal maior para a fila).
+    # Nota: gerar_diagnostico_tela usa largura padrao 42. Telas com DM que exigem
+    # mais colunas (ex: h0035_matriz_fixa_cabe: 4 cols x min_w=13 = 57 min) sao
+    # verificadas via pipeline direto com largura adequada.
+    casos_largura_padrao = [
+        ("h0035_pref_linhas", "H0035 PREF LINHAS"),
+        ("h0035_pref_colunas", "H0035 PREF COLUNAS"),
+        ("h0035_uma_linha", "H0035 UMA LINHA"),
+        ("h0035_uma_coluna", "H0035 UMA COLUNA"),
+        ("h0035_console_com", "H0035 CONSOLE COM"),
+        ("h0035_lancador_com", "H0035 LANCADOR COM"),
+        ("h0035_dashboard_com", "H0035 DASH COM"),
+        ("h0035_dashboard_sem", "H0035 DASH SEM"),
+        ("h0035_minimo_fixo_excedido", "H0035 MIN FIXO"),
+    ]
+    for id_tela, titulo_esperado in casos_largura_padrao:
+        try:
+            saida = gerar_diagnostico_tela(id_tela)
+            ident = titulo_esperado in saida
+            _registrar(
+                "H0035 diagnostico {0} (identidade material)".format(id_tela),
+                isinstance(saida, str) and ident,
+                "titulo presente" if ident else "titulo ausente",
+            )
+        except Exception as exc:  # pragma: no cover
+            _registrar(
+                "H0035 diagnostico {0}".format(id_tela),
+                False, "{0}: {1}".format(type(exc).__name__, exc),
+            )
+
+    # h0035_matriz_fixa_cabe: 4 colunas x min_w=13 = 57 chars minimos; requer
+    # largura explicita (largura padrao 42 resulta em "terminal pequeno demais").
+    try:
+        tela_raw = carregar_tela(None, "h0035_matriz_fixa_cabe", raiz)
+        modelo_mc = construir_modelo(tela_raw)
+        saida_mc = renderizar_tela(modelo_mc, largura=80, altura=30)
+        ident_mc = "H0035 MATRIZ 3X4" in saida_mc
+        _registrar(
+            "H0035 diagnostico h0035_matriz_fixa_cabe (identidade material)",
+            isinstance(saida_mc, str) and ident_mc,
+            "titulo presente" if ident_mc else "titulo ausente",
+        )
+    except Exception as exc:  # pragma: no cover
+        _registrar(
+            "H0035 diagnostico h0035_matriz_fixa_cabe",
+            False, "{0}: {1}".format(type(exc).__name__, exc),
+        )
+
+    # Configuracao invalida rejeitada por erro de dominio (sem estado externo).
+    tmp = Path(tempfile.mkdtemp(prefix="diag_h0035_"))
+    try:
+        dir_telas = tmp / "config" / "telas" / "demo"
+        dir_telas.mkdir(parents=True, exist_ok=True)
+        tela_inv = {
+            "schema": "tela.v1", "id": "h0035_invalida",
+            "cabecalho": {"titulo": "T", "descricao": "D"},
+            "corpo": {"arranjo": "vertical", "distribuicao": {"modo": "igual"},
+                      "elementos": [{
+                          "id": "d", "tipo": "dashboard", "titulo": "G",
+                          "campos": [],
+                          "distribuicao_matricial": {"ordem": "diagonal"}}]},
+            "barra_de_menus": {"chips": []},
+        }
+        (dir_telas / "h0035_invalida.json").write_text(
+            json.dumps(tela_inv, ensure_ascii=False), encoding="utf-8")
+        try:
+            carregar_tela(tmp, "h0035_invalida", raiz)
+            _registrar("H0035 diagnostico config invalida rejeitada", False,
+                       "nenhuma excecao")
+        except TelaEstruturaInvalida:
+            _registrar("H0035 diagnostico config invalida rejeitada", True)
+        except Exception as exc:  # pragma: no cover
+            _registrar("H0035 diagnostico config invalida rejeitada", False,
+                       "excecao errada: {0}".format(type(exc).__name__))
+    finally:
+        import shutil  # noqa: E402
+        try:
+            shutil.rmtree(tmp)
+        except OSError:
+            pass
+
+
 def _finalizar():
     print("")
     print("== Resumo ==")
@@ -334,6 +436,8 @@ def main():
         teste_modo_executavel(resultado)
 
     teste_proibicoes_importacao()
+
+    teste_telas_h0035_diagnostico()
 
     return _finalizar()
 

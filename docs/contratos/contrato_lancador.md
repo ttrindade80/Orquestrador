@@ -15,6 +15,7 @@ metadata:
       - docs/adr/ADR-0005-lancador-nao-e-corpo-navegavel.md
       - docs/adr/ADR-0008-modelo-configuracao-por-tela.md
       - docs/adr/ADR-0023-largura-minima-funcional-lancador.md
+      - docs/adr/ADR-0025-distribuicao-matricial-configuravel-nivel-unico-conteudo-elementos.md
     reaproveitado_de_legado: false
 ---
 
@@ -503,3 +504,88 @@ reinicialização. O `lancador` retorna à distribuição válida (`fila` ou
   já formalizados; pendente a formalização dos campos de `navegacao` (wrap
   toroidal, célula vazia) que aguardam contrato de mecanismos de
   seleção/navegação.
+
+---
+
+## 11. Capacidade de distribuição matricial (ADR-0025)
+
+A ADR-0025 (2026-07-16) define a capacidade genérica de distribuição matricial
+configurável de nível único, que o `lancador` pode adotar mediante declaração
+explícita no seu JSON. Esta seção delimita o que a ADR-0025 acrescenta, o que
+permanece como política específica do `lancador` e o que requer reconciliação
+futura.
+
+### 11.1 O que a ADR-0025 acrescenta ao `lancador`
+
+O `lancador` poderá declarar o campo opcional `distribuicao_matricial` no seu
+JSON em `corpo.elementos[]`. Quando presente:
+
+- a organização interna dos itens segue as políticas declaradas nesse campo;
+- a formação pode ser `preferencia_linhas`, `preferencia_colunas` ou
+  `matriz_fixa`;
+- a ordem de preenchimento, o dimensionamento, o espaçamento, a distribuição
+  e o alinhamento são configuráveis.
+
+A adoção da capacidade é **explícita**: a ausência de `distribuicao_matricial`
+preserva integralmente as políticas específicas do `lancador` definidas pelas
+ADR-0001, ADR-0002 e ADR-0003.
+
+### 11.2 O que permanece como política específica do `lancador`
+
+Enquanto `distribuicao_matricial` não for declarado, permanecem vigentes:
+
+- algoritmo automático de cálculo de colunas (ADR-0001): modo `fila` ou
+  `matriz` calculado automaticamente pela largura real do terminal;
+- bloco à esquerda com sobra à direita (ADR-0002);
+- vãos elásticos entre itens (ADR-0003);
+- largura mínima funcional e fallback global (ADR-0023);
+- sub-colunas independentes de `chip` e `texto` (seção 6.3 deste contrato);
+- parâmetros transicionais de `config/elementos/lancador.json`.
+
+### 11.3 Precedência quando `distribuicao_matricial` está presente (DEC-APP-0025-02)
+
+Quando o `lancador` declarar explicitamente `distribuicao_matricial`, essa
+configuração tem precedência sobre as políticas das ADR-0001, ADR-0002 e
+ADR-0003 que tratem das mesmas responsabilidades de layout.
+
+| Responsabilidade | Regra quando `distribuicao_matricial` está ausente | Regra quando `distribuicao_matricial` está presente |
+|---|---|---|
+| Formação (modo fila ou matriz) | Algoritmo automático calculado pela largura real do terminal (ADR-0001) | `formacao.politica` declarado em `distribuicao_matricial` |
+| Distribuição horizontal (bloco à esquerda, sobra à direita) | Bloco à esquerda com toda a sobra à direita (ADR-0002) | `distribuicao_horizontal.politica` + `espacamento.margem_direita` declarados |
+| Vãos horizontais elásticos entre itens e colunas | Vãos elásticos com mínimo e máximo (ADR-0003) | `espacamento.vao_horizontal` declarado em `distribuicao_matricial` |
+| Margens borda↔bloco | Parâmetros de `config/elementos/lancador.json` (ADR-0003) | `espacamento.margem_esquerda` e `espacamento.margem_direita` declarados |
+
+As políticas das ADR-0001, ADR-0002 e ADR-0003 listadas acima **não
+concorrem, não complementam e não coexistem** com `distribuicao_matricial`
+na mesma instância quando o campo está presente. A interpretação dessas
+responsabilidades é determinada exclusivamente pela nova configuração.
+
+Responsabilidades do `lancador` não relacionadas ao layout matricial **não
+são afetadas** pela precedência e permanecem vigentes mesmo quando
+`distribuicao_matricial` está presente:
+
+- identidade, conteúdo textual e navegação dos itens (`id`, `chip`, `texto`,
+  `tela_destino`);
+- acionamento de navegação por item;
+- largura mínima funcional e fallback global (ADR-0023, seção 6.7 deste
+  contrato);
+- sub-colunas independentes de `chip` e `texto` (seção 6.3 deste contrato);
+- parâmetros de `config/elementos/lancador.json` não relacionados ao layout
+  matricial (por exemplo, campos de navegação interna).
+
+**Quando `distribuicao_matricial` está ausente**: ADR-0001, ADR-0002, ADR-0003,
+ADR-0023 e as demais políticas específicas do `lancador` permanecem vigentes
+integralmente. Nenhum JSON existente muda. Nenhuma migração ocorre.
+
+### 11.4 A divergência do H-0034 não é corrigida por esta aplicação
+
+A presente aplicação documental não corrige nem resolve silenciosamente a
+divergência da política geométrica do H-0034. A correção geométrica do
+`lancador` continua sendo ciclo documental próprio, independente da ADR-0025.
+
+### 11.5 Fallback
+
+Quando `distribuicao_matricial` for declarado e nenhuma formação válida couber
+na área útil, o estado exibido é o `quadro mínimo de terminal pequeno`
+(ADR-0017, ADR-0023). Este estado substitui integralmente toda a tela ou
+sessão TUI normal. As regras da seção 6.7 permanecem vigentes.

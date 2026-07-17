@@ -1442,3 +1442,90 @@ coordenadas.
 | Mesclagem (`rowspan`/`colspan`) | **fora de escopo** | Não previsto na ADR-0020 (D11) |
 | Distribuição implícita de eixo | **inválido** | Ambas as distribuições são obrigatórias e explícitas; ausência invalida a matriz (D6) |
 | `arranjo` em `estrutura: matriz` | **proibido** | `arranjo` é autoridade concorrente ao posicionamento bidimensional (D13) |
+
+---
+
+## 16. Distribuição matricial configurável de nível único (ADR-0025)
+
+A ADR-0025 (2026-07-16) formaliza a capacidade genérica de distribuição
+matricial configurável de nível único do conteúdo dos elementos. Esta seção é a
+referência terminológica canônica; a especificação normativa completa está na
+ADR-0025 e nos contratos JSON dos elementos afetados.
+
+### 16.1 Termos fundamentais
+
+| Termo | Definição normativa | Não confundir com |
+|---|---|---|
+| `distribuição matricial de nível único` | Capacidade de organizar os participantes imediatos de um elemento em uma grade configurável, dentro da área útil daquele elemento | `distribuicao` (campo de alocação de área entre filhos de container); `matriz de grupos` (ADR-0020, grade do nó estrutural `grupo`) |
+| `elemento organizador` | Elemento funcional (`dashboard`, `console` ou `lancador`) que organiza diretamente o conjunto de participantes e declara `distribuicao_matricial` em seu JSON | `grupo` (nó estrutural, não funcional); `corpo` (raiz estrutural) |
+| `participante imediato` | Cada unidade do conjunto ordenado organizado pelo elemento no nível atual; perante o nível externo é tratado como unidade única | filho de `grupo`; item de lista de dados |
+| `formação` | Decisão de como os participantes são distribuídos em linhas e colunas — `preferencia_linhas`, `preferencia_colunas` ou `matriz_fixa` | `ordem` (sequência de preenchimento das células); `distribuicao_horizontal` (posição da matriz na área útil) |
+| `preferência por linhas` | Política de formação que prioriza o preenchimento ao longo das linhas, respeitando limites declarados e a área disponível | `preferência por colunas`; `matriz fixa` |
+| `preferência por colunas` | Política de formação que prioriza o preenchimento ao longo das colunas, respeitando limites declarados e a área disponível | `preferência por linhas`; `matriz fixa` |
+| `matriz fixa` | Política de formação que exige a quantidade declarada de linhas e colunas; sem redução ou reorganização silenciosa — se não couber, aciona o estado canônico | `preferência por linhas`; `preferência por colunas` |
+| `célula` (contexto ADR-0025) | Posição individual na grade dos participantes imediatos do elemento, identificada por (linha, coluna) | `célula da matriz` (ADR-0020, coordenada na grade de grupos); `item de lista` |
+| `margem` (contexto ADR-0025) | Distância entre a borda da área útil do elemento e o início da grade matricial; medida interna ao elemento | `vão`; `espaço externo proibido` (ADR-0024); `padding estrutural` |
+| `vão` (contexto ADR-0025) | Distância entre colunas da grade (horizontal) ou entre linhas da grade (vertical) | `margem` |
+| `espaço excedente` | Diferença entre a área útil e a área mínima necessária para a formação válida; distribuído pelas políticas de distribuição e expansão | área útil; área mínima |
+| `distribuição uniforme` | Política de distribuição que reparte o espaço excedente igualmente entre margens e vãos de um eixo | `entre_participantes`; `entre_linhas` |
+| `alinhamento interno` | Posição do participante dentro da célula que lhe foi alocada — horizontal (`inicio`, `centro`, `fim`) e vertical (`topo`, `centro`, `base`) | `distribuicao_horizontal` (posição global da grade na área útil); `distribuicao_vertical` |
+| `formação válida` | Formação capaz de acomodar todos os participantes e todos os mínimos declarados dentro da área útil disponível | formação inválida; impossibilidade geométrica |
+| `impossibilidade geométrica` | Condição em que nenhuma formação válida consegue acomodar todos os participantes e todos os mínimos; aciona o estado canônico | formação inválida isolada (quando ainda existem alternativas válidas) |
+| `recuperação determinística` | Processo de reconstrução da distribuição válida quando a área volta a ser suficiente após impossibilidade geométrica; a mesma entrada produz sempre o mesmo resultado | degradação parcial; ajuste silencioso |
+
+### 16.2 Termos canonizados para o fallback
+
+O estado exibido quando ocorre impossibilidade geométrica é o estado já
+estabelecido pela ADR-0017 e ADR-0023:
+
+| Termo canônico | Definição |
+|---|---|
+| `quadro mínimo de terminal pequeno` | Estado canônico exibido quando as dimensões são insuficientes — incluindo quando a impossibilidade decorre da configuração de `distribuicao_matricial` |
+
+A ADR-0025 usa a expressão **"terminal muito pequeno"** para descrever a
+**condição** geométrica (nenhuma formação válida cabe). O **estado exibido**
+permanece o `quadro mínimo de terminal pequeno` já estabelecido pela ADR-0017 e
+ADR-0023. As duas expressões não são concorrentes:
+
+- "terminal muito pequeno" = condição geométrica que aciona o fallback;
+- `quadro mínimo de terminal pequeno` = estado canônico exibido, independente
+  da causa que o acionou.
+
+Nenhuma variante concorrente de quadro mínimo é criada para impossibilidade
+geométrica por distribuição matricial.
+
+### 16.3 Distinções obrigatórias
+
+| Par | Distinção normativa |
+|---|---|
+| `distribuicao_matricial` × `distribuicao` (área) | `distribuicao_matricial` organiza participantes dentro da área útil de um elemento; `distribuicao` (ADR-0015, ADR-0018) aloca área entre filhos diretos de um container estrutural |
+| `participante imediato` × filho de `grupo` | Participante imediato é unidade perante o elemento organizador funcional; filho de `grupo` é filho de nó estrutural |
+| `matriz de grupos` (ADR-0020) × `distribuição matricial` (ADR-0025) | ADR-0020 trata a grade bidimensional do nó estrutural `grupo`; ADR-0025 trata a organização interna dos participantes de um elemento funcional |
+| `nível único` × multinível | Nível único: apenas participantes imediatos do elemento; multinível: composição recursiva entre níveis — fora do escopo da ADR-0025 |
+| `margem interna` × `espaço externo proibido` | Margem interna é distância configurável dentro da área útil do elemento; espaço externo proibido é linha ou coluna fora das molduras dos elementos visuais (ADR-0024) |
+| `formação` × `ordem` | Formação: como os participantes são distribuídos em linhas e colunas; ordem: sequência em que as posições sequenciais são mapeadas para as células da grade |
+| `alinhamento interno` × `distribuição horizontal/vertical` | Alinhamento interno: posição do participante dentro de sua célula; distribuição horizontal/vertical: posição da grade inteira na área útil |
+
+### 16.4 Vocabulário normativo dos campos
+
+Os valores aceitos pelos campos de `distribuicao_matricial` estão definidos
+nos contratos JSON de cada elemento (`contrato_json_dashboard.md`,
+`contrato_json_console.md`, `contrato_json_lancador.md`) e no contrato geral
+(`contrato_tela_json.md`, seção 30).
+
+Adições a este vocabulário exigem atualização normativa dos contratos afetados
+antes de uso em qualquer JSON de tela.
+
+### 16.5 Itens fora do escopo da ADR-0025
+
+| Item | Status |
+|---|---|
+| Distribuição multinível (mais de um nível de recursão) | Fora do escopo — requer decisão e ADR próprias |
+| Recursão de configuração entre níveis | Fora do escopo |
+| Herança de parâmetros entre níveis | Fora do escopo |
+| Cascata de configurações entre ancestral e descendente | Fora do escopo |
+| Paginação do conjunto de participantes | Fora do escopo |
+| Navegação entre páginas | Fora do escopo |
+| Aplicação automática a descendentes | Proibida |
+| Migração automática de JSONs existentes | Proibida |
+| Default estrutural implícito capaz de reorganizar elementos existentes | Proibido |
