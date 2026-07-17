@@ -17,6 +17,8 @@ metadata:
       - docs/adr/ADR-0006-renomeacao-console-dashboard.md
       - docs/adr/ADR-0008-modelo-configuracao-por-tela.md
       - docs/adr/ADR-0022-ponto-entrada-tela-inicial-orquestrador.md
+      - docs/adr/ADR-0026-fornecimento-externo-dados-console-json-multinivel.md
+      - docs/adr/ADR-0027-carregamento-conjunto-tela-conteudo-externo-ponto-entrada.md
     reaproveitado_de_legado: false
 ---
 
@@ -514,3 +516,159 @@ Os itens abaixo estão fora do escopo deste contrato:
   chamadas de sistema não pertencem a este contrato.
 - **Decisões de performance**: buffer, refresh parcial, debounce de input e
   similares pertencem à implementação.
+
+---
+
+## 19. Fronteira do console como consumidor de conteúdo externo (ADR-0026)
+
+A ADR-0026 (2026-07-17) registra a fronteira normativa do console como
+receptor de conteúdo de runtime fornecido por documento externo.
+
+### 19.1 Conteúdo de runtime tem origem externa
+
+O conteúdo de runtime do console tem origem externa: não é codificado
+estaticamente no JSON estrutural da tela. O console recebe esse conteúdo
+por meio de um documento JSON externo com envelope declarativo.
+
+### 19.2 Conteúdo chega previamente estruturado
+
+O conteúdo multinível chega ao console previamente estruturado para
+apresentação, com os níveis hierárquicos declarados explicitamente. O
+consumidor lê os níveis como declarados.
+
+### 19.3 Fronteira do consumidor
+
+O consumidor (componente que carrega e usa o documento externo) **não**:
+
+- reconstrói a hierarquia a partir de dados de domínio não normalizados;
+- descobre ou infere estrutura semântica que deveria chegar pronta;
+- assume responsabilidades geométricas ou de cálculo físico.
+
+As definições de APIs, classes, assinaturas e módulos do consumidor não foram
+decididas por esta ADR e permanecem para decisão futura.
+
+### 19.4 Fronteira do renderizador
+
+O renderizador mantém responsabilidade exclusiva sobre toda a representação
+física calculada em runtime:
+
+- geometria e dimensões efetivas;
+- quebras físicas;
+- truncamentos;
+- alinhamentos calculados;
+- paginação;
+- posições finais;
+- recuperação após redimensionamento (SIGWINCH).
+
+O documento externo **não** deve conter esses resultados calculados.
+
+### 19.5 Integração com o script produtor
+
+No sistema final, um script será responsável por produzir ou devolver o
+documento externo ao fluxo de apresentação. O protocolo concreto de
+comunicação com esse script — assinatura, argumentos, transporte, ciclo de
+vida — permanece para decisão futura.
+
+### 19.6 Princípio normativo
+
+```text
+O JSON externo declara a intenção de apresentação e o conteúdo semântico.
+O renderizador calcula a representação física na área disponível.
+```
+
+### 19.7 Decisões deferidas
+
+Permanecem para decisão futura, fora do escopo desta seção:
+
+- vínculo entre `tela.json` e o documento externo (nome do campo, mecanismo);
+- protocolo de invocação do script produtor;
+- suporte ao `tipo: "matriz"` no mesmo mecanismo;
+- comportamento diante de fonte ausente ou inválida;
+- navegação, seleção, expansão e recolhimento de níveis;
+- paginação interativa de conteúdo multinível.
+
+### 19.8 Remissões
+
+- `contrato_json_console.md` — seção 11 (ADR-0026): envelope declarativo do documento externo;
+- `contrato_tela_json.md` — seção 31 (ADR-0026): fronteira do JSON estrutural;
+- `docs/NOMENCLATURA.md` — seção 17: terminologia canônica da ADR-0026.
+
+---
+
+## 20. Fluxo de responsabilidade pelo carregamento e entrega do conteúdo externo (ADR-0027)
+
+A ADR-0027 (2026-07-17) formaliza o fluxo de responsabilidade entre ponto de
+entrada, loader, modelo e renderizador no carregamento conjunto da tela e do
+conteúdo externo.
+
+### 20.1 Ponto de entrada
+
+O ponto de entrada (`demo/demo.py` no ciclo atual da demonstração integrada):
+
+- identifica o cenário;
+- carrega o JSON estrutural da tela;
+- carrega o JSON externo de conteúdo quando aplicável;
+- associa os dois documentos externamente ao JSON estrutural;
+- mantém as origens separadas;
+- entrega entradas separadas ao fluxo.
+
+O ponto de entrada não é o único artefato de demonstração possível — podem
+existir demos dedicados e testes auxiliares —, mas é o único ponto de entrada
+obrigatório para provar o comportamento integrado. A responsabilidade pelo
+carregamento dos dois documentos pertence ao `demo/demo.py`.
+
+### 20.2 Loader ou camada equivalente
+
+O loader ou camada equivalente:
+
+- lê os documentos;
+- valida a estrutura do documento externo segundo os contratos ativos;
+- converte o conteúdo externo para representação interna;
+- não decide geometria;
+- não infere hierarquia.
+
+### 20.3 Modelo
+
+O modelo:
+
+- transporta a estrutura semântica;
+- preserva ordem, níveis e relação entre pais e filhos;
+- pode compor internamente a tela e seu conteúdo sem apagar a distinção das
+  origens;
+- não abre arquivos;
+- não escolhe a fonte do conteúdo;
+- não calcula representação física.
+
+### 20.4 Renderizador
+
+O renderizador:
+
+- recebe a representação semântica;
+- produz linhas, colunas, truncamentos, alinhamentos, designadores concretos e
+  demais resultados físicos;
+- não abre JSONs;
+- não escolhe arquivos;
+- não reconstrói hierarquia de dados de domínio.
+
+### 20.5 Demonstração real
+
+A demonstração integrada deve ocorrer pelo `demo/demo.py`. Pode usar auxiliares,
+mas não pode ser comprovada somente por demo dedicado. A demonstração deve:
+
+- usar JSONs permanentes;
+- provar a identidade da tela e do conteúdo;
+- ser acessível e reproduzível pelo ponto de entrada real.
+
+Código de saída zero não é prova suficiente da integração.
+
+### 20.6 Fonte futura
+
+No H-0036, a fonte é uma fixture permanente. No produto final, a fonte será
+substituída por um script que buscará dados no Pipeline. O console continuará
+recebendo o mesmo contrato semântico. O protocolo do script permanece deferido.
+
+### 20.7 Remissões
+
+- `contrato_tela_json.md` — seção 32 (ADR-0027): fronteira do JSON estrutural;
+- `contrato_json_console.md` — seção 12 (ADR-0027): schema semântico multinível;
+- `docs/NOMENCLATURA.md` — seção 18: terminologia canônica da ADR-0027.

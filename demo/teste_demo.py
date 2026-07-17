@@ -3245,7 +3245,47 @@ def main():
     teste_redimensionamento_reativo_h0023()
     teste_navegacao_h0030(modelo)
 
+    teste_catalogo_conteudo_externo_h0036()
+
     return _finalizar()
+
+
+def teste_catalogo_conteudo_externo_h0036():
+    """Regressao H-0036: catalogo do demo.py e compatibilidade retroativa.
+
+    O demo.py ganhou um catalogo de associacao cenario -> conteudo externo e
+    um argumento opcional de tela inicial, sem alterar o comportamento dos
+    cenarios sem conteudo (a tela raiz 'demo' preserva o placeholder). Estes
+    testes confirmam a compatibilidade retroativa; a cobertura completa do
+    catalogo e do ponto de entrada esta em demo/teste_demo_console.py.
+    """
+    print("")
+    print("== H-0036: catalogo do demo.py e compatibilidade retroativa ==")
+    import demo.demo as _demo
+
+    _registrar(
+        "demo.py define catalogo de conteudo externo",
+        isinstance(getattr(_demo, "_CATALOGO_CONTEUDO_EXTERNO", None), dict)
+        and "h0036_console_hierarquia" in _demo._CATALOGO_CONTEUDO_EXTERNO,
+    )
+    _registrar(
+        "cenario raiz 'demo' NAO tem conteudo externo (ausencia explicita)",
+        _demo.id_conteudo_externo_de("demo") is None,
+    )
+    modelo_demo = _demo._carregar_modelo_por_id("demo")
+    _registrar(
+        "carregar 'demo' preserva compatibilidade (conteudo_externo None)",
+        modelo_demo.conteudo_externo is None,
+    )
+    _registrar(
+        "argv sem tela inicial resolve para 'demo'",
+        _demo._tela_inicial_de_argv(["demo.py"]) == "demo",
+    )
+    _registrar(
+        "argv com cenario H-0036 resolve a tela inicial",
+        _demo._tela_inicial_de_argv(["demo.py", "h0036_console_tabela"])
+        == "h0036_console_tabela",
+    )
 
 
 if __name__ == "__main__":

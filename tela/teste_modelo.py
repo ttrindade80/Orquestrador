@@ -30,7 +30,7 @@ sys.dont_write_bytecode = True
 
 sys.path.insert(0, str(_BASE_PADRAO))
 
-from tela.loader import carregar_tela  # noqa: E402
+from tela.loader import carregar_tela, carregar_conteudo_externo  # noqa: E402
 from tela.modelo import (  # noqa: E402
     Corpo,
     ElementoCorpo,
@@ -38,6 +38,10 @@ from tela.modelo import (  # noqa: E402
     ModeloTelaErro,
     TIPOS_CORPO_VALIDOS,
     construir_modelo,
+    construir_conteudo_externo,
+    ConteudoExterno,
+    NivelConteudo,
+    NoConteudo,
 )
 
 
@@ -1325,6 +1329,115 @@ def teste_distribuicao_matricial_h0035_modelo():
                dash_interno.distribuicao_matricial == dm)
 
 
+def teste_conteudo_externo_h0036_modelo():
+    """Modelo do conteudo externo multinivel (H-0036 / ADR-0027).
+
+    Cobre entradas separadas, preservacao de origens/ordem/niveis/pais e
+    filhos, container/conteudo/nome_valor, ausencia de leitura de arquivo e
+    ausencia de calculo fisico no modelo.
+    """
+    print("")
+    print("== H-0036: modelo do conteudo externo multinivel ==")
+
+    doc = {
+        "tipo": "multinivel",
+        "formato": {
+            "apresentacao": "conjuntos_campos",
+            "niveis": [
+                {"id": "conjunto", "tipo": "container", "conteudo": "titulo",
+                 "designador": {"tipo": "decimal", "sufixo": "."}},
+                {"id": "elemento", "tipo": "nome_valor",
+                 "conteudo": {"nome": "nome", "valor": "valor"},
+                 "designador": {"tipo": "nenhum"}},
+            ],
+            "campos": {"separador": ":"},
+        },
+        "dados": [
+            {"id": "c1", "nivel": "conjunto", "titulo": "Primeiro",
+             "filhos": [
+                 {"id": "e1", "nivel": "elemento", "nome": "N1", "valor": "V1"},
+                 {"id": "e2", "nivel": "elemento", "nome": "N2", "valor": "V2"},
+             ]},
+            {"id": "c2", "nivel": "conjunto", "titulo": "Segundo",
+             "filhos": [
+                 {"id": "e3", "nivel": "elemento", "nome": "N3", "valor": "V3"},
+             ]},
+        ],
+    }
+
+    conteudo = construir_conteudo_externo(doc)
+    _registrar("construir_conteudo_externo produz ConteudoExterno",
+               isinstance(conteudo, ConteudoExterno))
+    _registrar("conteudo preserva apresentacao declarada",
+               conteudo.apresentacao == "conjuntos_campos")
+    _registrar("niveis acessiveis separadamente (2 niveis)",
+               len(conteudo.niveis) == 2
+               and all(isinstance(n, NivelConteudo) for n in conteudo.niveis))
+    _registrar("nivel_por_id retorna o NivelConteudo correto",
+               conteudo.nivel_por_id("elemento").tipo == "nome_valor")
+    _registrar("ordem de dados preservada (c1 antes de c2)",
+               [n.id for n in conteudo.nos] == ["c1", "c2"])
+    _registrar("ordem dos filhos preservada (e1 antes de e2)",
+               [f.id for f in conteudo.nos[0].filhos] == ["e1", "e2"])
+
+    # Pais e filhos preservados como declarados.
+    c1 = conteudo.nos[0]
+    _registrar("container transporta filhos acessiveis",
+               isinstance(c1, NoConteudo) and len(c1.filhos) == 2)
+    _registrar("container transporta campo semantico (titulo)",
+               c1.campos.get("titulo") == "Primeiro")
+    _registrar("no nome_valor transporta nome e valor acessiveis",
+               c1.filhos[0].campos.get("nome") == "N1"
+               and c1.filhos[0].campos.get("valor") == "V1")
+
+    # No de tipo conteudo em documento separado.
+    doc_conteudo = {
+        "tipo": "multinivel",
+        "formato": {"apresentacao": "hierarquia",
+                    "niveis": [{"id": "item", "tipo": "conteudo",
+                                "conteudo": "texto", "designador": {"tipo": "nenhum"}}]},
+        "dados": [{"id": "a", "nivel": "item", "texto": "Direto"}],
+    }
+    c2 = construir_conteudo_externo(doc_conteudo)
+    _registrar("no conteudo transporta campo semantico acessivel",
+               c2.nos[0].campos.get("texto") == "Direto")
+
+    # Entradas separadas: estrutura e conteudo preservam origens distintas.
+    tela_raw = carregar_tela(None, "h0036_console_conjuntos", _RAIZ_TELAS_DEMO)
+    modelo = construir_modelo(tela_raw, conteudo_externo=doc)
+    _registrar("ModeloTela.conteudo_externo preenchido (origem separada)",
+               isinstance(modelo.conteudo_externo, ConteudoExterno))
+    console = modelo.elementos_por_tipo("console")[0]
+    _registrar("console recebe a mesma referencia de conteudo externo",
+               console.conteudo_externo is modelo.conteudo_externo)
+    import json as _json
+    raw_txt = _json.dumps(modelo._raw, ensure_ascii=False)
+    _registrar("conteudo NAO reinserido no objeto bruto estrutural (_raw)",
+               modelo._raw.get("tipo") != "multinivel"
+               and "N1" not in raw_txt and "Primeiro" not in raw_txt)
+    _registrar("estrutura preservada separada (corpo tem 1 console)",
+               len(modelo.corpo.elementos) == 1
+               and modelo.corpo.elementos[0].tipo == "console")
+
+    # Sem conteudo externo: console permanece sem conteudo (placeholder).
+    modelo_sem = construir_modelo(
+        carregar_tela(None, "h0036_console_hierarquia", _RAIZ_TELAS_DEMO)
+    )
+    _registrar("cenario sem conteudo externo: conteudo_externo None",
+               modelo_sem.conteudo_externo is None
+               and modelo_sem.elementos_por_tipo("console")[0].conteudo_externo is None)
+
+    # Ausencia de calculo fisico: nenhum atributo geometrico no modelo.
+    atributos = set(vars(conteudo.nos[0]).keys())
+    _registrar("modelo do conteudo nao possui campos de geometria",
+               not (atributos & {"x", "y", "largura", "altura", "coluna", "linha"}))
+
+    # Pipeline separado tambem aceita ConteudoExterno ja tipado.
+    modelo2 = construir_modelo(tela_raw, conteudo_externo=conteudo)
+    _registrar("construir_modelo aceita ConteudoExterno ja tipado",
+               modelo2.conteudo_externo is conteudo)
+
+
 def main():
     print("Diagnostico H-0002 - modelo interno normalizado de tela")
     print("Base padrao: {0}".format(_BASE_PADRAO))
@@ -1338,6 +1451,7 @@ def main():
     TestModeloCatalogoH0030().run_all()
     teste_parametros_tipo_h0034()
     teste_distribuicao_matricial_h0035_modelo()
+    teste_conteudo_externo_h0036_modelo()
 
     print("")
     print("== Resumo ==")

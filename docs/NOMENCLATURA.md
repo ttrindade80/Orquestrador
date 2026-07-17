@@ -1529,3 +1529,189 @@ antes de uso em qualquer JSON de tela.
 | Aplicação automática a descendentes | Proibida |
 | Migração automática de JSONs existentes | Proibida |
 | Default estrutural implícito capaz de reorganizar elementos existentes | Proibido |
+
+---
+
+## 17. Fornecimento externo de dados ao console por JSON multinível (ADR-0026)
+
+A ADR-0026 (2026-07-17) formaliza a separação entre a configuração estrutural
+da tela e o fornecimento externo de dados de runtime ao console por JSON
+declarativo multinível. Esta seção é a referência terminológica canônica; a
+especificação normativa completa está na ADR-0026 e nos contratos afetados.
+
+### 17.1 Termos fundamentais
+
+| Termo | Definição normativa | Não confundir com |
+|---|---|---|
+| `JSON estrutural da tela` | Documento declarativo (`tela.json`) que descreve a composição e configuração estrutural da interface; não contém conteúdo de runtime do console | `JSON externo de conteúdo` (ADR-0026); `resultado calculado` (renderizador) |
+| `JSON externo de conteúdo` | Documento externo que transporta o conteúdo de runtime do console, seguindo o envelope declarativo `{tipo, formato, dados}`; produzido externamente à configuração estrutural da tela | `JSON estrutural da tela`; resultado físico calculado pelo renderizador |
+| `conteúdo de runtime do console` | Dados semanticamente estruturados fornecidos ao console em runtime por documento externo; não pertencem ao JSON estrutural da tela | configuração estrutural; resultado geométrico calculado |
+| `conteúdo multinível` | Conteúdo cujos níveis hierárquicos são declarados explicitamente no documento externo; a hierarquia chega pronta, não é inferida pelo consumidor | `distribuição matricial de nível único` (ADR-0025, organização de participantes imediatos) |
+| `envelope declarativo` | Estrutura mínima do documento externo: `{"tipo": "multinivel", "formato": {}, "dados": []}`; cada bloco tem responsabilidade distinta | schema final (não decidido); contrato de integração (não decidido) |
+| `bloco tipo` | Campo do envelope que identifica o modo de apresentação do conteúdo (ex.: `"multinivel"`); autoridade da intenção de apresentação | tipo do elemento corpo (console, dashboard, lancador) |
+| `bloco formato` | Bloco do envelope que descreve a intenção de apresentação — políticas declarativas, preferências de exibição | resultado geométrico calculado; campos calculados pelo renderizador |
+| `bloco dados` | Bloco do envelope que contém a estrutura semântica com os níveis declarados explicitamente | lista de itens do JSON estrutural; resultados físicos |
+| `níveis declarados` | Hierarquia dos dados explicitada no bloco `dados` do documento externo; o consumidor lê os níveis como declarados, sem inferência ou reconstrução | hierarquia inferida; domínio não normalizado reconstituído pelo consumidor |
+| `produtor de dados` (futuro) | Script que, no orquestrador final, produzirá ou devolverá o documento externo ao fluxo de apresentação; seu protocolo concreto permanece para decisão futura | consumidor; loader; renderizador |
+| `consumidor` | Componente que carrega e usa o documento externo; não reconstrói nem infere hierarquia; trata a separação entre JSON estrutural e documento externo | produtor; renderizador |
+| `representação semântica` | Conteúdo e intenção declarados no documento externo — tipo, formato desejado, dados com níveis explícitos; responsabilidade do produtor e do documento externo | representação física calculada |
+| `representação física calculada` | Resultado produzido exclusivamente pelo renderizador em runtime: geometria, dimensões efetivas, quebras físicas, truncamentos, alinhamentos calculados, paginação, posições finais | representação semântica; conteúdo declarado no documento externo |
+
+### 17.2 Princípio normativo central (ADR-0026)
+
+```text
+O JSON externo declara a intenção de apresentação e o conteúdo semântico.
+O renderizador calcula a representação física na área disponível.
+```
+
+O documento externo **não** deve conter resultados de cálculo físico de
+runtime, tais como:
+
+- largura ou altura efetiva;
+- linha ou coluna física calculada;
+- posição ou coordenada física final;
+- página calculada;
+- quebra física pronta;
+- truncamento já aplicado;
+- geometria física final;
+- distribuição concreta de espaço já calculada.
+
+### 17.3 Fronteiras de responsabilidade (ADR-0026)
+
+| Componente | Responsabilidade | Fora da responsabilidade |
+|---|---|---|
+| `produtor de dados` (futuro) | Produzir dados semanticamente corretos com níveis explícitos | geometria; protocolo (não decidido) |
+| `JSON externo de conteúdo` | Transportar tipo, formato declarativo, dados semânticos com níveis explícitos | resultados físicos calculados; configuração estrutural da tela |
+| `JSON estrutural da tela` | Configuração e composição estrutural da interface | conteúdo de runtime; dados voláteis de runtime |
+| `consumidor / loader` | Carregar e separar JSON estrutural e documento externo | reconstruir hierarquia; inferir estrutura semântica; APIs e classes (não decididos) |
+| `renderizador` | Calcular toda a representação física: geometria, quebras, truncamentos, alinhamentos, paginação, posições, recuperação após SIGWINCH | declarar intenção; produzir conteúdo semântico |
+
+### 17.4 Distinções obrigatórias
+
+| Par | Distinção normativa |
+|---|---|
+| `JSON externo de conteúdo` × `JSON estrutural da tela` | O externo transporta conteúdo de runtime; o estrutural declara composição e configuração da interface; são documentos separados |
+| `conteúdo multinível` × `distribuição matricial de nível único` (ADR-0025) | Multinível: hierarquia de dados com níveis declarados no documento externo; nível único: organização dos participantes imediatos de um elemento em grade configurável |
+| `níveis declarados` × `hierarquia inferida` | O consumidor lê os níveis como declarados; não os reconstrói, descobre nem infere a partir de dados de domínio não normalizados |
+| `representação semântica` × `representação física calculada` | Semântica: declarada no documento externo (intenção + dados); física: calculada exclusivamente pelo renderizador em runtime |
+| `bloco formato` × `resultado geométrico` | `formato` descreve intenção de apresentação; o renderizador transforma essa intenção em resultado geométrico concreto |
+
+### 17.5 Decisões deferidas (não são termos ativos)
+
+Os itens abaixo são decisões futuras obrigatórias; nenhum nome, campo ou
+protocolo abaixo foi decidido por esta ADR:
+
+| Item | Status |
+|---|---|
+| Nome e forma do vínculo entre `tela.json` e o documento externo | Não decidido |
+| Protocolo de invocação do script produtor | Não decidido |
+| Assinatura, argumentos e códigos de saída do script | Não decidido |
+| Execução síncrona ou assíncrona | Não decidido |
+| Caminho, localização e ciclo de vida do documento externo | Não decidido |
+| Suporte ao `tipo: "matriz"` no mesmo mecanismo | Não decidido |
+| Comportamento diante de fonte ausente ou inválida | Não decidido |
+| APIs, classes e módulos do consumidor/loader | Não decididos |
+| Versionamento, cache, persistência, segurança | Não decididos |
+
+---
+
+## 18. Carregamento conjunto da tela e do conteúdo externo pelo ponto de entrada (ADR-0027)
+
+A ADR-0027 (2026-07-17) formaliza a responsabilidade do ponto de entrada pelo
+carregamento separado do JSON estrutural da tela e do JSON externo de conteúdo,
+pela associação entre os dois documentos e pela entrega separada ao fluxo. Esta
+seção é a referência terminológica canônica; a especificação normativa completa
+está na ADR-0027 e nos contratos afetados.
+
+### 18.1 Termos fundamentais do carregamento conjunto
+
+| Termo | Definição normativa | Não confundir com |
+|---|---|---|
+| `ponto de entrada da demonstração` | Componente que identifica o cenário, carrega o JSON estrutural, carrega o JSON externo de conteúdo quando aplicável, associa os dois documentos externamente ao JSON estrutural e entrega as entradas separadas ao fluxo de construção e apresentação; no ciclo atual da demonstração integrada, é `demo/demo.py` | `orquestrador.py` (ponto de entrada futuro do produto real, ADR-0022); loader ou camada equivalente (componente distinto) |
+| `associação externa por cenário` | Relação mantida pelo ponto de entrada entre o JSON estrutural da tela e o JSON externo de conteúdo para um cenário específico; pertence ao catálogo ou mecanismo interno do ponto de entrada; não é um campo dentro do JSON estrutural | `campo de vínculo` (proibido no JSON estrutural, ADR-0027 D7); protocolo final do produto (não decidido) |
+| `campo de vínculo` | Campo que associaria o JSON estrutural da tela a um documento externo de conteúdo inserido dentro do próprio JSON estrutural; proibido pela ADR-0027 | `associação externa por cenário` (lícita, no catálogo do ponto de entrada) |
+| `loader ou camada equivalente` | Componente responsável por ler os documentos, validar a estrutura do documento externo, converter o conteúdo externo para representação interna e preparar para o modelo; não decide geometria; não infere hierarquia | `ponto de entrada da demonstração` (componente distinto); renderizador |
+| `fixture permanente de conteúdo` | Documento JSON externo estável e versionado junto às configurações de teste e demonstração do ciclo, usado como fonte controlada no lugar do produtor futuro; segue o mesmo contrato semântico que o produtor futuro deverá obedecer | `diretório global definitivo de runtime do produto` (não decidido); configuração estrutural da tela |
+| `produtor futuro ligado ao Pipeline` | Script futuro que buscará dados no projeto Pipeline e produzirá documento compatível com o schema semântico multinível; substituirá a fixture permanente sem alterar a fronteira semântica do console; seu protocolo permanece deferido | `fixture permanente de conteúdo`; protocolo (não decidido) |
+
+### 18.2 Schema semântico multinível (ADR-0027 D11)
+
+O schema semântico multinível é **decidido e obrigatório** para o H-0036. Esta
+seção registra os termos fundamentais do schema.
+
+| Termo | Definição normativa | Não confundir com |
+|---|---|---|
+| `schema semântico multinível` | Estrutura declarativa completa do documento externo de conteúdo multinível: envelope com `tipo`, `formato` e `dados`; apresentação declarada; níveis explicitamente definidos em `formato.niveis`; nós hierárquicos em `dados` e `filhos`; políticas de designador | `envelope mínimo` (subconjunto apenas); resultado físico calculado pelo renderizador |
+| `nível declarado` | Definição em `formato.niveis` que identifica `id`, `tipo`, `conteudo` e `designador`; a hierarquia é declarada explicitamente pelo documento, não inferida pelo consumidor | `nível inferido` (proibido); profundidade de `grupo` no corpo (ADR-0019, contexto distinto) |
+| `nó multinível` | Item de `dados` ou de `filhos` que possui `id`, `nivel` e campos semânticos determinados pelo tipo do nível declarado | `item de console` no JSON estrutural; `participante imediato` (ADR-0025) |
+| `tipo de nível` | Classificador do nível declarado; determina os campos obrigatórios dos nós desse nível | tipo de elemento do corpo (`console`, `dashboard`, `lancador`) |
+| `nível container` | Nível cujos nós possuem o campo semântico declarado em `conteudo` e um array `filhos` com nós filhos; organiza hierarquicamente outros nós | nível `conteudo` (sem filhos); nó folha |
+| `nível conteudo` | Nível cujos nós possuem o campo semântico declarado em `conteudo` e representam conteúdo diretamente exibível | nível `container` (tem filhos); nível `nome_valor` |
+| `nível nome_valor` | Nível cujos nós possuem os campos declarados em `conteudo.nome` e `conteudo.valor`; representam pares nome-valor | nível `conteudo`; separador visual (resultado geométrico, não campo semântico do nó) |
+| `designador` | Política declarativa do marcador visual de um nível, declarada em `formato.niveis[i].designador`; o documento declara a política; o renderizador calcula a sequência concreta; tipos previstos: `nenhum`, `simbolo`, `decimal`, `alfabetico_minusculo`, `alfabetico_maiusculo`, `romano_minusculo`, `romano_maiusculo`, `decimal_composto`, `personalizado` | numeração concreta de designadores (resultado físico, proibido no documento externo) |
+| `apresentação declarada` | Valor de `formato.apresentacao` que determina o modo de exibição; valores previstos: `tabela`, `hierarquia`, `conjuntos_campos`; blocos específicos de `formato` são compatíveis apenas com a apresentação correspondente | geometria calculada pelo renderizador |
+
+Tipos de nível permitidos:
+
+```text
+container
+conteudo
+nome_valor
+```
+
+Apresentações previstas:
+
+```text
+tabela
+hierarquia
+conjuntos_campos
+```
+
+### 18.3 Princípio normativo central (ADR-0027)
+
+```text
+O ponto de entrada carrega e associa os documentos.
+O loader valida e converte.
+O modelo transporta a estrutura semântica.
+O renderizador produz a representação física.
+```
+
+Os dois documentos — JSON estrutural da tela e JSON externo de conteúdo —
+permanecem separados em todo o fluxo. Nenhum componente apaga a distinção de
+origem e responsabilidade.
+
+### 18.4 Fronteiras de responsabilidade (ADR-0027)
+
+| Componente | Responsabilidade | Fora da responsabilidade |
+|---|---|---|
+| `ponto de entrada` (`demo/demo.py` no ciclo atual) | Identificar cenário; carregar JSON estrutural; carregar JSON externo quando aplicável; associar externamente; entregar entradas separadas ao fluxo | calcular geometria; abrir arquivos durante renderização; descobrir qual arquivo carregar em tempo de render |
+| `loader ou camada equivalente` | Ler os documentos; validar estrutura; converter conteúdo externo para representação interna | decidir geometria; inferir hierarquia; escolher arquivos |
+| `modelo` | Transportar a estrutura semântica; preservar ordem, níveis e relação entre pais e filhos; pode compor internamente sem apagar distinção das origens | abrir arquivos; escolher fonte; calcular representação física |
+| `renderizador` | Produzir linhas, colunas, truncamentos, alinhamentos, designadores concretos e demais resultados físicos | abrir JSONs; escolher arquivos; reconstruir hierarquia de dados de domínio |
+
+### 18.5 Distinções obrigatórias (ADR-0027)
+
+| Par | Distinção normativa |
+|---|---|
+| `ponto de entrada da demonstração` × `loader` | São componentes distintos; o ponto de entrada carrega e associa; o loader valida e converte |
+| `associação externa por cenário` × `campo de vínculo` | Associação externa fica no catálogo do ponto de entrada; campo de vínculo seria inserido no JSON estrutural — proibido pela ADR-0027 |
+| `fixture permanente de conteúdo` × `diretório global definitivo de runtime` | A fixture é artefato de teste/demonstração do ciclo; o diretório global de runtime do produto final permanece não decidido |
+| `schema semântico` × `resultado físico calculado` | Schema semântico declara intenção e estrutura de conteúdo; resultado físico é calculado pelo renderizador e não pode constar no documento externo |
+| `nível declarado` × `profundidade de grupo no corpo` | Nível declarado é elemento de `formato.niveis` no documento externo de conteúdo multinível; profundidade de grupo é aninhamento de nós `grupo` no corpo da tela (ADR-0019) — domínios distintos |
+| `tipo de nível` (`container`, `conteudo`, `nome_valor`) × `tipo de elemento do corpo` | Tipos de nível pertencem ao schema semântico multinível do documento externo; tipos de elemento do corpo são `console`, `dashboard`, `lancador` (ADR-0010) |
+
+### 18.6 Decisões deferidas (ADR-0027)
+
+Permanecem para decisão futura; nenhum nome, campo ou protocolo abaixo foi
+decidido:
+
+| Item | Status |
+|---|---|
+| Nome de variável, classe, função, dicionário, assinatura ou argumento do mecanismo de associação | Não decidido — definível na implementação |
+| Lista nominal dos JSONs do H-0035 realmente afetados | Não decidido — definível na inspeção do `PATCH_HANDOFF` |
+| Localização e nomes exatos das fixtures permanentes | Não decidido — definível no `PATCH_HANDOFF`, com restrição de seguir organização existente |
+| APIs e classes definitivas do consumidor/loader | Não decidido |
+| Protocolo do script produtor futuro (nome, repositório, execução, argumentos, transporte, saída, erros, timeout, autenticação, versionamento, cache) | Não decidido |
+| Diretório global definitivo de dados de runtime do produto | Não decidido |
+| Suporte ao `tipo: "matriz"` no mecanismo de fornecimento externo | Não decidido |
+| Comportamento diante de fonte ausente ou inválida | Não decidido |

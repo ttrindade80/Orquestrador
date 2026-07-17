@@ -1,0 +1,30 @@
+{
+  "tipo": "multinivel",
+  "formato": {
+    "apresentacao": "hierarquia",
+    "niveis": [
+      {
+        "id": "item",
+        "tipo": "conteudo",
+        "conteudo": "texto",
+        "designador": {
+          "tipo": "nenhum"
+        }
+      }
+    ]
+  },
+  "dados": [
+    {"id": "l01", "nivel": "item", "texto": "P01 linha"},
+    {"id": "l02", "nivel": "item", "texto": "P02 linha"},
+    {"id": "l03", "nivel": "item", "texto": "P03 linha"},
+    {"id": "l04", "nivel": "item", "texto": "P04 linha"},
+    {"id": "l05", "nivel": "item", "texto": "P05 linha"},
+    {"id": "l06", "nivel": "item", "texto": "P06 linha"},
+    {"id": "l07", "nivel": "item", "texto": "P07 linha"},
+    {"id": "l08", "nivel": "item", "texto": "P08 linha"},
+    {"id": "l09", "nivel": "item", "texto": "P09 linha"},
+    {"id": "l10", "nivel": "item", "texto": "P10 linha"},
+    {"id": "l11", "nivel": "item", "texto": "P11 linha"},
+    {"id": "l12", "nivel": "item", "texto": "P12 linha"}
+  ]
+}

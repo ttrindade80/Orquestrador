@@ -403,6 +403,63 @@ def teste_telas_h0035_diagnostico():
             pass
 
 
+def teste_pipeline_h0036():
+    """Pipeline integrado H-0036: carregar tela + carregar externo + render.
+
+    Cobre §19.4 do handoff: para cada cenario H-0036 e para os consoles h0035
+    adaptados, o demo.py carrega os dois documentos separadamente pelo catalogo
+    e o renderizador exibe o conteudo (sem placeholder). Cenario sem conteudo
+    preserva o placeholder.
+    """
+    print("")
+    print("== H-0036: pipeline integrado (demo.py + externo) ==")
+
+    from demo.demo import _carregar_modelo_por_id, id_conteudo_externo_de  # noqa: E402
+    from tela.renderizador import renderizar_tela  # noqa: E402
+
+    casos = [
+        ("h0036_console_hierarquia", "H0036 HIERARQUIA", "H-0036"),
+        ("h0036_console_tabela", "H0036 TABELA", "tabela H-0036"),
+        ("h0036_console_conjuntos", "H0036 CONJUNTOS", "H-0036"),
+        ("h0035_console_com", "H0035 CONSOLE COM", "P01 linha"),
+        ("h0035_console_sem", "H0035 CONSOLE SEM", "Linha alfa"),
+    ]
+    for id_tela, titulo, marca in casos:
+        try:
+            modelo = _carregar_modelo_por_id(id_tela)
+            saida = renderizar_tela(modelo, largura=70, altura=28)
+            ok = (
+                titulo in saida
+                and marca in saida
+                and "(console)" not in saida
+                and modelo.conteudo_externo is not None
+            )
+            _registrar(
+                "pipeline {0}: tela+externo renderizados sem placeholder".format(id_tela),
+                ok,
+                "titulo={0} marca={1} placeholder_ausente={2}".format(
+                    titulo in saida, marca in saida, "(console)" not in saida
+                ),
+            )
+        except Exception as exc:  # pragma: no cover
+            _registrar("pipeline {0}".format(id_tela), False,
+                       "{0}: {1}".format(type(exc).__name__, exc))
+
+    # Cenario sem conteudo externo: catalogo nao associa; placeholder presente.
+    _registrar("catalogo: cenario 'demo' sem conteudo externo (ausencia explicita)",
+               id_conteudo_externo_de("demo") is None)
+    try:
+        modelo_sem = _carregar_modelo_por_id("h0030_console_unico")
+        saida_sem = renderizar_tela(modelo_sem, largura=60, altura=20)
+        _registrar(
+            "pipeline sem conteudo: placeholder '(console)' presente; sem externo",
+            "(console)" in saida_sem and modelo_sem.conteudo_externo is None,
+        )
+    except Exception as exc:  # pragma: no cover
+        _registrar("pipeline sem conteudo", False,
+                   "{0}: {1}".format(type(exc).__name__, exc))
+
+
 def _finalizar():
     print("")
     print("== Resumo ==")
@@ -438,6 +495,8 @@ def main():
     teste_proibicoes_importacao()
 
     teste_telas_h0035_diagnostico()
+
+    teste_pipeline_h0036()
 
     return _finalizar()
 

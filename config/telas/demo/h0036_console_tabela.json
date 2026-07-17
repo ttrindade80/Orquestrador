@@ -1,9 +1,9 @@
 {
   "schema": "tela.v1",
-  "id": "h0035_console_sem",
+  "id": "h0036_console_tabela",
   "cabecalho": {
-    "titulo": "H0035 Console Sem",
-    "descricao": "Console sem distribuicao_matricial (comportamento anterior preservado)"
+    "titulo": "H0036 Tabela",
+    "descricao": "Console com conteudo externo multinivel (apresentacao tabela)"
   },
   "corpo": {
     "arranjo": "vertical",
@@ -14,8 +14,7 @@
       {
         "id": "con",
         "tipo": "console",
-        "titulo": "Console",
-        "overflow_normal": "paginar"
+        "titulo": "Console"
       }
     ]
   },
@@ -25,7 +24,7 @@
         "id": "chip_esc",
         "tipo": "acao",
         "tecla": "Esc",
-        "texto": "Sair"
+        "texto": "Voltar"
       }
     ]
   }

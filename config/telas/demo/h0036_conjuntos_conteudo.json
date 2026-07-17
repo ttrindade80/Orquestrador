@@ -1,0 +1,52 @@
+{
+  "tipo": "multinivel",
+  "formato": {
+    "apresentacao": "conjuntos_campos",
+    "niveis": [
+      {
+        "id": "conjunto",
+        "tipo": "container",
+        "conteudo": "titulo",
+        "designador": {
+          "tipo": "decimal",
+          "sufixo": "."
+        }
+      },
+      {
+        "id": "elemento",
+        "tipo": "nome_valor",
+        "conteudo": {
+          "nome": "nome",
+          "valor": "valor"
+        },
+        "designador": {
+          "tipo": "nenhum"
+        }
+      }
+    ],
+    "campos": {
+      "separador": ":",
+      "justificar_nomes": true,
+      "escopo_justificacao": "por_conjunto"
+    }
+  },
+  "dados": [
+    {
+      "id": "conjunto_parametros",
+      "nivel": "conjunto",
+      "titulo": "Parametros",
+      "filhos": [
+        {"id": "par_modo", "nivel": "elemento", "nome": "Modo", "valor": "conjuntos_campos"},
+        {"id": "par_ciclo", "nivel": "elemento", "nome": "Ciclo", "valor": "H-0036"}
+      ]
+    },
+    {
+      "id": "conjunto_origens",
+      "nivel": "conjunto",
+      "titulo": "Origens",
+      "filhos": [
+        {"id": "ori_fonte", "nivel": "elemento", "nome": "Fonte", "valor": "documento externo"}
+      ]
+    }
+  ]
+}

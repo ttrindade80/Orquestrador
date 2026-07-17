@@ -1,0 +1,52 @@
+{
+  "tipo": "multinivel",
+  "formato": {
+    "apresentacao": "tabela",
+    "niveis": [
+      {
+        "id": "grupo",
+        "tipo": "container",
+        "conteudo": "titulo",
+        "designador": {
+          "tipo": "nenhum"
+        }
+      },
+      {
+        "id": "linha",
+        "tipo": "nome_valor",
+        "conteudo": {
+          "nome": "nome",
+          "valor": "valor"
+        },
+        "designador": {
+          "tipo": "decimal",
+          "sufixo": "."
+        }
+      }
+    ],
+    "tabela": {
+      "cabecalho": ["Grupo", "Campo", "Valor"],
+      "ancestrais": "repetir"
+    }
+  },
+  "dados": [
+    {
+      "id": "grupo_entradas",
+      "nivel": "grupo",
+      "titulo": "Entradas",
+      "filhos": [
+        {"id": "ent_estrutural", "nivel": "linha", "nome": "Estrutural", "valor": "tela.json"},
+        {"id": "ent_externo", "nivel": "linha", "nome": "Externo", "valor": "conteudo.json"}
+      ]
+    },
+    {
+      "id": "grupo_saidas",
+      "nivel": "grupo",
+      "titulo": "Saidas",
+      "filhos": [
+        {"id": "sai_console", "nivel": "linha", "nome": "Console", "valor": "tabela H-0036"},
+        {"id": "sai_placeholder", "nivel": "linha", "nome": "Sem conteudo", "valor": "placeholder"}
+      ]
+    }
+  ]
+}

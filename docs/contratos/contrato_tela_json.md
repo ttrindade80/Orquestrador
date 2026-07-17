@@ -13,6 +13,8 @@ metadata:
       - docs/adr/ADR-0022-ponto-entrada-tela-inicial-orquestrador.md
       - docs/adr/ADR-0023-largura-minima-funcional-lancador.md
       - docs/adr/ADR-0025-distribuicao-matricial-configuravel-nivel-unico-conteudo-elementos.md
+      - docs/adr/ADR-0026-fornecimento-externo-dados-console-json-multinivel.md
+      - docs/adr/ADR-0027-carregamento-conjunto-tela-conteudo-externo-ponto-entrada.md
     reaproveitado_de_legado: false
 ---
 
@@ -1244,4 +1246,126 @@ específicos:
 - `contrato_json_lancador.md` — seção 9 (ADR-0025).
 
 A terminologia canônica está em `docs/NOMENCLATURA.md` seção 16.
-A especificação normativa completa está na ADR-0025.
+
+---
+
+## 31. Fronteira entre JSON estrutural da tela e conteúdo externo do console (ADR-0026)
+
+A ADR-0026 (2026-07-17) formaliza a separação entre o JSON estrutural da tela
+e o documento externo de conteúdo de runtime do console.
+
+### 31.1 Responsabilidade do JSON estrutural da tela
+
+O `tela.json` é responsável pela composição e configuração estrutural da
+interface. Ele **não é** o repositório de conteúdo de runtime do console.
+
+Dados voláteis de runtime — conteúdo do console em operação, listas de itens
+geradas dinamicamente, hierarquias produzidas por script — não pertencem ao
+JSON estrutural da tela.
+
+### 31.2 Origem externa do conteúdo do console
+
+O conteúdo de runtime do console tem origem externa: é fornecido por um
+documento JSON externo ao `tela.json`. Esse documento externo segue o
+envelope declarativo:
+
+```json
+{
+  "tipo": "multinivel",
+  "formato": {},
+  "dados": []
+}
+```
+
+O envelope mínimo acima é conceitual. Ele não substitui o futuro contrato do
+documento externo nem define o mecanismo de vínculo entre a tela e a fonte.
+
+### 31.3 Vínculo entre tela e fonte externa
+
+A forma de vínculo entre o `tela.json` e o documento externo — nome do campo,
+formato, caminho, identificador lógico ou outro mecanismo — **não foi decidida**
+por esta ADR e permanece para decisão futura. O campo `origem_dados` existente
+no envelope do console não é declarado pelo `tela.json` como mecanismo final
+de vínculo por esta ADR.
+
+### 31.4 Responsabilidades preservadas
+
+O `tela.json` preserva integralmente suas responsabilidades sobre composição
+estrutural, declaração de elementos, distribuição de área e configuração
+geométrica dos containers. A separação introduzida por esta ADR não altera
+nenhuma dessas responsabilidades.
+
+### 31.5 Princípio normativo
+
+```text
+O JSON externo declara a intenção de apresentação e o conteúdo semântico.
+O renderizador calcula a representação física na área disponível.
+```
+
+O `tela.json` não deve conter nem reproduzir resultados de cálculo físico de
+runtime (geometria efetiva, posições finais, quebras calculadas, paginação
+calculada) nem dados de conteúdo de runtime do console.
+
+### 31.6 Remissões
+
+- `contrato_json_console.md` — seção 11 (ADR-0026): envelope declarativo do documento externo;
+- `contrato_console.md` — seção 19 (ADR-0026): fronteira do console como consumidor;
+- `docs/NOMENCLATURA.md` — seção 17: terminologia canônica da ADR-0026.
+
+---
+
+## 32. Carregamento conjunto da tela e do conteúdo externo pelo ponto de entrada (ADR-0027)
+
+A ADR-0027 (2026-07-17) formaliza a responsabilidade do ponto de entrada pelo
+carregamento separado dos dois documentos e pela entrega das entradas ao fluxo.
+
+### 32.1 Fronteira do JSON estrutural da tela (ADR-0027)
+
+O `tela.json` permanece exclusivamente estrutural. Ele:
+
+- descreve composição, elementos, distribuição e configuração da interface;
+- não contém o conteúdo de runtime recebido pelo console;
+- não contém campo obrigatório de vínculo com a fonte externa de conteúdo;
+- não pode duplicar conteúdo do documento externo;
+- não recebe de volta o conteúdo externo como se fosse configuração estrutural permanente.
+
+A associação entre o `tela.json` e o documento externo de conteúdo ocorre
+externamente ao JSON estrutural — no catálogo ou mecanismo interno do ponto de
+entrada.
+
+### 32.2 Responsabilidade do ponto de entrada
+
+O ponto de entrada (no ciclo atual, `demo/demo.py`) é responsável por:
+
+1. identificar o cenário escolhido;
+2. carregar o JSON estrutural correspondente;
+3. carregar o JSON externo de conteúdo quando a tela exigir;
+4. manter as duas origens separadas durante todo o fluxo;
+5. entregar as entradas separadas ao fluxo de construção e apresentação.
+
+O ponto de entrada não copia o conteúdo externo para dentro do objeto bruto do
+JSON estrutural.
+
+### 32.3 Representação interna composta
+
+Uma representação interna composta pode existir depois da validação, desde que
+preserve a distinção de origem e responsabilidade entre o JSON estrutural e o
+documento externo de conteúdo. A separação conceitual e estrutural permanece
+observável durante todo o fluxo.
+
+### 32.4 Telas sem conteúdo externo
+
+Telas sem conteúdo externo preservam integralmente o comportamento histórico
+definido pelos contratos ativos. Nenhuma migração automática é criada.
+
+### 32.5 Revisão dos JSONs do H-0035
+
+Os JSONs estruturais do H-0035 materialmente afetados serão revisados pelo
+H-0036 sem reabrir o ciclo já fechado. A inspeção nominal fica para o
+`PATCH_HANDOFF` do H-0036.
+
+### 32.6 Remissões
+
+- `contrato_console.md` — seção 20 (ADR-0027): fluxo de responsabilidade no console;
+- `contrato_json_console.md` — seção 12 (ADR-0027): schema semântico multinível;
+- `docs/NOMENCLATURA.md` — seção 18: terminologia canônica da ADR-0027.

@@ -59,6 +59,13 @@ class ElementoCorpo:
     # loader ja validou os 26 caminhos antes de chegar aqui; o modelo apenas
     # transporta o dict fiel, sem defaults estruturais e sem logica geometrica.
     distribuicao_matricial: dict | None = field(default=None, repr=False)
+    # H-0036 / ADR-0026 / ADR-0027: conteudo externo multinivel associado ao
+    # elemento console. None quando o cenario nao possui documento externo
+    # (preserva o placeholder). A origem e SEPARADA do JSON estrutural: este
+    # campo transporta um ConteudoExterno tipado, nunca reinserido em _raw nem
+    # em _campos_inertes. O modelo nao abre arquivos e nao escolhe a fonte (o
+    # demo.py carrega e associa; o loader valida).
+    conteudo_externo: object = field(default=None, repr=False)
 
 
 @dataclass
@@ -93,6 +100,10 @@ class ModeloTela:
     corpo: Corpo
     barra_de_menus: dict
     _raw: dict = field(repr=False)
+    # H-0036: conteudo externo multinivel do cenario (origem separada). None
+    # quando o cenario nao possui documento externo. Acessivel diretamente para
+    # inspecao/teste; tambem propagado aos ElementoCorpo do tipo console.
+    conteudo_externo: object = field(default=None, repr=False)
 
     def elemento_por_id(self, id_elemento):
         """Retorna o primeiro ElementoCorpo com o id informado, ou None.
@@ -136,6 +147,146 @@ class ModeloTela:
                 )
             )
         return "\n".join(linhas)
+
+
+# ---------------------------------------------------------------------------
+# H-0036 / ADR-0026 / ADR-0027: representacao semantica do conteudo externo
+# multinivel. O modelo recebe o documento ja carregado e validado pelo loader
+# (origem separada do JSON estrutural), constroi a representacao tipada e
+# preserva ordem, niveis, pais e filhos. NAO abre arquivos, NAO escolhe fonte,
+# NAO calcula geometria e NAO infere hierarquia (declarada por ``filhos``).
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class NivelConteudo:
+    """Declaracao de um nivel do documento externo (formato.niveis[]).
+
+    ``conteudo`` e o nome do campo textual (container/conteudo) ou o objeto
+    ``{"nome": ..., "valor": ...}`` (nome_valor). ``designador`` transporta a
+    politica declarativa; a sequencia concreta e calculada pelo renderizador.
+    """
+
+    id: str
+    tipo: str
+    conteudo: object
+    designador: dict
+    _campos_inertes: dict = field(default_factory=dict, repr=False)
+
+
+@dataclass
+class NoConteudo:
+    """No de conteudo (item de ``dados`` ou de ``filhos``).
+
+    ``campos`` preserva todos os campos semanticos do no (titulo, nome, valor,
+    etc.) sem execucao. ``filhos`` preserva a hierarquia declarada, na ordem
+    original; o modelo nunca reordena nem infere pais.
+    """
+
+    id: str
+    nivel: str
+    campos: dict = field(default_factory=dict, repr=False)
+    filhos: list = field(default_factory=list, repr=False)
+
+
+@dataclass
+class ConteudoExterno:
+    """Representacao semantica tipada do documento externo multinivel.
+
+    Transporta ``apresentacao``, os niveis declarados, os nos de topo (``nos``)
+    com filhos recursivos e o bloco ``formato`` (para blocos especificos de
+    apresentacao). ``_raw`` preserva o documento validado para auditoria. A
+    origem e SEPARADA do JSON estrutural da tela.
+    """
+
+    tipo: str
+    apresentacao: str
+    niveis: list  # lista de NivelConteudo
+    nos: list     # lista de NoConteudo (nos de topo, ordem de dados[])
+    formato: dict = field(default_factory=dict, repr=False)
+    _raw: dict = field(default_factory=dict, repr=False)
+
+    def nivel_por_id(self, id_nivel):
+        """Retorna o NivelConteudo com o id informado, ou None."""
+        for nivel in self.niveis:
+            if nivel.id == id_nivel:
+                return nivel
+        return None
+
+
+def _construir_no_conteudo(no_raw):
+    """Constroi recursivamente um NoConteudo a partir do dict validado."""
+    if not isinstance(no_raw, dict):
+        raise ModeloTelaErro("no de conteudo externo nao e dict")
+    campos = {
+        chave: valor
+        for chave, valor in no_raw.items()
+        if chave not in ("id", "nivel", "filhos")
+    }
+    filhos_raw = no_raw.get("filhos", []) or []
+    filhos = [_construir_no_conteudo(f) for f in filhos_raw]
+    return NoConteudo(
+        id=no_raw.get("id"),
+        nivel=no_raw.get("nivel"),
+        campos=campos,
+        filhos=filhos,
+    )
+
+
+def construir_conteudo_externo(conteudo_raw):
+    """Constroi ConteudoExterno a partir do documento validado pelo loader.
+
+    ``conteudo_raw`` e o dict devolvido por ``carregar_conteudo_externo`` (ja
+    validado). None produz None (cenario sem conteudo externo). O modelo apenas
+    tipa e transporta; nao revalida geometria, nao abre arquivos, nao escolhe
+    fonte e nao reconstroi hierarquia (usa ``filhos`` como declarado).
+    """
+    if conteudo_raw is None:
+        return None
+    if not isinstance(conteudo_raw, dict):
+        raise ModeloTelaErro(
+            "conteudo externo nao e dict: {0}".format(type(conteudo_raw).__name__)
+        )
+    formato = conteudo_raw.get("formato", {}) or {}
+    niveis = []
+    for nivel_raw in formato.get("niveis", []) or []:
+        inertes = {
+            chave: valor
+            for chave, valor in nivel_raw.items()
+            if chave not in ("id", "tipo", "conteudo", "designador")
+        }
+        niveis.append(
+            NivelConteudo(
+                id=nivel_raw.get("id"),
+                tipo=nivel_raw.get("tipo"),
+                conteudo=nivel_raw.get("conteudo"),
+                designador=nivel_raw.get("designador"),
+                _campos_inertes=inertes,
+            )
+        )
+    nos = [_construir_no_conteudo(no) for no in conteudo_raw.get("dados", []) or []]
+    return ConteudoExterno(
+        tipo=conteudo_raw.get("tipo"),
+        apresentacao=formato.get("apresentacao"),
+        niveis=niveis,
+        nos=nos,
+        formato=formato,
+        _raw=conteudo_raw,
+    )
+
+
+def _propagar_conteudo_externo(elementos, conteudo):
+    """Associa ``conteudo`` a cada ElementoCorpo do tipo console (recursivo).
+
+    A associacao pertence ao ponto de entrada/modelo, nunca ao JSON estrutural.
+    Percorre grupos para alcancar consoles internos. Ausencia de console nao e
+    erro (o conteudo permanece acessivel em ModeloTela.conteudo_externo).
+    """
+    for elemento in elementos:
+        if elemento.tipo == "console":
+            elemento.conteudo_externo = conteudo
+        elif elemento.tipo == "grupo":
+            _propagar_conteudo_externo(elemento.elementos, conteudo)
 
 
 def _construir_elementos_recursivo(elementos_raw, id_pai, parametros_lancador=None):
@@ -217,7 +368,7 @@ def _construir_elementos_recursivo(elementos_raw, id_pai, parametros_lancador=No
     return resultado
 
 
-def construir_modelo(tela_raw: dict) -> ModeloTela:
+def construir_modelo(tela_raw: dict, conteudo_externo=None) -> ModeloTela:
     """Constroi ModeloTela a partir do dict retornado por carregar_tela.
 
     Nao valida novamente a estrutura macro -- essa responsabilidade
@@ -226,9 +377,18 @@ def construir_modelo(tela_raw: dict) -> ModeloTela:
 
     Parametros:
         tela_raw: dict retornado por carregar_tela(caminho_base, id_tela).
+        conteudo_externo: documento externo de conteudo ja carregado e
+            validado pelo loader (dict devolvido por
+            ``carregar_conteudo_externo``) OU um ConteudoExterno ja tipado.
+            None (default) preserva o comportamento historico (cenario sem
+            conteudo externo; console mantem o placeholder). Estrutura e
+            conteudo sao entradas SEPARADAS; a origem e preservada. O modelo
+            nao abre arquivos e nao escolhe a fonte (H-0036 / ADR-0027).
 
     Retorna:
-        ModeloTela com campos acessiveis por nome.
+        ModeloTela com campos acessiveis por nome. Quando ha conteudo externo,
+        ``ModeloTela.conteudo_externo`` transporta o ConteudoExterno tipado e
+        cada ElementoCorpo do tipo console recebe a mesma referencia.
 
     Lanca:
         ModeloTelaErro se o dict de entrada nao tiver o formato minimo
@@ -329,6 +489,15 @@ def construir_modelo(tela_raw: dict) -> ModeloTela:
         distribuicao=corpo_raw.get("distribuicao"),
     )
 
+    # H-0036: tipa o conteudo externo (quando fornecido) e propaga aos consoles.
+    # Aceita tanto o dict validado do loader quanto um ConteudoExterno ja tipado.
+    if isinstance(conteudo_externo, ConteudoExterno) or conteudo_externo is None:
+        conteudo = conteudo_externo
+    else:
+        conteudo = construir_conteudo_externo(conteudo_externo)
+    if conteudo is not None:
+        _propagar_conteudo_externo(elementos, conteudo)
+
     return ModeloTela(
         id=tela_raw["id"],
         schema=tela_raw["schema"],
@@ -336,4 +505,5 @@ def construir_modelo(tela_raw: dict) -> ModeloTela:
         corpo=corpo,
         barra_de_menus=tela_raw["barra_de_menus"],
         _raw=tela_raw["_raw"],
+        conteudo_externo=conteudo,
     )

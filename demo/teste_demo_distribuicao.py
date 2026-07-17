@@ -35,8 +35,12 @@ from demo.demo_distribuicao import (  # noqa: E402
     main,
     _TELA_CATALOGO,
 )
-from demo.demo import processar_comando  # noqa: E402
+from demo.demo import (  # noqa: E402
+    processar_comando,
+    id_conteudo_externo_de,
+)
 from tela.distribuicao_matricial import calcular_distribuicao  # noqa: E402
+from tela.loader import carregar_conteudo_externo  # noqa: E402
 
 _RESULTADOS = []
 
@@ -140,8 +144,23 @@ def _config_dm_fixture(id_tela):
     return None
 
 
+def _contar_nos_dados(dados):
+    """Conta recursivamente nos de um documento externo (dados + filhos)."""
+    total = 0
+    for no in dados:
+        total += 1
+        total += _contar_nos_dados(no.get("filhos", []) or [])
+    return total
+
+
 def _n_campos_fixture(id_tela):
-    """Conta campos/itens do primeiro elemento com DM."""
+    """Conta participantes do primeiro elemento com DM.
+
+    H-0036: para o console cujos dados de runtime foram separados para um
+    documento externo (``itens`` removido do JSON estrutural), a contagem vem
+    do documento externo associado pelo catalogo do demo.py — provando o
+    carregamento separado dos dois arquivos.
+    """
     caminho = os.path.join(_RAIZ_TELAS_DEMO, id_tela + ".json")
     with open(caminho, encoding="utf-8") as f:
         raw = json.load(f)
@@ -152,7 +171,15 @@ def _n_campos_fixture(id_tela):
         if tipo == "dashboard":
             return len(elem.get("campos", []))
         if tipo in ("console", "lancador"):
-            return len(elem.get("itens", []))
+            itens = elem.get("itens", [])
+            if itens:
+                return len(itens)
+            # console H-0036 separado: contar dados do documento externo.
+            id_conteudo = id_conteudo_externo_de(id_tela)
+            if id_conteudo is not None:
+                doc = carregar_conteudo_externo(None, id_conteudo, _RAIZ_TELAS_DEMO)
+                return _contar_nos_dados(doc.get("dados", []))
+            return 0
     return 0
 
 
@@ -331,6 +358,64 @@ def _ler_pty_ate_ocioso(fd_master, timeout_total, ocioso):
         if ultimo_dado is not None and (_t.monotonic() - ultimo_dado) >= ocioso:
             break
     return dados
+
+
+def teste_separacao_h0036_console():
+    """Regressao H-0036: separacao estrutural/externo dos consoles h0035.
+
+    Prova que ``itens`` foi removido do JSON estrutural, que o conteudo esta no
+    documento externo associado (carregamento separado dos dois arquivos), que
+    a distribuicao_matricial de h0035_console_com foi preservada e que nao ha
+    duplicacao entre estrutural e externo.
+    """
+    print("")
+    print("== H-0036: separacao estrutural/externo dos consoles ==")
+    for id_tela, id_conteudo, n_esperado, textos in [
+        ("h0035_console_com", "h0035_console_com_conteudo", 12, ["P01 linha", "P12 linha"]),
+        ("h0035_console_sem", "h0035_console_sem_conteudo", 2, ["Linha alfa", "Linha bravo"]),
+    ]:
+        caminho = os.path.join(_RAIZ_TELAS_DEMO, id_tela + ".json")
+        with open(caminho, encoding="utf-8") as f:
+            raw = json.load(f)
+        console = next(
+            (e for e in raw["corpo"]["elementos"] if e.get("tipo") == "console"),
+            None,
+        )
+        _registrar(
+            "{0}: JSON estrutural sem campo 'itens'".format(id_tela),
+            console is not None and "itens" not in console,
+        )
+        _registrar(
+            "{0}: catalogo associa ao documento externo {1}".format(id_tela, id_conteudo),
+            id_conteudo_externo_de(id_tela) == id_conteudo,
+        )
+        doc = carregar_conteudo_externo(None, id_conteudo, _RAIZ_TELAS_DEMO)
+        _registrar(
+            "{0}: documento externo tem {1} nos".format(id_tela, n_esperado),
+            _contar_nos_dados(doc.get("dados", [])) == n_esperado,
+            "obtido={0}".format(_contar_nos_dados(doc.get("dados", []))),
+        )
+        # Nao-duplicacao: os textos do conteudo nao estao no JSON estrutural.
+        estrutural_txt = json.dumps(raw, ensure_ascii=False)
+        externo_txt = json.dumps(doc, ensure_ascii=False)
+        _registrar(
+            "{0}: conteudo nao duplicado no estrutural".format(id_tela),
+            all(t not in estrutural_txt for t in textos)
+            and all(t in externo_txt for t in textos),
+        )
+    # distribuicao_matricial de h0035_console_com preservada no estrutural.
+    dm = _config_dm_fixture("h0035_console_com")
+    _registrar(
+        "h0035_console_com: distribuicao_matricial preservada no estrutural",
+        dm is not None
+        and dm.get("formacao", {}).get("politica") == "preferencia_colunas",
+        "dm={0}".format(dm.get("formacao") if dm else None),
+    )
+    # h0035_console_sem permanece sem distribuicao_matricial.
+    _registrar(
+        "h0035_console_sem: permanece sem distribuicao_matricial",
+        _config_dm_fixture("h0035_console_sem") is None,
+    )
 
 
 def teste_pseudo_tty():
@@ -1131,6 +1216,7 @@ def main_testes():
     teste_identidade_semantica()
     teste_quadro_minimo_e_recuperacao()
     teste_fixtures_geometria()
+    teste_separacao_h0036_console()
     teste_comando_de_entrada_e_erros()
     teste_demo_principal_preservado()
     teste_pseudo_tty()

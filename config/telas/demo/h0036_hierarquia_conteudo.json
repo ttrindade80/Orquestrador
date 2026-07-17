@@ -1,0 +1,77 @@
+{
+  "tipo": "multinivel",
+  "formato": {
+    "apresentacao": "hierarquia",
+    "niveis": [
+      {
+        "id": "secao",
+        "tipo": "container",
+        "conteudo": "titulo",
+        "designador": {
+          "tipo": "decimal",
+          "sufixo": "."
+        }
+      },
+      {
+        "id": "subsecao",
+        "tipo": "container",
+        "conteudo": "titulo",
+        "designador": {
+          "tipo": "decimal_composto",
+          "separador": ".",
+          "sufixo": "."
+        }
+      },
+      {
+        "id": "item",
+        "tipo": "conteudo",
+        "conteudo": "texto",
+        "designador": {
+          "tipo": "alfabetico_minusculo",
+          "sufixo": ")"
+        }
+      }
+    ]
+  },
+  "dados": [
+    {
+      "id": "secao_fluxo",
+      "nivel": "secao",
+      "titulo": "Fluxo H-0036 hierarquia",
+      "filhos": [
+        {
+          "id": "sub_entrada",
+          "nivel": "subsecao",
+          "titulo": "Fornecimento externo",
+          "filhos": [
+            {"id": "it_estrutural", "nivel": "item", "texto": "JSON estrutural da tela"},
+            {"id": "it_externo", "nivel": "item", "texto": "JSON externo de conteudo"}
+          ]
+        },
+        {
+          "id": "sub_apresentacao",
+          "nivel": "subsecao",
+          "titulo": "Apresentacao no console",
+          "filhos": [
+            {"id": "it_designador", "nivel": "item", "texto": "Hierarquia com designadores"}
+          ]
+        }
+      ]
+    },
+    {
+      "id": "secao_origem",
+      "nivel": "secao",
+      "titulo": "Identidade da fixture",
+      "filhos": [
+        {
+          "id": "sub_marca",
+          "nivel": "subsecao",
+          "titulo": "Marca exclusiva",
+          "filhos": [
+            {"id": "it_marca", "nivel": "item", "texto": "Documento H-0036 carregado pelo demo.py"}
+          ]
+        }
+      ]
+    }
+  ]
+}

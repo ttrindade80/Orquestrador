@@ -116,7 +116,7 @@ import struct
 import termios
 import tty
 
-from tela.loader import carregar_tela
+from tela.loader import carregar_tela, carregar_conteudo_externo
 from tela.modelo import construir_modelo, ModeloTela
 from tela.renderizador import renderizar_tela, RenderizadorErro
 
@@ -124,6 +124,21 @@ LARGURA_MINIMA_TELA = 10
 ALTURA_MINIMA_TELA = 6
 
 _RAIZ_TELAS_DEMO = os.path.join("config", "telas", "demo")
+
+# H-0036 / ADR-0026 / ADR-0027: catalogo interno de associacao entre cenario e
+# documento externo de conteudo. A associacao pertence ao ponto de entrada
+# (demo.py), NUNCA ao JSON estrutural da tela (sem campo de vinculo). Cada chave
+# e o id da tela estrutural; o valor e o id (nome base) do documento externo de
+# conteudo na mesma raiz de demonstracao. A AUSENCIA de conteudo externo e
+# representada explicitamente pela AUSENCIA da chave (nao herdada, nao implicita):
+# cenarios fora deste dict preservam o placeholder "(console)".
+_CATALOGO_CONTEUDO_EXTERNO = {
+    "h0036_console_hierarquia": "h0036_hierarquia_conteudo",
+    "h0036_console_tabela": "h0036_tabela_conteudo",
+    "h0036_console_conjuntos": "h0036_conjuntos_conteudo",
+    "h0035_console_com": "h0035_console_com_conteudo",
+    "h0035_console_sem": "h0035_console_sem_conteudo",
+}
 
 
 def criar_estado_inicial():
@@ -225,10 +240,36 @@ def renderizar_estado(estado, modelo, largura=None, altura=None):
     )
 
 
+def id_conteudo_externo_de(id_tela):
+    """Retorna o id do documento externo associado a ``id_tela``, ou None.
+
+    A associacao vem exclusivamente do catalogo interno do ponto de entrada
+    (``_CATALOGO_CONTEUDO_EXTERNO``); a ausencia de associacao e explicita
+    (chave ausente -> None). Nunca le vinculo do JSON estrutural.
+    """
+    return _CATALOGO_CONTEUDO_EXTERNO.get(id_tela)
+
+
 def _carregar_modelo_por_id(id_tela):
-    """Helper: carrega e constroi o ModeloTela para ``id_tela`` da raiz demo."""
+    """Helper: carrega e constroi o ModeloTela para ``id_tela`` da raiz demo.
+
+    H-0036: identifica o cenario, localiza o JSON estrutural e, quando o
+    catalogo associa um documento externo, localiza e carrega o conteudo
+    SEPARADAMENTE (dois documentos, duas leituras), entregando ambos como
+    entradas distintas a ``construir_modelo``. A distincao entre origens e
+    preservada: o conteudo nunca e reinserido no objeto bruto do JSON
+    estrutural. Cenarios sem conteudo externo preservam o comportamento
+    historico (placeholder). Cada chamada reconstroi o modelo do zero, sem
+    estado residual entre trocas de cenario (sem heranca, sem vazamento).
+    """
     tela_raw = carregar_tela(None, id_tela, _RAIZ_TELAS_DEMO)
-    return construir_modelo(tela_raw)
+    id_conteudo = id_conteudo_externo_de(id_tela)
+    conteudo_externo = None
+    if id_conteudo is not None:
+        conteudo_externo = carregar_conteudo_externo(
+            None, id_conteudo, _RAIZ_TELAS_DEMO
+        )
+    return construir_modelo(tela_raw, conteudo_externo=conteudo_externo)
 
 
 def _ler_tecla_sessao(fd=None):
@@ -504,7 +545,24 @@ def _apresentar_quadro(conteudo, largura=None):
     sys.stdout.flush()
 
 
-def main():
+def _tela_inicial_de_argv(argv):
+    """Resolve a tela inicial a partir de argv (H-0036).
+
+    Aceita opcionalmente um id de tela como primeiro argumento posicional
+    (analogo a ``demo/demo_distribuicao.py <id_tela>``), permitindo abrir
+    diretamente qualquer cenario — inclusive os cenarios H-0036 com conteudo
+    externo (``h0036_console_hierarquia``, ``h0036_console_tabela``,
+    ``h0036_console_conjuntos``) e os cenarios adaptados
+    (``h0035_console_com``, ``h0035_console_sem``). Sem argumento, usa a tela
+    raiz da demonstracao (``"demo"``), preservando o comportamento historico.
+    """
+    for arg in argv[1:]:
+        if arg and not arg.startswith("-"):
+            return arg
+    return "demo"
+
+
+def main(argv=None):
     """Entrada principal da aplicacao demonstravel.
 
     Em TTY interativo (stdin e stdout sao TTY), ativa alternate screen,
@@ -515,8 +573,18 @@ def main():
     recuperacao automatica. Restauracao completa em ``finally`` com
     cleanup condicional por sentinelas. Fora de TTY (pipe/teste), usa
     leitura linha a linha e ``print`` normal. Retorna 0 (saida limpa).
+
+    H-0036: aceita opcionalmente um id de tela inicial via argv (default
+    ``"demo"``); ``python demo/demo.py h0036_console_hierarquia`` abre o
+    cenario H-0036 diretamente, carregando o conteudo externo associado pelo
+    catalogo. Sem argumento, o comportamento historico e preservado.
     """
+    if argv is None:
+        argv = sys.argv
     estado = criar_estado_inicial()
+    tela_inicial = _tela_inicial_de_argv(argv)
+    if tela_inicial != estado["tela_atual"]:
+        estado = dict(estado, tela_atual=tela_inicial)
     modelo = _carregar_modelo_por_id(estado["tela_atual"])
 
     if sys.stdin.isatty() and sys.stdout.isatty():

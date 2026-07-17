@@ -42,6 +42,7 @@ from tela.loader import (  # noqa: E402
     TelaCampoObrigatorioAusente,
     TelaElementoSemId,
     TelaElementoSemTipo,
+    TelaErro,
     TelaEstruturaInvalida,
     TelaGrupoInvalido,
     TelaIdIncorreto,
@@ -49,6 +50,8 @@ from tela.loader import (  # noqa: E402
     TelaJsonInvalido,
     TelaTipoDesconhecido,
     carregar_tela,
+    carregar_conteudo_externo,
+    validar_conteudo_externo,
 )
 
 
@@ -2619,6 +2622,210 @@ def _run_distribuicao_matricial_h0035(tmp_base):
     )
 
 
+def _doc_valido_minimo():
+    """Envelope minimo valido (apresentacao hierarquia, um nivel conteudo)."""
+    return {
+        "tipo": "multinivel",
+        "formato": {
+            "apresentacao": "hierarquia",
+            "niveis": [
+                {
+                    "id": "item",
+                    "tipo": "conteudo",
+                    "conteudo": "texto",
+                    "designador": {"tipo": "nenhum"},
+                }
+            ],
+        },
+        "dados": [
+            {"id": "a", "nivel": "item", "texto": "Alfa"},
+        ],
+    }
+
+
+def teste_conteudo_externo_h0036():
+    """20 validacoes semanticas do documento externo (H-0036 / ADR-0027)."""
+    print("")
+    print("== H-0036: documento externo de conteudo multinivel ==")
+
+    def _aceita(nome, doc):
+        try:
+            validar_conteudo_externo(doc)
+            _registrar(nome, True)
+        except Exception as exc:  # pragma: no cover
+            _registrar(nome, False, "{0}: {1}".format(type(exc).__name__, exc))
+
+    def _rejeita(nome, doc, classe=TelaErro):
+        try:
+            validar_conteudo_externo(doc)
+            _registrar(nome, False, "nenhuma excecao")
+        except classe:
+            _registrar(nome, True)
+        except Exception as exc:  # pragma: no cover
+            _registrar(nome, False, "excecao errada: {0}".format(type(exc).__name__))
+
+    # Documento valido minimo.
+    _aceita("V: envelope minimo completo aceito", _doc_valido_minimo())
+
+    # 1: raiz nao-objeto.
+    for valor in ([], "x", 3, None):
+        _rejeita("1: raiz nao-objeto ({0}) rejeitada".format(type(valor).__name__),
+                 valor, TelaEstruturaInvalida)
+    # 2: tipo ausente / 3: tipo diferente de multinivel.
+    d = _doc_valido_minimo(); del d["tipo"]
+    _rejeita("2: tipo ausente rejeitado", d, TelaCampoObrigatorioAusente)
+    d = _doc_valido_minimo(); d["tipo"] = "matriz"
+    _rejeita("3: tipo != multinivel rejeitado", d, TelaEstruturaInvalida)
+    d = _doc_valido_minimo(); d["tipo"] = 5
+    _rejeita("2: tipo nao-string rejeitado", d, TelaEstruturaInvalida)
+    _aceita("3: tipo == multinivel aceito", _doc_valido_minimo())
+    # 4: formato ausente / nao-objeto.
+    d = _doc_valido_minimo(); del d["formato"]
+    _rejeita("4: formato ausente rejeitado", d, TelaCampoObrigatorioAusente)
+    d = _doc_valido_minimo(); d["formato"] = []
+    _rejeita("4: formato nao-objeto rejeitado", d, TelaEstruturaInvalida)
+    # 5: dados ausente / nao-array.
+    d = _doc_valido_minimo(); del d["dados"]
+    _rejeita("5: dados ausente rejeitado", d, TelaCampoObrigatorioAusente)
+    d = _doc_valido_minimo(); d["dados"] = {}
+    _rejeita("5: dados nao-array rejeitado", d, TelaEstruturaInvalida)
+    # 6: apresentacao ausente / 7: invalida.
+    d = _doc_valido_minimo(); del d["formato"]["apresentacao"]
+    _rejeita("6: apresentacao ausente rejeitada", d, TelaCampoObrigatorioAusente)
+    d = _doc_valido_minimo(); d["formato"]["apresentacao"] = "grade"
+    _rejeita("7: apresentacao invalida rejeitada", d, TelaEstruturaInvalida)
+    # 8: niveis ausente / nao-array.
+    d = _doc_valido_minimo(); del d["formato"]["niveis"]
+    _rejeita("8: formato.niveis ausente rejeitado", d, TelaCampoObrigatorioAusente)
+    d = _doc_valido_minimo(); d["formato"]["niveis"] = {}
+    _rejeita("8: formato.niveis nao-array rejeitado", d, TelaEstruturaInvalida)
+    # 9: nivel sem campos obrigatorios.
+    for campo in ("id", "tipo", "conteudo", "designador"):
+        d = _doc_valido_minimo(); del d["formato"]["niveis"][0][campo]
+        _rejeita("9: nivel sem {0} rejeitado".format(campo), d,
+                 TelaCampoObrigatorioAusente)
+    # 10: id de nivel vazio / duplicado.
+    d = _doc_valido_minimo(); d["formato"]["niveis"][0]["id"] = ""
+    _rejeita("10: id de nivel vazio rejeitado", d, TelaEstruturaInvalida)
+    d = _doc_valido_minimo()
+    d["formato"]["niveis"].append(dict(d["formato"]["niveis"][0]))
+    _rejeita("10: ids de nivel duplicados rejeitados", d, TelaEstruturaInvalida)
+    # 11: tipo de nivel invalido.
+    d = _doc_valido_minimo(); d["formato"]["niveis"][0]["tipo"] = "secao"
+    _rejeita("11: tipo de nivel invalido rejeitado", d, TelaEstruturaInvalida)
+    # designador invalido.
+    d = _doc_valido_minimo(); d["formato"]["niveis"][0]["designador"] = {"tipo": "hex"}
+    _rejeita("designador.tipo invalido rejeitado", d, TelaEstruturaInvalida)
+    # 12: no sem id / nivel.
+    d = _doc_valido_minimo(); del d["dados"][0]["id"]
+    _rejeita("12: no sem id rejeitado", d, TelaCampoObrigatorioAusente)
+    d = _doc_valido_minimo(); del d["dados"][0]["nivel"]
+    _rejeita("12: no sem nivel rejeitado", d, TelaCampoObrigatorioAusente)
+    # 13: nivel nao declarado.
+    d = _doc_valido_minimo(); d["dados"][0]["nivel"] = "inexistente"
+    _rejeita("13: no com nivel nao declarado rejeitado", d, TelaEstruturaInvalida)
+    # 14: container sem filhos / sem campo semantico.
+    d = _doc_valido_minimo()
+    d["formato"]["niveis"] = [
+        {"id": "c", "tipo": "container", "conteudo": "titulo", "designador": {"tipo": "decimal"}},
+        {"id": "i", "tipo": "conteudo", "conteudo": "texto", "designador": {"tipo": "nenhum"}},
+    ]
+    d["dados"] = [{"id": "c1", "nivel": "c", "titulo": "T"}]  # sem filhos
+    _rejeita("14: container sem filhos rejeitado", d, TelaEstruturaInvalida)
+    d2 = _doc_valido_minimo()
+    d2["formato"]["niveis"][0] = {"id": "item", "tipo": "container", "conteudo": "titulo", "designador": {"tipo": "nenhum"}}
+    d2["dados"] = [{"id": "c1", "nivel": "item", "filhos": []}]  # sem 'titulo'
+    _rejeita("14: container sem campo semantico rejeitado", d2, TelaCampoObrigatorioAusente)
+    # 15: conteudo sem campo semantico.
+    d = _doc_valido_minimo(); del d["dados"][0]["texto"]
+    _rejeita("15: conteudo sem campo semantico rejeitado", d, TelaCampoObrigatorioAusente)
+    # 16: nome_valor sem nome / valor.
+    d = _doc_valido_minimo()
+    d["formato"]["niveis"][0] = {"id": "item", "tipo": "nome_valor",
+                                 "conteudo": {"nome": "nome", "valor": "valor"},
+                                 "designador": {"tipo": "nenhum"}}
+    d["dados"] = [{"id": "e1", "nivel": "item", "nome": "N"}]  # sem 'valor'
+    _rejeita("16: nome_valor sem valor rejeitado", d, TelaCampoObrigatorioAusente)
+    # 17: filho invalido validado recursivamente.
+    d = _doc_valido_minimo()
+    d["formato"]["niveis"] = [
+        {"id": "c", "tipo": "container", "conteudo": "titulo", "designador": {"tipo": "decimal"}},
+        {"id": "i", "tipo": "conteudo", "conteudo": "texto", "designador": {"tipo": "nenhum"}},
+    ]
+    d["dados"] = [{"id": "c1", "nivel": "c", "titulo": "T",
+                   "filhos": [{"id": "x", "nivel": "i"}]}]  # filho sem 'texto'
+    _rejeita("17: filho invalido rejeitado recursivamente", d, TelaCampoObrigatorioAusente)
+    # 19: bloco especifico incompativel.
+    d = _doc_valido_minimo(); d["formato"]["tabela"] = {"cabecalho": []}
+    _rejeita("19: bloco 'tabela' em hierarquia rejeitado", d, TelaEstruturaInvalida)
+    d = _doc_valido_minimo(); d["formato"]["campos"] = {}
+    _rejeita("19: bloco 'campos' em hierarquia rejeitado", d, TelaEstruturaInvalida)
+    # 20: resultado fisico calculado proibido (na raiz e aninhado).
+    d = _doc_valido_minimo(); d["largura_efetiva"] = 42
+    _rejeita("20: resultado fisico na raiz rejeitado", d, TelaEstruturaInvalida)
+    d = _doc_valido_minimo(); d["dados"][0]["coordenada_final"] = [1, 2]
+    _rejeita("20: resultado fisico aninhado rejeitado", d, TelaEstruturaInvalida)
+
+    # 18: ordem dos arrays preservada (materialmente verificada).
+    d = _doc_valido_minimo()
+    d["dados"] = [
+        {"id": "a", "nivel": "item", "texto": "Primeiro"},
+        {"id": "b", "nivel": "item", "texto": "Segundo"},
+        {"id": "c", "nivel": "item", "texto": "Terceiro"},
+    ]
+    validar_conteudo_externo(d)
+    _registrar("18: ordem dos arrays preservada (nao reordena)",
+               [n["texto"] for n in d["dados"]] == ["Primeiro", "Segundo", "Terceiro"])
+
+    # JSON sintaticamente invalido rejeitado com erro de dominio.
+    tmp = Path(tempfile.mkdtemp(prefix="conteudo_h0036_"))
+    try:
+        dir_c = tmp / "config" / "telas" / "demo"
+        dir_c.mkdir(parents=True, exist_ok=True)
+        (dir_c / "quebrado.json").write_text("{ isto nao e json ", encoding="utf-8")
+        try:
+            carregar_conteudo_externo(tmp, "quebrado", _RAIZ_TELAS_DEMO)
+            _registrar("JSON invalido rejeitado (TelaJsonInvalido)", False, "sem excecao")
+        except TelaJsonInvalido:
+            _registrar("JSON invalido rejeitado (TelaJsonInvalido)", True)
+        except Exception as exc:  # pragma: no cover
+            _registrar("JSON invalido rejeitado (TelaJsonInvalido)", False,
+                       type(exc).__name__)
+        # Arquivo ausente.
+        try:
+            carregar_conteudo_externo(tmp, "nao_existe_xyz", _RAIZ_TELAS_DEMO)
+            _registrar("documento ausente rejeitado", False, "sem excecao")
+        except TelaArquivoNaoEncontrado:
+            _registrar("documento ausente rejeitado (TelaArquivoNaoEncontrado)", True)
+        except Exception as exc:  # pragma: no cover
+            _registrar("documento ausente rejeitado", False, type(exc).__name__)
+    finally:
+        try:
+            shutil.rmtree(tmp)
+        except OSError:
+            pass
+
+    # Fixtures permanentes carregam com sucesso (fontes validas em arquivo).
+    for id_conteudo, apresentacao in [
+        ("h0036_hierarquia_conteudo", "hierarquia"),
+        ("h0036_tabela_conteudo", "tabela"),
+        ("h0036_conjuntos_conteudo", "conjuntos_campos"),
+        ("h0035_console_com_conteudo", "hierarquia"),
+        ("h0035_console_sem_conteudo", "hierarquia"),
+    ]:
+        try:
+            doc = carregar_conteudo_externo(None, id_conteudo, _RAIZ_TELAS_DEMO)
+            ok = (
+                isinstance(doc, dict)
+                and doc.get("tipo") == "multinivel"
+                and doc.get("formato", {}).get("apresentacao") == apresentacao
+            )
+            _registrar("fixture {0} carregada ({1})".format(id_conteudo, apresentacao), ok)
+        except Exception as exc:  # pragma: no cover
+            _registrar("fixture {0} carregada".format(id_conteudo), False,
+                       "{0}: {1}".format(type(exc).__name__, exc))
+
+
 def main():
     print("Diagnostico H-0001 - loader/validador de tela.json")
     print("Base padrao: {0}".format(_BASE_PADRAO))
@@ -2647,6 +2854,7 @@ def main():
     teste_h0030_catalogo()
     teste_raiz_telas_h0032()
     teste_id_incorreto_classe()
+    teste_conteudo_externo_h0036()
 
     print("")
     print("== Resumo ==")

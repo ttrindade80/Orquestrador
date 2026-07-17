@@ -1265,3 +1265,393 @@ def carregar_tela(caminho_base, id_tela, raiz_telas=None):
         "_raw": dados,
         "_config_lancador": config_lancador,
     }
+
+
+# ---------------------------------------------------------------------------
+# H-0036 / ADR-0026 / ADR-0027: documento externo de conteudo multinivel
+# ---------------------------------------------------------------------------
+#
+# O console recebe conteudo de runtime por um documento externo separado do
+# JSON estrutural da tela (ADR-0026 D1-D4). O schema semantico multinivel e as
+# 20 validacoes sao decididos e obrigatorios (ADR-0027 D11/D13;
+# contrato_json_console.md secao 12). Este loader abre e decodifica o
+# documento, executa as 20 validacoes semanticas e devolve o documento
+# validado como representacao semantica. NAO calcula geometria, NAO infere
+# hierarquia (a hierarquia e declarada por ``filhos``) e NAO reinsere o
+# conteudo no objeto bruto do JSON estrutural. As classes de erro reutilizam
+# as excecoes de dominio existentes (TelaEstruturaInvalida,
+# TelaCampoObrigatorioAusente, TelaJsonInvalido, TelaArquivoNaoEncontrado).
+
+# Apresentacoes previstas (contrato_json_console.md secao 12.2).
+APRESENTACOES_CONTEUDO_VALIDAS = {"tabela", "hierarquia", "conjuntos_campos"}
+
+# Tipos de nivel (contrato_json_console.md secao 12.3).
+TIPOS_NIVEL_CONTEUDO_VALIDOS = {"container", "conteudo", "nome_valor"}
+
+# Tipos de designador (contrato_json_console.md secao 12.3 / secao 13.7 H-0036).
+TIPOS_DESIGNADOR_VALIDOS = {
+    "nenhum", "simbolo", "decimal", "alfabetico_minusculo",
+    "alfabetico_maiusculo", "romano_minusculo", "romano_maiusculo",
+    "decimal_composto", "personalizado",
+}
+
+# Blocos especificos por apresentacao (contrato_json_console.md secao 12.2):
+# ``tabela`` somente em ``tabela``; ``campos`` somente em ``conjuntos_campos``;
+# nenhum bloco especifico em ``hierarquia``.
+_BLOCO_ESPECIFICO_POR_APRESENTACAO = {
+    "tabela": "tabela",
+    "conjuntos_campos": "campos",
+}
+_BLOCOS_ESPECIFICOS_APRESENTACAO = {"tabela", "campos"}
+
+# Nomes de campo de resultado fisico calculado proibidos no documento externo
+# (contrato_json_console.md secao 12.6; H-0036 secao 13.8). Cada nome mapeia
+# uma das formas fisicas proibidas normativas. A deteccao rejeita qualquer
+# ocorrencia destes nomes de campo em qualquer profundidade do documento.
+CAMPOS_RESULTADO_FISICO_PROIBIDOS = {
+    "largura_efetiva",        # largura efetiva
+    "altura_efetiva",         # altura efetiva
+    "linhas_calculadas",      # quantidade fisica calculada de linhas
+    "colunas_calculadas",     # quantidade fisica calculada de colunas
+    "posicao_final",          # posicao final
+    "coordenada_final",       # coordenada fisica final
+    "pagina_calculada",       # pagina calculada
+    "quebra_pronta",          # quebra fisica pronta
+    "truncamento_aplicado",   # truncamento ja aplicado
+    "distribuicao_concreta",  # distribuicao concreta do espaco restante
+    "celulas_vazias",         # celulas vazias calculadas
+    "geometria_final",        # geometria final
+    "numeracao_concreta",     # numeracao concreta de designadores
+}
+
+
+def _validar_designador_conteudo(designador, id_nivel, origem):
+    """Valida a politica declarativa de designador de um nivel.
+
+    O designador declara a forma do marcador; o renderizador calcula a
+    sequencia concreta. O documento externo NAO armazena a numeracao ja
+    calculada (contrato_json_console.md secao 12.3 / secao 13.7 do H-0036).
+    """
+    if not isinstance(designador, dict):
+        raise TelaEstruturaInvalida(
+            "{0}: nivel {1!r}.designador deve ser objeto".format(origem, id_nivel)
+        )
+    if "tipo" not in designador:
+        raise TelaCampoObrigatorioAusente(
+            campo="formato.niveis[{0}].designador.tipo".format(id_nivel)
+        )
+    tipo_desig = designador["tipo"]
+    if tipo_desig not in TIPOS_DESIGNADOR_VALIDOS:
+        raise TelaEstruturaInvalida(
+            "{0}: nivel {1!r}.designador.tipo invalido: {2!r}; aceitos: "
+            "{3}".format(
+                origem, id_nivel, tipo_desig,
+                ", ".join(sorted(TIPOS_DESIGNADOR_VALIDOS)),
+            )
+        )
+
+
+def _rejeitar_resultados_fisicos_conteudo(obj, origem, caminho="documento"):
+    """Rejeita recursivamente campos de resultado fisico calculado (validacao 20).
+
+    Percorre objetos e arrays em qualquer profundidade. Nao amplia a proibicao
+    para campos semanticos validos: rejeita apenas os nomes exatos declarados
+    em ``CAMPOS_RESULTADO_FISICO_PROIBIDOS`` (contrato_json_console.md 12.6).
+    """
+    if isinstance(obj, dict):
+        for chave, valor in obj.items():
+            if chave in CAMPOS_RESULTADO_FISICO_PROIBIDOS:
+                raise TelaEstruturaInvalida(
+                    "{0}: campo de resultado fisico calculado proibido: "
+                    "{1!r} em {2} (contrato_json_console 12.6)".format(
+                        origem, chave, caminho
+                    )
+                )
+            _rejeitar_resultados_fisicos_conteudo(
+                valor, origem, "{0}.{1}".format(caminho, chave)
+            )
+    elif isinstance(obj, list):
+        for indice, item in enumerate(obj):
+            _rejeitar_resultados_fisicos_conteudo(
+                item, origem, "{0}[{1}]".format(caminho, indice)
+            )
+
+
+def _validar_no_conteudo(no, niveis_por_id, origem, caminho):
+    """Valida um no de ``dados``/``filhos`` (validacoes 12-17).
+
+    Recursivo para nos de tipo ``container`` (validacao 17). A ordem dos
+    arrays e preservada (validacao 18): esta funcao nao reordena nada.
+    """
+    if not isinstance(no, dict):
+        raise TelaEstruturaInvalida(
+            "{0}: {1} nao e objeto".format(origem, caminho)
+        )
+    # Validacao 12: cada no possui id e nivel.
+    if "id" not in no:
+        raise TelaCampoObrigatorioAusente(campo="{0}.id".format(caminho))
+    if "nivel" not in no:
+        raise TelaCampoObrigatorioAusente(campo="{0}.nivel".format(caminho))
+    nivel_ref = no["nivel"]
+    # Validacao 13: nivel referencia item declarado em formato.niveis.
+    if nivel_ref not in niveis_por_id:
+        raise TelaEstruturaInvalida(
+            "{0}: {1}.nivel referencia nivel nao declarado: {2!r}".format(
+                origem, caminho, nivel_ref
+            )
+        )
+    nivel = niveis_por_id[nivel_ref]
+    tipo_nivel = nivel["tipo"]
+    conteudo_decl = nivel["conteudo"]
+
+    if tipo_nivel == "container":
+        # Validacao 14: campo semantico declarado + filhos como array.
+        if not isinstance(conteudo_decl, str) or conteudo_decl not in no:
+            raise TelaCampoObrigatorioAusente(
+                campo="{0}.{1} (container)".format(caminho, conteudo_decl)
+            )
+        filhos = no.get("filhos")
+        if not isinstance(filhos, list):
+            raise TelaEstruturaInvalida(
+                "{0}: {1} (nivel container) exige 'filhos' como array".format(
+                    origem, caminho
+                )
+            )
+        # Validacao 17: filhos validados recursivamente com as mesmas regras.
+        for indice, filho in enumerate(filhos):
+            _validar_no_conteudo(
+                filho, niveis_por_id, origem,
+                "{0}.filhos[{1}]".format(caminho, indice),
+            )
+    elif tipo_nivel == "conteudo":
+        # Validacao 15: campo semantico declarado.
+        if not isinstance(conteudo_decl, str) or conteudo_decl not in no:
+            raise TelaCampoObrigatorioAusente(
+                campo="{0}.{1} (conteudo)".format(caminho, conteudo_decl)
+            )
+    elif tipo_nivel == "nome_valor":
+        # Validacao 16: campos de nome e valor declarados presentes.
+        campo_nome = conteudo_decl.get("nome")
+        campo_valor = conteudo_decl.get("valor")
+        if campo_nome not in no:
+            raise TelaCampoObrigatorioAusente(
+                campo="{0}.{1} (nome_valor.nome)".format(caminho, campo_nome)
+            )
+        if campo_valor not in no:
+            raise TelaCampoObrigatorioAusente(
+                campo="{0}.{1} (nome_valor.valor)".format(caminho, campo_valor)
+            )
+
+
+def validar_conteudo_externo(documento, origem="documento externo"):
+    """Executa as 20 validacoes semanticas do documento externo de conteudo.
+
+    Autoridade: ADR-0027 D11/D13; contrato_json_console.md secao 12.5;
+    H-0036 secao 14. As validacoes sao verificadas nominalmente e na ordem
+    das secoes do contrato. Erros usam as classes de dominio existentes.
+
+    Nao calcula geometria, nao infere hierarquia (declarada por ``filhos``),
+    nao reordena arrays (validacao 18 e preservada por construcao) e nao muta
+    o documento recebido. Devolve o proprio ``documento`` quando valido, para
+    encadeamento conveniente.
+    """
+    # Validacao 1: raiz e objeto.
+    if not isinstance(documento, dict):
+        raise TelaEstruturaInvalida(
+            "{0}: raiz do documento externo nao e objeto (recebido: {1})".format(
+                origem, type(documento).__name__
+            )
+        )
+    # Validacao 2: tipo presente e do tipo correto (string).
+    if "tipo" not in documento:
+        raise TelaCampoObrigatorioAusente(campo="tipo (documento externo)")
+    tipo = documento["tipo"]
+    if not isinstance(tipo, str):
+        raise TelaEstruturaInvalida(
+            "{0}: campo 'tipo' deve ser string; recebido: {1}".format(
+                origem, type(tipo).__name__
+            )
+        )
+    # Validacao 3: tipo igual a "multinivel".
+    if tipo != "multinivel":
+        raise TelaEstruturaInvalida(
+            "{0}: tipo {1!r} nao suportado; unico tipo aceito: "
+            "'multinivel'".format(origem, tipo)
+        )
+    # Validacao 4: formato presente e objeto.
+    if "formato" not in documento:
+        raise TelaCampoObrigatorioAusente(campo="formato (documento externo)")
+    formato = documento["formato"]
+    if not isinstance(formato, dict):
+        raise TelaEstruturaInvalida(
+            "{0}: 'formato' deve ser objeto".format(origem)
+        )
+    # Validacao 5: dados presente e array.
+    if "dados" not in documento:
+        raise TelaCampoObrigatorioAusente(campo="dados (documento externo)")
+    dados = documento["dados"]
+    if not isinstance(dados, list):
+        raise TelaEstruturaInvalida(
+            "{0}: 'dados' deve ser array".format(origem)
+        )
+    # Validacao 6: formato.apresentacao presente.
+    if "apresentacao" not in formato:
+        raise TelaCampoObrigatorioAusente(
+            campo="formato.apresentacao (documento externo)"
+        )
+    apresentacao = formato["apresentacao"]
+    # Validacao 7: apresentacao pertence ao conjunto previsto.
+    if apresentacao not in APRESENTACOES_CONTEUDO_VALIDAS:
+        raise TelaEstruturaInvalida(
+            "{0}: formato.apresentacao invalida: {1!r}; aceitas: "
+            "{2}".format(
+                origem, apresentacao,
+                ", ".join(sorted(APRESENTACOES_CONTEUDO_VALIDAS)),
+            )
+        )
+    # Validacao 8: formato.niveis presente e array.
+    if "niveis" not in formato:
+        raise TelaCampoObrigatorioAusente(
+            campo="formato.niveis (documento externo)"
+        )
+    niveis = formato["niveis"]
+    if not isinstance(niveis, list):
+        raise TelaEstruturaInvalida(
+            "{0}: formato.niveis deve ser array".format(origem)
+        )
+    # Validacoes 9, 10, 11: cada nivel possui id/tipo/conteudo/designador;
+    # ids nao vazios e unicos; tipos de nivel validos. Coleta niveis_por_id.
+    niveis_por_id = {}
+    for indice, nivel in enumerate(niveis):
+        if not isinstance(nivel, dict):
+            raise TelaEstruturaInvalida(
+                "{0}: formato.niveis[{1}] nao e objeto".format(origem, indice)
+            )
+        # Validacao 9: possui id, tipo, conteudo e designador.
+        for campo in ("id", "tipo", "conteudo", "designador"):
+            if campo not in nivel:
+                raise TelaCampoObrigatorioAusente(
+                    campo="formato.niveis[{0}].{1}".format(indice, campo)
+                )
+        id_nivel = nivel["id"]
+        # Validacao 10: id nao vazio e unico.
+        if not isinstance(id_nivel, str) or id_nivel == "":
+            raise TelaEstruturaInvalida(
+                "{0}: formato.niveis[{1}].id vazio ou nao-string".format(
+                    origem, indice
+                )
+            )
+        if id_nivel in niveis_por_id:
+            raise TelaEstruturaInvalida(
+                "{0}: id de nivel duplicado em formato.niveis: {1!r}".format(
+                    origem, id_nivel
+                )
+            )
+        # Validacao 11: tipo de nivel pertence ao conjunto previsto.
+        tipo_nivel = nivel["tipo"]
+        if tipo_nivel not in TIPOS_NIVEL_CONTEUDO_VALIDOS:
+            raise TelaEstruturaInvalida(
+                "{0}: nivel {1!r} com tipo invalido: {2!r}; aceitos: "
+                "{3}".format(
+                    origem, id_nivel, tipo_nivel,
+                    ", ".join(sorted(TIPOS_NIVEL_CONTEUDO_VALIDOS)),
+                )
+            )
+        # Coerencia da declaracao de conteudo por tipo de nivel.
+        conteudo_decl = nivel["conteudo"]
+        if tipo_nivel == "nome_valor":
+            if (
+                not isinstance(conteudo_decl, dict)
+                or not isinstance(conteudo_decl.get("nome"), str)
+                or not isinstance(conteudo_decl.get("valor"), str)
+            ):
+                raise TelaEstruturaInvalida(
+                    "{0}: nivel {1!r} (nome_valor) exige conteudo com 'nome' "
+                    "e 'valor' (nomes de campo string)".format(origem, id_nivel)
+                )
+        else:
+            if not isinstance(conteudo_decl, str) or conteudo_decl == "":
+                raise TelaEstruturaInvalida(
+                    "{0}: nivel {1!r} exige conteudo como nome de campo "
+                    "(string nao vazia)".format(origem, id_nivel)
+                )
+        _validar_designador_conteudo(nivel["designador"], id_nivel, origem)
+        niveis_por_id[id_nivel] = nivel
+
+    # Validacao 19: blocos especificos compativeis com a apresentacao.
+    for bloco in _BLOCOS_ESPECIFICOS_APRESENTACAO:
+        if bloco in formato and _BLOCO_ESPECIFICO_POR_APRESENTACAO.get(
+            apresentacao
+        ) != bloco:
+            raise TelaEstruturaInvalida(
+                "{0}: bloco {1!r} incompativel com apresentacao {2!r}; "
+                "'tabela' so em apresentacao tabela, 'campos' so em "
+                "conjuntos_campos".format(origem, bloco, apresentacao)
+            )
+
+    # Validacao 20: documento nao contem resultados fisicos calculados.
+    _rejeitar_resultados_fisicos_conteudo(documento, origem)
+
+    # Validacoes 12-18: nos de dados (recursivo, ordem preservada).
+    for indice, no in enumerate(dados):
+        _validar_no_conteudo(
+            no, niveis_por_id, origem, "dados[{0}]".format(indice)
+        )
+
+    return documento
+
+
+def carregar_conteudo_externo(caminho_base, id_conteudo, raiz_telas=None):
+    """Carrega, decodifica e valida um documento externo de conteudo.
+
+    Parametros analogos a ``carregar_tela``: ``caminho_base`` (None usa a raiz
+    do repositorio), ``id_conteudo`` (nome base do arquivo, sem extensao) e
+    ``raiz_telas`` (diretorio relativo; None usa ``config/telas``; a
+    demonstracao passa ``config/telas/demo``).
+
+    Devolve o documento validado (dict) como representacao semantica. O
+    consumidor (modelo) constroi a representacao tipada; o renderizador calcula
+    a geometria. Este loader NAO abre o JSON estrutural, NAO vincula tela e
+    conteudo (responsabilidade do ``demo.py``), NAO calcula geometria e NAO
+    infere hierarquia.
+
+    Lanca: TelaArquivoNaoEncontrado, TelaJsonInvalido,
+    TelaCampoObrigatorioAusente, TelaEstruturaInvalida.
+    """
+    base = _para_base(caminho_base)
+    if not isinstance(id_conteudo, str) or not id_conteudo:
+        raise TelaCampoObrigatorioAusente(campo="id_conteudo (documento externo)")
+
+    if raiz_telas is None:
+        raiz_telas = os.path.join("config", "telas")
+
+    caminho_relativo = os.path.join(raiz_telas, id_conteudo + ".json")
+    caminho_arquivo = base / caminho_relativo
+
+    if not caminho_arquivo.is_file():
+        raise TelaArquivoNaoEncontrado(
+            "Documento externo de conteudo nao encontrado: {0}".format(
+                caminho_relativo
+            )
+        )
+
+    try:
+        texto = caminho_arquivo.read_text(encoding="utf-8")
+    except OSError as exc:
+        raise TelaArquivoNaoEncontrado(
+            "Documento externo de conteudo nao encontrado: {0} ({1})".format(
+                caminho_relativo, exc
+            )
+        )
+
+    try:
+        documento = json.loads(texto)
+    except json.JSONDecodeError as exc:
+        raise TelaJsonInvalido(
+            "JSON invalido em documento externo: {0} - {1}".format(
+                caminho_relativo, exc
+            )
+        )
+
+    validar_conteudo_externo(documento, origem=caminho_relativo)
+    return documento

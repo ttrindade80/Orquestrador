@@ -317,9 +317,320 @@ def _distribuir_larguras(largura_disponivel, pesos):
     return cotas
 
 
-def _linhas_console(elemento):
-    """Linhas de conteudo para elemento console (placeholder de escopo)."""
-    return [_PLACEHOLDER_CONSOLE]
+def _linhas_console(elemento, content_w=None):
+    """Linhas de conteudo para elemento console.
+
+    H-0036 / ADR-0026 / ADR-0027: quando o console possui conteudo externo
+    multinivel associado (``elemento.conteudo_externo``), exibe as tres
+    apresentacoes (``tabela``, ``hierarquia``, ``conjuntos_campos``) a partir do
+    conteudo ja carregado e validado, calculando designadores concretos e a
+    geometria (recuo, colunas, truncamento). O renderizador NAO abre arquivos,
+    NAO escolhe fonte e NAO infere hierarquia (usa ``filhos`` como declarado).
+
+    Sem conteudo externo, preserva o placeholder historico ``"(console)"``
+    (compatibilidade retroativa com todas as telas existentes).
+    """
+    conteudo = getattr(elemento, "conteudo_externo", None)
+    if conteudo is None:
+        return [_PLACEHOLDER_CONSOLE]
+    return _linhas_conteudo_externo(conteudo, content_w)
+
+
+# ---------------------------------------------------------------------------
+# H-0036: designadores concretos calculados pelo renderizador.
+# O documento externo declara a POLITICA; o renderizador calcula o texto.
+# ---------------------------------------------------------------------------
+
+_ROMANOS = [
+    (1000, "M"), (900, "CM"), (500, "D"), (400, "CD"),
+    (100, "C"), (90, "XC"), (50, "L"), (40, "XL"),
+    (10, "X"), (9, "IX"), (5, "V"), (4, "IV"), (1, "I"),
+]
+
+
+def _romano(n):
+    """Numeral romano maiusculo de ``n`` (n >= 1)."""
+    if n < 1:
+        return ""
+    resultado = []
+    for valor, simbolo in _ROMANOS:
+        while n >= valor:
+            resultado.append(simbolo)
+            n -= valor
+    return "".join(resultado)
+
+
+def _alfabetico(n, maiusculo=False):
+    """Sequencia alfabetica bijetiva de ``n`` (1->a, 26->z, 27->aa)."""
+    if n < 1:
+        return ""
+    letras = []
+    base = ord("A") if maiusculo else ord("a")
+    while n > 0:
+        n, resto = divmod(n - 1, 26)
+        letras.append(chr(base + resto))
+    return "".join(reversed(letras))
+
+
+def _texto_designador(designador, ordinal, ancestrais):
+    """Calcula o texto concreto do designador de um no (H-0036 secao 13.7).
+
+    ``ordinal`` e a posicao 1-based entre irmaos do mesmo nivel; ``ancestrais``
+    e a lista de ordinais decimais dos ancestrais (para ``decimal_composto``).
+    Aplica ``prefixo`` e ``sufixo`` quando declarados. ``nenhum`` produz string
+    vazia (sem marcador).
+    """
+    if not isinstance(designador, dict):
+        return ""
+    tipo = designador.get("tipo", "nenhum")
+    if tipo == "nenhum":
+        return ""
+    prefixo = designador.get("prefixo", "")
+    sufixo = designador.get("sufixo", "")
+    if tipo == "simbolo":
+        nucleo = designador.get("valor", "•")
+    elif tipo == "personalizado":
+        nucleo = designador.get("valor", "")
+    elif tipo == "decimal":
+        nucleo = str(ordinal)
+    elif tipo == "alfabetico_minusculo":
+        nucleo = _alfabetico(ordinal, maiusculo=False)
+    elif tipo == "alfabetico_maiusculo":
+        nucleo = _alfabetico(ordinal, maiusculo=True)
+    elif tipo == "romano_minusculo":
+        nucleo = _romano(ordinal).lower()
+    elif tipo == "romano_maiusculo":
+        nucleo = _romano(ordinal)
+    elif tipo == "decimal_composto":
+        separador = designador.get("separador", ".")
+        nucleo = separador.join(str(n) for n in (list(ancestrais) + [ordinal]))
+    else:
+        nucleo = ""
+    return "{0}{1}{2}".format(prefixo, nucleo, sufixo)
+
+
+def _texto_no_conteudo(no, nivel):
+    """Texto exibivel de um no conforme o tipo do seu nivel.
+
+    - ``container``/``conteudo``: valor do campo nomeado por ``nivel.conteudo``.
+    - ``nome_valor``: ``"nome: valor"`` a partir dos campos declarados.
+    """
+    if nivel is None:
+        return ""
+    if nivel.tipo == "nome_valor":
+        campo_nome = nivel.conteudo.get("nome")
+        campo_valor = nivel.conteudo.get("valor")
+        return "{0}: {1}".format(
+            no.campos.get(campo_nome, ""), no.campos.get(campo_valor, "")
+        )
+    campo = nivel.conteudo
+    return "{0}".format(no.campos.get(campo, ""))
+
+
+def _linhas_conteudo_externo(conteudo, content_w):
+    """Despacha o conteudo externo para a apresentacao declarada (H-0036).
+
+    Produz a lista de linhas de conteudo da caixa do console. As tres
+    apresentacoes sao obrigatorias e provadas. O truncamento a ``content_w`` e
+    aplicado pelo envelope ``_caixa`` (calculo do renderizador), preservando o
+    texto semantico integral neste nivel.
+    """
+    apresentacao = getattr(conteudo, "apresentacao", None)
+    if apresentacao == "hierarquia":
+        return _linhas_apresentacao_hierarquia(conteudo)
+    if apresentacao == "tabela":
+        return _linhas_apresentacao_tabela(conteudo, content_w)
+    if apresentacao == "conjuntos_campos":
+        return _linhas_apresentacao_conjuntos(conteudo)
+    raise RenderizadorErro(
+        "apresentacao de conteudo externo desconhecida: {0!r}".format(apresentacao)
+    )
+
+
+def _linhas_apresentacao_hierarquia(conteudo):
+    """Apresentacao ``hierarquia``: lista recuada com designadores por nivel."""
+    niveis = {n.id: n for n in conteudo.niveis}
+    linhas = []
+
+    def recorrer(nos, profundidade, ancestrais):
+        ordinal = 0
+        for no in nos:
+            ordinal += 1
+            nivel = niveis.get(no.nivel)
+            marcador = _texto_designador(
+                nivel.designador if nivel else {}, ordinal, ancestrais
+            )
+            texto = _texto_no_conteudo(no, nivel)
+            recuo = "  " * profundidade
+            if marcador:
+                linhas.append("{0}{1} {2}".format(recuo, marcador, texto))
+            else:
+                linhas.append("{0}{1}".format(recuo, texto))
+            if no.filhos:
+                recorrer(no.filhos, profundidade + 1, ancestrais + [ordinal])
+
+    recorrer(conteudo.nos, 0, [])
+    return linhas
+
+
+def _linhas_apresentacao_tabela(conteudo, content_w):
+    """Apresentacao ``tabela``: cabecalho e linhas com colunas alinhadas.
+
+    Cada no folha vira uma linha. Quando ``formato.tabela.ancestrais`` e
+    ``"repetir"``, os textos dos ancestrais containers sao repetidos como
+    colunas iniciais de cada linha. As larguras de coluna sao calculadas pelo
+    renderizador (nao vem do documento).
+    """
+    niveis = {n.id: n for n in conteudo.niveis}
+    bloco = conteudo.formato.get("tabela", {}) if isinstance(conteudo.formato, dict) else {}
+    cabecalho = list(bloco.get("cabecalho", []) or [])
+    repetir = bloco.get("ancestrais") == "repetir"
+
+    linhas_celulas = []
+
+    def recorrer(nos, ancestrais_texto, ancestrais_ord):
+        ordinal = 0
+        for no in nos:
+            ordinal += 1
+            nivel = niveis.get(no.nivel)
+            marcador = _texto_designador(
+                nivel.designador if nivel else {}, ordinal, ancestrais_ord
+            )
+            texto = _texto_no_conteudo(no, nivel)
+            if nivel is not None and nivel.tipo == "container":
+                novo_texto = ancestrais_texto + [texto] if repetir else [texto]
+                if no.filhos:
+                    recorrer(no.filhos, novo_texto, ancestrais_ord + [ordinal])
+                else:
+                    linhas_celulas.append(
+                        (ancestrais_texto if repetir else []) + [texto]
+                    )
+            else:
+                prefixo = (ancestrais_texto if repetir else [])
+                celula = ("{0} {1}".format(marcador, texto) if marcador else texto)
+                # nome_valor produz duas colunas (nome | valor); demais, uma.
+                if nivel is not None and nivel.tipo == "nome_valor":
+                    campo_nome = nivel.conteudo.get("nome")
+                    campo_valor = nivel.conteudo.get("valor")
+                    nome = "{0}".format(no.campos.get(campo_nome, ""))
+                    if marcador:
+                        nome = "{0} {1}".format(marcador, nome)
+                    valor = "{0}".format(no.campos.get(campo_valor, ""))
+                    linhas_celulas.append(prefixo + [nome, valor])
+                else:
+                    linhas_celulas.append(prefixo + [celula])
+
+    recorrer(conteudo.nos, [], [])
+
+    # Numero de colunas = maximo entre cabecalho e linhas.
+    n_col = max([len(cabecalho)] + [len(l) for l in linhas_celulas] + [0])
+    if n_col == 0:
+        return []
+    matriz = []
+    if cabecalho:
+        matriz.append(cabecalho + [""] * (n_col - len(cabecalho)))
+    for l in linhas_celulas:
+        matriz.append(l + [""] * (n_col - len(l)))
+    larguras = [
+        max(len(str(linha[c])) for linha in matriz) for c in range(n_col)
+    ]
+    sep = "  "
+    linhas = []
+    for idx, linha in enumerate(matriz):
+        partes = [str(linha[c]).ljust(larguras[c]) for c in range(n_col)]
+        linhas.append(sep.join(partes).rstrip())
+        if idx == 0 and cabecalho:
+            # Regua sob o cabecalho (calculo do renderizador).
+            regua = sep.join("-" * larguras[c] for c in range(n_col))
+            linhas.append(regua.rstrip())
+    return linhas
+
+
+def _linhas_apresentacao_conjuntos(conteudo):
+    """Apresentacao ``conjuntos_campos``: conjuntos com pares nome-valor.
+
+    Cada container e um conjunto (com designador e titulo); seus filhos
+    ``nome_valor`` sao exibidos como ``"nome<sep> valor"`` com os nomes
+    justificados por conjunto (``formato.campos.justificar_nomes`` /
+    ``escopo_justificacao``). O separador vem de ``formato.campos.separador``.
+    """
+    niveis = {n.id: n for n in conteudo.niveis}
+    campos_cfg = conteudo.formato.get("campos", {}) if isinstance(conteudo.formato, dict) else {}
+    separador = campos_cfg.get("separador", ":")
+    justificar = campos_cfg.get("justificar_nomes", False)
+    linhas = []
+
+    def largura_nomes(nos):
+        maior = 0
+        for no in nos:
+            nivel = niveis.get(no.nivel)
+            if nivel is not None and nivel.tipo == "nome_valor":
+                campo_nome = nivel.conteudo.get("nome")
+                maior = max(maior, len("{0}".format(no.campos.get(campo_nome, ""))))
+        return maior
+
+    def recorrer(nos, profundidade, ancestrais):
+        ordinal = 0
+        largura_local = largura_nomes(nos) if justificar else 0
+        for no in nos:
+            ordinal += 1
+            nivel = niveis.get(no.nivel)
+            recuo = "  " * profundidade
+            if nivel is not None and nivel.tipo == "nome_valor":
+                campo_nome = nivel.conteudo.get("nome")
+                campo_valor = nivel.conteudo.get("valor")
+                nome = "{0}".format(no.campos.get(campo_nome, ""))
+                valor = "{0}".format(no.campos.get(campo_valor, ""))
+                nome_fmt = nome.ljust(largura_local) if justificar else nome
+                linhas.append("{0}{1}{2} {3}".format(
+                    recuo, nome_fmt, separador, valor
+                ))
+            else:
+                marcador = _texto_designador(
+                    nivel.designador if nivel else {}, ordinal, ancestrais
+                )
+                texto = _texto_no_conteudo(no, nivel)
+                if marcador:
+                    linhas.append("{0}{1} {2}".format(recuo, marcador, texto))
+                else:
+                    linhas.append("{0}{1}".format(recuo, texto))
+            if no.filhos:
+                recorrer(no.filhos, profundidade + 1, ancestrais + [ordinal])
+
+    recorrer(conteudo.nos, 0, [])
+    return linhas
+
+
+def _participantes_de_conteudo_externo(conteudo):
+    """Achata o conteudo externo em participantes para a distribuicao matricial.
+
+    H-0035/H-0036: os cenarios ``h0035_console_*`` preservam a distribuicao
+    matricial (ADR-0025) enquanto seus dados passam a vir do documento externo.
+    Cada no vira um participante (texto de identidade com designador, quando
+    houver), em ordem de documento; a hierarquia e achatada em sequencia (a
+    grade so muda a celula, nunca a ordem).
+    """
+    niveis = {n.id: n for n in conteudo.niveis}
+    participantes = []
+
+    def recorrer(nos, ancestrais):
+        ordinal = 0
+        for no in nos:
+            ordinal += 1
+            nivel = niveis.get(no.nivel)
+            marcador = _texto_designador(
+                nivel.designador if nivel else {}, ordinal, ancestrais
+            )
+            texto = _texto_no_conteudo(no, nivel)
+            if marcador:
+                participantes.append("{0} {1}".format(marcador, texto))
+            else:
+                participantes.append(texto)
+            if no.filhos:
+                recorrer(no.filhos, ancestrais + [ordinal])
+
+    recorrer(conteudo.nos, [])
+    return participantes
 
 
 def _linhas_dashboard(elemento):
@@ -1136,6 +1447,13 @@ def _participantes_distribuicao_matricial(elemento):
             participantes.append("[{0}] {1}".format(chip, texto))
         return participantes
     if elemento.tipo == "console":
+        # H-0036: quando ha conteudo externo, os participantes vem do documento
+        # externo (dados de runtime), preservando a distribuicao matricial
+        # (ADR-0025). Sem conteudo externo, mantem o comportamento anterior
+        # (itens inertes do JSON estrutural — vazio apos a separacao H-0036).
+        conteudo = getattr(elemento, "conteudo_externo", None)
+        if conteudo is not None:
+            return _participantes_de_conteudo_externo(conteudo)
         participantes = []
         itens = elemento._campos_inertes.get("itens", []) or []
         for item in itens:
@@ -1312,7 +1630,7 @@ def _caixa_de_elemento(elemento, borda, inner_w, content_w, label_max, altura_al
     if elemento.tipo == "console":
         titulo_el = elemento._campos_inertes.get("titulo", "CONSOLE")
         return _caixa(
-            titulo_el.upper(), _linhas_console(elemento),
+            titulo_el.upper(), _linhas_console(elemento, content_w),
             borda, inner_w, content_w, label_max, altura_alvo,
         )
     if elemento.tipo == "dashboard":

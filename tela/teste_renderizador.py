@@ -57,11 +57,17 @@ from tela.renderizador import (  # noqa: E402
     _distribuir_alturas,
     _distribuir_larguras,
     _linhas_barra,
+    _linhas_console,
+    _texto_designador,
+    _romano,
+    _alfabetico,
     _montar_corpo_horizontal,
     _pesos_distribuicao,
     _renderizar_container_horizontal,
     renderizar_tela,
 )
+from tela.loader import carregar_conteudo_externo  # noqa: E402
+from tela.modelo import construir_conteudo_externo  # noqa: E402
 
 
 _RESULTADOS = []
@@ -10168,6 +10174,125 @@ class TestDistribuicaoMatricialH0035:
         self.test_fronteira_interna_celula()
 
 
+def _modelo_com_conteudo(id_tela, id_conteudo):
+    tela_raw = carregar_tela(None, id_tela, _RAIZ_TELAS_DEMO)
+    doc = carregar_conteudo_externo(None, id_conteudo, _RAIZ_TELAS_DEMO)
+    return construir_modelo(tela_raw, conteudo_externo=doc)
+
+
+def teste_conteudo_externo_h0036_render():
+    """Renderizacao do conteudo externo multinivel (H-0036 / ADR-0027)."""
+    print("")
+    print("== H-0036: renderizacao das tres apresentacoes ==")
+
+    # --- Designadores concretos calculados pelo renderizador (unitario) ---
+    _registrar("designador nenhum -> vazio",
+               _texto_designador({"tipo": "nenhum"}, 1, []) == "")
+    _registrar("designador decimal com sufixo -> '3.'",
+               _texto_designador({"tipo": "decimal", "sufixo": "."}, 3, []) == "3.")
+    _registrar("designador alfabetico_minusculo -> 'b)'",
+               _texto_designador({"tipo": "alfabetico_minusculo", "sufixo": ")"}, 2, []) == "b)")
+    _registrar("designador alfabetico_maiusculo (27) -> 'AA'",
+               _texto_designador({"tipo": "alfabetico_maiusculo"}, 27, []) == "AA")
+    _registrar("designador romano_maiusculo (4) -> 'IV'",
+               _texto_designador({"tipo": "romano_maiusculo"}, 4, []) == "IV")
+    _registrar("designador decimal_composto -> '1.2.'",
+               _texto_designador({"tipo": "decimal_composto", "separador": ".", "sufixo": "."}, 2, [1]) == "1.2.")
+    _registrar("designador simbolo usa valor declarado",
+               _texto_designador({"tipo": "simbolo", "valor": "-"}, 5, []) == "-")
+    _registrar("_romano(9) == IX", _romano(9) == "IX")
+    _registrar("_alfabetico(1)=a, _alfabetico(28)=ab",
+               _alfabetico(1) == "a" and _alfabetico(28) == "ab")
+
+    # --- hierarquia ---
+    m_h = _modelo_com_conteudo("h0036_console_hierarquia", "h0036_hierarquia_conteudo")
+    console_h = m_h.elementos_por_tipo("console")[0]
+    linhas_h = _linhas_console(console_h, 60)
+    txt_h = "\n".join(linhas_h)
+    _registrar("hierarquia: placeholder ausente com conteudo",
+               "(console)" not in linhas_h)
+    _registrar("hierarquia: designador decimal calculado ('1. Fluxo H-0036 hierarquia')",
+               any("1. Fluxo H-0036 hierarquia" in l for l in linhas_h))
+    _registrar("hierarquia: designador decimal_composto calculado ('1.1.')",
+               any("1.1." in l for l in linhas_h))
+    _registrar("hierarquia: designador alfabetico calculado ('a)')",
+               any("a)" in l for l in linhas_h))
+    _registrar("hierarquia: conteudo direto exibido",
+               "JSON estrutural da tela" in txt_h)
+    _registrar("hierarquia: recuo hierarquico por profundidade",
+               any(l.startswith("  1.1.") for l in linhas_h))
+    _registrar("hierarquia: identidade H-0036 na saida do renderizador",
+               "H-0036" in txt_h)
+
+    # --- tabela ---
+    m_t = _modelo_com_conteudo("h0036_console_tabela", "h0036_tabela_conteudo")
+    console_t = m_t.elementos_por_tipo("console")[0]
+    linhas_t = _linhas_console(console_t, 60)
+    txt_t = "\n".join(linhas_t)
+    _registrar("tabela: placeholder ausente com conteudo", "(console)" not in linhas_t)
+    _registrar("tabela: cabecalho de colunas presente",
+               any("Grupo" in l and "Campo" in l and "Valor" in l for l in linhas_t))
+    _registrar("tabela: par nome-valor em colunas ('Estrutural' e 'tela.json')",
+               "Estrutural" in txt_t and "tela.json" in txt_t)
+    _registrar("tabela: designador decimal por linha calculado ('1.' e '2.')",
+               "1." in txt_t and "2." in txt_t)
+    _registrar("tabela: ancestral repetido nas linhas ('Entradas')",
+               txt_t.count("Entradas") >= 2)
+
+    # --- conjuntos_campos ---
+    m_c = _modelo_com_conteudo("h0036_console_conjuntos", "h0036_conjuntos_conteudo")
+    console_c = m_c.elementos_por_tipo("console")[0]
+    linhas_c = _linhas_console(console_c, 60)
+    txt_c = "\n".join(linhas_c)
+    _registrar("conjuntos: placeholder ausente com conteudo", "(console)" not in linhas_c)
+    _registrar("conjuntos: designador de conjunto calculado ('1. Parametros')",
+               any("1. Parametros" in l for l in linhas_c))
+    _registrar("conjuntos: par nome-valor com separador (' : ' presente)",
+               "Modo" in txt_c and "conjuntos_campos" in txt_c and ":" in txt_c)
+    _registrar("conjuntos: identidade H-0036 no valor de campo",
+               "H-0036" in txt_c)
+
+    # --- placeholder preservado sem conteudo externo (regressao) ---
+    modelo_sem = construir_modelo(
+        carregar_tela(None, "h0036_console_hierarquia", _RAIZ_TELAS_DEMO)
+    )
+    console_sem = modelo_sem.elementos_por_tipo("console")[0]
+    _registrar("console sem conteudo externo: placeholder '(console)' preservado",
+               _linhas_console(console_sem, 60) == ["(console)"])
+
+    # --- render integrado: placeholder ausente na saida completa ---
+    saida = renderizar_tela(m_h, largura=60, altura=24)
+    _registrar("render integrado: identidade H-0036 na tela",
+               "H-0036" in saida)
+    _registrar("render integrado: placeholder ausente quando ha conteudo",
+               "(console)" not in saida)
+
+    # --- truncamento como calculo do renderizador (sem geometria no JSON) ---
+    saida_estreita = renderizar_tela(m_h, largura=24, altura=24)
+    for linha in saida_estreita.split("\n"):
+        if linha and len(linha) != 24:
+            _registrar("truncamento: largura estreita respeitada", False,
+                       "linha len={0}".format(len(linha)))
+            break
+    else:
+        _registrar("truncamento: largura estreita (24) respeitada em todas as linhas", True)
+
+    # --- h0035 console com DM + conteudo externo: grade preservada ---
+    m_dm = _modelo_com_conteudo("h0035_console_com", "h0035_console_com_conteudo")
+    saida_dm = renderizar_tela(m_dm, largura=60, altura=20)
+    _registrar("h0035_console_com: participantes do externo em grade (P01..P12)",
+               "P01 linha" in saida_dm and "P12 linha" in saida_dm
+               and "(console)" not in saida_dm)
+
+    # --- renderizador nao abre arquivos (inspecao de fonte) ---
+    src = (Path(_BASE_PADRAO) / "tela" / "renderizador.py").read_text(encoding="utf-8")
+    _registrar("renderizador nao importa json/os/pathlib",
+               "import json" not in src and "import os" not in src
+               and "import pathlib" not in src and "from pathlib" not in src)
+    _registrar("renderizador nao chama carregar_conteudo_externo",
+               "carregar_conteudo_externo" not in src)
+
+
 def main():
     print("Diagnostico H-0010A - renderer declarativo (curva/reta)")
     print("Base padrao: {0}".format(_BASE_PADRAO))
@@ -10202,6 +10327,7 @@ def main():
     TestCardinalidadeHorizontalH0033Patch3().run_all()
     TestCardinalidadeHorizontalH0033Patch4().run_all()
     TestDistribuicaoMatricialH0035().run_all()
+    teste_conteudo_externo_h0036_render()
 
     print("")
     print("== Resumo ==")

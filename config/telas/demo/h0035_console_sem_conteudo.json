@@ -1,0 +1,20 @@
+{
+  "tipo": "multinivel",
+  "formato": {
+    "apresentacao": "hierarquia",
+    "niveis": [
+      {
+        "id": "item",
+        "tipo": "conteudo",
+        "conteudo": "texto",
+        "designador": {
+          "tipo": "nenhum"
+        }
+      }
+    ]
+  },
+  "dados": [
+    {"id": "l1", "nivel": "item", "texto": "Linha alfa"},
+    {"id": "l2", "nivel": "item", "texto": "Linha bravo"}
+  ]
+}
