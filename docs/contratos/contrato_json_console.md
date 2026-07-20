@@ -868,3 +868,391 @@ timeout, autenticação, atualização, cache, versionamento e persistência.
 - `contrato_console.md` — seção 20 (ADR-0027): fluxo de responsabilidade;
 - `contrato_tela_json.md` — seção 32 (ADR-0027): fronteira do JSON estrutural;
 - `docs/NOMENCLATURA.md` — seção 18: terminologia canônica da ADR-0027.
+
+---
+
+## 13. Regras normativas das apresentações de conteúdo multinível (ADR-0028)
+
+A ADR-0028 (2026-07-17) formaliza as regras normativas das apresentações de
+conteúdo multinível no `console`, o estado de visualização verboso/não verboso
+e a semântica da tecla `V`. Esta seção propaga essas regras para o contrato
+do `console`.
+
+### 13.1 Escopo desta seção
+
+As regras desta seção aplicam-se exclusivamente a dados multinível exibidos
+em componentes do tipo `console`. O schema semântico obrigatório está na seção
+12 (ADR-0027). As regras normativas de comportamento estão nesta seção.
+
+### 13.2 Modelo hierárquico
+
+O conteúdo multinível é representável como árvore com:
+
+- raiz única;
+- identificadores de nível distintos;
+- relações pai–filho declaradas;
+- quantidade de níveis declarada (não presumida pelo renderizador).
+
+A mesma configuração, os mesmos dados e a mesma área útil devem produzir o
+mesmo resultado (determinismo). Larguras, alinhamentos e designadores calculados
+não devem variar entre páginas, salvo quando a configuração declarar escopo por
+página.
+
+### 13.3 Tipos conceituais de nível
+
+| Tipo conceitual | Nome no schema do projeto (ADR-0027) | Descrição |
+|---|---|---|
+| contêiner | `container` | Nível que pode possuir filhos; deve declarar o nível dos filhos |
+| folha | `conteudo` | Nível sem filhos; representa conteúdo diretamente exibível |
+| campo nome-valor | `nome_valor` | Nível composto por nome, separador e valor |
+
+Nenhuma renomeação é decidida por esta seção. A correspondência conceitual está
+registrada; os nomes do schema permanecem conforme a ADR-0027.
+
+### 13.4 Modos de apresentação
+
+O documento externo deve declarar um dos três modos de apresentação:
+
+| Modo | Schema | Descrição |
+|---|---|---|
+| Tabela multinível | `"tabela"` | Apresentação tabular com cabeçalho; cada caminho raiz–folha é uma linha lógica |
+| Hierarquia indentada | `"hierarquia"` | Apresentação com recuo por nível; uma linha lógica por nó |
+| Conjuntos e campos | `"conjuntos_campos"` | Apresentação de conjuntos com campos nome–valor; admite cenários estruturais distintos (ver abaixo) |
+
+A troca de modo de apresentação não exige mudança dos dados. A compatibilidade
+da estrutura com o modo deve ser validada.
+
+A apresentação `conjuntos_campos` DEVE admitir e tratar como cenários
+estruturais distintos:
+
+1. conjunto com campos nome–valor, com dois níveis;
+2. conjunto, subconjunto e campos nome–valor, com três níveis.
+
+O uso da mesma apresentação não torna as estruturas semanticamente
+equivalentes. Cada cenário DEVE possuir demonstração e validação próprias.
+
+### 13.5 Modo não verboso
+
+No modo não verboso:
+
+1. cada conteúdo aplicável ocupa uma única linha física;
+2. não há continuação em linhas adicionais;
+3. o conteúdo excedente é truncado;
+4. o marcador de truncamento deve caber integralmente na largura útil;
+5. os dados originais permanecem inalterados;
+6. o JSON não deve armazenar texto previamente truncado.
+
+Aplicações por apresentação:
+
+- **Tabela**: uma linha física por célula;
+- **Hierarquia**: uma linha física por nó;
+- **Nome–valor**: uma linha física para os componentes da linha lógica.
+
+Modo não verboso configurado para mais de uma linha é inválido (V-09).
+
+### 13.6 Modo verboso
+
+No modo verboso:
+
+1. o conteúdo pode ocupar várias linhas físicas;
+2. as quebras são calculadas pelo renderizador;
+3. as linhas de continuação respeitam o alinhamento definido;
+4. pode existir limite máximo de linhas por nó ou célula;
+5. o excesso ao limite segue a política final declarada;
+6. as linhas físicas calculadas não são armazenadas no JSON.
+
+Modo verboso sem regra de alinhamento da continuação é inválido (V-10).
+Modo verboso com limite de uma linha não deve ser tratado automaticamente como
+modo não verboso.
+
+### 13.7 Paginação e contexto
+
+O documento externo declara políticas de paginação; o renderizador produz os
+resultados físicos.
+
+| Apresentação | Preservação de contexto na paginação |
+|---|---|
+| Tabela | Cabeçalho repetido em cada página |
+| Hierarquia | Ancestrais repetidos ou indicados quando a página começa no interior de um ramo |
+| Conjuntos | Título do conjunto e, quando aplicável, do subconjunto repetidos quando seus campos continuarem em nova página |
+
+Contexto visual repetido não altera numeração, não duplica dados e não reinicia
+contagens. Paginação não resolve impossibilidade horizontal.
+
+### 13.8 Impossibilidade geométrica
+
+Quando nem a unidade mínima de conteúdo multinível couber na largura útil da
+área disponível, o renderizador deve acionar a política de impossibilidade
+geométrica. Paginação não resolve essa condição.
+
+A política concreta aplica as autoridades vigentes (ADR-0017, ADR-0023). Nenhuma
+política nova de impossibilidade é criada por esta seção.
+
+### 13.9 Validações obrigatórias (V-01 a V-15)
+
+As validações abaixo complementam as 20 validações da ADR-0027 (seção 12.5).
+O loader ou camada equivalente deve rejeitar configurações inválidas:
+
+| Código | Condição | Status |
+|---|---|---|
+| V-01 | Tabela sem cabeçalho | INVÁLIDO |
+| V-02 | Referência a nível filho inexistente | INVÁLIDO |
+| V-03 | Múltiplas raízes | INVÁLIDO |
+| V-04 | Folha que declara filhos | INVÁLIDO |
+| V-05 | Contêiner sem nível filho declarado | INVÁLIDO |
+| V-06 | Campo nome–valor sem origem do valor | INVÁLIDO |
+| V-07 | Medidas negativas (margens, recuos, vãos, preenchimentos) | INVÁLIDO |
+| V-08 | Largura máxima inferior à mínima | INVÁLIDO |
+| V-09 | Modo não verboso configurado para mais de uma linha | INVÁLIDO |
+| V-10 | Modo verboso sem regra de alinhamento da continuação | INVÁLIDO |
+| V-11 | Justificação sem escopo | INVÁLIDO |
+| V-12 | Designador composto que depende de ancestral inexistente | INVÁLIDO |
+| V-13 | Dados incompatíveis com a estrutura declarada | INVÁLIDO |
+| V-14 | Coluna de tabela sem nível ou campo de origem | INVÁLIDO |
+| V-15 | Condição excepcional possível sem política explícita declarada | INVÁLIDO |
+
+### 13.10 Responsabilidades das camadas
+
+| Camada | Responsabilidade no fluxo multinível |
+|---|---|
+| Ponto de entrada | Carrega separadamente o JSON estrutural e o documento de conteúdo; entrega os dois conjuntamente ao fluxo sem copiar conteúdo para dentro do JSON estrutural |
+| Loader | Valida o documento externo (seção 12.5 e §13.9); converte para representação interna; não abre arquivos por conta própria |
+| Modelo | Transporta conteúdo semântico; preserva ordem, níveis e relações; não calcula representação física; não reconstrói hierarquia a partir de dados não normalizados |
+| Renderizador | Calcula área útil, larguras efetivas, recuos, linhas físicas, quebras, truncamentos, páginas, contexto visual repetido, posições finais, impossibilidade geométrica e recuperação após redimensionamento |
+
+### 13.11 Cenários de demonstração obrigatórios (D8)
+
+Os quatro cenários mínimos de demonstração são:
+
+1. tabela multinível;
+2. hierarquia indentada;
+3. conjunto com campos nome–valor (dois níveis);
+4. conjunto, subconjunto e campos nome–valor (três níveis).
+
+Cada cenário deve ter tela estrutural identificável, conteúdo externo identificado,
+associação permanente, ponto de entrada real e identidade semântica verificável.
+Para telas alternáveis (política `alternavel`), cada cenário deve permitir
+observar os mesmos dados nos modos verboso e não verboso, com o mesmo JSON
+estrutural e o mesmo documento de conteúdo. Telas de modo único não precisam
+permitir alternância.
+
+### 13.12 Remissões
+
+- `contrato_console.md` — seção 21 (ADR-0028): estado de visualização, tecla V e alternância;
+- `contrato_barra_de_menus.md` — seção 22 (ADR-0028): chip `[V] Verboso`;
+- `contrato_tela_json.md` — seção 33 (ADR-0028): JSON estrutural e política de modo;
+- `docs/NOMENCLATURA.md` — seção 19: terminologia canônica da ADR-0028.
+
+### 13.13 Política de modo de apresentação da tela (D23)
+
+A revisão D23 da ADR-0028 estabelece que cada tela de console multinível nova ou
+revisada deve declarar sua política de modo no JSON estrutural da tela, dentro do
+campo `formato.excesso` do elemento `console`.
+
+#### 13.13.1 Localização e tipos dos campos
+
+Os campos são declarados no JSON estrutural da tela, dentro do elemento `console`:
+
+```json
+{
+  "tipo": "console",
+  "formato": {
+    "excesso": {
+      "politica_modo": "alternavel",
+      "modo_inicial": "nao_verboso"
+    }
+  }
+}
+```
+
+| Campo | Localização | Tipo | Obrigatório |
+|---|---|---|---|
+| `formato.excesso.politica_modo` | JSON estrutural — elemento `console` | string | Sim (telas novas ou revisadas) |
+| `formato.excesso.modo_inicial` | JSON estrutural — elemento `console` | string | Sim se `politica_modo` for `"alternavel"`; ausente nas demais |
+
+#### 13.13.2 Valores admitidos
+
+**`formato.excesso.politica_modo`**:
+
+| Valor | Comportamento |
+|---|---|
+| `"somente_verboso"` | A tela sempre exibe em modo verboso; sem alternância por `V`; chip `[V]` não é obrigatório |
+| `"somente_nao_verboso"` | A tela sempre exibe em modo não verboso; sem alternância por `V`; chip `[V]` não é obrigatório; truncamento `...` válido |
+| `"alternavel"` | A tela suporta ambos os modos; chip `[V] Verboso` obrigatório; tecla `V` alterna; modo inicial declarado em `modo_inicial` |
+
+**`formato.excesso.modo_inicial`** (aplicável apenas quando `politica_modo` for `"alternavel"`):
+
+| Valor | Comportamento |
+|---|---|
+| `"verboso"` | Tela abre em modo verboso |
+| `"nao_verboso"` | Tela abre em modo não verboso |
+
+#### 13.13.3 Matriz de validade
+
+| `politica_modo` | `modo_inicial` | Válido? |
+|---|---|---|
+| `"somente_verboso"` | ausente | **VÁLIDO** |
+| `"somente_nao_verboso"` | ausente | **VÁLIDO** |
+| `"alternavel"` | `"verboso"` | **VÁLIDO** |
+| `"alternavel"` | `"nao_verboso"` | **VÁLIDO** |
+| `"alternavel"` | ausente | **INVÁLIDO** — modo inicial obrigatório |
+| `"alternavel"` | valor desconhecido | **INVÁLIDO** — valor de `modo_inicial` não pertence ao conjunto admitido (`"verboso"` ou `"nao_verboso"`) |
+| `"somente_verboso"` | qualquer valor | **INVÁLIDO** — modo inicial proibido em política fixa |
+| `"somente_nao_verboso"` | qualquer valor | **INVÁLIDO** — modo inicial proibido em política fixa |
+| valor desconhecido | qualquer | **INVÁLIDO** |
+| ausente (tela nova ou revisada) | qualquer | **INVÁLIDO** — ausência de política é inválida |
+
+#### 13.13.4 Exemplos válidos das quatro combinações funcionais
+
+**Combinação 1 — somente verbosa:**
+
+```json
+{
+  "tipo": "console",
+  "formato": {
+    "excesso": {
+      "politica_modo": "somente_verboso"
+    }
+  }
+}
+```
+
+**Combinação 2 — somente não verbosa:**
+
+```json
+{
+  "tipo": "console",
+  "formato": {
+    "excesso": {
+      "politica_modo": "somente_nao_verboso"
+    }
+  }
+}
+```
+
+**Combinação 3 — alternável iniciando em modo verboso:**
+
+```json
+{
+  "tipo": "console",
+  "formato": {
+    "excesso": {
+      "politica_modo": "alternavel",
+      "modo_inicial": "verboso"
+    }
+  }
+}
+```
+
+**Combinação 4 — alternável iniciando em modo não verboso:**
+
+```json
+{
+  "tipo": "console",
+  "formato": {
+    "excesso": {
+      "politica_modo": "alternavel",
+      "modo_inicial": "nao_verboso"
+    }
+  }
+}
+```
+
+#### 13.13.5 Exemplos inválidos
+
+**Alternável sem modo_inicial (inválido):**
+
+```json
+{
+  "formato": {
+    "excesso": {
+      "politica_modo": "alternavel"
+    }
+  }
+}
+```
+
+**Política fixa com modo_inicial declarado (inválido):**
+
+```json
+{
+  "formato": {
+    "excesso": {
+      "politica_modo": "somente_verboso",
+      "modo_inicial": "verboso"
+    }
+  }
+}
+```
+
+**Tela nova sem declaração de política (inválido):**
+
+```json
+{
+  "tipo": "console"
+}
+```
+
+#### 13.13.6 Proibições
+
+- `modo_inicial` é proibido em políticas fixas (`somente_verboso`, `somente_nao_verboso`).
+- `modo_inicial` é obrigatório em `alternavel`.
+- Valor desconhecido de `modo_inicial` é inválido; os únicos valores admitidos são `"verboso"` e `"nao_verboso"`. "Valor desconhecido" designa qualquer valor que não pertença a esse conjunto.
+- Ausência de `politica_modo` é inválida para telas novas ou revisadas.
+- Não existe default implícito que substitua a declaração de `politica_modo`.
+- A política não pode ser declarada no documento JSON externo de conteúdo —
+  o documento externo não contém `politica_modo` nem `modo_inicial`.
+
+#### 13.13.7 Campo `excesso.modo` (legado — supersedido)
+
+O campo `excesso.modo` que aparece no exemplo normativo de §12.7 (dentro do bloco
+`formato` do documento externo de conteúdo) é o mecanismo anterior ao D23 e está
+supersedido para telas novas ou revisadas. Para telas legadas (pré-D23), sua
+presença ou ausência no documento externo permanece válida conforme os contratos
+vigentes no momento de sua criação.
+
+O mecanismo D23 (`formato.excesso.politica_modo` e `formato.excesso.modo_inicial`
+no JSON estrutural da tela) e o mecanismo anterior (`excesso.modo` no documento
+externo de conteúdo) são distintos: um está no JSON estrutural e o outro no
+documento externo; eles não conflitam no mesmo arquivo.
+
+#### 13.13.8 Compatibilidade com telas legadas
+
+Telas criadas antes da incorporação de D23 — como as do ciclo H-0036 — permanecem
+válidas sem declaração de `politica_modo`:
+
+- não recebem política por inferência;
+- não são reinterpretadas automaticamente como uma das três políticas;
+- a ausência de `politica_modo` em telas legadas não é tratada como inválido pelo
+  loader até futura decisão de migração.
+
+#### 13.13.9 Separação entre JSON estrutural e documento externo
+
+A política de modo é declarada exclusivamente no JSON estrutural da tela:
+
+| Responsabilidade | JSON estrutural da tela | Documento externo de conteúdo |
+|---|---|---|
+| Política de modo (`politica_modo`) | **Sim** | **Não** |
+| Modo inicial (`modo_inicial`) | **Sim** | **Não** |
+| Dados de conteúdo semântico | Não | Sim |
+| Tipo de apresentação (`tabela`, `hierarquia`, `conjuntos_campos`) | Não | Sim |
+| Estado de visualização da sessão | Não (calculado em runtime) | Não |
+
+#### 13.13.10 Cenários futuros mínimos (§36.2)
+
+As demonstrações futuras devem cobrir ao menos:
+
+1. **Tela somente não verbosa** — com truncamento por `...`; sem chip `[V]`; sem tecla `V`;
+2. **Tela somente verbosa** — com conteúdo de dois níveis em várias linhas físicas; sem chip `[V]`; sem tecla `V`;
+3. **Tela alternável de três níveis** — iniciando em modo não verboso; com chip `[V]`; alternância para verboso pela tecla `V`;
+4. **Tabela alternável** — iniciando em modo verboso; com chip `[V]`; possibilidade de alternância para modo não verboso.
+
+#### 13.13.11 Regra de alinhamento no cenário verboso de dois níveis (§36.3)
+
+No cenário de tela somente verbosa com conteúdo de dois níveis, a coluna de início
+do segundo nível é calculada a partir do identificador mais largo entre todos os
+identificadores do primeiro nível do conteúdo lógico completo do cenário. Essa
+coluna é estável entre páginas. Linhas de continuação do segundo nível alinham-se
+à mesma coluna inicial. A medição usa o escopo `conteúdo completo` (§27 da
+ADR-0028) restrito ao conteúdo lógico do cenário; não estabelece largura fixa
+global para outras telas ou outros cenários.

@@ -90,6 +90,42 @@ _SMOKE = [
         "conteudo_incorreto": "P01 linha",
         "placeholder": "AUSENTE",
     },
+    {
+        "cenario": "h0037_console_nao_verboso",
+        "estrutural": "h0037_console_nao_verboso",
+        "externo": "h0037_dois_niveis_conteudo",
+        "identidade": "H-0037 conteudo_dois_niveis",
+        "identidade_extra": "somente_nao_verboso",
+        "conteudo_incorreto": "H-0037 alternavel_tres_niveis",
+        "placeholder": "AUSENTE",
+    },
+    {
+        "cenario": "h0037_console_verboso_dois_niveis",
+        "estrutural": "h0037_console_verboso_dois_niveis",
+        "externo": "h0037_dois_niveis_conteudo",
+        "identidade": "H-0037 conteudo_dois_niveis",
+        "identidade_extra": "somente_verboso",
+        "conteudo_incorreto": "H-0037 alternavel_tres_niveis",
+        "placeholder": "AUSENTE",
+    },
+    {
+        "cenario": "h0037_console_alternavel_tres_niveis",
+        "estrutural": "h0037_console_alternavel_tres_niveis",
+        "externo": "h0037_tres_niveis_conteudo",
+        "identidade": "H-0037 alternavel_tres_niveis",
+        "identidade_extra": "Politica alternavel",
+        "conteudo_incorreto": "H-0037 conteudo_dois_niveis",
+        "placeholder": "AUSENTE",
+    },
+    {
+        "cenario": "h0037_console_tabela_alternavel",
+        "estrutural": "h0037_console_tabela_alternavel",
+        "externo": "h0037_tabela_conteudo",
+        "identidade": "H-0037 tabela_alternavel",
+        "identidade_extra": "Politica",
+        "conteudo_incorreto": "H-0037 conteudo_dois_niveis",
+        "placeholder": "AUSENTE",
+    },
 ]
 
 
@@ -111,8 +147,12 @@ def teste_catalogo():
         "h0036_console_conjuntos": "h0036_conjuntos_conteudo",
         "h0035_console_com": "h0035_console_com_conteudo",
         "h0035_console_sem": "h0035_console_sem_conteudo",
+        "h0037_console_nao_verboso": "h0037_dois_niveis_conteudo",
+        "h0037_console_verboso_dois_niveis": "h0037_dois_niveis_conteudo",
+        "h0037_console_alternavel_tres_niveis": "h0037_tres_niveis_conteudo",
+        "h0037_console_tabela_alternavel": "h0037_tabela_conteudo",
     }
-    _registrar("catalogo associa exatamente os 5 cenarios com conteudo",
+    _registrar("catalogo associa exatamente os 9 cenarios com conteudo",
                _CATALOGO_CONTEUDO_EXTERNO == esperado,
                "obtido={0}".format(_CATALOGO_CONTEUDO_EXTERNO))
     _registrar("cenario com conteudo: associacao correta (hierarquia)",

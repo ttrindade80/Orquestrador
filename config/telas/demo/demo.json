@@ -151,6 +151,30 @@
             "chip": "5",
             "texto": "Matriz 2x4",
             "tela_destino": "h0030_matriz_2x4"
+          },
+          {
+            "id": "item_h0037_nao_verboso",
+            "chip": "6",
+            "texto": "Nao Verboso",
+            "tela_destino": "h0037_console_nao_verboso"
+          },
+          {
+            "id": "item_h0037_verboso",
+            "chip": "7",
+            "texto": "Verboso",
+            "tela_destino": "h0037_console_verboso_dois_niveis"
+          },
+          {
+            "id": "item_h0037_alternavel",
+            "chip": "8",
+            "texto": "Alternavel",
+            "tela_destino": "h0037_console_alternavel_tres_niveis"
+          },
+          {
+            "id": "item_h0037_tabela",
+            "chip": "9",
+            "texto": "Tab Altern.",
+            "tela_destino": "h0037_console_tabela_alternavel"
           }
         ]
       }

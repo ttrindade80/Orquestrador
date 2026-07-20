@@ -1,0 +1,64 @@
+{
+  "tipo": "multinivel",
+  "formato": {
+    "apresentacao": "tabela",
+    "niveis": [
+      {
+        "id": "grupo",
+        "tipo": "container",
+        "conteudo": "titulo",
+        "designador": {"tipo": "nenhum"}
+      },
+      {
+        "id": "linha",
+        "tipo": "nome_valor",
+        "conteudo": {"nome": "campo", "valor": "valor"},
+        "designador": {"tipo": "decimal", "sufixo": "."}
+      }
+    ],
+    "tabela": {
+      "cabecalho": ["Grupo", "Campo", "Valor"],
+      "ancestrais": "repetir"
+    }
+  },
+  "dados": [
+    {
+      "id": "g1",
+      "nivel": "grupo",
+      "titulo": "H-0037 tabela_alternavel",
+      "filhos": [
+        {
+          "id": "l1",
+          "nivel": "linha",
+          "campo": "Politica",
+          "valor": "alternavel com modo_inicial verboso"
+        },
+        {
+          "id": "l2",
+          "nivel": "linha",
+          "campo": "Tecla V",
+          "valor": "disponivel para alternar entre modos verboso e nao verboso nesta tela alternavel"
+        }
+      ]
+    },
+    {
+      "id": "g2",
+      "nivel": "grupo",
+      "titulo": "Demonstracao",
+      "filhos": [
+        {
+          "id": "l3",
+          "nivel": "linha",
+          "campo": "Modo inicial",
+          "valor": "verboso - celulas longas podem ocupar mais de uma linha fisica no modo verboso completo"
+        },
+        {
+          "id": "l4",
+          "nivel": "linha",
+          "campo": "Identidade",
+          "valor": "H-0037 tabela_alternavel"
+        }
+      ]
+    }
+  ]
+}

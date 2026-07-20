@@ -1369,3 +1369,101 @@ H-0036 sem reabrir o ciclo já fechado. A inspeção nominal fica para o
 - `contrato_console.md` — seção 20 (ADR-0027): fluxo de responsabilidade no console;
 - `contrato_json_console.md` — seção 12 (ADR-0027): schema semântico multinível;
 - `docs/NOMENCLATURA.md` — seção 18: terminologia canônica da ADR-0027.
+
+---
+
+## 33. JSON estrutural e modo de visualização multinível (ADR-0028)
+
+A ADR-0028 (2026-07-17) formaliza as regras normativas das apresentações de
+conteúdo multinível no `console`. Esta seção confirma as responsabilidades e
+restrições do JSON estrutural da tela nesse contexto.
+
+### 33.1 O JSON estrutural não contém dados de conteúdo
+
+O `tela.json` não contém cópia nem reprodução dos dados de conteúdo multinível.
+Os dados são fornecidos exclusivamente pelo documento JSON externo de conteúdo
+(ADR-0026, ADR-0027).
+
+### 33.2 Separação entre política de modo e estado de visualização
+
+O `tela.json` **declara a política de modo** da tela (D23) no campo
+`formato.excesso.politica_modo` do elemento `console` (ver §33.6).
+
+O `tela.json` **não armazena o estado de visualização corrente** (verboso ou não
+verboso durante a sessão). O estado de visualização é estado da sessão e não é
+persistido em nenhum arquivo JSON.
+
+### 33.3 Associação feita pelo ponto de entrada
+
+A associação entre o `tela.json` e o documento JSON externo de conteúdo não ocorre
+dentro do JSON estrutural. Ela é feita externamente, pelo ponto de entrada (catálogo
+ou mecanismo interno do ponto de entrada).
+
+O `tela.json` não incorpora, não referencia obrigatoriamente nem armazena o
+documento externo de conteúdo como dado estrutural permanente.
+
+### 33.4 Responsabilidades preservadas
+
+O `tela.json` preserva integralmente suas responsabilidades sobre:
+
+- composição estrutural da interface;
+- declaração de elementos e distribuição de área;
+- configuração geométrica dos containers.
+
+A ADR-0028 não altera essas responsabilidades.
+
+### 33.5 Remissões
+
+- `contrato_console.md` — seção 21 (ADR-0028): estado de visualização, tecla V e políticas de modo;
+- `contrato_json_console.md` — seção 13 (ADR-0028): regras normativas, validações e política de modo;
+- `contrato_barra_de_menus.md` — seção 22 (ADR-0028): chip `[V] Verboso` e políticas de modo;
+- `docs/NOMENCLATURA.md` — seção 19: terminologia canônica da ADR-0028.
+
+### 33.6 Declaração de política de modo no JSON estrutural (D23)
+
+A revisão D23 da ADR-0028 introduz a declaração obrigatória de política de modo
+no JSON estrutural da tela para telas de `console` multinível novas ou revisadas.
+
+#### 33.6.1 Localização dos campos
+
+A política de modo é declarada dentro do elemento `console` em
+`corpo.elementos[]`, no campo `formato.excesso`:
+
+```json
+{
+  "tipo": "console",
+  "formato": {
+    "excesso": {
+      "politica_modo": "alternavel",
+      "modo_inicial": "nao_verboso"
+    }
+  }
+}
+```
+
+#### 33.6.2 Obrigação declarativa para telas novas ou revisadas
+
+- A ausência de `politica_modo` em telas novas ou revisadas é **inválida**.
+- Nenhum default implícito substitui a declaração.
+- Telas alternáveis devem declarar também `modo_inicial` (`"verboso"` ou
+  `"nao_verboso"`); ausência de `modo_inicial` em tela alternável é inválida.
+
+#### 33.6.3 Compatibilidade com telas legadas
+
+Telas criadas antes da incorporação de D23 permanecem válidas sem declaração de
+`politica_modo`. Elas não são reinterpretadas automaticamente como uma das três
+políticas. Migração futura permanece adiada.
+
+#### 33.6.4 Coerência com a barra de menus
+
+O chip `[V] Verboso` na barra de menus deve ser coerente com a política declarada
+no `tela.json`:
+
+- política `"alternavel"` → chip `[V]` obrigatório;
+- políticas `"somente_verboso"` ou `"somente_nao_verboso"` → chip `[V]` não obrigatório.
+
+#### 33.6.5 Política não está no documento externo
+
+O documento JSON externo de conteúdo não contém `politica_modo` nem `modo_inicial`.
+A separação entre JSON estrutural (política) e documento externo (conteúdo
+semântico) é mantida integralmente.

@@ -138,6 +138,12 @@ _CATALOGO_CONTEUDO_EXTERNO = {
     "h0036_console_conjuntos": "h0036_conjuntos_conteudo",
     "h0035_console_com": "h0035_console_com_conteudo",
     "h0035_console_sem": "h0035_console_sem_conteudo",
+    # H-0037 / ADR-0028: cenarios de politica de modo por tela.
+    # Cenarios 1 e 2 compartilham o mesmo documento externo.
+    "h0037_console_nao_verboso": "h0037_dois_niveis_conteudo",
+    "h0037_console_verboso_dois_niveis": "h0037_dois_niveis_conteudo",
+    "h0037_console_alternavel_tres_niveis": "h0037_tres_niveis_conteudo",
+    "h0037_console_tabela_alternavel": "h0037_tabela_conteudo",
 }
 
 
@@ -151,13 +157,67 @@ def criar_estado_inicial():
     - ``saindo``: ``False``.
     - ``tela_atual``: ``"demo"`` (tela raiz da demonstracao).
     - ``pilha_telas``: ``[]`` (sem telas empilhadas).
+    - ``modo_verboso``: ``False`` (alternancia de verbosidade, H-0037).
     """
     return {
         "tipo_borda": "curva",
         "saindo": False,
         "tela_atual": "demo",
         "pilha_telas": [],
+        "modo_verboso": False,
     }
+
+
+def _modo_verboso_de_modelo(modelo):
+    """Retorna o modo_verboso inicial para a tela do modelo (H-0037).
+
+    Para politica 'somente_verboso' ou 'alternavel' com modo_inicial 'verboso',
+    retorna True (ADR-0028 D23). Para todas as outras politicas, retorna False.
+    """
+    if modelo is None:
+        return False
+    try:
+        elementos = modelo.corpo.elementos
+    except AttributeError:
+        return False
+    for elemento in elementos:
+        if elemento.tipo == "console":
+            politica = getattr(elemento, "politica_modo", None)
+            if politica == "somente_verboso":
+                return True
+            if (politica == "alternavel"
+                    and getattr(elemento, "modo_inicial", None) == "verboso"):
+                return True
+            break
+    return False
+
+
+def _verboso_efetivo(estado, modelo):
+    """Determina o flag verboso efetivo para o modelo corrente (H-0037).
+
+    Aplica a politica de modo do console da tela:
+    - somente_verboso: sempre True (nao afetado pelo toggle).
+    - somente_nao_verboso: sempre False (nao afetado pelo toggle).
+    - alternavel: estado.get("modo_verboso", False).
+    - Sem politica (legado): False.
+    """
+    if modelo is None:
+        return False
+    try:
+        elementos = modelo.corpo.elementos
+    except AttributeError:
+        return False
+    for elemento in elementos:
+        if elemento.tipo == "console":
+            politica = getattr(elemento, "politica_modo", None)
+            if politica == "somente_verboso":
+                return True
+            if politica == "somente_nao_verboso":
+                return False
+            if politica == "alternavel":
+                return bool(estado.get("modo_verboso", False))
+            break
+    return False
 
 
 def processar_comando(estado, comando, modelo=None):
@@ -195,6 +255,7 @@ def processar_comando(estado, comando, modelo=None):
         "saindo": estado["saindo"],
         "tela_atual": estado.get("tela_atual", "demo"),
         "pilha_telas": list(estado.get("pilha_telas", [])),
+        "modo_verboso": estado.get("modo_verboso", False),
     }
 
     if comando == "b":
@@ -207,6 +268,20 @@ def processar_comando(estado, comando, modelo=None):
             novo["pilha_telas"] = novo["pilha_telas"][:-1]
         else:
             novo["saindo"] = True
+        return novo
+
+    # H-0037: tecla V (maiuscula) ou v (minuscula) alterna verbosidade
+    # somente em telas com politica 'alternavel'. As duas entradas são
+    # tratadas nominalmente aqui, sem normalizar todas as teclas em
+    # maiusculas globalmente (outros comandos continuam case-sensitive).
+    # Telas fixas (somente_verboso / somente_nao_verboso) e telas legadas
+    # ignoram ambas sem alterar o estado (H0037-MANUAL-003).
+    if comando in ("V", "v") and modelo is not None:
+        for elemento in modelo.corpo.elementos:
+            if elemento.tipo == "console":
+                if getattr(elemento, "politica_modo", None) == "alternavel":
+                    novo["modo_verboso"] = not novo["modo_verboso"]
+                break
         return novo
 
     if modelo is not None:
@@ -236,7 +311,8 @@ def renderizar_estado(estado, modelo, largura=None, altura=None):
     janela do terminal pelo corpo (H-0015 / ADR-0013).
     """
     return renderizar_tela(
-        modelo, tipo_borda=estado["tipo_borda"], largura=largura, altura=altura
+        modelo, tipo_borda=estado["tipo_borda"], largura=largura, altura=altura,
+        verboso=_verboso_efetivo(estado, modelo),
     )
 
 
@@ -586,6 +662,7 @@ def main(argv=None):
     if tela_inicial != estado["tela_atual"]:
         estado = dict(estado, tela_atual=tela_inicial)
     modelo = _carregar_modelo_por_id(estado["tela_atual"])
+    estado = dict(estado, modo_verboso=_modo_verboso_de_modelo(modelo))
 
     if sys.stdin.isatty() and sys.stdout.isatty():
         fd = sys.stdin.fileno()
@@ -635,12 +712,18 @@ def main(argv=None):
                             continue
                     ch = _ler_tecla_sessao(fd=fd)
                     tela_antes = estado["tela_atual"]
+                    verboso_antes = estado.get("modo_verboso", False)
                     estado = processar_comando(estado, ch, modelo)
                     if estado["saindo"]:
                         break
                     if estado["tela_atual"] != tela_antes:
                         modelo = _carregar_modelo_por_id(estado["tela_atual"])
-                    if ch == "b" or estado["tela_atual"] != tela_antes:
+                        estado = dict(
+                            estado,
+                            modo_verboso=_modo_verboso_de_modelo(modelo),
+                        )
+                    verboso_mudou = estado.get("modo_verboso", False) != verboso_antes
+                    if ch == "b" or estado["tela_atual"] != tela_antes or verboso_mudou:
                         _apresentar_quadro(
                             _resolver_conteudo(estado, modelo, largura, altura),
                             largura,
@@ -670,12 +753,18 @@ def main(argv=None):
         for linha in sys.stdin:
             comando = linha.strip()
             tela_antes = estado["tela_atual"]
+            verboso_antes = estado.get("modo_verboso", False)
             estado = processar_comando(estado, comando, modelo)
             if estado["saindo"]:
                 break
             if estado["tela_atual"] != tela_antes:
                 modelo = _carregar_modelo_por_id(estado["tela_atual"])
-            if comando == "b" or estado["tela_atual"] != tela_antes:
+                estado = dict(
+                    estado,
+                    modo_verboso=_modo_verboso_de_modelo(modelo),
+                )
+            verboso_mudou = estado.get("modo_verboso", False) != verboso_antes
+            if comando == "b" or estado["tela_atual"] != tela_antes or verboso_mudou:
                 print(renderizar_estado(estado, modelo, largura, altura=altura), end="")
     return 0
 

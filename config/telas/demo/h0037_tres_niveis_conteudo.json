@@ -1,0 +1,64 @@
+{
+  "tipo": "multinivel",
+  "formato": {
+    "apresentacao": "hierarquia",
+    "niveis": [
+      {
+        "id": "capitulo",
+        "tipo": "container",
+        "conteudo": "titulo",
+        "designador": {"tipo": "decimal", "sufixo": "."}
+      },
+      {
+        "id": "subsecao",
+        "tipo": "container",
+        "conteudo": "titulo",
+        "designador": {"tipo": "decimal_composto", "separador": ".", "sufixo": "."}
+      },
+      {
+        "id": "item",
+        "tipo": "conteudo",
+        "conteudo": "texto",
+        "designador": {"tipo": "nenhum"}
+      }
+    ]
+  },
+  "dados": [
+    {
+      "id": "cap1",
+      "nivel": "capitulo",
+      "titulo": "H-0037 alternavel_tres_niveis",
+      "filhos": [
+        {
+          "id": "sub1",
+          "nivel": "subsecao",
+          "titulo": "Politica alternavel com modo inicial nao verboso",
+          "filhos": [
+            {
+              "id": "it1",
+              "nivel": "item",
+              "texto": "Este texto e suficientemente longo para ser truncado no modo nao verboso e para ocupar mais de uma linha no modo verboso completo da apresentacao hierarquica em tres niveis."
+            },
+            {
+              "id": "it2",
+              "nivel": "item",
+              "texto": "Segundo item do terceiro nivel demonstrando que a alternancia preserva ordem, designadores e dados sem alteracao entre os modos verboso e nao verboso da politica alternavel."
+            }
+          ]
+        },
+        {
+          "id": "sub2",
+          "nivel": "subsecao",
+          "titulo": "Tecla V disponivel nesta tela alternavel",
+          "filhos": [
+            {
+              "id": "it3",
+              "nivel": "item",
+              "texto": "A alternancia via tecla V afeta somente esta instancia de console com conteudo multinivel externo e nao vaza para outros cenarios nem persiste entre sessoes de navegacao."
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

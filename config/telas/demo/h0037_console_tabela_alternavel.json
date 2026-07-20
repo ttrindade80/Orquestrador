@@ -1,0 +1,30 @@
+{
+  "schema": "tela.v1",
+  "id": "h0037_console_tabela_alternavel",
+  "cabecalho": {
+    "titulo": "H0037 Tabela Alternavel",
+    "descricao": "Console alternavel com apresentacao tabela"
+  },
+  "corpo": {
+    "arranjo": "vertical",
+    "elementos": [
+      {
+        "id": "con",
+        "tipo": "console",
+        "titulo": "Console",
+        "formato": {
+          "excesso": {
+            "politica_modo": "alternavel",
+            "modo_inicial": "verboso"
+          }
+        }
+      }
+    ]
+  },
+  "barra_de_menus": {
+    "chips": [
+      {"id": "v_verboso", "tipo": "acao", "tecla": "V", "texto": "Verboso"},
+      {"id": "esc", "tipo": "acao", "tecla": "Esc", "texto": "Voltar"}
+    ]
+  }
+}

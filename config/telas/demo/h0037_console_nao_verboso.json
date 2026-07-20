@@ -1,0 +1,28 @@
+{
+  "schema": "tela.v1",
+  "id": "h0037_console_nao_verboso",
+  "cabecalho": {
+    "titulo": "H0037 Nao Verboso",
+    "descricao": "Console somente nao verboso em dois niveis de hierarquia"
+  },
+  "corpo": {
+    "arranjo": "vertical",
+    "elementos": [
+      {
+        "id": "con",
+        "tipo": "console",
+        "titulo": "Console",
+        "formato": {
+          "excesso": {
+            "politica_modo": "somente_nao_verboso"
+          }
+        }
+      }
+    ]
+  },
+  "barra_de_menus": {
+    "chips": [
+      {"id": "esc", "tipo": "acao", "tecla": "Esc", "texto": "Voltar"}
+    ]
+  }
+}

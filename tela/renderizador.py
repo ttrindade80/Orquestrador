@@ -317,7 +317,7 @@ def _distribuir_larguras(largura_disponivel, pesos):
     return cotas
 
 
-def _linhas_console(elemento, content_w=None):
+def _linhas_console(elemento, content_w=None, verboso=False):
     """Linhas de conteudo para elemento console.
 
     H-0036 / ADR-0026 / ADR-0027: quando o console possui conteudo externo
@@ -333,7 +333,7 @@ def _linhas_console(elemento, content_w=None):
     conteudo = getattr(elemento, "conteudo_externo", None)
     if conteudo is None:
         return [_PLACEHOLDER_CONSOLE]
-    return _linhas_conteudo_externo(conteudo, content_w)
+    return _linhas_conteudo_externo(conteudo, content_w, verboso)
 
 
 # ---------------------------------------------------------------------------
@@ -427,7 +427,7 @@ def _texto_no_conteudo(no, nivel):
     return "{0}".format(no.campos.get(campo, ""))
 
 
-def _linhas_conteudo_externo(conteudo, content_w):
+def _linhas_conteudo_externo(conteudo, content_w, verboso=False):
     """Despacha o conteudo externo para a apresentacao declarada (H-0036).
 
     Produz a lista de linhas de conteudo da caixa do console. As tres
@@ -437,20 +437,100 @@ def _linhas_conteudo_externo(conteudo, content_w):
     """
     apresentacao = getattr(conteudo, "apresentacao", None)
     if apresentacao == "hierarquia":
-        return _linhas_apresentacao_hierarquia(conteudo)
+        return _linhas_apresentacao_hierarquia(conteudo, content_w, verboso)
     if apresentacao == "tabela":
-        return _linhas_apresentacao_tabela(conteudo, content_w)
+        return _linhas_apresentacao_tabela(conteudo, content_w, verboso)
     if apresentacao == "conjuntos_campos":
-        return _linhas_apresentacao_conjuntos(conteudo)
+        return _linhas_apresentacao_conjuntos(conteudo, content_w, verboso)
     raise RenderizadorErro(
         "apresentacao de conteudo externo desconhecida: {0!r}".format(apresentacao)
     )
 
 
-def _linhas_apresentacao_hierarquia(conteudo):
-    """Apresentacao ``hierarquia``: lista recuada com designadores por nivel."""
+def _quebrar_texto(texto, largura):
+    """Quebra texto em lista de linhas de ate largura caracteres (H-0037).
+
+    A quebra ocorre em limites de palavra (espaco). Quando uma palavra excede
+    a largura disponivel, e colocada em linha propria sem truncamento adicional.
+    Retorna lista com pelo menos um elemento (texto vazio produz lista com
+    string vazia).
+    """
+    if largura is None or largura <= 0:
+        return [texto] if texto else [""]
+    if not texto:
+        return [""]
+    linhas = []
+    while len(texto) > largura:
+        corte = texto.rfind(" ", 0, largura)
+        if corte <= 0:
+            corte = largura
+        linhas.append(texto[:corte])
+        texto = texto[corte:].lstrip(" ")
+    linhas.append(texto)
+    return [l for l in linhas if l] or [""]
+
+
+def _truncar_com_marcador(texto, largura):
+    """Trunca ``texto`` para caber em ``largura`` com marcador ``...`` (H-0037).
+
+    Comportamento obrigatorio (H0037-MANUAL-001 / contrato_console.md §21.2):
+
+    - texto que cabe integralmente: retornado sem alteracao e sem marcador;
+    - texto que excede e ``largura >= 3``: ``texto[:largura-3] + "..."`` —
+      resultado com exatamente ``largura`` caracteres, sufixo visivel ``...``;
+    - texto que excede e ``largura < 3``: truncamento silencioso
+      ``texto[:largura]`` (o marcador nao cabe; segue a regra vigente para
+      areas menores que o comprimento do marcador).
+
+    O marcador e aplicado no renderizador ANTES do envelope de caixa, de modo
+    que o sufixo ``...`` faz parte do trecho visivel e nao e acrescentado
+    depois de o texto já ter sido cortado pela borda. A linha resultante
+    nunca excede ``largura``.
+    """
+    if largura is None:
+        return texto
+    if largura <= 0:
+        return ""
+    if len(texto) <= largura:
+        return texto
+    if largura < 3:
+        return texto[:largura]
+    return texto[:largura - 3] + "..."
+
+
+def _linhas_apresentacao_hierarquia(conteudo, content_w=None, verboso=False):
+    """Apresentacao ``hierarquia``: lista recuada com designadores por nivel.
+
+    Regra por modo (H0037-MANUAL-001 / contrato_console.md §21.2-21.3):
+
+    - **Modo verboso**: TODO no (container ou folha) pode ocupar varias linhas
+      fisicas. O conteudo e quebrado em palavras pela largura restante real
+      (``content_w`` menos prefixo, recuo e designador), preservando o texto
+      integral. As linhas de continuacao usam indentacao deterministica (mesma
+      largura do prefixo) e NAO repetem o designador. Nenhum marcador
+      artificial ``...`` e inserido e o renderizador nao depende do corte final
+      do envelope da caixa para ajustar a largura.
+    - **Modo nao verboso**: cada item ocupa exatamente uma linha fisica; o
+      excedente recebe marcador ``...`` (``_truncar_com_marcador``).
+
+    Em modo verboso, o alinhamento de coluna do nivel raiz (largura maxima dos
+    designadores) e pre-calculado para estabilidade visual entre irmaos.
+    """
     niveis = {n.id: n for n in conteudo.niveis}
     linhas = []
+
+    # H-0037: pre-calcula largura maxima dos designadores do nivel raiz para
+    # alinhamento de coluna estavel em modo verboso (dois niveis).
+    largura_desig_raiz = 0
+    if verboso and content_w is not None and conteudo.nos:
+        ordinal_tmp = 0
+        for no_tmp in conteudo.nos:
+            ordinal_tmp += 1
+            nivel_tmp = niveis.get(no_tmp.nivel)
+            marc_tmp = _texto_designador(
+                nivel_tmp.designador if nivel_tmp else {}, ordinal_tmp, []
+            )
+            largura_desig_raiz = max(largura_desig_raiz, len(marc_tmp))
 
     def recorrer(nos, profundidade, ancestrais):
         ordinal = 0
@@ -462,10 +542,41 @@ def _linhas_apresentacao_hierarquia(conteudo):
             )
             texto = _texto_no_conteudo(no, nivel)
             recuo = "  " * profundidade
-            if marcador:
-                linhas.append("{0}{1} {2}".format(recuo, marcador, texto))
+            if verboso and content_w is not None:
+                # Modo verboso (contrato_console.md §21.3): TODO no (container
+                # ou folha) pode ocupar varias linhas fisicas. O conteudo e
+                # quebrado em palavras pela largura restante real, preservando
+                # o texto integral. As linhas de continuacao usam indentacao
+                # deterministica (mesma largura do prefixo) e NAO repetem o
+                # designador. Nenhum marcador artificial `...` e inserido.
+                # Alinhamento de coluna no nivel raiz (H-0037 dois niveis).
+                if profundidade == 0 and largura_desig_raiz > 0 and marcador:
+                    marc_fmt = marcador.ljust(largura_desig_raiz)
+                else:
+                    marc_fmt = marcador
+                prefixo = "{0}{1}{2}".format(
+                    recuo, marc_fmt, " " if marc_fmt else ""
+                )
+                largura_disp = max(10, content_w - len(prefixo))
+                fragmentos = _quebrar_texto(texto, largura_disp)
+                linhas.append("{0}{1}".format(prefixo, fragmentos[0]))
+                indent_cont = " " * len(prefixo)
+                for frag in fragmentos[1:]:
+                    linhas.append("{0}{1}".format(indent_cont, frag))
             else:
-                linhas.append("{0}{1}".format(recuo, texto))
+                if marcador:
+                    prefixo_linha = "{0}{1} ".format(recuo, marcador)
+                else:
+                    prefixo_linha = recuo
+                # H0037-MANUAL-001: em modo nao verboso, o conteudo aplicavel
+                # ocupa exatamente uma linha fisica com marcador de truncamento
+                # quando excede a largura disponivel (contrato_console.md §21.2).
+                if content_w is not None:
+                    largura_linha = content_w - len(prefixo_linha)
+                    texto_visivel = _truncar_com_marcador(texto, largura_linha)
+                else:
+                    texto_visivel = texto
+                linhas.append("{0}{1}".format(prefixo_linha, texto_visivel))
             if no.filhos:
                 recorrer(no.filhos, profundidade + 1, ancestrais + [ordinal])
 
@@ -473,7 +584,7 @@ def _linhas_apresentacao_hierarquia(conteudo):
     return linhas
 
 
-def _linhas_apresentacao_tabela(conteudo, content_w):
+def _linhas_apresentacao_tabela(conteudo, content_w, verboso=False):
     """Apresentacao ``tabela``: cabecalho e linhas com colunas alinhadas.
 
     Cada no folha vira uma linha. Quando ``formato.tabela.ancestrais`` e
@@ -535,18 +646,59 @@ def _linhas_apresentacao_tabela(conteudo, content_w):
         max(len(str(linha[c])) for linha in matriz) for c in range(n_col)
     ]
     sep = "  "
+
+    # H-0037: em modo verboso e com content_w disponivel, quebra a ultima
+    # coluna de cada linha de dados (nao do cabecalho) para que o texto
+    # completo seja exibido em multiplas linhas fisicas.
+    if verboso and content_w is not None and n_col > 0:
+        w_prefix = sum(larguras[c] for c in range(n_col - 1))
+        if n_col > 1:
+            w_prefix += (n_col - 1) * len(sep)
+        w_ultima = max(10, content_w - w_prefix)
+        linhas = []
+        for idx, linha in enumerate(matriz):
+            partes_fixas = [
+                str(linha[c]).ljust(larguras[c]) for c in range(n_col - 1)
+            ]
+            prefixo_str = sep.join(partes_fixas) + (sep if partes_fixas else "")
+            ultima_cel = str(linha[n_col - 1])
+            if idx == 0 and cabecalho:
+                # Cabecalho: linha unica sem quebra
+                linhas.append((prefixo_str + ultima_cel).rstrip())
+                regua = sep.join("-" * larguras[c] for c in range(n_col - 1))
+                if partes_fixas:
+                    regua += sep
+                regua += "-" * larguras[n_col - 1]
+                linhas.append(regua.rstrip())
+            else:
+                fragmentos = _quebrar_texto(ultima_cel, w_ultima)
+                linhas.append((prefixo_str + fragmentos[0]).rstrip())
+                indent = " " * len(prefixo_str)
+                for frag in fragmentos[1:]:
+                    linhas.append((indent + frag).rstrip())
+        return linhas
+
     linhas = []
     for idx, linha in enumerate(matriz):
         partes = [str(linha[c]).ljust(larguras[c]) for c in range(n_col)]
-        linhas.append(sep.join(partes).rstrip())
+        linha_str = sep.join(partes).rstrip()
+        # H0037-MANUAL-001: em modo nao verboso, cada linha da tabela que
+        # excede a largura disponivel recebe marcador de truncamento `...`
+        # (uma linha fisica por celula; contrato_console.md §21.2).
+        if content_w is not None and len(linha_str) > content_w:
+            linha_str = _truncar_com_marcador(linha_str, content_w)
+        linhas.append(linha_str)
         if idx == 0 and cabecalho:
             # Regua sob o cabecalho (calculo do renderizador).
             regua = sep.join("-" * larguras[c] for c in range(n_col))
-            linhas.append(regua.rstrip())
+            regua_str = regua.rstrip()
+            if content_w is not None and len(regua_str) > content_w:
+                regua_str = _truncar_com_marcador(regua_str, content_w)
+            linhas.append(regua_str)
     return linhas
 
 
-def _linhas_apresentacao_conjuntos(conteudo):
+def _linhas_apresentacao_conjuntos(conteudo, content_w=None, verboso=False):
     """Apresentacao ``conjuntos_campos``: conjuntos com pares nome-valor.
 
     Cada container e um conjunto (com designador e titulo); seus filhos
@@ -582,18 +734,37 @@ def _linhas_apresentacao_conjuntos(conteudo):
                 nome = "{0}".format(no.campos.get(campo_nome, ""))
                 valor = "{0}".format(no.campos.get(campo_valor, ""))
                 nome_fmt = nome.ljust(largura_local) if justificar else nome
-                linhas.append("{0}{1}{2} {3}".format(
-                    recuo, nome_fmt, separador, valor
-                ))
+                prefixo_linha = "{0}{1}{2} ".format(recuo, nome_fmt, separador)
+                if verboso and content_w is not None:
+                    largura_val = max(10, content_w - len(prefixo_linha))
+                    fragmentos = _quebrar_texto(valor, largura_val)
+                    linhas.append("{0}{1}".format(prefixo_linha, fragmentos[0]))
+                    indent_val = " " * len(prefixo_linha)
+                    for frag in fragmentos[1:]:
+                        linhas.append("{0}{1}".format(indent_val, frag))
+                else:
+                    # H0037-MANUAL-001: modo nao verboso ocupa uma linha fisica
+                    # com marcador de truncamento quando excede a largura.
+                    if content_w is not None:
+                        largura_val = max(0, content_w - len(prefixo_linha))
+                        valor = _truncar_com_marcador(valor, largura_val)
+                    linhas.append("{0}{1}".format(prefixo_linha, valor))
             else:
                 marcador = _texto_designador(
                     nivel.designador if nivel else {}, ordinal, ancestrais
                 )
                 texto = _texto_no_conteudo(no, nivel)
                 if marcador:
-                    linhas.append("{0}{1} {2}".format(recuo, marcador, texto))
+                    prefixo_linha = "{0}{1} ".format(recuo, marcador)
                 else:
-                    linhas.append("{0}{1}".format(recuo, texto))
+                    prefixo_linha = recuo
+                # H0037-MANUAL-001: modo nao verboso com marcador de truncamento.
+                if content_w is not None:
+                    largura_linha = content_w - len(prefixo_linha)
+                    texto_visivel = _truncar_com_marcador(texto, largura_linha)
+                else:
+                    texto_visivel = texto
+                linhas.append("{0}{1}".format(prefixo_linha, texto_visivel))
             if no.filhos:
                 recorrer(no.filhos, profundidade + 1, ancestrais + [ordinal])
 
@@ -1296,6 +1467,37 @@ def _montar_linha_a_linha(texto_chips, n_linhas, vao_entre_chips):
     return linhas
 
 
+def _garantir_esc_primeiro(chips):
+    """Garante que o chip ``[Esc]`` ocupe a primeira posição (H0037-MANUAL-002).
+
+    Regra contratual central (contrato_barra_de_menus.md §8.2): ``[Esc]`` é
+    sempre o primeiro chip quando declarado. A ordenação é aplicada nesta
+    camada central — origem única da ordem da barra — valendo para qualquer
+    tela, sem condição específica por ID de tela, JSON ou cenário.
+
+    Comportamento:
+    - nenhum chip ``Esc`` declarado: lista retornada sem alteração;
+    - chip ``Esc`` declarado (tecla ``"Esc"``): movido para a primeira
+      posição; os demais chips preservam a ordem relativa entre si;
+    - ausência de duplicação: somente o primeiro ``Esc`` encontrado é
+      promovido (teclas duplicadas já são rejeitadas em outro ponto do
+      contrato para a mesma instância).
+
+    Não muta a lista recebida. Não inventa chip ``Esc`` em telas que não o
+    declaram. Não altera texto, tecla nem função dos demais chips.
+    """
+    esc = None
+    demais = []
+    for chip in chips:
+        if esc is None and isinstance(chip, dict) and chip.get("tecla") == "Esc":
+            esc = chip
+        else:
+            demais.append(chip)
+    if esc is None:
+        return list(chips)
+    return [esc] + demais
+
+
 def _linhas_barra(barra_de_menus, content_w):
     """Linhas de conteudo para a caixa da barra de menus (H-0016).
 
@@ -1307,16 +1509,20 @@ def _linhas_barra(barra_de_menus, content_w):
        defaults normativos; objeto canônico -> usado como declarado);
     2. valida defensivamente a declaração e as âncoras (restrição, nunca
        reordenação);
-    3. tenta linha única; se couber em ``content_w``, retorna uma linha;
-    4. caso contrário, tenta multilinha de 2 até ``linhas.maximo`` linhas,
+    3. aplica a regra contratual ``[Esc]`` primeiro (contrato_barra_de_menus.md
+       §8.2: ``[Esc]`` é o primeiro chip quando declarado) — qualquer chip
+       cuja ``tecla`` seja ``"Esc"`` é movido para a primeira posição,
+       preservando a ordem relativa dos demais chips. Não duplica, não
+       inventa ``[Esc]`` em telas que não o declaram;
+    4. tenta linha única; se couber em ``content_w``, retorna uma linha;
+    5. caso contrário, tenta multilinha de 2 até ``linhas.maximo`` linhas,
        aplicando ``preenchimento_multilinha`` (``coluna_a_coluna`` ou
        ``linha_a_linha``); retorna na primeira configuração que encaixar;
-    5. se nenhuma configuração couber, levanta ``RenderizadorErro``
+    6. se nenhuma configuração couber, levanta ``RenderizadorErro``
        (``overflow.quando_nao_couber = "erro_layout"``) -- nunca omite,
-       nunca trunca, nunca reordena.
+       nunca trunca, nunca reordena chips além da regra contratual ``[Esc]``.
 
-    Cada chip é renderizado como ``"[{tecla}] {texto}"``. A ordem de
-    saída é sempre a ordem declarada em ``chips[]``. ``regra_existencia``
+    Cada chip é renderizado como ``"[{tecla}] {texto}"``. ``regra_existencia``
     e ``regra_ativo`` não são avaliadas neste ciclo.
 
     ``content_w`` é a largura disponível para conteúdo dentro da caixa
@@ -1336,6 +1542,12 @@ def _linhas_barra(barra_de_menus, content_w):
     )
     _validar_distribuicao(distribuicao)
     _validar_ancoras(chips, distribuicao)
+
+    # H0037-MANUAL-002: regra contratual central — ``[Esc]`` é sempre o
+    # primeiro chip quando declarado (contrato_barra_de_menus.md §8.2).
+    # A aplicação é centralizada na origem da ordenação da barra, valendo
+    # para qualquer tela, sem condição específica por ID/JSON/cenário.
+    chips = _garantir_esc_primeiro(chips)
 
     esp = distribuicao.get("espacamentos") or {}
     vao_ct = (esp.get("vao_chip_texto") or {}).get("minimo", 1)
@@ -1593,7 +1805,10 @@ def _linhas_distribuicao_matricial(elemento, content_w, altura_alvo):
     return ["".join(linha) for linha in canvas]
 
 
-def _caixa_de_elemento(elemento, borda, inner_w, content_w, label_max, altura_alvo=None):
+def _caixa_de_elemento(
+    elemento, borda, inner_w, content_w, label_max,
+    altura_alvo=None, verboso=False,
+):
     """Despacha um elemento funcional para sua caixa bordeada.
 
     Retorna a string da caixa do elemento (console/dashboard/lancador) ou
@@ -1630,7 +1845,7 @@ def _caixa_de_elemento(elemento, borda, inner_w, content_w, label_max, altura_al
     if elemento.tipo == "console":
         titulo_el = elemento._campos_inertes.get("titulo", "CONSOLE")
         return _caixa(
-            titulo_el.upper(), _linhas_console(elemento, content_w),
+            titulo_el.upper(), _linhas_console(elemento, content_w, verboso),
             borda, inner_w, content_w, label_max, altura_alvo,
         )
     if elemento.tipo == "dashboard":
@@ -1651,6 +1866,7 @@ def _caixa_de_elemento(elemento, borda, inner_w, content_w, label_max, altura_al
 def _renderizar_container_vertical(
     distribuicao, elementos, borda, total_w,
     inner_w, content_w, label_max, altura_disponivel,
+    verboso=False,
 ):
     """Renderiza elementos em disposicao vertical dentro de um container.
 
@@ -1683,6 +1899,7 @@ def _renderizar_container_vertical(
                 bloco = _renderizar_container(
                     arranjo_g, dist_g, elemento.elementos, borda, total_w, cota,
                     estrutura=estrutura_g, matriz_config=matriz_g,
+                    verboso=verboso,
                 )
                 fill_linha = " " * total_w
                 if bloco:
@@ -1695,7 +1912,7 @@ def _renderizar_container_vertical(
             else:
                 caixa = _caixa_de_elemento(
                     elemento, borda, inner_w, content_w, label_max,
-                    altura_alvo=cota,
+                    altura_alvo=cota, verboso=verboso,
                 )
                 if caixa is not None:
                     partes.append(caixa)
@@ -1716,13 +1933,14 @@ def _renderizar_container_vertical(
                         arranjo_g, dist_g, elemento.elementos, borda,
                         total_w, altura_disponivel,
                         estrutura=estrutura_g, matriz_config=matriz_g,
+                        verboso=verboso,
                     )
                     if bloco:
                         partes.append(bloco)
                 else:
                     caixa = _caixa_de_elemento(
                         elemento, borda, inner_w, content_w, label_max,
-                        altura_alvo=altura_disponivel,
+                        altura_alvo=altura_disponivel, verboso=verboso,
                     )
                     if caixa is not None:
                         partes.append(caixa)
@@ -1738,12 +1956,14 @@ def _renderizar_container_vertical(
                         arranjo_g, dist_g, elemento.elementos, borda,
                         total_w, None,
                         estrutura=estrutura_g, matriz_config=matriz_g,
+                        verboso=verboso,
                     )
                     if bloco:
                         partes.append(bloco)
                 else:
                     caixa = _caixa_de_elemento(
-                        elemento, borda, inner_w, content_w, label_max
+                        elemento, borda, inner_w, content_w, label_max,
+                        verboso=verboso,
                     )
                     if caixa is not None:
                         partes.append(caixa)
@@ -1778,12 +1998,14 @@ def _renderizar_container_vertical(
                 bloco = _renderizar_container(
                     arranjo_g, dist_g, elemento.elementos, borda, total_w, None,
                     estrutura=estrutura_g, matriz_config=matriz_g,
+                    verboso=verboso,
                 )
                 if bloco:
                     partes.append(bloco)
             else:
                 caixa = _caixa_de_elemento(
-                    elemento, borda, inner_w, content_w, label_max
+                    elemento, borda, inner_w, content_w, label_max,
+                    verboso=verboso,
                 )
                 if caixa is not None:
                     partes.append(caixa)
@@ -1792,7 +2014,8 @@ def _renderizar_container_vertical(
 
 
 def _renderizar_container_horizontal(
-    distribuicao, elementos, borda, total_w, altura_disponivel, larguras=None,
+    distribuicao, elementos, borda, total_w, altura_disponivel,
+    larguras=None, verboso=False,
 ):
     """Renderiza elementos em disposicao horizontal dentro de um container.
 
@@ -1857,11 +2080,13 @@ def _renderizar_container_horizontal(
             matriz_g = elemento._campos_inertes.get("matriz")
             bloco = _renderizar_container(
                 arranjo_g, dist_g, elemento.elementos, borda, w, altura_disponivel,
-                estrutura=estrutura_g, matriz_config=matriz_g,
+                estrutura=estrutura_g, matriz_config=matriz_g, verboso=verboso,
             )
             linhas_area = bloco.split("\n") if bloco else []
         else:
-            caixa_str = _caixa_de_elemento(elemento, borda, w - 2, w - 3, w - 4)
+            caixa_str = _caixa_de_elemento(
+                elemento, borda, w - 2, w - 3, w - 4, verboso=verboso,
+            )
             if caixa_str is None or caixa_str == "":
                 linhas_area = []
             else:
@@ -1903,7 +2128,9 @@ def _renderizar_container_horizontal(
     return "\n".join(linhas_resultado)
 
 
-def _renderizar_container_matriz(matriz_config, elementos, borda, total_w, altura_disponivel):
+def _renderizar_container_matriz(
+    matriz_config, elementos, borda, total_w, altura_disponivel, verboso=False,
+):
     """Renderiza um grupo ``estrutura: matriz`` com grade bidimensional comum.
 
     As cotas dos dois eixos sao calculadas uma unica vez para o container
@@ -1947,6 +2174,7 @@ def _renderizar_container_matriz(matriz_config, elementos, borda, total_w, altur
             total_w=total_w,
             altura_disponivel=alturas[linha - 1],
             larguras=larguras,
+            verboso=verboso,
         )
         if bloco:
             blocos.append(bloco)
@@ -1956,7 +2184,7 @@ def _renderizar_container_matriz(matriz_config, elementos, borda, total_w, altur
 
 def _renderizar_container(
     arranjo, distribuicao, elementos, borda, total_w, altura_disponivel,
-    estrutura=None, matriz_config=None,
+    estrutura=None, matriz_config=None, verboso=False,
 ):
     """Renderiza os filhos de um container recursivamente (H-0027 / ADR-0019).
 
@@ -1976,7 +2204,8 @@ def _renderizar_container(
 
     if estrutura == "matriz":
         return _renderizar_container_matriz(
-            matriz_config, elementos, borda, total_w, altura_disponivel
+            matriz_config, elementos, borda, total_w, altura_disponivel,
+            verboso=verboso,
         )
 
     arr = arranjo
@@ -1987,7 +2216,8 @@ def _renderizar_container(
 
     if arr == "horizontal":
         return _renderizar_container_horizontal(
-            distribuicao, elementos, borda, total_w, altura_disponivel
+            distribuicao, elementos, borda, total_w, altura_disponivel,
+            verboso=verboso,
         )
     else:
         inner_w = total_w - 2
@@ -1996,11 +2226,12 @@ def _renderizar_container(
         return _renderizar_container_vertical(
             distribuicao, elementos, borda,
             total_w, inner_w, content_w, label_max, altura_disponivel,
+            verboso=verboso,
         )
 
 
 def _montar_corpo_horizontal(elementos, borda, total_w, altura_disponivel=None,
-                             larguras=None):
+                             larguras=None, verboso=False):
     """Particionamento horizontal contiguo do corpo raiz (H-0019 / H-0020 / H-0026 / ADR-0024).
 
     Quando ``larguras`` e ``None`` (ausencia de distribuicao declarada):
@@ -2071,7 +2302,7 @@ def _montar_corpo_horizontal(elementos, borda, total_w, altura_disponivel=None,
     for i, elemento in enumerate(elementos):
         w = larguras[i]
         caixa_str = _caixa_de_elemento(
-            elemento, borda, w - 2, w - 3, w - 4
+            elemento, borda, w - 2, w - 3, w - 4, verboso=verboso,
         )
         if caixa_str is None or caixa_str == "":
             # Grupo ou tipo sem visual: área inicialmente vazia, será preenchida
@@ -2159,6 +2390,7 @@ def renderizar_tela(
     tipo_borda: str = "curva",
     largura: int | None = None,
     altura: int | None = None,
+    verboso: bool = False,
 ) -> str:
     """Renderiza ModeloTela como string visual declarativa (H-0010A).
 
@@ -2294,6 +2526,7 @@ def renderizar_tela(
     bloco_corpo = _renderizar_container(
         arranjo_corpo, distribuicao_corpo,
         modelo.corpo.elementos, borda, total_w, l_corpo_disponivel,
+        verboso=verboso,
     )
     if bloco_corpo:
         partes.append(bloco_corpo)

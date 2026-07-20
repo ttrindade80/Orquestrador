@@ -66,6 +66,14 @@ class ElementoCorpo:
     # em _campos_inertes. O modelo nao abre arquivos e nao escolhe a fonte (o
     # demo.py carrega e associa; o loader valida).
     conteudo_externo: object = field(default=None, repr=False)
+    # H-0037 / ADR-0028 D23: politica de modo de verbosidade do elemento
+    # console, extraida de formato.excesso.politica_modo. None preserva o
+    # comportamento legado (sem politica declarada). O loader ja validou a
+    # combinacao valida antes de chegar aqui; o modelo apenas transporta.
+    politica_modo: str | None = field(default=None, repr=False)
+    # modo_inicial: valor inicial de verbosidade para politica 'alternavel',
+    # extraido de formato.excesso.modo_inicial. None para politicas fixas.
+    modo_inicial: str | None = field(default=None, repr=False)
 
 
 @dataclass
@@ -350,6 +358,9 @@ def _construir_elementos_recursivo(elementos_raw, id_pai, parametros_lancador=No
             }
             params = parametros_lancador if sub_tipo == "lancador" else None
             dm = sub_el.get("distribuicao_matricial")
+            excesso = sub_el.get("formato", {}).get("excesso", {})
+            pm = excesso.get("politica_modo") if sub_tipo == "console" else None
+            mi = excesso.get("modo_inicial") if sub_tipo == "console" else None
             resultado.append(
                 ElementoCorpo(
                     id=sub_id,
@@ -357,6 +368,8 @@ def _construir_elementos_recursivo(elementos_raw, id_pai, parametros_lancador=No
                     _campos_inertes=inertes,
                     parametros_tipo=params,
                     distribuicao_matricial=dm,
+                    politica_modo=pm,
+                    modo_inicial=mi,
                 )
             )
         else:
@@ -473,6 +486,9 @@ def construir_modelo(tela_raw: dict, conteudo_externo=None) -> ModeloTela:
             }
             params = parametros_lancador if tipo == "lancador" else None
             dm = elemento.get("distribuicao_matricial")
+            excesso = elemento.get("formato", {}).get("excesso", {})
+            pm = excesso.get("politica_modo") if tipo == "console" else None
+            mi = excesso.get("modo_inicial") if tipo == "console" else None
             elementos.append(
                 ElementoCorpo(
                     id=elemento["id"],
@@ -480,6 +496,8 @@ def construir_modelo(tela_raw: dict, conteudo_externo=None) -> ModeloTela:
                     _campos_inertes=inertes,
                     parametros_tipo=params,
                     distribuicao_matricial=dm,
+                    politica_modo=pm,
+                    modo_inicial=mi,
                 )
             )
 

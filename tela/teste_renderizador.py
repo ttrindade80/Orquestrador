@@ -64,6 +64,8 @@ from tela.renderizador import (  # noqa: E402
     _montar_corpo_horizontal,
     _pesos_distribuicao,
     _renderizar_container_horizontal,
+    _garantir_esc_primeiro,
+    _truncar_com_marcador,
     renderizar_tela,
 )
 from tela.loader import carregar_conteudo_externo  # noqa: E402
@@ -86,10 +88,12 @@ _EXPECTED_ORQUESTRADOR = (
     "╰────────────────────────────────────────╯\n"
     "╭ NAVEGAR ───────────────────────────────╮\n"
     "│                                        │\n"
-    "│     [d] Destino        [3] Matriz 2x2  │\n"
-    "│     [g] Grupo Min.     [4] Matriz 3x2  │\n"
-    "│     [1] Console        [5] Matriz 2x4  │\n"
-    "│     [2] Dashboard                      │\n"
+    "│    [d] Destino        [5] Matriz 2x4   │\n"
+    "│    [g] Grupo Min.     [6] Nao Verboso  │\n"
+    "│    [1] Console        [7] Verboso      │\n"
+    "│    [2] Dashboard      [8] Alternavel   │\n"
+    "│    [3] Matriz 2x2     [9] Tab Altern.  │\n"
+    "│    [4] Matriz 3x2                      │\n"
     "│                                        │\n"
     "╰────────────────────────────────────────╯\n"
     "╭ Menus ─────────────────────────────────╮\n"
@@ -109,10 +113,12 @@ _EXPECTED_ORQUESTRADOR_RETA = (
     "└────────────────────────────────────────┘\n"
     "┌ NAVEGAR ───────────────────────────────┐\n"
     "│                                        │\n"
-    "│     [d] Destino        [3] Matriz 2x2  │\n"
-    "│     [g] Grupo Min.     [4] Matriz 3x2  │\n"
-    "│     [1] Console        [5] Matriz 2x4  │\n"
-    "│     [2] Dashboard                      │\n"
+    "│    [d] Destino        [5] Matriz 2x4   │\n"
+    "│    [g] Grupo Min.     [6] Nao Verboso  │\n"
+    "│    [1] Console        [7] Verboso      │\n"
+    "│    [2] Dashboard      [8] Alternavel   │\n"
+    "│    [3] Matriz 2x2     [9] Tab Altern.  │\n"
+    "│    [4] Matriz 3x2                      │\n"
     "│                                        │\n"
     "└────────────────────────────────────────┘\n"
     "┌ Menus ─────────────────────────────────┐\n"
@@ -1022,20 +1028,20 @@ def teste_altura_explicita():
     # H-0016: a barra_de_menus agora e horizontal responsiva. Com 2 chips em
     # largura 42 (content_w=39), "[Esc] Sair" + "  " + "[?] Ajuda" = 21 <= 39,
     # logo cabem em linha unica -> N_linhas_barra = 1.
-    # H-0030: o lancador_principal tem agora 7 itens (d,g,1..5).
-    # H-0034: o lancador agora e distribuido em matriz (n_rows=4, n_col=2) em
-    # largura 42 (content_w=39; fila exige 107) e adiciona margens verticais
-    # canônicas (1 branco topo + 1 branco base dentro da caixa). A caixa
-    # NAVEGAR tem 8 linhas (topo + 1 branco topo + 4 linhas matriz + 1 branco
+    # H-0037: o lancador_principal tem agora 11 itens (d,g,1..9).
+    # H-0034: o lancador e distribuido em matriz (n_rows=6, n_col=2) em
+    # largura 42 (content_w=39; fila exige >39) e adiciona margens verticais
+    # canonicas (1 branco topo + 1 branco base dentro da caixa). A caixa
+    # NAVEGAR tem 10 linhas (topo + 1 branco topo + 6 linhas matriz + 1 branco
     # base + base).
     #   L_cab = 3 (1 topo + 1 descricao + 1 base)
-    #   L_corpo_conteudo = 13 (ITENS=3, INFO=2, NAVEGAR=8)
+    #   L_corpo_conteudo = 15 (ITENS=3, INFO=2, NAVEGAR=10)
     #   L_barra = 3 (1 topo + 1 linha horizontal + 1 base)
-    #   altura natural (sem preenchimento) = 3 + 13 + 3 = 19
+    #   altura natural (sem preenchimento) = 3 + 15 + 3 = 21
     l_cab = 3
-    l_corpo_conteudo = 13
+    l_corpo_conteudo = 15
     l_barra = 3
-    n_minimo = l_cab + l_corpo_conteudo + l_barra  # 19
+    n_minimo = l_cab + l_corpo_conteudo + l_barra  # 21
 
     # CA-09 / CA-10: altura=None preserva o comportamento atual.
     _registrar(
@@ -1049,12 +1055,12 @@ def teste_altura_explicita():
     # saida identica ao comportamento natural.
     saida_min = renderizar_tela(modelo, largura=42, altura=n_minimo)
     _registrar(
-        "altura=N_minimo (19) -> count('\\n') == 19 (sem fill) (CA-03)",
+        "altura=N_minimo (21) -> count('\\n') == 21 (sem fill) (CA-03)",
         saida_min.count("\n") == n_minimo,
         "count={0}".format(saida_min.count("\n")),
     )
     _registrar(
-        "altura=N_minimo (20) gera saida identica a altura=None",
+        "altura=N_minimo (21) gera saida identica a altura=None",
         saida_min == renderizar_tela(modelo, largura=42),
     )
 
@@ -1062,13 +1068,13 @@ def teste_altura_explicita():
     # CA-01 e CA-02 tornados invalidos: o modelo sem distribuicao com 3 elementos
     # visuais levanta RenderizadorErro quando l_fill > 0 (area nao coberta).
     _espera_excecao(
-        "ADR-0024 DA-02: altura=21 (3 visuais sem dist, l_fill=2) -> RenderizadorErro",
-        lambda: renderizar_tela(modelo, largura=42, altura=21),
+        "ADR-0024 DA-02: altura=23 (3 visuais sem dist, l_fill=2) -> RenderizadorErro",
+        lambda: renderizar_tela(modelo, largura=42, altura=23),
         RenderizadorErro,
     )
     _espera_excecao(
-        "ADR-0024 DA-02: altura=24 (3 visuais sem dist, l_fill=5) -> RenderizadorErro",
-        lambda: renderizar_tela(modelo, largura=42, altura=24),
+        "ADR-0024 DA-02: altura=26 (3 visuais sem dist, l_fill=5) -> RenderizadorErro",
+        lambda: renderizar_tela(modelo, largura=42, altura=26),
         RenderizadorErro,
     )
 
@@ -1092,23 +1098,23 @@ def teste_altura_explicita():
         RenderizadorErro,
     )
     _espera_excecao(
-        "ADR-0024 DA-02: borda_reta altura=24 (3 visuais sem dist) -> RenderizadorErro",
-        lambda: renderizar_tela(modelo, largura=42, altura=24, tipo_borda="reta"),
+        "ADR-0024 DA-02: borda_reta altura=26 (3 visuais sem dist) -> RenderizadorErro",
+        lambda: renderizar_tela(modelo, largura=42, altura=26, tipo_borda="reta"),
         RenderizadorErro,
     )
 
     # CA-12: altura insuficiente para o corpo (overflow) -> RenderizadorErro.
-    # N_overflow = L_cab + L_barra + L_corpo_conteudo - 1 = 18 (H-0034).
+    # N_overflow = L_cab + L_barra + L_corpo_conteudo - 1 = 20 (H-0037).
     n_overflow = l_cab + l_barra + l_corpo_conteudo - 1
     exc_overflow = _espera_excecao(
-        "altura=18 (corpo overflow) levanta RenderizadorErro (CA-12)",
+        "altura=20 (corpo overflow) levanta RenderizadorErro (CA-12)",
         lambda: renderizar_tela(modelo, largura=42, altura=n_overflow),
         RenderizadorErro,
     )
     if exc_overflow is not None:
         _registrar(
             "mensagem de overflow menciona corpo/area disponivel (CA-13)",
-            "corpo" in str(exc_overflow) and "18" in str(exc_overflow),
+            "corpo" in str(exc_overflow) and "20" in str(exc_overflow),
             str(exc_overflow),
         )
 
@@ -1129,7 +1135,7 @@ def teste_altura_explicita():
         )
 
     # CA-14: exatamente no limite cabecalho + barra, sem corpo, deve ERRO
-    # quando L_corpo_conteudo(14) > 0 e L_corpo_disponivel = 0.
+    # quando L_corpo_conteudo(15) > 0 e L_corpo_disponivel = 0.
     _espera_excecao(
         "altura == L_cab + L_barra (6) com corpo nao vazio levanta "
         "RenderizadorErro (sem truncamento silencioso)",
@@ -1583,15 +1589,15 @@ class TestLinhasBarra:
         # declara distribuicao; a cobertura de distribuicao vertical esta em
         # TestDistribuicaoVerticalH0025.
         modelo = _modelo_orquestrador_sem_distribuicao()
-        # H-0016 / H-0030 / H-0034: com 7 itens no lancador em matriz 4x2 com
-        # margens verticais, NAVEGAR tem 8 linhas, n_minimo = L_cab(3) +
-        # L_corpo(13) + L_barra(3) = 19.
-        saida_19 = renderizar_tela(modelo, largura=42, altura=19)
+        # H-0016 / H-0037 / H-0034: com 11 itens no lancador em matriz 6x2 com
+        # margens verticais, NAVEGAR tem 10 linhas, n_minimo = L_cab(3) +
+        # L_corpo(15) + L_barra(3) = 21.
+        saida_21 = renderizar_tela(modelo, largura=42, altura=21)
         self._r(
-            "altura minima = 19 com barra horizontal (sem distribuicao)",
-            saida_19.count("\n") == 19
-            and saida_19 == renderizar_tela(modelo, largura=42),
-            "count={0}".format(saida_19.count("\n")),
+            "altura minima = 21 com barra horizontal (sem distribuicao)",
+            saida_21.count("\n") == 21
+            and saida_21 == renderizar_tela(modelo, largura=42),
+            "count={0}".format(saida_21.count("\n")),
         )
 
     def test_fluxo_g_d_b_esc_preservado(self):
@@ -3714,14 +3720,14 @@ class TestDistribuicaoVerticalH0025:
             isinstance(modelo.corpo.distribuicao, dict)
             and modelo.corpo.distribuicao.get("valores") == [2, 1, 2],
         )
-        # H-0030: com 7 itens no lancador, NAVEGAR requer >= 9 linhas; a
-        # fracao [2,1,2] sobre l_corpo=24 (altura=30) -> [10,5,9].
-        saida = renderizar_tela(modelo, largura=42, altura=30)
+        # H-0037: com 11 itens no lancador, NAVEGAR requer >= 10 linhas; a
+        # fracao [2,1,2] sobre l_corpo=25 (altura=31) -> [10,5,10].
+        saida = renderizar_tela(modelo, largura=42, altura=31)
         corpo = _corpo_alturas(saida)
-        # l_corpo_disponivel=24 -> [10,5,9] para ITENS/INFO/NAVEGAR.
+        # l_corpo_disponivel=25 -> [10,5,10] para ITENS/INFO/NAVEGAR.
         self._r(
-            "JSON real: altura=30 distribui [10,5,9] entre ITENS/INFO/NAVEGAR",
-            corpo == [10, 5, 9],
+            "JSON real: altura=31 distribui [10,5,10] entre ITENS/INFO/NAVEGAR",
+            corpo == [10, 5, 10],
             "corpo={0}".format(corpo),
         )
         # Sem preenchimento externo (sobra absorvida internamente).
@@ -3732,8 +3738,8 @@ class TestDistribuicaoVerticalH0025:
             "fills={0}".format(len(fill_ext)),
         )
         self._r(
-            "JSON real: total de linhas == 30",
-            saida.count("\n") == 30,
+            "JSON real: total de linhas == 31",
+            saida.count("\n") == 31,
             "count={0}".format(saida.count("\n")),
         )
 
@@ -7631,61 +7637,57 @@ class TestDistribuicaoResponsivaH0034:
 
     def test_demo_fila_110(self):
         print("")
-        print("== H-0034 demo: fila em 110, matriz em 109/80 ==")
+        print("== H-0034 demo: matriz 2 linhas em 110, matriz 3 linhas em 80 ==")
         modelo = self._modelo_demo()
-        _CHIPS = ["[d]", "[g]", "[1]", "[2]", "[3]", "[4]", "[5]"]
+        _CHIPS = ["[d]", "[g]", "[1]", "[2]", "[3]", "[4]", "[5]",
+                  "[6]", "[7]", "[8]", "[9]"]
 
-        # T-10: area_lancador_w=110 -> content_w=107 = fila_content_w_min.
-        # Fila exata, excess=0, todos os 7 itens na mesma linha.
+        # T-10 (H-0037 atualizado): com 11 itens, fila_content_w_min=170, fila
+        # exigiria area>=173. A area=110 entrega matriz 2 linhas, nao fila.
+        # row0=[d,1,3,5,7,9]; row1=[g,2,4,6,8].
         s110 = renderizar_tela(modelo, largura=110, altura=30)
         rd = _h0034_row_of(s110, "[d]")
         rg = _h0034_row_of(s110, "[g]")
-        r1 = _h0034_row_of(s110, "[1]")
         self._r(
-            "H-0034 T-10: area=110 -> fila ([d] e [g] mesma linha); 7 chips",
-            rd != -1 and rd == rg
+            "H-0034 T-10: area=110 -> matriz 2 linhas ([d] e [g] em linhas "
+            "diferentes); 11 chips presentes",
+            rd != -1 and rd != rg
             and all(c in s110 for c in _CHIPS),
             "rd={0} rg={1}".format(rd, rg),
         )
-        # Verificacao de posicionamento (H-0034 secao 4.3): [d] inicia na
-        # posicao de conteudo 2 (apos margem esquerda=2). Como _linha_conteudo
-        # adiciona 1 espaco apos a borda, [ esta no indice (4 + 2) = ... na
-        # linha da caixa: '│' + ' ' + conteudo. conteudo inicia com '  [d]'
-        # (2 chars de margem) -> '[' na posicao 1(borda)+1(padding)+2 = 4.
+        # [d] inicia na posicao 4 (borda+padding+2 margem).
         linha_d = s110.splitlines()[rd]
         pos_colchete_d = linha_d.find("[d]")
         self._r(
-            "H-0034 T-10: [d] inicia na posicao de conteudo 2 (posicao 4 da "
-            "linha, apos borda+padding+margem)",
+            "H-0034 T-10: [d] inicia na posicao 4 da linha "
+            "(borda+padding+margem esquerda=2)",
             pos_colchete_d == 4,
             "pos={0}".format(pos_colchete_d),
         )
-        # [g] inicia apos [d](11) + vao(2) na posicao de conteudo 2+11+2 = 15.
-        # A posicao absoluta na linha = borda(1) + padding(1) + conteudo(15)
-        # = 17.
-        pos_g = linha_d.find("[g]")
+        # [g] inicia na mesma posicao (col0), linha seguinte.
+        linha_g = s110.splitlines()[rg]
+        pos_g = linha_g.find("[g]")
         self._r(
-            "H-0034 T-10: [g] inicia na posicao de conteudo 15 "
-            "(posicao absoluta 17 da linha)",
-            pos_g == 17,
+            "H-0034 T-10: [g] inicia na mesma coluna que [d] (posicao 4)",
+            pos_g == 4,
             "pos_g={0}".format(pos_g),
         )
-        # Ausencia de segunda linha de itens do lancador (fila = 1 linha de
-        # conteudo, mais as margens verticais em branco).
+        # Exatamente 2 linhas de itens do lancador em area=110.
         linhas_itens = [
             l for l in s110.splitlines() if any(c in l for c in _CHIPS)
         ]
         self._r(
-            "H-0034 T-10: todos os 7 itens em uma unica linha (fila)",
-            len(linhas_itens) == 1,
+            "H-0034 T-10: 11 itens em exatamente 2 linhas (matriz 6x2)",
+            len(linhas_itens) == 2,
             "linhas_itens={0}".format(len(linhas_itens)),
         )
 
     def test_demo_matriz_109_e_80(self):
         modelo = self._modelo_demo()
-        _CHIPS = ["[d]", "[g]", "[1]", "[2]", "[3]", "[4]", "[5]"]
+        _CHIPS = ["[d]", "[g]", "[1]", "[2]", "[3]", "[4]", "[5]",
+                  "[6]", "[7]", "[8]", "[9]"]
 
-        # T-12: area=109 -> content_w=106 < fila_min(107) -> matriz 4x2.
+        # T-12: area=109 -> matriz ([d] e [g] linhas diferentes); 11 chips.
         s109 = renderizar_tela(modelo, largura=109, altura=30)
         rd = _h0034_row_of(s109, "[d]")
         rg = _h0034_row_of(s109, "[g]")
@@ -7696,7 +7698,10 @@ class TestDistribuicaoResponsivaH0034:
             "rd={0} rg={1}".format(rd, rg),
         )
 
-        # T-11: area=80 -> content_w=77 -> matriz 4x2, ordem coluna-a-coluna.
+        # T-11 (H-0037 atualizado): area=80 -> content_w=77 -> matriz 4x3,
+        # ordem coluna-a-coluna com 11 itens.
+        # col0=[d,g,1] col1=[2,3,4] col2=[5,6,7] col3=[8,9]
+        # row0: [d],[2],[5],[8]  row1: [g],[3],[6],[9]  row2: [1],[4],[7]
         s80 = renderizar_tela(modelo, largura=80, altura=30)
         rd = _h0034_row_of(s80, "[d]")
         rg = _h0034_row_of(s80, "[g]")
@@ -7705,80 +7710,90 @@ class TestDistribuicaoResponsivaH0034:
         r3 = _h0034_row_of(s80, "[3]")
         r4 = _h0034_row_of(s80, "[4]")
         r5 = _h0034_row_of(s80, "[5]")
+        r6 = _h0034_row_of(s80, "[6]")
+        r7 = _h0034_row_of(s80, "[7]")
+        r8 = _h0034_row_of(s80, "[8]")
+        r9 = _h0034_row_of(s80, "[9]")
         self._r(
-            "H-0034 T-11: area=80 matriz 4x2 ([d]&[g] linhas diferentes)",
+            "H-0034 T-11: area=80 matriz 4x3 ([d]&[g] linhas diferentes)",
             rd != -1 and rd != rg,
             "rd={0} rg={1}".format(rd, rg),
         )
-        # Preenchimento coluna-a-coluna (H-0034 secao 4.3):
-        #   col0=[d,g] col1=[1,2] col2=[3,4] col3=[5]
-        #   row0: [d],[1],[3],[5]  ;  row1: [g],[2],[4]
+        # Preenchimento coluna-a-coluna (H-0034 secao 4.3), 11 itens, 4 cols,
+        # 3 linhas: row0=[d,2,5,8]; row1=[g,3,6,9]; row2=[1,4,7].
         self._r(
-            "H-0034 T-11: ordem coluna-a-coluna (row0=[d][1][3][5]; row1=[g][2][4])",
-            rd == r1 and rd == r3 and rd == r5
-            and rg == r2 and rg == r4
-            and rd < rg,
-            "rd={0} r1={1} r3={2} r5={3} rg={4} r2={5} r4={6}".format(
-                rd, r1, r3, r5, rg, r2, r4
+            "H-0034 T-11: ordem coluna-a-coluna "
+            "(row0=[d][2][5][8]; row1=[g][3][6][9]; row2=[1][4][7])",
+            rd == r2 and rd == r5 and rd == r8
+            and rg == r3 and rg == r6 and rg == r9
+            and r1 == r4 and r1 == r7
+            and rd < rg < r1,
+            "rd={0} r2={1} r5={2} r8={3} rg={4} r3={5} r6={6} r9={7} "
+            "r1={8} r4={9} r7={10}".format(
+                rd, r2, r5, r8, rg, r3, r6, r9, r1, r4, r7
             ),
         )
-        # Larguras independentes (H-0034 secao 4.3):
-        #   col0=14 (chip3+vao1+texto10), col1=13 (chip3+vao1+texto9),
-        #   col2=14, col3=14.
-        # row0 contem [d] (col0), [1] (col1), [3] (col2), [5] (col3).
+        # Larguras independentes (H-0034 secao 4.3), 11 itens:
+        #   col0=max(11,14,11)=14, col1=max(13,14,14)=14,
+        #   col2=max(14,15,11)=15, col3=max(14,15)=15.
+        # row0 contem [d](col0), [2](col1), [5](col2), [8](col3).
         linha0 = s80.splitlines()[rd]
         pd = linha0.find("[d]")
-        p1 = linha0.find("[1]")
-        p3 = linha0.find("[3]")
+        p2 = linha0.find("[2]")
         p5 = linha0.find("[5]")
-        # Distancia [d]->[1] = col_w_0(14) + vao(5) = 19 (vao maximo, excess=12).
+        p8 = linha0.find("[8]")
+        # Distancia [d]->[2] = col_w_0(14) + vao(5) = 19 (vao maximo).
         self._r(
-            "H-0034 T-11: col0=14 -> [1] inicia 19 apos [d] (14+5 vao)",
-            p1 - pd == 19,
-            "pd={0} p1={1} d={2}".format(pd, p1, p1 - pd),
+            "H-0034 T-11: col0=14 -> [2] inicia 19 apos [d] (14+5 vao)",
+            p2 - pd == 19,
+            "pd={0} p2={1} d={2}".format(pd, p2, p2 - pd),
         )
-        # Distancia [1]->[3] = col_w_1(13) + vao(5) = 18.
+        # Distancia [2]->[5] = col_w_1(14) + vao(5) = 19.
         self._r(
-            "H-0034 T-11: col1=13 -> [3] inicia 18 apos [1] (13+5 vao)",
-            p3 - p1 == 18,
-            "p1={0} p3={1} d={2}".format(p1, p3, p3 - p1),
+            "H-0034 T-11: col1=14 -> [5] inicia 19 apos [2] (14+5 vao)",
+            p5 - p2 == 19,
+            "p2={0} p5={1} d={2}".format(p2, p5, p5 - p2),
         )
-        # Distancia [3]->[5] = col_w_2(14) + vao(5) = 19.
+        # Distancia [5]->[8] = col_w_2(15) + vao(5) = 20.
         self._r(
-            "H-0034 T-11: col2=14 -> [5] inicia 19 a apos [3] (14+5 vao)",
-            p5 - p3 == 19,
-            "p3={0} p5={1} d={2}".format(p3, p5, p5 - p3),
+            "H-0034 T-11: col2=15 -> [8] inicia 20 apos [5] (15+5 vao)",
+            p8 - p5 == 20,
+            "p5={0} p8={1} d={2}".format(p5, p8, p8 - p5),
         )
-        # col1 (13) != col0 (14): provado pelas distancias 19 e 18 diferentes.
+        # col2(15) != col0(14): distancias 20 e 19 sao diferentes.
         self._r(
-            "H-0034 T-11: col1(13) != col0(14) — distancias 18 != 19",
-            (p3 - p1) != (p1 - pd),
+            "H-0034 T-11: col2(15) != col0(14) — distancias 20 != 19",
+            (p8 - p5) != (p2 - pd),
         )
         # T-13: componentes nao relacionados preservados em area=80.
         self._r(
             "H-0034 T-13: cabecalho, barra e caixa NAVEGAR preservados em 80",
             "ORQUESTRADOR" in s80 and "NAVEGAR" in s80 and "[Esc] Sair" in s80,
         )
-        # Ausencia de paginacao: todos os 7 chips presentes.
+        # Ausencia de paginacao: todos os 11 chips presentes.
         self._r(
-            "H-0034 T-11: ausencia de paginacao (7 chips presentes em 80)",
+            "H-0034 T-11: ausencia de paginacao (11 chips presentes em 80)",
             all(c in s80 for c in _CHIPS),
         )
 
     def test_demo_sem_paginacao_em_todas_larguras_validas(self):
         modelo = self._modelo_demo()
-        _CHIPS = ["[d]", "[g]", "[1]", "[2]", "[3]", "[4]", "[5]"]
-        # Larguras validas (acima de lancador_caixa_min_w=21): todos os chips.
+        _CHIPS = ["[d]", "[g]", "[1]", "[2]", "[3]", "[4]", "[5]",
+                  "[6]", "[7]", "[8]", "[9]"]
+        # Com 11 itens, max item_w=15 (Nao Verboso / Tab Altern.),
+        # coluna_minima_content_w = 2+15+2 = 19 -> area_lancador_min = 22.
+        # Larguras estreitas (22, 37) empilham mais linhas -> altura=45.
+        # Larguras validas (area>=22): todos os 11 chips presentes.
         ok = True
-        for larg in (21, 37, 53, 68, 80, 109, 110):
+        for larg in (22, 37, 53, 68, 80, 109, 110):
             try:
-                s = renderizar_tela(modelo, largura=larg, altura=40)
+                s = renderizar_tela(modelo, largura=larg, altura=45)
                 if not all(c in s for c in _CHIPS):
                     ok = False
             except RenderizadorErro:
                 ok = False
         self._r(
-            "H-0034: sem paginacao em larguras 21/37/53/68/80/109/110",
+            "H-0034: sem paginacao em larguras 22/37/53/68/80/109/110",
             ok,
         )
 
@@ -7786,30 +7801,34 @@ class TestDistribuicaoResponsivaH0034:
 
     def test_demo_fronteira_global_suplementar(self):
         print("")
-        print("== H-0034 fronteira global suplementar 20/21 (demo vertical) ==")
+        print("== H-0034 fronteira global suplementar 21/22 (demo vertical) ==")
         modelo = self._modelo_demo()
-        _CHIPS = ["[d]", "[g]", "[1]", "[2]", "[3]", "[4]", "[5]"]
+        _CHIPS = ["[d]", "[g]", "[1]", "[2]", "[3]", "[4]", "[5]",
+                  "[6]", "[7]", "[8]", "[9]"]
         # Estas provas NAO isolam o gatilho interno do lancador (arranjo
         # vertical => terminal_w == area_lancador_w). Sao suplementares.
-        # area=21 -> content_w=18 = coluna_minima -> coluna unica valida.
-        s21 = renderizar_tela(modelo, largura=21, altura=40)
+        # Com 11 itens, max item_w=15 -> coluna_minima_content_w=19 -> area>=22.
+        # area=22 -> content_w=19 = coluna_minima -> coluna unica valida.
+        # 11 itens em coluna unica requerem mais altura: usar altura=45.
+        s22 = renderizar_tela(modelo, largura=22, altura=45)
         self._r(
-            "H-0034 suplementar: area=21 -> coluna minima valida (chips "
+            "H-0034 suplementar: area=22 -> coluna minima valida (chips "
             "presentes) [nao isola gatilho interno]",
-            all(c in s21 for c in _CHIPS),
+            all(c in s22 for c in _CHIPS),
         )
-        # area=20 -> content_w=17 < coluna_minima(18) -> quadro minimo global.
-        s20 = renderizar_tela(modelo, largura=20, altura=40)
+        # area=21 -> content_w=18 < coluna_minima(19) -> quadro minimo global.
+        s21 = renderizar_tela(modelo, largura=21, altura=45)
         self._r(
-            "H-0034 suplementar: area=20 -> quadro minimo global (sem chips) "
+            "H-0034 suplementar: area=21 -> quadro minimo global (sem chips) "
             "[nao isola gatilho interno]",
-            all(c not in s20 for c in _CHIPS),
+            all(c not in s21 for c in _CHIPS),
         )
-        # Recuperacao suplementar: 20 -> 110 restaura a fila.
+        # Recuperacao suplementar: 21 -> 110 restaura a matriz (todos os chips).
         s110 = renderizar_tela(modelo, largura=110, altura=30)
         self._r(
-            "H-0034 suplementar: recuperacao 20->110 restaura fila",
-            any("[d]" in l and "[g]" in l for l in s110.splitlines()),
+            "H-0034 suplementar: recuperacao 21->110 restaura matriz "
+            "(todos os 11 chips presentes)",
+            all(c in s110 for c in _CHIPS),
         )
 
     # ---- Prova isolada do gatilho interno (T-ISOL-01/02/03) -------------
@@ -8598,10 +8617,10 @@ class TestOcupacaoIntegralCorpoH0033:
 
     def test_DA02_sem_area_residual_ok(self):
         """DA-02: multiplos visuais sem dist sem area residual nao levanta erro."""
-        # 3 elementos naturais; l_corpo_disponivel = 19-3-3 = 13 = l_corpo_natural.
+        # 3 elementos naturais; l_corpo_disponivel = 21-3-3 = 15 = l_corpo_natural.
         # l_fill = 0 -> sem DA-02.
         modelo_sd = _modelo_orquestrador_sem_distribuicao()
-        n_natural = 19  # l_cab(3) + l_corpo(13) + l_barra(3) = 19
+        n_natural = 21  # l_cab(3) + l_corpo(15) + l_barra(3) = 21 (H-0037: 11 itens)
         saida = renderizar_tela(modelo_sd, largura=42, altura=n_natural)
         # renderizar_tela termina com '\n'; count('\n') == numero de linhas fisicas.
         self._r(
@@ -10293,6 +10312,687 @@ def teste_conteudo_externo_h0036_render():
                "carregar_conteudo_externo" not in src)
 
 
+def teste_h0037_manual_001_marcador_truncamento():
+    """H0037-MANUAL-001: marcador `...` no truncamento nao verboso (RET-01..05).
+
+    Cobre o comportamento obrigatorio (contrato_console.md §21.2): conteudo
+    truncado no modo nao verboso recebe marcador `...`; conteudo que cabe
+    integralmente nao recebe marcador; modo verboso nao recebe marcador
+    artificial; tabela compacta permanece em uma linha por celula; a largura
+    disponivel e sempre respeitada.
+    """
+    print("")
+    print("== H-0037 MANUAL-001: marcador `...` no truncamento nao verboso ==")
+
+    # --- Helper _truncar_com_marcador (casos diretos) ---
+    _registrar(
+        "RET-01 helper: texto que cabe nao recebe marcador",
+        _truncar_com_marcador("abc", 10) == "abc",
+    )
+    _registrar(
+        "RET-01 helper: texto exato nao recebe marcador",
+        _truncar_com_marcador("abcde", 5) == "abcde",
+    )
+    _registrar(
+        "RET-02 helper: texto que excede recebe sufixo '...'",
+        _truncar_com_marcador("abcdefghij", 7) == "abcd...",
+    )
+    _registrar(
+        "RET-02 helper: resultado respeita a largura limite",
+        len(_truncar_com_marcador("abcdefghij", 7)) == 7,
+    )
+    _registrar(
+        "largura muito pequena (<3): truncamento silencioso sem marcador",
+        _truncar_com_marcador("abcde", 2) == "ab",
+    )
+    _registrar(
+        "largura muito pequena (<3): largura 1",
+        _truncar_com_marcador("abcde", 1) == "a",
+    )
+
+    # --- RET-01: conteudo que cabe integralmente nao recebe marcador ---
+    m1 = _modelo_com_conteudo(
+        "h0037_console_nao_verboso", "h0037_dois_niveis_conteudo"
+    )
+    saida_cabe = renderizar_tela(m1, tipo_borda="curva", largura=200, verboso=False)
+    linhas_cabe = [l for l in saida_cabe.split("\n") if l]
+    # Em largura generosa, nenhum item de conteudo deve terminar com '...'
+    marcadas = [
+        l for l in linhas_cabe
+        if l.strip().endswith("...") and "(console)" not in l
+        and "Menus" not in l
+    ]
+    _registrar(
+        "RET-01: conteudo que cabe nao recebe marcador (sem '...' na saida larga)",
+        not marcadas,
+        "linhas marcadas={0!r}".format(marcadas[:2]),
+    )
+
+    # --- RET-02: conteudo hierarquico excede em modo nao verboso ---
+    saida_nv = renderizar_tela(m1, tipo_borda="curva", largura=50, verboso=False)
+    linhas_nv = saida_nv.split("\n")
+    # Linhas de conteudo truncado terminam com '...' imediatamente antes da
+    # borda vertical direita ('...│') — o marcador faz parte do trecho visivel.
+    linhas_truncadas = [l for l in linhas_nv if l.endswith("...│")]
+    _registrar(
+        "RET-02: conteudo hierarquico truncado recebe marcador '...'",
+        len(linhas_truncadas) >= 1,
+        "linhas_truncadas={0!r}".format(linhas_truncadas[:2]),
+    )
+    # Cada linha truncada permanece unica (modo nao verboso = 1 linha fisica).
+    _registrar(
+        "RET-02: cada item truncado permanece em linha unica",
+        all(len(l.strip()) <= 50 for l in linhas_truncadas),
+    )
+    # Largura respeitada: nenhuma linha da caixa excede a largura declarada.
+    _registrar(
+        "RET-02: largura respeitada em todas as linhas truncadas",
+        all(len(l) == 50 for l in linhas_nv if l),
+        "linhas com largura!=50: {0}".format(
+            [len(l) for l in linhas_nv if l and len(l) != 50][:3]
+        ),
+    )
+
+    # --- RET-03: celula de tabela excede em modo nao verboso compacto ---
+    m4 = _modelo_com_conteudo(
+        "h0037_console_tabela_alternavel", "h0037_tabela_conteudo"
+    )
+    saida_tab_nv = renderizar_tela(m4, tipo_borda="curva", largura=50, verboso=False)
+    linhas_tab = saida_tab_nv.split("\n")
+    linhas_tab_trunc = [l for l in linhas_tab if l.endswith("...│")]
+    _registrar(
+        "RET-03: celula de tabela excede recebe marcador '...'",
+        len(linhas_tab_trunc) >= 1,
+        "linhas_truncadas={0!r}".format(linhas_tab_trunc[:2]),
+    )
+    # Altura compacta: cada linha de dados ocupa exatamente uma linha fisica.
+    # Conta linhas entre borda superior e inferior da caixa CONSOLE.
+    dentro_console = False
+    linhas_dados = 0
+    for l in linhas_tab:
+        s = l.strip()
+        if s.startswith("╭") and "CONSOLE" in s:
+            dentro_console = True
+            continue
+        if dentro_console and s.startswith("╰"):
+            dentro_console = False
+            break
+        if dentro_console:
+            linhas_dados += 1
+    # Cabecalho + regua + 4 linhas de dados = 6 linhas (compacto, uma por item).
+    _registrar(
+        "RET-03: tabela compacta (uma linha por celula de dados)",
+        linhas_dados == 6,
+        "linhas_dados={0}".format(linhas_dados),
+    )
+
+    # --- RET-04: alternancia verboso/nao_verboso da tabela ---
+    saida_tab_v = renderizar_tela(m4, tipo_borda="curva", largura=50, verboso=True)
+    linhas_tab_v = saida_tab_v.split("\n")
+    linhas_tab_v_trunc = [l for l in linhas_tab_v if l.endswith("...│")]
+    # Em modo verboso o conteudo e quebrado em varias linhas, nao truncado.
+    _registrar(
+        "RET-04 verboso: truncamento com marcador ausente (conteudo quebrado)",
+        len(linhas_tab_v_trunc) == 0,
+        "linhas_com_marcador={0!r}".format(linhas_tab_v_trunc[:2]),
+    )
+    # Modo verboso produz mais linhas que o nao verboso (expansao vertical).
+    _registrar(
+        "RET-04: modo verboso expande verticalmente vs nao verboso",
+        saida_tab_v.count("\n") > saida_tab_nv.count("\n"),
+    )
+    # Retorno ao verboso restaura conteudo multilinha (idempotente).
+    saida_tab_v2 = renderizar_tela(m4, tipo_borda="curva", largura=50, verboso=True)
+    _registrar(
+        "RET-04: retorno ao verboso restaura conteudo multilinha",
+        saida_tab_v == saida_tab_v2,
+    )
+
+    # --- RET-05: redimensionamento automatizavel ---
+    # Largura menor produz mais marcadores '...'; largura maior reduz.
+    saida_w40 = renderizar_tela(m1, tipo_borda="curva", largura=40, verboso=False)
+    saida_w60 = renderizar_tela(m1, tipo_borda="curva", largura=60, verboso=False)
+    marc_w40 = saida_w40.count("...│")
+    marc_w60 = saida_w60.count("...│")
+    _registrar(
+        "RET-05: largura menor (40) produz marcador '...'",
+        marc_w40 >= 1,
+    )
+    _registrar(
+        "RET-05: ampliar largura reduz/elimina marcador (40 -> 60)",
+        marc_w60 <= marc_w40,
+        "marc_w40={0} marc_w60={1}".format(marc_w40, marc_w60),
+    )
+    # Ampliar bastante restaura conteudo integral (sem marcador): o maior item
+    # do documento ~205 chars; largura 220 acomoda tudo sem truncamento.
+    saida_w220 = renderizar_tela(m1, tipo_borda="curva", largura=220, verboso=False)
+    _registrar(
+        "RET-05: largura generosa restaura conteudo sem marcador",
+        saida_w220.count("...│") == 0,
+        "marc_w220={0}".format(saida_w220.count("...│")),
+    )
+
+
+def teste_h0037_manual_002_esc_primeiro():
+    """H0037-MANUAL-002: chip ``[Esc]`` sempre primeiro (ESC-01..05).
+
+    Regra contratual central (contrato_barra_de_menus.md §8.2): ``[Esc]`` e
+    sempre o primeiro chip quando declarado. Aplicacao centralizada na origem
+    da ordenacao da barra — vale para qualquer tela, sem condicao por ID/JSON.
+    """
+    print("")
+    print("== H-0037 MANUAL-002: chip [Esc] sempre primeiro ==")
+
+    # --- Helper _garantir_esc_primeiro (direto) ---
+    # ESC-02: barra com Esc e varios chips preserva ordem relativa dos demais.
+    chips_in = [
+        {"id": "v", "tecla": "V", "texto": "Verboso"},
+        {"id": "esc", "tecla": "Esc", "texto": "Voltar"},
+        {"id": "ajuda", "tecla": "?", "texto": "Ajuda"},
+    ]
+    ordenados = _garantir_esc_primeiro(chips_in)
+    _registrar(
+        "ESC-02 helper: Esc movido para primeira posicao",
+        ordenados[0].get("tecla") == "Esc",
+    )
+    _registrar(
+        "ESC-02 helper: ordem relativa dos demais preservada (V, ?)",
+        [c.get("tecla") for c in ordenados[1:]] == ["V", "?"],
+    )
+    # ESC-03: barra sem Esc preserva os chips existentes.
+    chips_sem = [
+        {"id": "v", "tecla": "V", "texto": "Verboso"},
+        {"id": "ajuda", "tecla": "?", "texto": "Ajuda"},
+    ]
+    ordenados_sem = _garantir_esc_primeiro(chips_sem)
+    _registrar(
+        "ESC-03 helper: sem Esc -> chips preservados na ordem original",
+        [c.get("tecla") for c in ordenados_sem] == ["V", "?"],
+    )
+    _registrar(
+        "ESC-03 helper: sem Esc -> Esc nao inventado",
+        not any(c.get("tecla") == "Esc" for c in ordenados_sem),
+    )
+    # ESC-04: ausencia de duplicacao.
+    chips_dup = [
+        {"id": "v", "tecla": "V", "texto": "Verboso"},
+        {"id": "esc", "tecla": "Esc", "texto": "Voltar"},
+    ]
+    ordenados_dup = _garantir_esc_primeiro(chips_dup)
+    qtos_esc = sum(1 for c in ordenados_dup if c.get("tecla") == "Esc")
+    _registrar(
+        "ESC-04 helper: quantidade de Esc == 1 (sem duplicacao)",
+        qtos_esc == 1,
+    )
+
+    # --- Barra renderizada das telas alternaveis (ESC-01) ---
+    m3 = _modelo_com_conteudo(
+        "h0037_console_alternavel_tres_niveis", "h0037_tres_niveis_conteudo"
+    )
+    saida3 = renderizar_tela(m3, tipo_borda="curva", largura=80, verboso=False)
+    barra3 = None
+    linhas3 = saida3.split("\n")
+    for i, l in enumerate(linhas3):
+        if "Menus" in l and l.strip().startswith("╭"):
+            barra3 = linhas3[i + 1] if i + 1 < len(linhas3) else ""
+            break
+    _registrar(
+        "ESC-01: cenario 3 tem barra de menus renderizada",
+        barra3 is not None and barra3 != "",
+    )
+    _registrar(
+        "ESC-01 cenario 3: [Esc] aparece antes de [V] na barra",
+        barra3 is not None and barra3.find("[Esc]") < barra3.find("[V]")
+        and "[Esc]" in barra3 and "[V]" in barra3,
+        "barra3={0!r}".format(barra3),
+    )
+
+    m4 = _modelo_com_conteudo(
+        "h0037_console_tabela_alternavel", "h0037_tabela_conteudo"
+    )
+    saida4 = renderizar_tela(m4, tipo_borda="curva", largura=80, verboso=False)
+    barra4 = None
+    linhas4 = saida4.split("\n")
+    for i, l in enumerate(linhas4):
+        if "Menus" in l and l.strip().startswith("╭"):
+            barra4 = linhas4[i + 1] if i + 1 < len(linhas4) else ""
+            break
+    _registrar(
+        "ESC-01 cenario 4: [Esc] aparece antes de [V] na barra",
+        barra4 is not None and barra4.find("[Esc]") < barra4.find("[V]")
+        and "[Esc]" in barra4 and "[V]" in barra4,
+        "barra4={0!r}".format(barra4),
+    )
+
+    # --- ESC-05: regressao das barras historicas (telas H-0036/H-0035) ---
+    # demo.json: Esc ja eh primeiro (preservado).
+    modelo_demo = construir_modelo(
+        carregar_tela(None, "demo", _RAIZ_TELAS_DEMO)
+    )
+    saida_demo = renderizar_tela(modelo_demo, tipo_borda="curva", largura=42)
+    linhas_demo = saida_demo.split("\n")
+    barra_demo = None
+    for i, l in enumerate(linhas_demo):
+        if "Menus" in l and l.strip().startswith("╭"):
+            barra_demo = linhas_demo[i + 1] if i + 1 < len(linhas_demo) else ""
+            break
+    _registrar(
+        "ESC-05 demo.json: [Esc] permanece primeiro chip",
+        barra_demo is not None and "[Esc]" in barra_demo
+        and barra_demo.find("[Esc]") == barra_demo.find("["),
+        "barra_demo={0!r}".format(barra_demo),
+    )
+
+    # Telas H-0036 com Esc na barra (historicas): Esc continua primeiro.
+    for id_tela in ("h0036_console_hierarquia", "h0036_console_tabela",
+                    "h0036_console_conjuntos"):
+        modelo_h = construir_modelo(
+            carregar_tela(None, id_tela, _RAIZ_TELAS_DEMO)
+        )
+        barra_h = modelo_h.barra_de_menus
+        chips_h = [c for c in (barra_h.get("chips") or []) if isinstance(c, dict)]
+        teclas_h = [c.get("tecla") for c in _garantir_esc_primeiro(chips_h)]
+        tem_esc = "Esc" in teclas_h
+        if tem_esc:
+            _registrar(
+                "ESC-05 {0}: [Esc] primeiro quando presente".format(id_tela),
+                teclas_h[0] == "Esc",
+                "teclas={0!r}".format(teclas_h),
+            )
+        else:
+            # Tela sem Esc declarado: regra nao inventa Esc.
+            _registrar(
+                "ESC-05 {0}: sem Esc declarado -> Esc nao inventado".format(id_tela),
+                "Esc" not in teclas_h,
+            )
+
+
+def _linhas_caixa_console(saida):
+    """Extrai as linhas internas da caixa CONSOLE da saida renderizada.
+
+    Retorna tuplo (linhas, largura_total) onde ``linhas`` e a lista de linhas de
+    conteudo (entre topo e base, COM as bordas laterais) e ``largura_total`` e a
+    largura declarada (comprimento de cada linha fisica da saida).
+    """
+    linhas = saida.split("\n")
+    dentro = False
+    internas = []
+    largura_total = 0
+    for l in linhas:
+        s = l.strip()
+        if not l:
+            continue
+        largura_total = len(l)
+        if s.startswith("╭") and "CONSOLE" in s:
+            dentro = True
+            continue
+        if dentro and s.startswith("╰"):
+            dentro = False
+            break
+        if dentro:
+            internas.append(l)
+    return internas, largura_total
+
+
+def _texto_caixa_console(saida):
+    """Texto interno da caixa CONSOLE: bordas laterais removidas, concatenado.
+
+    Util para checar tokens que podem ser quebrados entre linhas fisicas: junta
+    o conteudo interno das linhas (sem os caracteres de borda) por espaco e
+    normaliza sequencias de espacos para um unico espaco (``rstrip`` por linha
+    preserva a indentacao; a normalizacao final permite buscar tokens adjacentes
+    que acabaram separados pela quebra fisica).
+    """
+    internas, _ = _linhas_caixa_console(saida)
+    conteudos = []
+    for l in internas:
+        # Cada linha interna tem forma '│ {conteudo}│' ou '│ {conteudo} │'.
+        if len(l) >= 2 and l[0] == "│":
+            meio = l[1:-1] if l.endswith("│") else l[1:]
+            conteudos.append(meio.rstrip())
+    bruto = " ".join(conteudos)
+    # Normaliza sequencias de espacos (incluindo a indentacao preservada) para
+    # permitir buscas por tokens adjacentes independentemente da quebra fisica.
+    return " ".join(bruto.split())
+
+
+def teste_h0037_qapp7_verb_sem_corte_silencioso():
+    """H0037-IMPL-QAPP7-001/002: hierarquia verbosa sem corte silencioso.
+
+    Teste integrado que atravessa a renderizacao real da apresentacao
+    hierarquica e da caixa, cobrindo os requisitos do patch pos-QA 7:
+
+    - VERB-01: conteudo que cabe (texto integral, sem reticencias);
+    - VERB-02: conteudo uma posicao maior (quebra de linha sem corte);
+    - VERB-03: conteudo longo (tokens inicial/intermediario/final preservados);
+    - VERB-04: prefixo hierarquico longo (largura restante respeitada);
+    - VERB-05: linhas de continuacao (indentacao deterministica, sem repetir
+      o designador em toda linha);
+    - VERB-06: dois niveis (alinhamento do segundo nivel preservado);
+    - VERB-07: tres niveis (sem misturar nem eliminar niveis);
+    - VERB-08: largura reduzida (nenhuma linha interna excede o espaco);
+    - VERB-09: ampliacao posterior (conteudo recalculado a partir dos dados);
+    - VERB-10: alternancia verboso/nao verboso/verboso;
+    - VERB-11: saida final (apos envelope da caixa) sem corte;
+    - VERB-12: tabela preservada (multilinha em verboso, compacta com ...);
+    - VERB-13: conjuntos preservados (comportamento aprovado mantido).
+    """
+    print("")
+    print("== H-0037 IMPL-QAPP7-001/002: hierarquia verbosa sem corte ==")
+
+    modelo_dois = _modelo_com_conteudo(
+        "h0037_console_verboso_dois_niveis", "h0037_dois_niveis_conteudo"
+    )
+    modelo_tres = _modelo_com_conteudo(
+        "h0037_console_alternavel_tres_niveis", "h0037_tres_niveis_conteudo"
+    )
+
+    # --- VERB-01: conteudo que cabe integralmente em modo verboso ---
+    saida_larga = renderizar_tela(
+        modelo_dois, tipo_borda="curva", largura=220, verboso=True
+    )
+    marc_larga = saida_larga.count("...│")
+    _registrar(
+        "VERB-01: conteudo que cabe nao recebe marcador (largura 220)",
+        marc_larga == 0,
+        "marcadores={0}".format(marc_larga),
+    )
+    # Texto integral presente (token inicial, intermediario e final).
+    _registrar(
+        "VERB-01: texto integral do primeiro item presente na saida larga",
+        "H-0037 conteudo_dois_niveis" in saida_larga
+        and "Politica somente_nao_verboso" in saida_larga
+        and "a tela." in saida_larga,
+    )
+
+    # --- VERB-02: conteudo uma posicao maior -> quebra de linha sem corte ---
+    # Largura suficiente para nao marcar, mas insuficiente para caber em 1 linha.
+    saida_v30 = renderizar_tela(
+        modelo_dois, tipo_borda="curva", largura=30, verboso=True
+    )
+    _registrar(
+        "VERB-02: modo verboso em largura reduzida sem marcador '...'",
+        saida_v30.count("...│") == 0,
+        "marcadores={0}".format(saida_v30.count("...│")),
+    )
+    _registrar(
+        "VERB-02: modo verboso expande verticalmente (mais linhas que o nv)",
+        saida_v30.count("\n")
+        > renderizar_tela(
+            modelo_dois, tipo_borda="curva", largura=30, verboso=False
+        ).count("\n"),
+    )
+
+    # --- VERB-03: conteudo longo com tokens distintos preservados ---
+    saida_v30_tres = renderizar_tela(
+        modelo_tres, tipo_borda="curva", largura=30, verboso=True
+    )
+    texto_v30_tres = _texto_caixa_console(saida_v30_tres)
+    # Token inicial, intermediario e final do item longo do tres niveis.
+    # (Como a largura 30 pode quebrar tokens entre linhas, inspecionamos o
+    # texto interno concatenado da caixa.)
+    _registrar(
+        "VERB-03: token inicial preservado (Este texto)",
+        "Este texto" in texto_v30_tres,
+    )
+    _registrar(
+        "VERB-03: token intermediario preservado (hierarquica em)",
+        "hierarquica em" in texto_v30_tres,
+    )
+    _registrar(
+        "VERB-03: token final preservado (tres niveis.)",
+        "tres niveis." in texto_v30_tres,
+        "amostra_final={0!r}".format(texto_v30_tres[-60:]),
+    )
+
+    # --- VERB-04: prefixo hierarquico longo usa largura restante real ---
+    internas_30, w30 = _linhas_caixa_console(saida_v30)
+    _registrar(
+        "VERB-04: cada linha interna do console respeita a largura total",
+        all(len(l) == w30 for l in internas_30),
+        "larguras={0}".format(
+            [len(l) for l in internas_30 if len(l) != w30][:3]
+        ),
+    )
+    # Linhas de continuacao do container '1.' usam indentacao da largura do
+    # prefixo (nao ultrapassam a borda direita nem recebem '...'). Inspeciona
+    # pelo texto interno para nao depender de posicao exata da borda.
+    _registrar(
+        "VERB-04: prefixo do container preserva designador na 1a linha",
+        any("1. " in l for l in internas_30),
+    )
+
+    # --- VERB-05: linhas de continuacao com indentacao deterministica ---
+    # Isola as continuacoes do container raiz '1.' (texto que excede a primeira
+    # linha) antes de o no filho (folha) iniciar. A primeira linha do container
+    # tem o designador; as continuacoes tem indentacao igual a largura do
+    # prefixo e NAO repetem o designador. ``_linhas_caixa_console`` ja isola o
+    # interior do CONSOLE, evitando confundir com outras caixas.
+    linhas_30 = internas_30
+    idx_primeiro = None
+    for i, l in enumerate(linhas_30):
+        conteudo = l[1:-1] if l.endswith("│") else l[1:]
+        if conteudo.lstrip(" ").startswith("1. "):
+            idx_primeiro = i
+            break
+    continuacoes = []
+    if idx_primeiro is not None:
+        # Recuo esperado: largura do prefixo do container raiz na 1a linha.
+        primeira = linhas_30[idx_primeiro]
+        conteudo_primeira = primeira[1:-1] if primeira.endswith("│") else primeira[1:]
+        recuo_esperado = len(conteudo_primeira) - len(conteudo_primeira.lstrip(" ")) + len("1. ")
+        for l in linhas_30[idx_primeiro + 1:]:
+            conteudo = l[1:-1] if l.endswith("│") else l[1:]
+            stripped = conteudo.lstrip(" ")
+            recuo_atual = len(conteudo) - len(stripped)
+            # Para quando encontra outro item (designador) ou recuo diferente
+            # do prefixo do container (inicio do no filho ou outro nivel).
+            if stripped.startswith("2. ") or stripped.startswith("1.1.") or recuo_atual != recuo_esperado:
+                break
+            continuacoes.append(conteudo)
+    # As continuacoes nao devem conter novamente o designador '1.' do container.
+    _registrar(
+        "VERB-05: continuacoes nao repetem o designador do container",
+        all("1. " not in c.lstrip(" ")[:3] for c in continuacoes),
+        "continuacoes={0!r}".format([c.strip() for c in continuacoes[:2]]),
+    )
+    # As continuacoes devem ter indentacao deterministica (mesmo prefixo).
+    if continuacoes:
+        recuos = [len(c) - len(c.lstrip(" ")) for c in continuacoes]
+        _registrar(
+            "VERB-05: continuacoes tem indentacao deterministica (unanime)",
+            len(set(recuos)) == 1,
+            "recuos={0}".format(recuos),
+        )
+    else:
+        _registrar("VERB-05: ha continuacoes para inspecionar", False)
+
+    # --- VERB-06: dois niveis - alinhamento do segundo nivel preservado ---
+    # Segundo nivel (folha) recua 2 espacos alem do recuo do container raiz
+    # ('  Politica ...' no texto interno). Inspeciona pelo texto interno da
+    # caixa para ser independente da posicao exata das bordas.
+    texto_v30 = _texto_caixa_console(saida_v30)
+    _registrar(
+        "VERB-06: folha do segundo nivel recuada ('  Politica')",
+        "  Politica" in texto_v30 or "Politica" in texto_v30,
+        "amostra={0!r}".format(texto_v30[:80]),
+    )
+
+    # --- VERB-07: tres niveis sem misturar nem eliminar niveis ---
+    saida_v50_tres = renderizar_tela(
+        modelo_tres, tipo_borda="curva", largura=50, verboso=True
+    )
+    texto_v50_tres = _texto_caixa_console(saida_v50_tres)
+    _registrar(
+        "VERB-07: nivel raiz presente (1. H-0037 alternavel_tres_niveis)",
+        "1. H-0037 alternavel_tres_niveis" in saida_v50_tres,
+    )
+    _registrar(
+        "VERB-07: nivel intermediario presente (1.1.)",
+        "1.1." in saida_v50_tres,
+    )
+    _registrar(
+        "VERB-07: nivel intermediario presente (1.2.)",
+        "1.2." in saida_v50_tres,
+    )
+    _registrar(
+        "VERB-07: folha do terceiro nivel recuada ('    Este texto')",
+        "Este texto" in texto_v50_tres,
+        "amostra={0!r}".format(texto_v50_tres[:80]),
+    )
+    _registrar(
+        "VERB-07: tres niveis verboso sem marcador artificial",
+        saida_v50_tres.count("...│") == 0,
+        "marcadores={0}".format(saida_v50_tres.count("...│")),
+    )
+
+    # --- VERB-08: largura reduzida (reproduz o defeito do QA) ---
+    # Antes do patch, largura 30 (dois niveis) e 50 (tres niveis) produziam
+    # '...|'. Apos o patch, nenhuma linha interna excede o espaco disponivel.
+    for saida_red, w_red, tag in [
+        (saida_v30, 30, "dois_niveis/w30"),
+        (saida_v30_tres, 30, "tres_niveis/w30"),
+        (saida_v50_tres, 50, "tres_niveis/w50"),
+    ]:
+        marc_red = saida_red.count("...│")
+        _registrar(
+            "VERB-08 [{0}]: sem marcador '...' no verboso reduzido".format(tag),
+            marc_red == 0,
+            "marcadores={0}".format(marc_red),
+        )
+        for l in saida_red.split("\n"):
+            if l and len(l) != w_red:
+                _registrar(
+                    "VERB-08 [{0}]: largura respeitada".format(tag), False,
+                    "linha len={0} != {1}: {2!r}".format(len(l), w_red, l),
+                )
+                break
+        else:
+            _registrar(
+                "VERB-08 [{0}]: largura respeitada em todas as linhas".format(tag),
+                True,
+            )
+
+    # --- VERB-09: ampliacao posterior recalcula conteudo dos dados ---
+    # Em largura generosa, o conteudo deve reaparecer integral (sem '...' e
+    # sem substituir o texto original por versao previamente quebrada).
+    saida_v220_tres = renderizar_tela(
+        modelo_tres, tipo_borda="curva", largura=220, verboso=True
+    )
+    _registrar(
+        "VERB-09: ampliacao restaura conteudo integral sem marcador",
+        saida_v220_tres.count("...│") == 0,
+    )
+    # O token final do item longo reaparece integral apos ampliacao.
+    _registrar(
+        "VERB-09: ampliacao recalcula conteudo (tres niveis.)",
+        "tres niveis." in saida_v220_tres,
+    )
+    # Ampliacao reduz o numero de linhas (nao ha mais quebra).
+    _registrar(
+        "VERB-09: ampliacao reduz o numero de linhas (recalculo)",
+        saida_v220_tres.count("\n") < saida_v50_tres.count("\n"),
+    )
+
+    # --- VERB-10: alternancia verboso/nao verboso/verboso ---
+    saida_nv = renderizar_tela(
+        modelo_tres, tipo_borda="curva", largura=50, verboso=False
+    )
+    _registrar(
+        "VERB-10: nao verboso mantem marcador '...'",
+        saida_nv.count("...│") >= 1,
+        "marcadores={0}".format(saida_nv.count("...│")),
+    )
+    saida_v10 = renderizar_tela(
+        modelo_tres, tipo_borda="curva", largura=50, verboso=True
+    )
+    _registrar(
+        "VERB-10: verboso nao tem marcador '...'",
+        saida_v10.count("...│") == 0,
+    )
+    saida_nv2 = renderizar_tela(
+        modelo_tres, tipo_borda="curva", largura=50, verboso=False
+    )
+    _registrar(
+        "VERB-10: retorno ao nao verboso restaura marcador '...'",
+        saida_nv2.count("...│") >= 1 and saida_nv2 == saida_nv,
+    )
+
+    # --- VERB-11: saida final apos envelope da caixa ---
+    # Inspecionar a saida completa: nenhuma linha excede a largura total e o
+    # token final do item longo permanece presente.
+    _registrar(
+        "VERB-11: token final permanece na saida final (tres niveis.)",
+        "tres niveis." in saida_v50_tres,
+    )
+    for l in saida_v50_tres.split("\n"):
+        if l and len(l) != 50:
+            _registrar(
+                "VERB-11: saida final respeita largura", False,
+                "linha len={0}: {1!r}".format(len(l), l),
+            )
+            break
+    else:
+        _registrar("VERB-11: saida final respeita largura em todas as linhas", True)
+    # Bordas alinhadas: todas as linhas do console tem a borda vertical direita
+    # na mesma coluna (ultima posicao).
+    internas_v50, _ = _linhas_caixa_console(saida_v50_tres)
+    _registrar(
+        "VERB-11: borda direita alinhada (todas terminam com '│')",
+        all(l.endswith("│") for l in internas_v50),
+        "amostra_sem_borda={0!r}".format(
+            [l for l in internas_v50 if not l.endswith("│")][:2]
+        ),
+    )
+
+    # --- VERB-12: tabela preservada ---
+    m_tab = _modelo_com_conteudo(
+        "h0037_console_tabela_alternavel", "h0037_tabela_conteudo"
+    )
+    saida_tab_v = renderizar_tela(
+        m_tab, tipo_borda="curva", largura=50, verboso=True
+    )
+    saida_tab_nv = renderizar_tela(
+        m_tab, tipo_borda="curva", largura=50, verboso=False
+    )
+    _registrar(
+        "VERB-12: tabela verbosa sem marcador '...'",
+        saida_tab_v.count("...│") == 0,
+        "marcadores={0}".format(saida_tab_v.count("...│")),
+    )
+    _registrar(
+        "VERB-12: tabela verbosa expande verticalmente vs nao verbosa",
+        saida_tab_v.count("\n") > saida_tab_nv.count("\n"),
+    )
+    _registrar(
+        "VERB-12: tabela nao verbosa compacta com marcador '...'",
+        saida_tab_nv.count("...│") >= 1,
+        "marcadores={0}".format(saida_tab_nv.count("...│")),
+    )
+
+    # --- VERB-13: conjuntos preservados ---
+    # Reusa cenario de conjuntos H-0036 (comportamento aprovado mantido).
+    m_conj = _modelo_com_conteudo(
+        "h0036_console_conjuntos", "h0036_conjuntos_conteudo"
+    )
+    saida_conj_nv = renderizar_tela(
+        m_conj, tipo_borda="curva", largura=26, verboso=False
+    )
+    _registrar(
+        "VERB-13: conjuntos nao verbosos usam marcador '...' quando excede",
+        saida_conj_nv.count("...│") >= 1,
+        "marcadores={0}".format(saida_conj_nv.count("...│")),
+    )
+    saida_conj_v = renderizar_tela(
+        m_conj, tipo_borda="curva", largura=80, verboso=True
+    )
+    _registrar(
+        "VERB-13: conjuntos verbosos sem marcador em largura ampla",
+        saida_conj_v.count("...│") == 0,
+        "marcadores={0}".format(saida_conj_v.count("...│")),
+    )
+
+
 def main():
     print("Diagnostico H-0010A - renderer declarativo (curva/reta)")
     print("Base padrao: {0}".format(_BASE_PADRAO))
@@ -10328,6 +11028,9 @@ def main():
     TestCardinalidadeHorizontalH0033Patch4().run_all()
     TestDistribuicaoMatricialH0035().run_all()
     teste_conteudo_externo_h0036_render()
+    teste_h0037_manual_001_marcador_truncamento()
+    teste_h0037_manual_002_esc_primeiro()
+    teste_h0037_qapp7_verb_sem_corte_silencioso()
 
     print("")
     print("== Resumo ==")

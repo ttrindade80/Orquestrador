@@ -102,6 +102,27 @@ _LANCADOR_JSON_VALIDO = {
     },
 }
 
+# Envelope pre-ADR-0028 variante 1 completo (itens + 6 campos base), canônico,
+# usado como placeholder de elemento ``console`` em testes macro (arranjo,
+# distribuicao, matriz, etc.) que precisam de um console valido que passe pela
+# validacao estrutural sem entrar no escopo D23. Apos o sexto patch
+# (H0037-IMPL-QAPP5-001), a variante 1 exige os 6 campos base completos para
+# ser reconhecida como envelope pre-ADR-0028; placeholders minimos com apenas
+# itens+origem_dados eram tratados como envelope parcial e agora seriam
+# rejeitados como incompletos. Este envelope canonico substitui o antigo
+# placeholder {itens:[], origem_dados:None} + regra_geracao_itens:{} (mascarador
+# removido: regra_geracao_itens nao e discriminador valido).
+_ENVELOPE_CONSOLE_COMPLETO = {
+    "itens": [],
+    "origem_dados": None,
+    "politica_composicao": {"alinhamento": "esquerda",
+                            "overflow_normal": "truncar_com_reticencias"},
+    "politica_navegacao": {"navegavel": False},
+    "politica_selecao": "nenhuma",
+    "politica_paginacao": "sem",
+    "politica_exibicao": {"modo_inicial": "normal", "verboso": False},
+}
+
 
 def _criar_config_lancador(tmp_base, conteudo=None):
     """Cria config/elementos/lancador.json em tmp_base.
@@ -133,7 +154,15 @@ def _tela_minima(id_tela="teste", id_interno=None, **sobreposicooes):
         "corpo": {
             "arranjo": "sobreposto",
             "elementos": [
-                {"id": "c1", "tipo": "console"},
+            # Console pre-ADR-0028 de envelope (itens + origem_dados): fora do
+            # escopo D23 por tipo estrutural real (campos do envelope pre-ADR-0028
+            # presentes), para que estes testes macro (arranjo, distribuicao,
+            # etc.) nao exijam politica_modo. Telas consumidoras de conteudo
+            # multinivel sao tratadas em testes proprios (D23). Sexto patch
+            # (H0037-IMPL-QAPP5-001): a antiga chave ``regra_geracao_itens: {}``
+            # foi removida — ela nao e discriminador valido (sem schema interno
+            # fechado) e mascarava a classificacao estrutural.
+                {"id": "c1", "tipo": "console", "itens": [], "origem_dados": None, "politica_composicao": {"alinhamento": "esquerda", "overflow_normal": "truncar_com_reticencias"}, "politica_navegacao": {"navegavel": False}, "politica_selecao": "nenhuma", "politica_paginacao": "sem", "politica_exibicao": {"modo_inicial": "normal", "verboso": False}},
             ],
         },
         "barra_de_menus": {"distribuicao": "horizontal", "chips": []},
@@ -317,9 +346,9 @@ def teste_caminho_feliz():
         lancador.get("itens") if isinstance(lancador, dict) else None
     )
     _registrar(
-        "lancador_principal.itens e lista com 7 itens "
-        "(H-0013 d/g + H-0030 chips 1-5)",
-        isinstance(itens_lancador, list) and len(itens_lancador) == 7,
+        "lancador_principal.itens e lista com 11 itens "
+        "(H-0013 d/g + H-0030 chips 1-5 + H-0037 chips 6-9)",
+        isinstance(itens_lancador, list) and len(itens_lancador) == 11,
         "n={0}".format(
             len(itens_lancador) if isinstance(itens_lancador, list) else "?"
         ),
@@ -566,12 +595,18 @@ def _run_tipos_validos(tmp_base):
     print("== Aceitacao dos tipos validos (taxonomia fechada) ==")
     for tipo in ("console", "lancador", "dashboard"):
         nome_arquivo = "tipo_ok_" + tipo
+        # Console pre-ADR-0028 de envelope VARIANTE 1 completo para ficar fora
+        # do escopo D23 por tipo estrutural; este teste foca apenas na taxonomia.
+        # Sexto patch (H0037-IMPL-QAPP5-001): a variante 1 agora exige os 6
+        # campos base completos; placeholder minimo (itens+origem_dados) e
+        # envelope incompleto e seria rejeitado. Usa _ENVELOPE_CONSOLE_COMPLETO.
+        elem = {"id": "e1", "tipo": tipo}
+        if tipo == "console":
+            elem.update(_ENVELOPE_CONSOLE_COMPLETO)
         _escrever_tela(tmp_base, nome_arquivo,
                        {"schema": "tela.v1", "id": nome_arquivo,
                         "cabecalho": {}, "barra_de_menus": {},
-                        "corpo": {"elementos": [
-                            {"id": "e1", "tipo": tipo}
-                        ]}})
+                        "corpo": {"elementos": [elem]}})
         try:
             carregar_tela(tmp_base, nome_arquivo)
             _registrar("tipo '{0}' aceito".format(tipo), True)
@@ -709,7 +744,8 @@ def _run_grupo_estrutural(tmp_base):
     _escrever_tela(tmp_base, "g_nivel2_valido",
                    _grupo_minimo_dict("g_nivel2_valido", elementos=[
                        {"id": "g2", "tipo": "grupo", "arranjo": "vertical",
-                        "elementos": [{"id": "c_interno", "tipo": "console"}]},
+                        "elementos": [{"id": "c_interno", "tipo": "console",
+                                       "itens": [], "origem_dados": None, "politica_composicao": {"alinhamento": "esquerda", "overflow_normal": "truncar_com_reticencias"}, "politica_navegacao": {"navegavel": False}, "politica_selecao": "nenhuma", "politica_paginacao": "sem", "politica_exibicao": {"modo_inicial": "normal", "verboso": False}}]},
                    ]))
     try:
         carregar_tela(tmp_base, "g_nivel2_valido")
@@ -887,7 +923,8 @@ def _run_distribuicao_corpo_h0025(tmp_base):
 
     def _tela_dist(id_tela, distribuicao, n_elementos=3):
         elementos = [
-            {"id": "e{0}".format(i), "tipo": "console"} for i in range(n_elementos)
+            {"id": "e{0}".format(i), "tipo": "console", "itens": [], "origem_dados": None, "politica_composicao": {"alinhamento": "esquerda", "overflow_normal": "truncar_com_reticencias"}, "politica_navegacao": {"navegavel": False}, "politica_selecao": "nenhuma", "politica_paginacao": "sem", "politica_exibicao": {"modo_inicial": "normal", "verboso": False}}
+            for i in range(n_elementos)
         ]
         corpo = {"arranjo": "vertical", "elementos": elementos}
         if distribuicao is not None:
@@ -1065,7 +1102,7 @@ def _run_hierarquia_grupos_adr0019(tmp_base):
         "arranjo": "vertical",
         "elementos": [
             {"id": "g1", "tipo": "grupo", "arranjo": "vertical",
-             "elementos": [{"id": "c1", "tipo": "console"}]},
+             "elementos": [{"id": "c1", "tipo": "console", "itens": [], "origem_dados": None, "politica_composicao": {"alinhamento": "esquerda", "overflow_normal": "truncar_com_reticencias"}, "politica_navegacao": {"navegavel": False}, "politica_selecao": "nenhuma", "politica_paginacao": "sem", "politica_exibicao": {"modo_inicial": "normal", "verboso": False}}]},
         ],
     }))
     try:
@@ -1081,7 +1118,7 @@ def _run_hierarquia_grupos_adr0019(tmp_base):
         "elementos": [
             {"id": "g1", "tipo": "grupo", "arranjo": "vertical",
              "elementos": [
-                 {"id": "c1", "tipo": "console"},
+                 {"id": "c1", "tipo": "console", "itens": [], "origem_dados": None, "politica_composicao": {"alinhamento": "esquerda", "overflow_normal": "truncar_com_reticencias"}, "politica_navegacao": {"navegavel": False}, "politica_selecao": "nenhuma", "politica_paginacao": "sem", "politica_exibicao": {"modo_inicial": "normal", "verboso": False}},
                  {"id": "d1", "tipo": "dashboard"},
              ]},
         ],
@@ -1100,7 +1137,7 @@ def _run_hierarquia_grupos_adr0019(tmp_base):
             {"id": "g1", "tipo": "grupo", "arranjo": "vertical",
              "elementos": [
                  {"id": "g2", "tipo": "grupo", "arranjo": "vertical",
-                  "elementos": [{"id": "c1", "tipo": "console"}]},
+                  "elementos": [{"id": "c1", "tipo": "console", "itens": [], "origem_dados": None, "politica_composicao": {"alinhamento": "esquerda", "overflow_normal": "truncar_com_reticencias"}, "politica_navegacao": {"navegavel": False}, "politica_selecao": "nenhuma", "politica_paginacao": "sem", "politica_exibicao": {"modo_inicial": "normal", "verboso": False}}]},
              ]},
         ],
     }))
@@ -1120,7 +1157,7 @@ def _run_hierarquia_grupos_adr0019(tmp_base):
                  {"id": "g2", "tipo": "grupo", "arranjo": "vertical",
                   "elementos": [
                       {"id": "g3", "tipo": "grupo", "arranjo": "vertical",
-                       "elementos": [{"id": "c1", "tipo": "console"}]},
+                       "elementos": [{"id": "c1", "tipo": "console", "itens": [], "origem_dados": None, "politica_composicao": {"alinhamento": "esquerda", "overflow_normal": "truncar_com_reticencias"}, "politica_navegacao": {"navegavel": False}, "politica_selecao": "nenhuma", "politica_paginacao": "sem", "politica_exibicao": {"modo_inicial": "normal", "verboso": False}}]},
                   ]},
              ]},
         ],
@@ -1142,7 +1179,7 @@ def _run_hierarquia_grupos_adr0019(tmp_base):
                   "elementos": [
                       {"id": "g3", "tipo": "grupo", "arranjo": "vertical",
                        "elementos": [
-                           {"id": "c1", "tipo": "console"},
+                           {"id": "c1", "tipo": "console", "itens": [], "origem_dados": None, "politica_composicao": {"alinhamento": "esquerda", "overflow_normal": "truncar_com_reticencias"}, "politica_navegacao": {"navegavel": False}, "politica_selecao": "nenhuma", "politica_paginacao": "sem", "politica_exibicao": {"modo_inicial": "normal", "verboso": False}},
                            {"id": "d1", "tipo": "dashboard"},
                        ]},
                   ]},
@@ -1168,7 +1205,7 @@ def _run_hierarquia_grupos_adr0019(tmp_base):
                       {"id": "g3", "tipo": "grupo", "arranjo": "vertical",
                        "elementos": [
                            {"id": "g4", "tipo": "grupo", "arranjo": "vertical",
-                            "elementos": [{"id": "c1", "tipo": "console"}]},
+                            "elementos": [{"id": "c1", "tipo": "console", "itens": [], "origem_dados": None, "politica_composicao": {"alinhamento": "esquerda", "overflow_normal": "truncar_com_reticencias"}, "politica_navegacao": {"navegavel": False}, "politica_selecao": "nenhuma", "politica_paginacao": "sem", "politica_exibicao": {"modo_inicial": "normal", "verboso": False}}]},
                        ]},
                   ]},
              ]},
@@ -1210,7 +1247,7 @@ def _run_hierarquia_grupos_adr0019(tmp_base):
         "arranjo": "vertical",
         "elementos": [
             {"id": "ga", "tipo": "grupo", "arranjo": "vertical",
-             "elementos": [{"id": "c1", "tipo": "console"}]},
+             "elementos": [{"id": "c1", "tipo": "console", "itens": [], "origem_dados": None, "politica_composicao": {"alinhamento": "esquerda", "overflow_normal": "truncar_com_reticencias"}, "politica_navegacao": {"navegavel": False}, "politica_selecao": "nenhuma", "politica_paginacao": "sem", "politica_exibicao": {"modo_inicial": "normal", "verboso": False}}]},
             {"id": "gb", "tipo": "grupo", "arranjo": "vertical",
              "elementos": [{"id": "d1", "tipo": "dashboard"}]},
         ],
@@ -1229,7 +1266,7 @@ def _run_hierarquia_grupos_adr0019(tmp_base):
             {"id": "g1", "tipo": "grupo", "arranjo": "vertical",
              "elementos": [
                  {"id": "g2a", "tipo": "grupo", "arranjo": "vertical",
-                  "elementos": [{"id": "c1", "tipo": "console"}]},
+                  "elementos": [{"id": "c1", "tipo": "console", "itens": [], "origem_dados": None, "politica_composicao": {"alinhamento": "esquerda", "overflow_normal": "truncar_com_reticencias"}, "politica_navegacao": {"navegavel": False}, "politica_selecao": "nenhuma", "politica_paginacao": "sem", "politica_exibicao": {"modo_inicial": "normal", "verboso": False}}]},
                  {"id": "g2b", "tipo": "grupo", "arranjo": "vertical",
                   "elementos": [{"id": "d1", "tipo": "dashboard"}]},
              ]},
@@ -1246,7 +1283,7 @@ def _run_hierarquia_grupos_adr0019(tmp_base):
     _escrever_tela(tmp_base, "h_mistura", _tela_com_corpo("h_mistura", {
         "arranjo": "vertical",
         "elementos": [
-            {"id": "c0", "tipo": "console"},
+            {"id": "c0", "tipo": "console", "itens": [], "origem_dados": None, "politica_composicao": {"alinhamento": "esquerda", "overflow_normal": "truncar_com_reticencias"}, "politica_navegacao": {"navegavel": False}, "politica_selecao": "nenhuma", "politica_paginacao": "sem", "politica_exibicao": {"modo_inicial": "normal", "verboso": False}},
             {"id": "g1", "tipo": "grupo", "arranjo": "vertical",
              "elementos": [{"id": "d1", "tipo": "dashboard"}]},
             {"id": "l0", "tipo": "lancador"},
@@ -1264,7 +1301,7 @@ def _run_hierarquia_grupos_adr0019(tmp_base):
         "arranjo": "vertical",
         "elementos": [
             {"id": "g1", "tipo": "grupo", "arranjo": "vertical",
-             "elementos": [{"id": "c1", "tipo": "console"}]},
+             "elementos": [{"id": "c1", "tipo": "console", "itens": [], "origem_dados": None, "politica_composicao": {"alinhamento": "esquerda", "overflow_normal": "truncar_com_reticencias"}, "politica_navegacao": {"navegavel": False}, "politica_selecao": "nenhuma", "politica_paginacao": "sem", "politica_exibicao": {"modo_inicial": "normal", "verboso": False}}]},
         ],
     }))
     try:
@@ -1278,7 +1315,7 @@ def _run_hierarquia_grupos_adr0019(tmp_base):
         "arranjo": "vertical",
         "elementos": [
             {"id": "g1", "tipo": "grupo",
-             "elementos": [{"id": "c1", "tipo": "console"}]},
+             "elementos": [{"id": "c1", "tipo": "console", "itens": [], "origem_dados": None, "politica_composicao": {"alinhamento": "esquerda", "overflow_normal": "truncar_com_reticencias"}, "politica_navegacao": {"navegavel": False}, "politica_selecao": "nenhuma", "politica_paginacao": "sem", "politica_exibicao": {"modo_inicial": "normal", "verboso": False}}]},
         ],
     }))
     try:
@@ -1294,7 +1331,7 @@ def _run_hierarquia_grupos_adr0019(tmp_base):
             {"id": "g1", "tipo": "grupo", "arranjo": "vertical",
              "distribuicao": {"modo": "igual"},
              "elementos": [
-                 {"id": "c1", "tipo": "console"},
+                 {"id": "c1", "tipo": "console", "itens": [], "origem_dados": None, "politica_composicao": {"alinhamento": "esquerda", "overflow_normal": "truncar_com_reticencias"}, "politica_navegacao": {"navegavel": False}, "politica_selecao": "nenhuma", "politica_paginacao": "sem", "politica_exibicao": {"modo_inicial": "normal", "verboso": False}},
                  {"id": "d1", "tipo": "dashboard"},
              ]},
         ],
@@ -1317,7 +1354,7 @@ def _run_hierarquia_grupos_adr0019(tmp_base):
             {"id": "g1", "tipo": "grupo", "arranjo": "vertical",
              "distribuicao": {"modo": "percentual", "valores": [60, 40]},
              "elementos": [
-                 {"id": "c1", "tipo": "console"},
+                 {"id": "c1", "tipo": "console", "itens": [], "origem_dados": None, "politica_composicao": {"alinhamento": "esquerda", "overflow_normal": "truncar_com_reticencias"}, "politica_navegacao": {"navegavel": False}, "politica_selecao": "nenhuma", "politica_paginacao": "sem", "politica_exibicao": {"modo_inicial": "normal", "verboso": False}},
                  {"id": "d1", "tipo": "dashboard"},
              ]},
         ],
@@ -1336,7 +1373,7 @@ def _run_hierarquia_grupos_adr0019(tmp_base):
             {"id": "g1", "tipo": "grupo", "arranjo": "vertical",
              "distribuicao": {"modo": "fracao", "valores": [2, 1]},
              "elementos": [
-                 {"id": "c1", "tipo": "console"},
+                 {"id": "c1", "tipo": "console", "itens": [], "origem_dados": None, "politica_composicao": {"alinhamento": "esquerda", "overflow_normal": "truncar_com_reticencias"}, "politica_navegacao": {"navegavel": False}, "politica_selecao": "nenhuma", "politica_paginacao": "sem", "politica_exibicao": {"modo_inicial": "normal", "verboso": False}},
                  {"id": "d1", "tipo": "dashboard"},
              ]},
         ],
@@ -1355,7 +1392,7 @@ def _run_hierarquia_grupos_adr0019(tmp_base):
             {"id": "g1", "tipo": "grupo", "arranjo": "vertical",
              "distribuicao": {"modo": "percentual", "valores": [60, 20, 20]},
              "elementos": [
-                 {"id": "c1", "tipo": "console"},
+                 {"id": "c1", "tipo": "console", "itens": [], "origem_dados": None, "politica_composicao": {"alinhamento": "esquerda", "overflow_normal": "truncar_com_reticencias"}, "politica_navegacao": {"navegavel": False}, "politica_selecao": "nenhuma", "politica_paginacao": "sem", "politica_exibicao": {"modo_inicial": "normal", "verboso": False}},
                  {"id": "d1", "tipo": "dashboard"},
              ]},
         ],
@@ -1372,7 +1409,7 @@ def _run_hierarquia_grupos_adr0019(tmp_base):
         "elementos": [
             {"id": "g1", "tipo": "grupo", "arranjo": "vertical",
              "distribuicao": {"modo": "invalido"},
-             "elementos": [{"id": "c1", "tipo": "console"}]},
+             "elementos": [{"id": "c1", "tipo": "console", "itens": [], "origem_dados": None, "politica_composicao": {"alinhamento": "esquerda", "overflow_normal": "truncar_com_reticencias"}, "politica_navegacao": {"navegavel": False}, "politica_selecao": "nenhuma", "politica_paginacao": "sem", "politica_exibicao": {"modo_inicial": "normal", "verboso": False}}]},
         ],
     }))
     exc_modo_inv = _espera_excecao(
@@ -1419,7 +1456,7 @@ def _run_hierarquia_grupos_adr0019(tmp_base):
         "arranjo": "vertical",
         "elementos": [
             {"id": "g1", "tipo": "grupo", "arranjo": "diagonal",
-             "elementos": [{"id": "c1", "tipo": "console"}]},
+             "elementos": [{"id": "c1", "tipo": "console", "itens": [], "origem_dados": None, "politica_composicao": {"alinhamento": "esquerda", "overflow_normal": "truncar_com_reticencias"}, "politica_navegacao": {"navegavel": False}, "politica_selecao": "nenhuma", "politica_paginacao": "sem", "politica_exibicao": {"modo_inicial": "normal", "verboso": False}}]},
         ],
     }))
     _espera_excecao(
@@ -1535,13 +1572,13 @@ class TestValidacaoMatrizH0028:
             for id_tela, grupo in [
                 ("g_sem_estrutura", {
                     "id": "g1", "tipo": "grupo", "arranjo": "vertical",
-                    "elementos": [{"id": "c1", "tipo": "console"}],
+                    "elementos": [{"id": "c1", "tipo": "console", "itens": [], "origem_dados": None, "politica_composicao": {"alinhamento": "esquerda", "overflow_normal": "truncar_com_reticencias"}, "politica_navegacao": {"navegavel": False}, "politica_selecao": "nenhuma", "politica_paginacao": "sem", "politica_exibicao": {"modo_inicial": "normal", "verboso": False}}],
                 }),
                 ("g_livre_explicito", {
                     "id": "g1", "tipo": "grupo", "estrutura": "livre",
                     "arranjo": "horizontal",
                     "elementos": [
-                        {"id": "c1", "tipo": "console"},
+                        {"id": "c1", "tipo": "console", "itens": [], "origem_dados": None, "politica_composicao": {"alinhamento": "esquerda", "overflow_normal": "truncar_com_reticencias"}, "politica_navegacao": {"navegavel": False}, "politica_selecao": "nenhuma", "politica_paginacao": "sem", "politica_exibicao": {"modo_inicial": "normal", "verboso": False}},
                         {"id": "d1", "tipo": "dashboard"},
                     ],
                 }),
@@ -1549,7 +1586,7 @@ class TestValidacaoMatrizH0028:
                     "id": "g1", "tipo": "grupo", "estrutura": "livre",
                     "arranjo": "vertical",
                     "matriz": {"conteudo": "inerte"},
-                    "elementos": [{"id": "c1", "tipo": "console"}],
+                    "elementos": [{"id": "c1", "tipo": "console", "itens": [], "origem_dados": None, "politica_composicao": {"alinhamento": "esquerda", "overflow_normal": "truncar_com_reticencias"}, "politica_navegacao": {"navegavel": False}, "politica_selecao": "nenhuma", "politica_paginacao": "sem", "politica_exibicao": {"modo_inicial": "normal", "verboso": False}}],
                 }),
             ]:
                 _escrever_tela(
@@ -1672,7 +1709,8 @@ class TestValidacaoMatrizH0028:
         casos.append(("celula faltante", g))
         g = _grupo_matriz_h0028(); g["matriz"]["celulas"].append({"linha": 2, "coluna": 2, "elemento": "e4"})
         casos.append(("celula excedente", g))
-        g = _grupo_matriz_h0028(); g["elementos"].append({"id": "extra", "tipo": "console"})
+        g = _grupo_matriz_h0028(); g["elementos"].append({"id": "extra", "tipo": "console",
+                                                            "itens": [], "origem_dados": None, "politica_composicao": {"alinhamento": "esquerda", "overflow_normal": "truncar_com_reticencias"}, "politica_navegacao": {"navegavel": False}, "politica_selecao": "nenhuma", "politica_paginacao": "sem", "politica_exibicao": {"modo_inicial": "normal", "verboso": False}})
         casos.append(("filho sem celula", g))
         g = _grupo_matriz_h0028(); g["elementos"][1]["id"] = "e1"
         casos.append(("elemento filho duplicado", g))
@@ -1687,7 +1725,7 @@ class TestValidacaoMatrizH0028:
         grupo_n3 = _grupo_matriz_h0028()
         grupo_n3["elementos"][0] = {
             "id": "e1", "tipo": "grupo", "arranjo": "vertical",
-            "elementos": [{"id": "nivel4", "tipo": "console"}],
+            "elementos": [{"id": "nivel4", "tipo": "console", "itens": [], "origem_dados": None, "politica_composicao": {"alinhamento": "esquerda", "overflow_normal": "truncar_com_reticencias"}, "politica_navegacao": {"navegavel": False}, "politica_selecao": "nenhuma", "politica_paginacao": "sem", "politica_exibicao": {"modo_inicial": "normal", "verboso": False}}],
         }
         grupo_n2 = {
             "id": "g2", "tipo": "grupo", "arranjo": "vertical",
@@ -1846,7 +1884,7 @@ def teste_h0030_catalogo():
 
     # --- Integracao no lancador (H-0030 secao 14.4) ---
     print("")
-    print("-- Lancador do demo: 7 itens (H-0030 secao 14.4) --")
+    print("-- Lancador do demo: 11 itens (H-0030 + H-0037) --")
     orq = carregar_tela(_BASE_PADRAO, "demo", _RAIZ_TELAS_DEMO)
     lancador = None
     for el in orq["corpo"]["elementos"]:
@@ -1855,12 +1893,12 @@ def teste_h0030_catalogo():
             break
     itens = lancador.get("itens") if isinstance(lancador, dict) else None
     _registrar(
-        "H-0030: demo possui exatamente 7 itens em lancador_principal.itens",
-        isinstance(itens, list) and len(itens) == 7,
+        "H-0030: demo possui exatamente 11 itens em lancador_principal.itens",
+        isinstance(itens, list) and len(itens) == 11,
         "n={0}".format(len(itens) if isinstance(itens, list) else "?"),
     )
 
-    # Ordem final esperada (H-0030 secao 9).
+    # Ordem final esperada (H-0030 secao 9 + H-0037 chips 6-9).
     ordem_esperada = [
         ("item_destino_minimo", "d", "destino_minimo"),
         ("item_grupo_minimo", "g", "grupo_minimo"),
@@ -1869,6 +1907,10 @@ def teste_h0030_catalogo():
         ("item_matriz_2x2", "3", "h0030_matriz_2x2"),
         ("item_matriz_3x2", "4", "h0030_matriz_3x2"),
         ("item_matriz_2x4", "5", "h0030_matriz_2x4"),
+        ("item_h0037_nao_verboso", "6", "h0037_console_nao_verboso"),
+        ("item_h0037_verboso", "7", "h0037_console_verboso_dois_niveis"),
+        ("item_h0037_alternavel", "8", "h0037_console_alternavel_tres_niveis"),
+        ("item_h0037_tabela", "9", "h0037_console_tabela_alternavel"),
     ]
     ordem_real = [
         (it.get("id"), it.get("chip"), it.get("tela_destino"))
@@ -1876,7 +1918,7 @@ def teste_h0030_catalogo():
         if isinstance(it, dict)
     ]
     _registrar(
-        "H-0030: ordem final dos 7 itens confere (id, chip, tela_destino)",
+        "H-0030: ordem final dos 11 itens confere (id, chip, tela_destino)",
         ordem_real == ordem_esperada,
         "ordem={0!r}".format(ordem_real),
     )
@@ -1896,11 +1938,12 @@ def teste_h0030_catalogo():
         and itens[1].get("tela_destino") == "grupo_minimo",
     )
 
-    # Ausencia de conflito de chips (H-0030 secao 14.4).
+    # Ausencia de conflito de chips (H-0030 + H-0037).
     _registrar(
-        "H-0030: chips 1..5 nao conflitam com d/g (sem duplicidade)",
+        "H-0030: chips 1..9 nao conflitam com d/g (sem duplicidade)",
         len(chips) == len(set(chips)) and all(
-            c not in ("d", "g") for c in ("1", "2", "3", "4", "5")
+            c not in ("d", "g")
+            for c in ("1", "2", "3", "4", "5", "6", "7", "8", "9")
         ),
         "chips={0!r}".format(chips),
     )
@@ -1912,7 +1955,7 @@ def teste_h0030_catalogo():
         if isinstance(it.get("texto"), str) and len(it.get("texto")) > 15
     ]
     _registrar(
-        "H-0030: todos os texto dos 7 itens tem <= 15 caracteres",
+        "H-0030: todos os texto dos 11 itens tem <= 15 caracteres",
         len(textos_longos) == 0,
         "longos={0!r}".format(textos_longos),
     )
@@ -2054,7 +2097,7 @@ def teste_raiz_telas_h0032():
             },
             "corpo": {
                 "arranjo": "lista_plana",
-                "elementos": [{"id": "el", "tipo": "console"}],
+                "elementos": [{"id": "el", "tipo": "console", "itens": [], "origem_dados": None, "politica_composicao": {"alinhamento": "esquerda", "overflow_normal": "truncar_com_reticencias"}, "politica_navegacao": {"navegavel": False}, "politica_selecao": "nenhuma", "politica_paginacao": "sem", "politica_exibicao": {"modo_inicial": "normal", "verboso": False}}],
             },
         }
         (dir_tmp / "demo.json").write_text(
@@ -2152,7 +2195,7 @@ def _run_config_lancador_h0034(tmp_base):
     _escrever_tela(tmp_base, "h34_sem_lanc", {
         "schema": "tela.v1", "id": "h34_sem_lanc",
         "cabecalho": {"titulo": "T", "descricao": "d"},
-        "corpo": {"elementos": [{"id": "c1", "tipo": "console"}]},
+        "corpo": {"elementos": [{"id": "c1", "tipo": "console", "itens": [], "origem_dados": None, "politica_composicao": {"alinhamento": "esquerda", "overflow_normal": "truncar_com_reticencias"}, "politica_navegacao": {"navegavel": False}, "politica_selecao": "nenhuma", "politica_paginacao": "sem", "politica_exibicao": {"modo_inicial": "normal", "verboso": False}}]},
         "barra_de_menus": {"chips": []},
     })
     res_sem = carregar_tela(tmp_base, "h34_sem_lanc")
@@ -2812,6 +2855,9 @@ def teste_conteudo_externo_h0036():
         ("h0036_conjuntos_conteudo", "conjuntos_campos"),
         ("h0035_console_com_conteudo", "hierarquia"),
         ("h0035_console_sem_conteudo", "hierarquia"),
+        ("h0037_dois_niveis_conteudo", "hierarquia"),
+        ("h0037_tres_niveis_conteudo", "hierarquia"),
+        ("h0037_tabela_conteudo", "tabela"),
     ]:
         try:
             doc = carregar_conteudo_externo(None, id_conteudo, _RAIZ_TELAS_DEMO)
@@ -2824,6 +2870,1237 @@ def teste_conteudo_externo_h0036():
         except Exception as exc:  # pragma: no cover
             _registrar("fixture {0} carregada".format(id_conteudo), False,
                        "{0}: {1}".format(type(exc).__name__, exc))
+
+    # --- Validacoes V-01 a V-15 (H-0037 / ADR-0028 §33) ---
+    print("")
+    print("-- Validacoes V-01 a V-15 (ADR-0028) --")
+
+    def _doc_tabela():
+        return {
+            "tipo": "multinivel",
+            "formato": {
+                "apresentacao": "tabela",
+                "niveis": [{"id": "item", "tipo": "conteudo",
+                            "conteudo": "texto", "designador": {"tipo": "nenhum"}}],
+                "tabela": {"cabecalho": ["Col"]},
+            },
+            "dados": [{"id": "a", "nivel": "item", "texto": "X"}],
+        }
+
+    def _doc_nv():
+        """Documento com nivel nome_valor para testes V-06."""
+        return {
+            "tipo": "multinivel",
+            "formato": {
+                "apresentacao": "hierarquia",
+                "niveis": [
+                    {"id": "kv", "tipo": "nome_valor",
+                     "conteudo": {"nome": "chave", "valor": "vlr"},
+                     "designador": {"tipo": "nenhum"}},
+                ],
+            },
+            "dados": [{"id": "r1", "nivel": "kv", "chave": "K", "vlr": "V"}],
+        }
+
+    # V-01: tabela sem cabecalho semanticamente reconhecivel.
+    # PATCH pos-QA H-0037 (H0037-IMPL-QAPP-002): cada entrada do cabecalho deve
+    # satisfazer a forma contratual de coluna; nao basta len(cabecalho) > 0.
+    # Casos 1 a 3 (originais): propriedade ausente, valor nulo, lista vazia.
+    d = _doc_tabela(); del d["formato"]["tabela"]["cabecalho"]
+    _rejeita("V-01 caso 1: cabecalho ausente rejeitado (V-01)", d, TelaEstruturaInvalida)
+    d = _doc_tabela(); d["formato"]["tabela"]["cabecalho"] = None
+    _rejeita("V-01 caso 2: cabecalho nulo rejeitado (V-01)", d, TelaEstruturaInvalida)
+    d = _doc_tabela(); d["formato"]["tabela"]["cabecalho"] = []
+    _rejeita("V-01 caso 3: cabecalho lista vazia rejeitado (V-01)", d, TelaEstruturaInvalida)
+    # Caso 4: lista com item nulo.
+    d = _doc_tabela(); d["formato"]["tabela"]["cabecalho"] = [None]
+    _rejeita("V-01 caso 4: cabecalho com item nulo rejeitado (V-01)", d, TelaEstruturaInvalida)
+    # Caso 5: lista com string/numero no lugar de coluna (sem coluna reconhecivel).
+    d = _doc_tabela(); d["formato"]["tabela"]["cabecalho"] = [42]
+    _rejeita("V-01 caso 5: cabecalho com inteiro rejeitado (V-01)", d, TelaEstruturaInvalida)
+    d = _doc_tabela(); d["formato"]["tabela"]["cabecalho"] = [3.14]
+    _rejeita("V-01 caso 5b: cabecalho com float rejeitado (V-01)", d, TelaEstruturaInvalida)
+    d = _doc_tabela(); d["formato"]["tabela"]["cabecalho"] = [True]
+    _rejeita("V-01 caso 5c: cabecalho com booleano rejeitado (V-01)", d, TelaEstruturaInvalida)
+    # Caso 6: lista com objeto vazio (sem campos minimos de coluna).
+    d = _doc_tabela(); d["formato"]["tabela"]["cabecalho"] = [{}]
+    _rejeita("V-01 caso 6: cabecalho com objeto vazio rejeitado (V-01)", d, TelaEstruturaInvalida)
+    # Caso 7: lista com objeto que nao possui a forma minima de coluna
+    # (sem 'titulo', 'nivel' ou 'campo').
+    d = _doc_tabela(); d["formato"]["tabela"]["cabecalho"] = [{"desconhecido": "x"}]
+    _rejeita("V-01 caso 7: cabecalho com objeto sem forma de coluna rejeitado (V-01)",
+             d, TelaEstruturaInvalida)
+    # Caso 7b: lista com varios itens invalidos e nenhum reconhecivel.
+    d = _doc_tabela(); d["formato"]["tabela"]["cabecalho"] = [None, {}, 42, {"x": 1}]
+    _rejeita("V-01 caso 7b: cabecalho sem nenhuma coluna reconhecivel rejeitado (V-01)",
+             d, TelaEstruturaInvalida)
+    # Casos P3 (H0037-IMPL-QAPP2-002): valores semanticamente vazios nao tornam
+    # coluna reconhecivel — a chave deve existir com valor semanticamente nao vazio.
+    d = _doc_tabela(); d["formato"]["tabela"]["cabecalho"] = [{"titulo": None}]
+    _rejeita("V-01 P3-01: titulo null nao reconhecivel (V-01)", d, TelaEstruturaInvalida)
+    d = _doc_tabela(); d["formato"]["tabela"]["cabecalho"] = [{"titulo": ""}]
+    _rejeita("V-01 P3-02: titulo vazio nao reconhecivel (V-01)", d, TelaEstruturaInvalida)
+    d = _doc_tabela(); d["formato"]["tabela"]["cabecalho"] = [{"titulo": "   "}]
+    _rejeita("V-01 P3-03: titulo somente espacos nao reconhecivel (V-01)", d, TelaEstruturaInvalida)
+    d = _doc_tabela(); d["formato"]["tabela"]["cabecalho"] = [{"nivel": None}]
+    _rejeita("V-01 P3-04: nivel null nao reconhecivel (V-01)", d, TelaEstruturaInvalida)
+    d = _doc_tabela(); d["formato"]["tabela"]["cabecalho"] = [{"nivel": ""}]
+    _rejeita("V-01 P3-05: nivel vazio nao reconhecivel (V-01)", d, TelaEstruturaInvalida)
+    d = _doc_tabela(); d["formato"]["tabela"]["cabecalho"] = [{"campo": None}]
+    _rejeita("V-01 P3-06: campo null nao reconhecivel (V-01)", d, TelaEstruturaInvalida)
+    d = _doc_tabela(); d["formato"]["tabela"]["cabecalho"] = [{"campo": ""}]
+    _rejeita("V-01 P3-07: campo vazio nao reconhecivel (V-01)", d, TelaEstruturaInvalida)
+    d = _doc_tabela(); d["formato"]["tabela"]["cabecalho"] = [""]
+    _rejeita("V-01 P3-08: string vazia nao reconhecivel (V-01)", d, TelaEstruturaInvalida)
+    d = _doc_tabela(); d["formato"]["tabela"]["cabecalho"] = ["   "]
+    _rejeita("V-01 P3-09: string somente espacos nao reconhecivel (V-01)", d, TelaEstruturaInvalida)
+    # Lista com apenas entradas com valores semanticamente vazios — nenhuma reconhecivel.
+    d = _doc_tabela(); d["formato"]["tabela"]["cabecalho"] = [
+        {"titulo": None}, {"nivel": ""}, {"campo": "   "}, {"titulo": ""}, ""
+    ]
+    _rejeita("V-01 P3-10: lista so com valores semanticamente vazios (V-01)",
+             d, TelaEstruturaInvalida)
+    # Caso 8 (V-14): coluna reconhecivel (tem 'titulo' com valor nao vazio) mas sem
+    # origem em colunas[]. O cabecalho e valido (passa V-01); a falha especifica e V-14.
+    # CORRECAO H0037-IMPL-QAPP2-002: cabecalho deve ser valido para que V-01 nao
+    # dispare antes de V-14. O titulo nao vazio torna a coluna reconhecivel por V-01.
+    d = _doc_tabela()  # cabecalho ja e ["Col"] — valido, passa V-01
+    d["formato"]["tabela"]["colunas"] = [{"titulo": "Coluna Sem Origem"}]
+    try:
+        validar_conteudo_externo(d)
+        _registrar("V-01 vs V-14: coluna reconhecivel sem origem rejeitada (V-14)",
+                   False, "nenhuma excecao levantada")
+    except TelaEstruturaInvalida as _exc_v14:
+        _msg_v14 = str(_exc_v14)
+        _registrar(
+            "V-01 vs V-14: coluna reconhecivel sem origem rejeitada (V-14)",
+            "V-14" in _msg_v14,
+            "" if "V-14" in _msg_v14 else "V-14 nao encontrado na mensagem: " + _msg_v14,
+        )
+    except Exception as _exc_v14_outro:  # pragma: no cover
+        _registrar("V-01 vs V-14: coluna reconhecivel sem origem rejeitada (V-14)",
+                   False, "excecao inesperada: {0}".format(type(_exc_v14_outro).__name__))
+    # Caso 9: coluna plenamente valida (string nao vazia).
+    _aceita("V-01 caso 9: cabecalho com coluna string valida aceito", _doc_tabela())
+    # Caso 10: multiplas colunas validas.
+    d = _doc_tabela(); d["formato"]["tabela"]["cabecalho"] = ["Grupo", "Campo", "Valor"]
+    _aceita("V-01 caso 10: cabecalho com multiplas colunas validas aceito", d)
+    # Caso 10b: lista mista onde ao menos uma coluna e reconhecivel — aceita
+    # (V-01 exige ao menos uma; entradas invalidas individuais sao toleradas
+    # porque o renderizador as trata como celulas vazias, mas uma coluna
+    # reconhecivel satisfaz V-01). Validacoes de origem ficam com V-14.
+    d = _doc_tabela(); d["formato"]["tabela"]["cabecalho"] = ["Col", {}]
+    _aceita("V-01 caso 10b: cabecalho misto com ao menos uma coluna valida aceito", d)
+
+    # V-02: referencia a nivel filho inexistente.
+    d = _doc_valido_minimo()
+    d["formato"]["niveis"][0]["filhos"] = ["nao_existe"]
+    _rejeita("V-02: nivel com filho inexistente rejeitado", d, TelaEstruturaInvalida)
+
+    # V-03: multiplas raizes na hierarquia de niveis declarada.
+    d = {
+        "tipo": "multinivel",
+        "formato": {
+            "apresentacao": "hierarquia",
+            "niveis": [
+                {"id": "a", "tipo": "container", "conteudo": "titulo",
+                 "designador": {"tipo": "decimal"}, "filhos": ["b"]},
+                {"id": "b", "tipo": "conteudo", "conteudo": "texto",
+                 "designador": {"tipo": "nenhum"}},
+                {"id": "c", "tipo": "conteudo", "conteudo": "texto",
+                 "designador": {"tipo": "nenhum"}},
+            ],
+        },
+        "dados": [
+            {"id": "n1", "nivel": "a", "titulo": "T",
+             "filhos": [{"id": "n2", "nivel": "b", "texto": "X"}]},
+        ],
+    }
+    _rejeita("V-03: multiplas raizes na hierarquia rejeitado", d, TelaEstruturaInvalida)
+
+    # V-04: no folha que declara filhos (lista nao-vazia ou lista vazia).
+    d = _doc_valido_minimo()
+    d["dados"][0]["filhos"] = [{"id": "b", "nivel": "item", "texto": "Beta"}]
+    _rejeita("V-04: folha conteudo com filhos nao-vazios rejeitada", d, TelaEstruturaInvalida)
+    d = _doc_valido_minimo()
+    d["dados"][0]["filhos"] = []
+    _rejeita("V-04: folha conteudo com filhos vazios rejeitada", d, TelaEstruturaInvalida)
+
+    # V-05: container sem nivel filho declarado.
+    d = _doc_valido_minimo()
+    d["formato"]["niveis"] = [
+        {"id": "c", "tipo": "container", "conteudo": "titulo",
+         "designador": {"tipo": "decimal"}},
+        {"id": "i", "tipo": "conteudo", "conteudo": "texto",
+         "designador": {"tipo": "nenhum"}},
+    ]
+    d["dados"] = [{"id": "c1", "nivel": "c", "titulo": "T", "filhos": []}]
+    _rejeita("V-05: container com filhos vazio rejeitado", d, TelaEstruturaInvalida)
+
+    # V-06: campo nome-valor sem origem do valor.
+    d = _doc_nv()
+    d["formato"]["niveis"][0]["conteudo"] = {"nome": "chave"}  # falta "valor"
+    _rejeita("V-06: nome_valor sem campo valor rejeitado", d, TelaEstruturaInvalida)
+
+    # V-07: medidas negativas em formato.espacamento.
+    d = _doc_valido_minimo()
+    d["formato"]["espacamento"] = {"margem": -1}
+    _rejeita("V-07: medida negativa em espacamento rejeitada", d, TelaEstruturaInvalida)
+
+    # V-08: largura maxima inferior a minima em coluna de tabela.
+    d = _doc_tabela()
+    d["formato"]["tabela"]["colunas"] = [
+        {"nivel": "item", "largura_minima": 10, "largura_maxima": 5}
+    ]
+    _rejeita("V-08: largura_maxima inferior a largura_minima rejeitada", d,
+             TelaEstruturaInvalida)
+
+    # V-09: modo nao verboso configurado para mais de uma linha.
+    d = _doc_valido_minimo()
+    d["formato"]["excesso"] = {"linhas_nao_verboso": 3}
+    _rejeita("V-09: nao verboso com mais de uma linha rejeitado", d, TelaEstruturaInvalida)
+
+    # V-10: modo verboso sem regra de alinhamento da continuacao.
+    d = _doc_valido_minimo()
+    d["formato"]["excesso"] = {"verboso": {}}
+    _rejeita("V-10: verboso sem continuacao rejeitado", d, TelaEstruturaInvalida)
+
+    # V-11: justificacao sem escopo.
+    d = _doc_valido_minimo()
+    d["formato"]["alinhamento"] = {"tipo": "justificado"}
+    _rejeita("V-11: justificado sem escopo rejeitado", d, TelaEstruturaInvalida)
+
+    # V-12: designador composto (decimal_composto) sem ancestral.
+    d = _doc_valido_minimo()
+    d["formato"]["niveis"][0]["designador"] = {"tipo": "decimal_composto",
+                                                "separador": "."}
+    _rejeita("V-12: decimal_composto em nivel raiz rejeitado", d, TelaEstruturaInvalida)
+
+    # V-13: dados incompativeis com a estrutura declarada.
+    d = _doc_valido_minimo()
+    d["dados"][0]["nivel"] = "nao_existe"
+    _rejeita("V-13: dados com nivel inexistente rejeitados", d, TelaEstruturaInvalida)
+
+    # V-14: coluna de tabela sem nivel ou campo de origem.
+    d = _doc_tabela()
+    d["formato"]["tabela"]["colunas"] = [{"titulo": "Sem origem"}]
+    _rejeita("V-14: coluna de tabela sem nivel ou campo rejeitada", d,
+             TelaEstruturaInvalida)
+
+    # V-14 (semantica): campo/nivel nulos ou strings vazias/whitespace sao invalidos.
+    def _doc_tabela_coluna_invalida(coluna_dict):
+        """Tabela com uma coluna valida seguida de uma coluna sob teste."""
+        t = _doc_tabela()
+        t["formato"]["tabela"]["colunas"] = [
+            {"identificador": "ok", "titulo": "Ok", "campo": "texto"},
+            coluna_dict,
+        ]
+        return t
+
+    _rejeita("V-14: nivel null rejeitado",
+             _doc_tabela_coluna_invalida(
+                 {"identificador": "x", "titulo": "X", "nivel": None}),
+             TelaEstruturaInvalida)
+    _rejeita("V-14: campo null rejeitado",
+             _doc_tabela_coluna_invalida(
+                 {"identificador": "x", "titulo": "X", "campo": None}),
+             TelaEstruturaInvalida)
+    _rejeita("V-14: nivel string vazia rejeitado",
+             _doc_tabela_coluna_invalida(
+                 {"identificador": "x", "titulo": "X", "nivel": ""}),
+             TelaEstruturaInvalida)
+    _rejeita("V-14: campo string vazia rejeitado",
+             _doc_tabela_coluna_invalida(
+                 {"identificador": "x", "titulo": "X", "campo": ""}),
+             TelaEstruturaInvalida)
+    _rejeita("V-14: nivel whitespace rejeitado",
+             _doc_tabela_coluna_invalida(
+                 {"identificador": "x", "titulo": "X", "nivel": "   "}),
+             TelaEstruturaInvalida)
+    _rejeita("V-14: campo whitespace rejeitado",
+             _doc_tabela_coluna_invalida(
+                 {"identificador": "x", "titulo": "X", "campo": "   "}),
+             TelaEstruturaInvalida)
+    # Coluna com origem valida e aceita.
+    _aceita("V-14: coluna com campo valido aceita",
+            _doc_tabela_coluna_invalida(
+                {"identificador": "y", "titulo": "Y", "campo": "texto"}))
+    _aceita("V-14: coluna com nivel valido aceita",
+            _doc_tabela_coluna_invalida(
+                {"identificador": "y", "titulo": "Y", "nivel": "item"}))
+
+    # V-13: nivel declarado mas incompativel com a estrutura (H0037-IMPL-QAPP4-002).
+    # nivel com string nao-vazia que nao existe em formato.niveis -> V-13.
+    _rejeita("V-13: coluna com nivel inexistente rejeitada",
+             _doc_tabela_coluna_invalida(
+                 {"identificador": "z", "titulo": "Z", "nivel": "inexistente"}),
+             TelaEstruturaInvalida)
+    _rejeita("V-13: coluna com nivel de outro esquema rejeitada",
+             _doc_tabela_coluna_invalida(
+                 {"identificador": "z", "titulo": "Z", "nivel": "container"}),
+             TelaEstruturaInvalida)
+    # Verificacao: mensagem de V-13 distingue do V-14.
+    try:
+        validar_conteudo_externo(
+            _doc_tabela_coluna_invalida(
+                {"identificador": "z", "titulo": "Z", "nivel": "nivel_nao_declarado"}))
+        _registrar("V-13: mensagem identifica V-13 (nao V-14)", False,
+                   "nenhuma excecao")
+    except TelaEstruturaInvalida as _exc_v13:
+        _msg_v13 = str(_exc_v13)
+        _registrar(
+            "V-13: mensagem identifica V-13 (nao V-14)",
+            "V-13" in _msg_v13,
+            "" if "V-13" in _msg_v13 else "V-13 nao encontrado: " + _msg_v13,
+        )
+    except Exception as _exc_v13_outro:  # pragma: no cover
+        _registrar("V-13: mensagem identifica V-13 (nao V-14)", False,
+                   "excecao inesperada: {0}".format(type(_exc_v13_outro).__name__))
+    # nivel valido continua aceito (V-14 e V-13 nao interferem com caso correto).
+    _aceita("V-13: coluna com nivel valido declarado continua aceita",
+            _doc_tabela_coluna_invalida(
+                {"identificador": "w", "titulo": "W", "nivel": "item"}))
+
+    # --- V-13 por campo (H0037-IMPL-QAPP5-002): completa a separacao V-13/V-14 ---
+    #
+    # O contrato nao define catalogo literal fechado de valores de ``campo``, mas
+    # define onde estao os campos validos — em ``formato.niveis[].conteudo``
+    # (contrato_json_console.md §12.3): para ``container``/``conteudo``, o campo
+    # de texto do no; para ``nome_valor``, os campos ``nome`` e ``valor``. O
+    # catalogo estrutural derivado valida ``campo`` contra a estrutura declarada,
+    # distinguindo:
+    #   - campo ausente/nulo/vazio/whitespace -> V-14 (origem sem valor semantico);
+    #   - campo declarado mas inexistente na estrutura -> V-13 (origem
+    #     declarada mas incompativel).
+    # ``_doc_tabela()`` declara nivel ``item`` tipo ``conteudo`` com campo
+    # ``texto`` — portanto ``campo: "texto"`` e valido; ``campo: "nao_existe"``
+    # e incompativel (V-13).
+    print("")
+    print("-- V-13 por campo (H0037-IMPL-QAPP5-002) --")
+
+    # V13-P6-01: campo inexistente na estrutura -> V-13.
+    try:
+        validar_conteudo_externo(_doc_tabela_coluna_invalida(
+            {"identificador": "c1", "titulo": "C1", "campo": "nao_existe"}))
+        _registrar("V13-P6-01: campo inexistente rejeitado (V-13)",
+                   False, "nenhuma excecao")
+    except TelaEstruturaInvalida as _exc_c1:
+        _msg_c1 = str(_exc_c1)
+        _registrar("V13-P6-01: campo inexistente rejeitado (V-13)",
+                   "V-13" in _msg_c1,
+                   "" if "V-13" in _msg_c1 else "V-13 nao encontrado: " + _msg_c1)
+
+    # V13-P6-02: campo declarado mas ausente nos dados. Quando o campo existe na
+    # estrutura (``texto``) mas o no de dados nao o possui, a validacao 15
+    # (_validar_no_conteudo para conteudo) ja rejeita (TelaCampoObrigatorioAusente).
+    # Esse e o comportamento conforme contrato: compatibilidade com dados e
+    # obrigatoria. Aqui confirmamos que o ponto de falha e o no de dados.
+    _d_campo_ausente = _doc_tabela()
+    _d_campo_ausente["dados"] = [{"id": "a", "nivel": "item"}]  # sem 'texto'
+    _rejeita("V13-P6-02: campo declarado ausente nos dados rejeitado",
+             _d_campo_ausente, (TelaCampoObrigatorioAusente, TelaEstruturaInvalida))
+
+    # V13-P6-03: campo incompativel com tabela (campo nao pertence aos niveis).
+    # _doc_tabela tem nivel unico 'item' (conteudo, campo 'texto'); campo
+    # 'vlr_inexistente' nao e declarado em nenhum nivel -> V-13.
+    _rejeita("V13-P6-03: campo incompativel com tabela rejeitado (V-13)",
+             _doc_tabela_coluna_invalida(
+                 {"identificador": "c3", "titulo": "C3",
+                  "campo": "vlr_inexistente"}),
+             TelaEstruturaInvalida)
+
+    # V13-P6-04: origem valida para outra apresentacao (campo de nome_valor em
+    # doc de conteudo puro). _doc_tabela usa nivel conteudo (campo 'texto');
+    # 'valor' nao e campo deste nivel. Nao deve ser aceita pela tabela.
+    _rejeita("V13-P6-04: campo de outra apresentacao rejeitado (V-13)",
+             _doc_tabela_coluna_invalida(
+                 {"identificador": "c4", "titulo": "C4", "campo": "valor"}),
+             TelaEstruturaInvalida)
+
+    # V13-P6-05: campo valido (texto, declarado pelo nivel item) -> aceito.
+    _aceita("V13-P6-05: coluna com campo valido aceita",
+            _doc_tabela_coluna_invalida(
+                {"identificador": "c5", "titulo": "C5", "campo": "texto"}))
+
+    # V13-P6-06: nivel valido (item) -> aceito (ja coberto por V-13 nivel, mas
+    # reafirmado aqui para mostrar que a separacao V-13/V-14 esta completa).
+    _aceita("V13-P6-06: coluna com nivel valido aceita",
+            _doc_tabela_coluna_invalida(
+                {"identificador": "c6", "titulo": "C6", "nivel": "item"}))
+
+    # V13-P6-07: duas colunas validas (texto + nivel) -> aceitas.
+    _d_2col = _doc_tabela()
+    _d_2col["formato"]["tabela"]["colunas"] = [
+        {"identificador": "a", "titulo": "A", "campo": "texto"},
+        {"identificador": "b", "titulo": "B", "nivel": "item"},
+    ]
+    _aceita("V13-P6-07: duas colunas validas aceitas", _d_2col)
+
+    # V13-P6-08: titulo valido com campo inexistente — a coluna ultrapassa V-01
+    # (tem titulo) e ultrapassa V-14 (tem campo nao vazio), mas falha em V-13
+    # (campo incompativel com a estrutura).
+    try:
+        validar_conteudo_externo(_doc_tabela_coluna_invalida(
+            {"identificador": "c8", "titulo": "Com Titulo",
+             "campo": "campo_fantasma"}))
+        _registrar("V13-P6-08: titulo valido + campo inexistente -> V-13",
+                   False, "nenhuma excecao")
+    except TelaEstruturaInvalida as _exc_c8:
+        _msg_c8 = str(_exc_c8)
+        _registrar("V13-P6-08: titulo valido + campo inexistente -> V-13",
+                   "V-13" in _msg_c8,
+                   "" if "V-13" in _msg_c8 else "esperava V-13: " + _msg_c8)
+
+    # V13-P6-09: campo vazio -> V-14 (nao V-13). Origem sem valor semantico.
+    try:
+        validar_conteudo_externo(_doc_tabela_coluna_invalida(
+            {"identificador": "c9", "titulo": "C9", "campo": ""}))
+        _registrar("V13-P6-09: campo vazio -> V-14 (nao V-13)",
+                   False, "nenhuma excecao")
+    except TelaEstruturaInvalida as _exc_c9:
+        _msg_c9 = str(_exc_c9)
+        _registrar("V13-P6-09: campo vazio -> V-14 (nao V-13)",
+                   "V-14" in _msg_c9 and "V-13" not in _msg_c9,
+                   "esperava V-14: " + _msg_c9)
+
+    # V13-P6-10: nivel inexistente -> continua V-13 (nao regresso).
+    try:
+        validar_conteudo_externo(_doc_tabela_coluna_invalida(
+            {"identificador": "c10", "titulo": "C10", "nivel": "nao_existe"}))
+        _registrar("V13-P6-10: nivel inexistente -> V-13",
+                   False, "nenhuma excecao")
+    except TelaEstruturaInvalida as _exc_c10:
+        _msg_c10 = str(_exc_c10)
+        _registrar("V13-P6-10: nivel inexistente -> V-13",
+                   "V-13" in _msg_c10,
+                   "" if "V-13" in _msg_c10 else "esperava V-13: " + _msg_c10)
+
+    # V13-P6-extra: documento com nivel nome_valor — campo valido referencia
+    # 'nome' ou 'valor' declarados em conteudo. Garante que o catalogo estrutural
+    # coleta campos de nome_valor (H0037-IMPL-QAPP5-002).
+    _d_nv = {
+        "tipo": "multinivel",
+        "formato": {
+            "apresentacao": "tabela",
+            "niveis": [{"id": "kv", "tipo": "nome_valor",
+                        "conteudo": {"nome": "chave", "valor": "vlr"},
+                        "designador": {"tipo": "nenhum"}}],
+            "tabela": {"cabecalho": ["Col"]},
+        },
+        "dados": [{"id": "r1", "nivel": "kv", "chave": "K", "vlr": "V"}],
+    }
+    # campo 'vlr' (declarado em conteudo.valor) -> aceito.
+    _d_nv_ok = json.loads(json.dumps(_d_nv))
+    _d_nv_ok["formato"]["tabela"]["colunas"] = [
+        {"identificador": "v", "titulo": "V", "campo": "vlr"}]
+    _aceita("V13-P6-extra: campo nome_valor (vlr) valido aceita", _d_nv_ok)
+    # campo 'fantasma' nao declarado -> V-13.
+    _d_nv_bad = json.loads(json.dumps(_d_nv))
+    _d_nv_bad["formato"]["tabela"]["colunas"] = [
+        {"identificador": "x", "titulo": "X", "campo": "fantasma"}]
+    _rejeita("V13-P6-extra: campo nome_valor inexistente rejeitado (V-13)",
+             _d_nv_bad, TelaEstruturaInvalida)
+
+
+    # V-15: condicao excepcional sem politica explicita no documento externo.
+    d = _doc_valido_minimo()
+    d["formato"]["excesso"] = {"politica_modo": "alternavel"}
+    _rejeita("V-15: politica_modo em formato.excesso rejeitada", d, TelaEstruturaInvalida)
+    d = _doc_valido_minimo()
+    d["formato"]["excesso"] = {"modo": "verboso"}
+    _rejeita("V-15: excesso.modo (legado) em formato.excesso rejeitado", d,
+             TelaEstruturaInvalida)
+    d = _doc_valido_minimo(); d["politica_modo"] = "alternavel"
+    _rejeita("V-15: politica_modo na raiz do documento externo rejeitada", d,
+             TelaEstruturaInvalida)
+
+
+def teste_d23_estrutural():
+    """Validacao D23 no JSON estrutural: politica_modo e modo_inicial (H-0037)."""
+    from tela.loader import _validar_d23_console  # noqa: F401
+
+    print("")
+    print("== D23: politica_modo e modo_inicial no JSON estrutural ==")
+
+    def _aceita_d23(nome, excesso, id_tela=None):
+        try:
+            _validar_d23_console(excesso, "con_teste", id_tela=id_tela)
+            _registrar(nome, True)
+        except Exception as exc:
+            _registrar(nome, False, "{0}: {1}".format(type(exc).__name__, exc))
+
+    def _rejeita_d23(nome, excesso, classe=TelaErro, id_tela=None):
+        try:
+            _validar_d23_console(excesso, "con_teste", id_tela=id_tela)
+            _registrar(nome, False, "nenhuma excecao")
+        except classe:
+            _registrar(nome, True)
+        except Exception as exc:
+            _registrar(nome, False, "excecao errada: {0}".format(type(exc).__name__))
+
+    # Telas legadas H-0036: ausencia de politica_modo aceita nominalmente.
+    _aceita_d23("D23: excesso vazio em tela legada H-0036 aceito", {},
+                id_tela="h0036_console_hierarquia")
+    _aceita_d23("D23: excesso sem politica_modo em tela legada H-0036 aceito",
+                {"outro": "campo"}, id_tela="h0036_console_tabela")
+
+    # Tela nova/revisada: ausencia de politica_modo rejeitada.
+    _rejeita_d23("D23: politica_modo ausente em tela nova rejeitado", {},
+                 TelaEstruturaInvalida, id_tela="h0037_console_teste")
+
+    # Politicas validas sem modo_inicial.
+    _aceita_d23("D23: somente_nao_verboso sem modo_inicial aceito",
+                {"politica_modo": "somente_nao_verboso"})
+    _aceita_d23("D23: somente_verboso sem modo_inicial aceito",
+                {"politica_modo": "somente_verboso"})
+
+    # Alternavel com modo_inicial valido.
+    _aceita_d23("D23: alternavel + modo_inicial verboso aceito",
+                {"politica_modo": "alternavel", "modo_inicial": "verboso"})
+    _aceita_d23("D23: alternavel + modo_inicial nao_verboso aceito",
+                {"politica_modo": "alternavel", "modo_inicial": "nao_verboso"})
+
+    # Rejeicoes D23.
+    _rejeita_d23("D23: modo_inicial sem politica_modo rejeitado",
+                 {"modo_inicial": "verboso"}, TelaEstruturaInvalida)
+    _rejeita_d23("D23: politica_modo invalida rejeitada",
+                 {"politica_modo": "sempre_verboso"}, TelaEstruturaInvalida)
+    _rejeita_d23("D23: alternavel sem modo_inicial rejeitado",
+                 {"politica_modo": "alternavel"}, TelaEstruturaInvalida)
+    _rejeita_d23("D23: alternavel com modo_inicial invalido rejeitado",
+                 {"politica_modo": "alternavel", "modo_inicial": "talvez"},
+                 TelaEstruturaInvalida)
+    _rejeita_d23("D23: somente_nao_verboso com modo_inicial rejeitado",
+                 {"politica_modo": "somente_nao_verboso", "modo_inicial": "verboso"},
+                 TelaEstruturaInvalida)
+    _rejeita_d23("D23: somente_verboso com modo_inicial rejeitado",
+                 {"politica_modo": "somente_verboso", "modo_inicial": "nao_verboso"},
+                 TelaEstruturaInvalida)
+
+    # Telas estruturais H-0037 carregam sem excecao.
+    for id_tela in [
+        "h0037_console_nao_verboso",
+        "h0037_console_verboso_dois_niveis",
+        "h0037_console_alternavel_tres_niveis",
+        "h0037_console_tabela_alternavel",
+    ]:
+        try:
+            carregar_tela(None, id_tela, _RAIZ_TELAS_DEMO)
+            _registrar("D23: {0} carrega sem excecao".format(id_tela), True)
+        except Exception as exc:
+            _registrar("D23: {0} carrega sem excecao".format(id_tela), False,
+                       "{0}: {1}".format(type(exc).__name__, exc))
+
+    # --- PATCH pos-QA H-0037: impedir bypass D23 por ausencia de formato.excesso ---
+    # Testes D23-01 a D23-07 (H0037-IMPL-QAPP-001). A isencao D23 depende da
+    # natureza estrutural (console consumidor de conteudo multinivel vs
+    # envelope pre-ADR-0028) e do inventario legado nominal — nao da presenca
+    # de formato.excesso. Telas novas/revisadas consumidoras de conteudo
+    # multinivel devem declarar politica_modo mesmo se omitirem o bloco inteiro.
+
+    def _console_consumidor(id_tela, **sobrepos):
+        """Constroi elemento console consumidor de conteudo multinivel
+        (sem envelope pre-ADR-0028), id_tela fora do inventario legado."""
+        elem = {"id": "con", "tipo": "console", "titulo": "Console"}
+        elem.update(sobrepos)
+        return {
+            "schema": "tela.v1", "id": id_tela, "cabecalho": {},
+            "corpo": {"arranjo": "vertical", "elementos": [elem]},
+            "barra_de_menus": {"chips": []},
+        }
+
+    def _escrever_em_tmp(id_tela, dados):
+        tmp = Path(tempfile.mkdtemp(prefix="d23_bypass_"))
+        dir_t = tmp / "config" / "telas" / "demo"
+        dir_t.mkdir(parents=True, exist_ok=True)
+        (dir_t / "{0}.json".format(id_tela)).write_text(
+            json.dumps(dados), encoding="utf-8")
+        return tmp
+
+    def _carrega_em_tmp(nome, dados):
+        tmp = _escrever_em_tmp(dados["id"], dados)
+        try:
+            carregar_tela(tmp, dados["id"], _RAIZ_TELAS_DEMO)
+            _registrar(nome, True)
+        except TelaErro:
+            _registrar(nome, False, "carregamento rejeitou tela esperada")
+        except Exception as exc:  # pragma: no cover
+            _registrar(nome, False, "{0}: {1}".format(type(exc).__name__, exc))
+        finally:
+            try:
+                shutil.rmtree(tmp)
+            except OSError:
+                pass
+
+    def _rejeita_carrega_em_tmp(nome, dados):
+        tmp = _escrever_em_tmp(dados["id"], dados)
+        try:
+            carregar_tela(tmp, dados["id"], _RAIZ_TELAS_DEMO)
+            _registrar(nome, False, "carregamento aceitou tela invalida")
+        except TelaEstruturaInvalida:
+            _registrar(nome, True)
+        except Exception as exc:  # pragma: no cover
+            _registrar(nome, False, "excecao errada: {0}".format(type(exc).__name__))
+        finally:
+            try:
+                shutil.rmtree(tmp)
+            except OSError:
+                pass
+
+    # D23-01: nova tela consumidora com formato.excesso, mas sem politica_modo.
+    _rejeita_carrega_em_tmp(
+        "D23-01: nova tela consumidora com excesso sem politica_modo rejeitada",
+        _console_consumidor(
+            "d23_nova_01", formato={"excesso": {"outro": "campo"}},
+        ),
+    )
+
+    # D23-02: nova tela consumidora sem todo o bloco formato.excesso.
+    _rejeita_carrega_em_tmp(
+        "D23-02: nova tela consumidora sem bloco formato.excesso rejeitada",
+        _console_consumidor("d23_nova_02"),
+    )
+
+    # D23-03: nova tela equivalente, com outro ID nao pertencente ao inventario
+    # H-0037, sem todo o bloco. Impede correcao baseada apenas nos quatro IDs.
+    _rejeita_carrega_em_tmp(
+        "D23-03: tela equivalente com ID alternativo sem bloco rejeitada",
+        _console_consumidor("outra_tela_nova_xyz"),
+    )
+
+    # D23-04: tela H-0036 nominalmente legada sem campos D23.
+    for id_legado in ("h0036_console_hierarquia",
+                      "h0036_console_tabela",
+                      "h0036_console_conjuntos"):
+        _carrega_em_tmp(
+            "D23-04: tela legada {0} sem campos D23 aceita".format(id_legado),
+            _console_consumidor(id_legado),
+        )
+
+    # D23-05: tela nova com apenas o campo legado formato.excesso.modo,
+    # sem politica_modo. O campo legado nao supre a politica D23.
+    _rejeita_carrega_em_tmp(
+        "D23-05: tela nova com apenas excesso.modo legado rejeitada",
+        _console_consumidor("d23_nova_05",
+                            formato={"excesso": {"modo": "verboso"}}),
+    )
+
+    # D23-06: estrutura nao pertencente ao escopo de console/multinivel D23.
+    # Console de envelope pre-ADR-0028 COMPLETO (todos os 7 campos do envelope)
+    # preserva o comportamento contratual anterior — nao exige politica D23.
+    # CORRECAO H0037-IMPL-QAPP2-001: envelope exige TODOS os campos; campo
+    # isolado nao concede isencao. Fixture usa o envelope minimo completo do
+    # contrato_json_console.md secao 4.
+    _carrega_em_tmp(
+        "D23-06: console de envelope pre-ADR-0028 completo preserva comportamento anterior",
+        {
+            "schema": "tela.v1", "id": "d23_envelope_06", "cabecalho": {},
+            "corpo": {"arranjo": "vertical", "elementos": [
+                {"id": "con", "tipo": "console", "titulo": "Console",
+                 "itens": [], "origem_dados": None, "politica_composicao": {"alinhamento": "esquerda", "overflow_normal": "truncar_com_reticencias"}, "politica_navegacao": {"navegavel": False}, "politica_selecao": "nenhuma", "politica_paginacao": "sem", "politica_exibicao": {"modo_inicial": "normal", "verboso": False},
+                 "politica_composicao": {"alinhamento": "esquerda",
+                                        "overflow_normal": "truncar_com_reticencias"},
+                 "politica_navegacao": {"navegavel": False},
+                 "politica_selecao": "nenhuma",
+                 "politica_paginacao": "sem",
+                 "politica_exibicao": {"modo_inicial": "normal", "verboso": False}},
+            ]},
+            "barra_de_menus": {"chips": []},
+        },
+    )
+
+    # D23-07: tela nova consumidora com politica valida e matriz correta.
+    _carrega_em_tmp(
+        "D23-07: tela nova consumidora com politica valida e matriz correta aceita",
+        _console_consumidor(
+            "d23_nova_07",
+            formato={"excesso": {"politica_modo": "alternavel",
+                                 "modo_inicial": "verboso"}},
+        ),
+    )
+
+    # --- Testes D23-P3 (H0037-IMPL-QAPP2-001): bypass por campo isolado eliminado ---
+    # Constroi envelope completo (todos os 7 campos do _CAMPOS_ENVELOPE_PRE_ADR_0028).
+    _ENVELOPE_COMPLETO = {
+        "itens": [], "origem_dados": None, "politica_composicao": {"alinhamento": "esquerda", "overflow_normal": "truncar_com_reticencias"}, "politica_navegacao": {"navegavel": False}, "politica_selecao": "nenhuma", "politica_paginacao": "sem", "politica_exibicao": {"modo_inicial": "normal", "verboso": False},
+        "politica_composicao": {"alinhamento": "esquerda",
+                                "overflow_normal": "truncar_com_reticencias"},
+        "politica_navegacao": {"navegavel": False},
+        "politica_selecao": "nenhuma",
+        "politica_paginacao": "sem",
+        "politica_exibicao": {"modo_inicial": "normal", "verboso": False},
+    }
+
+    def _console_consumidor_com_extra(id_tela, **extra):
+        """Consumidor com campos extras adicionados ao elemento console."""
+        elem = {"id": "con", "tipo": "console", "titulo": "Console"}
+        elem.update(extra)
+        return {
+            "schema": "tela.v1", "id": id_tela, "cabecalho": {},
+            "corpo": {"arranjo": "vertical", "elementos": [elem]},
+            "barra_de_menus": {"chips": []},
+        }
+
+    def _console_envelope_com_extra(id_tela, **extra):
+        """Envelope completo com campos extras adicionados."""
+        elem = {"id": "con", "tipo": "console", "titulo": "Console"}
+        elem.update(_ENVELOPE_COMPLETO)
+        elem.update(extra)
+        return {
+            "schema": "tela.v1", "id": id_tela, "cabecalho": {},
+            "corpo": {"arranjo": "vertical", "elementos": [elem]},
+            "barra_de_menus": {"chips": []},
+        }
+
+    # D23-P3-05 e D23-P3-06: campo isolado de envelope pre-ADR-0028 (sem fonte
+    # de itens completa e sem os 6 campos base) e REJEITADO como estrutura
+    # incompleta (H0037-IMPL-QAPP5-001). Um unico campo de envelope nao forma
+    # envelope historico completo (variante 1 ou 2) nem e consumidor multinivel
+    # puro — e estrutura ambiguamente parcial. Nao ha bypass por cardinalidade.
+    for _campo_isolado, _val_isolado in [
+        ("itens", []),
+        ("origem_dados", None),
+        ("politica_composicao", {"alinhamento": "esquerda",
+                                 "overflow_normal": "truncar_com_reticencias"}),
+        ("politica_navegacao", {"navegavel": False}),
+        ("politica_selecao", "nenhuma"),
+        ("politica_paginacao", "sem"),
+        ("politica_exibicao", {"modo_inicial": "normal", "verboso": False}),
+    ]:
+        _rejeita_carrega_em_tmp(
+            "D23-P3-05/06: campo isolado '{0}' (envelope incompleto) rejeitado".format(
+                _campo_isolado),
+            _console_consumidor_com_extra("d23_campo_isolado_xyz", **{_campo_isolado: _val_isolado}),
+        )
+
+    # D23-P3-07: estrutura hibrida completa (envelope + campos D23) rejeitada.
+    _rejeita_carrega_em_tmp(
+        "D23-P3-07: estrutura hibrida envelope+D23 rejeitada",
+        _console_envelope_com_extra(
+            "d23_hibrido_07",
+            formato={"excesso": {"politica_modo": "somente_nao_verboso"}},
+        ),
+    )
+
+    # D23-P3-08: envelope historico real completo preserva comportamento anterior.
+    _carrega_em_tmp(
+        "D23-P3-08: envelope historico completo fora de D23 aceito",
+        _console_envelope_com_extra("d23_envelope_historico_08"),
+    )
+
+    # D23-P3-09: envelope VARIANTE 1 incompleto (6 de 7 campos, faltando
+    # politica_paginacao) -> REJEITADO. Apos o sexto patch (H0037-IMPL-QAPP5-001),
+    # a variante 1 (itens) exige os 6 campos base completos; remover qualquer
+    # um torna o envelope incompleto e rejeitado. demo.json NAO segue esse
+    # padrao (usa variante 2 com regra_geracao_itens, historica comprovada) —
+    # ver D23-P6-12 e RGI-P6-12 para o caso historico.
+    _elem_incompleto = {"id": "con", "tipo": "console", "titulo": "Console"}
+    _elem_incompleto.update(_ENVELOPE_COMPLETO)
+    del _elem_incompleto["politica_paginacao"]  # remove um campo base para ter 6/7
+    _rejeita_carrega_em_tmp(
+        "D23-P3-09: envelope variante 1 incompleto (6 de 7 campos) rejeitado",
+        {
+            "schema": "tela.v1", "id": "d23_envelope_incompleto_09", "cabecalho": {},
+            "corpo": {"arranjo": "vertical", "elementos": [_elem_incompleto]},
+            "barra_de_menus": {"chips": []},
+        },
+    )
+
+    # D23-P3-10: cinco legados nominais aceitos. D23-04 ja cobre os 3 H-0036;
+    # adicionar os 2 H-0035 para cobertura completa do inventario.
+    for id_legado_h35 in ("h0035_console_com", "h0035_console_sem"):
+        _carrega_em_tmp(
+            "D23-P3-10: tela legada {0} aceita".format(id_legado_h35),
+            _console_consumidor(id_legado_h35),
+        )
+
+    # D23-P3-11: copia renomeada de legado nao recebe isencao.
+    _rejeita_carrega_em_tmp(
+        "D23-P3-11: copia renomeada de legado sem politica rejeitada",
+        _console_consumidor("h0036_console_copia_renomeada"),
+    )
+
+    # D23-P3-12: prefixo semelhante ao legado nao concede isencao automatica.
+    _rejeita_carrega_em_tmp(
+        "D23-P3-12a: prefixo h0035_ semelhante nao isenta (h0035_console_novo)",
+        _console_consumidor("h0035_console_novo"),
+    )
+    _rejeita_carrega_em_tmp(
+        "D23-P3-12b: prefixo h0036_ semelhante nao isenta (h0036_console_copia)",
+        _console_consumidor("h0036_console_copia"),
+    )
+
+    # Verificacoes diretas de _console_em_escopo_d23 (funcao auxiliar).
+    # CORRECAO H0037-IMPL-QAPP2-001: campo isolado deve levantar excecao.
+    from tela.loader import _console_em_escopo_d23
+
+    _registrar(
+        "D23: console de envelope completo fora do escopo D23",
+        _console_em_escopo_d23(
+            dict({"id": "c", "tipo": "console"}, **_ENVELOPE_COMPLETO),
+            "tela_nova_xyz",
+        ) is False,
+    )
+    _registrar(
+        "D23: console consumidor novo em escopo D23",
+        _console_em_escopo_d23(
+            {"id": "c", "tipo": "console", "titulo": "C"}, "tela_nova_xyz") is True,
+    )
+    _registrar(
+        "D23: console consumidor legado H-0036 fora do escopo D23",
+        _console_em_escopo_d23(
+            {"id": "c", "tipo": "console", "titulo": "C"},
+            "h0036_console_tabela") is False,
+    )
+    # Campo isolado 'itens' sem os demais 6 campos base: envelope pre-ADR-0028
+    # VARIANTE 1 INCOMPLETO -> levanta TelaEstruturaInvalida (nao retorna False,
+    # nem True). Apos o sexto patch (H0037-IMPL-QAPP5-001), a variante 1 exige
+    # os 6 campos base completos; itens isolado (ou qualquer campo base sem
+    # fonte de itens) e envelope incompleto, nao isencao.
+    try:
+        _console_em_escopo_d23(
+            {"id": "c", "tipo": "console", "itens": []}, "tela_nova_xyz",
+        )
+        _registrar(
+            "D23: itens isolado (sem 6 base) levanta envelope incompleto",
+            False, "nenhuma excecao",
+        )
+    except TelaEstruturaInvalida:
+        _registrar(
+            "D23: itens isolado (sem 6 base) levanta envelope incompleto", True,
+        )
+    except Exception as _exc_campo_iso:  # pragma: no cover
+        _registrar(
+            "D23: itens isolado (sem 6 base) levanta envelope incompleto",
+            False, "excecao errada: {0}".format(type(_exc_campo_iso).__name__),
+        )
+    try:
+        _console_em_escopo_d23(
+            {"id": "c", "tipo": "console", "itens": [],
+             "formato": {"excesso": {"politica_modo": "somente_nao_verboso"}}},
+            "tela_nova_xyz",
+        )
+        _registrar(
+            "D23: hibrido (campo isolado + politica_modo) levanta excecao",
+            False, "nenhuma excecao",
+        )
+    except TelaEstruturaInvalida:
+        _registrar(
+            "D23: hibrido (campo isolado + politica_modo) levanta excecao", True,
+        )
+    except Exception as _exc_campo:  # pragma: no cover
+        _registrar(
+            "D23: hibrido (campo isolado + politica_modo) levanta excecao",
+            False, "excecao errada: {0}".format(type(_exc_campo).__name__),
+        )
+
+    # --- Testes D23-P4 (H0037-IMPL-QAPP3-001): validacao de valores do envelope ---
+    print("")
+    print("-- D23-P4: validacao de valores do envelope pre-ADR-0028 --")
+
+    # D23-P4-01: todos os campos null -> rejeitado (itens nao e lista).
+    _rejeita_carrega_em_tmp(
+        "D23-P4-01: envelope com todos os campos null rejeitado",
+        {
+            "schema": "tela.v1", "id": "d23_p4_01", "cabecalho": {},
+            "corpo": {"arranjo": "vertical", "elementos": [{
+                "id": "con", "tipo": "console", "titulo": "Console",
+                "itens": None, "origem_dados": None,
+                "politica_composicao": None, "politica_navegacao": None,
+                "politica_selecao": None, "politica_paginacao": None,
+                "politica_exibicao": None,
+            }]},
+            "barra_de_menus": {"chips": []},
+        },
+    )
+
+    # D23-P4-02: itens com tipo errado (string em vez de lista) -> rejeitado.
+    _rejeita_carrega_em_tmp(
+        "D23-P4-02: envelope com 'itens' tipo errado rejeitado",
+        {
+            "schema": "tela.v1", "id": "d23_p4_02", "cabecalho": {},
+            "corpo": {"arranjo": "vertical", "elementos": [
+                dict({"id": "con", "tipo": "console", "titulo": "Console"},
+                     **dict(_ENVELOPE_COMPLETO, itens="nao_e_lista")),
+            ]},
+            "barra_de_menus": {"chips": []},
+        },
+    )
+
+    # D23-P4-03: politica_selecao invalida -> rejeitado.
+    _rejeita_carrega_em_tmp(
+        "D23-P4-03: envelope com 'politica_selecao' invalida rejeitado",
+        {
+            "schema": "tela.v1", "id": "d23_p4_03", "cabecalho": {},
+            "corpo": {"arranjo": "vertical", "elementos": [
+                dict({"id": "con", "tipo": "console", "titulo": "Console"},
+                     **dict(_ENVELOPE_COMPLETO, politica_selecao="invalida")),
+            ]},
+            "barra_de_menus": {"chips": []},
+        },
+    )
+
+    # D23-P4-04: politica_paginacao com tipo dict (nao string) -> rejeitado.
+    # Reproduz o padrao encontrado em demo.json para o campo politica_paginacao
+    # quando os 7 campos estao presentes (testar que o tipo invalido e rejeitado).
+    _rejeita_carrega_em_tmp(
+        "D23-P4-04: envelope com 'politica_paginacao' dict em vez de string rejeitado",
+        {
+            "schema": "tela.v1", "id": "d23_p4_04", "cabecalho": {},
+            "corpo": {"arranjo": "vertical", "elementos": [
+                dict({"id": "con", "tipo": "console", "titulo": "Console"},
+                     **dict(_ENVELOPE_COMPLETO,
+                            politica_paginacao={"paginacao": "com"})),
+            ]},
+            "barra_de_menus": {"chips": []},
+        },
+    )
+
+    # D23-P4-05: consumidor com politica_modo + campo isolado de envelope -> rejeitado.
+    for _campo_env, _val_env in [
+        ("itens", []),
+        ("politica_selecao", "nenhuma"),
+        ("politica_paginacao", "sem"),
+    ]:
+        _rejeita_carrega_em_tmp(
+            "D23-P4-05: hibrido campo '{0}' + politica_modo rejeitado".format(
+                _campo_env),
+            {
+                "schema": "tela.v1",
+                "id": "d23_p4_05_{0}".format(_campo_env.replace("_", "")),
+                "cabecalho": {},
+                "corpo": {"arranjo": "vertical", "elementos": [{
+                    "id": "con", "tipo": "console", "titulo": "Console",
+                    _campo_env: _val_env,
+                    "formato": {"excesso": {
+                        "politica_modo": "somente_nao_verboso"}},
+                }]},
+                "barra_de_menus": {"chips": []},
+            },
+        )
+
+    # D23-P4-06: consumidor com politica_modo + 6 campos de envelope -> rejeitado.
+    _rejeita_carrega_em_tmp(
+        "D23-P4-06: hibrido 6 campos de envelope + politica_modo rejeitado",
+        {
+            "schema": "tela.v1", "id": "d23_p4_06", "cabecalho": {},
+            "corpo": {"arranjo": "vertical", "elementos": [
+                dict(
+                    {"id": "con", "tipo": "console", "titulo": "Console",
+                     "formato": {"excesso": {
+                         "politica_modo": "somente_nao_verboso"}}},
+                    **{k: v for k, v in _ENVELOPE_COMPLETO.items()
+                       if k != "politica_paginacao"},
+                ),
+            ]},
+            "barra_de_menus": {"chips": []},
+        },
+    )
+
+    # D23-P4-09: demo.json real carrega sem excecao (regressao preservada).
+    try:
+        carregar_tela(_BASE_PADRAO, "demo", _RAIZ_TELAS_DEMO)
+        _registrar("D23-P4-09: demo.json carrega sem excecao", True)
+    except Exception as _exc_demo:
+        _registrar("D23-P4-09: demo.json carrega sem excecao", False,
+                   "{0}: {1}".format(type(_exc_demo).__name__, _exc_demo))
+
+    # --- Testes D23-P6 (H0037-IMPL-QAPP5-001): regra_geracao_itens nao isenta ---
+    #
+    # Sexto patch focal. O quinto patch introduziu a isencao D23 por mera presenca
+    # da chave ``regra_geracao_itens`` (loader.py ``return False`` quando a chave
+    # existia), o que o QA classificou como DEFEITO_IMPLEMENTACAO /
+    # REGRESSAO_MASCARADA: a chave nao tem schema interno fechado em nenhum
+    # contrato/ADR/NOMENCLATURA (so existe a frase "regra de geracao de itens"
+    # como alternativa a itens), e a isencao por presenca aceitava ``{}``,
+    # ``null``, tipos incorretos, objetos incompletos e combinacoes hibridas.
+    #
+    # Nova semantica (duas variantes do envelope pre-ADR-0028, mutuamente
+    # exclusivas quanto a fonte de itens):
+    #   - variante 1: ``itens`` + 6 campos base (origem_dados + 5 politicas);
+    #   - variante 2: ``regra_geracao_itens`` + os mesmos 6 campos base (forma
+    #     historica usada por demo.json, aceita por compatibilidade restrita com
+    #     telas legadas nominais em _TELAS_VARIANTE2_LEGADAS).
+    #
+    # ``regra_geracao_itens`` NAO isenta de D23 por mera presenca. Rejeicoes
+    # obrigatorias (H0037-IMPL-QAPP5-001):
+    #   - itens E regra_geracao_itens juntos (duas fontes concorrentes);
+    #   - variante 2 incompleta (regra sem os 6 base, ou com parte deles);
+    #   - variante 2 em tela nova/nao-legada (nao pode evitar D23);
+    #   - variante 2 + marcadores D23 (hibrido);
+    #   - consumidor multinivel (0 envelope) + regra_geracao_itens (hibrido).
+    # demo.json (variante 2 legada) permanece aceito por compatibilidade
+    # historica comprovada, nao por schema de regra_geracao_itens.
+    print("")
+    print("-- D23-P6: regra_geracao_itens nao e chave de isencao D23 --")
+
+    _seis_campos_envelope = {k: v for k, v in _ENVELOPE_COMPLETO.items()
+                             if k != "itens"}
+
+    def _console_consumidor_com_regra(id_tela, valor_regra, **extra):
+        """Consumidor multinivel (0 envelope) + regra_geracao_itens=<valor>."""
+        elem = {"id": "con", "tipo": "console", "titulo": "Console",
+                "regra_geracao_itens": valor_regra}
+        elem.update(extra)
+        return {
+            "schema": "tela.v1", "id": id_tela, "cabecalho": {},
+            "corpo": {"arranjo": "vertical", "elementos": [elem]},
+            "barra_de_menus": {"chips": []},
+        }
+
+    def _console_variante2(id_tela, **extra):
+        """Envelope variante 2 (regra_geracao_itens + 6 campos base, sem itens)."""
+        elem = {"id": "con", "tipo": "console", "titulo": "Console"}
+        elem.update(_seis_campos_envelope)
+        elem["regra_geracao_itens"] = {"tipo": "estatica", "ids": []}
+        elem.update(extra)
+        return {
+            "schema": "tela.v1", "id": id_tela, "cabecalho": {},
+            "corpo": {"arranjo": "vertical", "elementos": [elem]},
+            "barra_de_menus": {"chips": []},
+        }
+
+    # RGI-P6-01: elemento real do demo.json carrega (variante 2 historica
+    # comprovada, ACEITO_PELO_TIPO_ESTRUTURAL_REAL). demo.json esta fora do
+    # escopo D23 por ser variante 2 legada, nao por mera presenca da chave.
+    try:
+        carregar_tela(_BASE_PADRAO, "demo", _RAIZ_TELAS_DEMO)
+        _registrar("RGI-P6-01: demo.json carrega (variante 2 historica)", True)
+    except Exception as _exc_demo_rgi:
+        _registrar("RGI-P6-01: demo.json carrega (variante 2 historica)", False,
+                   "{0}: {1}".format(type(_exc_demo_rgi).__name__, _exc_demo_rgi))
+
+    # RGI-P6-02: copia estrutural de demo.json com outro ID (nao legado) ->
+    # MESMO_RESULTADO_DO_TIPO_ESTRUTURAL: rejeitado. Variante 2 so e aceita para
+    # telas legadas nominais (_TELAS_VARIANTE2_LEGADAS); tela nova nao pode usar
+    # regra_geracao_itens para evitar D23. Prova ausencia de excecao por ID.
+    _copia_demo = {"id": "con", "tipo": "console", "titulo": "Itens",
+                   "regra_geracao_itens": {"tipo": "pendente", "nota": "copia"},
+                   "origem_dados": {"referencia": "pendente"},
+                   "politica_composicao": {"alinhamento": "centralizado"},
+                   "politica_navegacao": {"navegavel": True},
+                   "politica_selecao": "multipla",
+                   "politica_paginacao": {"paginacao": "com"},
+                   "politica_exibicao": {"modo_verboso_permitido": True}}
+    _rejeita_carrega_em_tmp(
+        "RGI-P6-02: copia estrutural de demo.json com outro ID rejeitada (variante 2 nao legada)",
+        {
+            "schema": "tela.v1", "id": "rgi_p6_02_copia", "cabecalho": {},
+            "corpo": {"arranjo": "vertical", "elementos": [_copia_demo]},
+            "barra_de_menus": {"chips": []},
+        },
+    )
+
+    # RGI-P6-03/P6-04/P6-05: consumidor multinivel (0 envelope) + regra_geracao_itens
+    # em qualquer forma ({}, null, string, lista, bool, numero, objeto incompleto).
+    # Todos REJEITADOS como hibrido: geracao interna + consumo externo sao
+    # mutuamente exclusivos. A chave nao reclassifica o tipo estrutural e nao
+    # valida valor sob a chave (nao ha schema fechado).
+    _valores_invalidos_rgi = [
+        ("objeto_vazio", {}),
+        ("null", None),
+        ("string", "estatica"),
+        ("lista", ["a"]),
+        ("booleano", True),
+        ("numero", 42),
+        ("objeto_sem_tipo", {"ids": []}),
+        ("objeto_sem_ids", {"tipo": "estatica"}),
+        ("objeto_incompleto", {"tipo": "pendente", "nota": "rascunho"}),
+    ]
+    for _rotulo_rgi, _valor_rgi in _valores_invalidos_rgi:
+        _rejeita_carrega_em_tmp(
+            "RGI-P6-03/04/05: consumidor + regra_geracao_itens={0} rejeitado (hibrido)".format(
+                _rotulo_rgi),
+            _console_consumidor_com_regra(
+                "rgi_p6_{0}".format(_rotulo_rgi), _valor_rgi),
+        )
+
+    # RGI-P6-06: consumidor multinivel (0 envelope) + regra_geracao_itens com
+    # forma sintatica plausivel + politica_modo valida -> REJEITADO como hibrido.
+    # politica_modo valida nao cura a incompatibilidade estrutural.
+    _rejeita_carrega_em_tmp(
+        "RGI-P6-06: consumidor + regra_geracao_itens + politica_modo rejeitado (hibrido)",
+        _console_consumidor_com_regra(
+            "rgi_p6_06",
+            {"tipo": "estatica", "ids": ["x"]},
+            formato={"excesso": {"politica_modo": "somente_nao_verboso"}},
+        ),
+    )
+
+    # RGI-P6-07: itens E regra_geracao_itens juntos -> REJEITADO (duas fontes
+    # concorrentes de itens). contrato_console.md §3 trata-as como alternativas
+    # mutuamente exclusivas.
+    _rejeita_carrega_em_tmp(
+        "RGI-P6-07: itens + regra_geracao_itens rejeitado (duas fontes concorrentes)",
+        {
+            "schema": "tela.v1", "id": "rgi_p6_07", "cabecalho": {},
+            "corpo": {"arranjo": "vertical", "elementos": [
+                dict({"id": "con", "tipo": "console", "titulo": "Console",
+                      "regra_geracao_itens": {"tipo": "estatica"}},
+                     **_ENVELOPE_COMPLETO),
+            ]},
+            "barra_de_menus": {"chips": []},
+        },
+    )
+
+    # RGI-P6-08: regra_geracao_itens + origem_dados (1 dos 6 base, faltam 5) ->
+    # REJEITADO como variante 2 INCOMPLETA. (A coexistencia regra + origem_dados
+    # NAO e hibrida por si quando os 6 base estao presentes — ver RGI-P6-10
+    # variante legada; aqui falta o restante dos campos base.)
+    _rejeita_carrega_em_tmp(
+        "RGI-P6-08: regra_geracao_itens + origem_dados (variante 2 incompleta) rejeitado",
+        {
+            "schema": "tela.v1", "id": "rgi_p6_08", "cabecalho": {},
+            "corpo": {"arranjo": "vertical", "elementos": [{
+                "id": "con", "tipo": "console", "titulo": "Console",
+                "origem_dados": None, "regra_geracao_itens": {},
+            }]},
+            "barra_de_menus": {"chips": []},
+        },
+    )
+
+    # RGI-P6-09: regra_geracao_itens + campos parciais de envelope (sem todos os
+    # 6 base) -> REJEITADO como variante 2 incompleta (NAO_ACEITA_COMO_ISENCAO).
+    _rejeita_carrega_em_tmp(
+        "RGI-P6-09: regra_geracao_itens + campos parciais (variante 2 incompleta) rejeitado",
+        {
+            "schema": "tela.v1", "id": "rgi_p6_09", "cabecalho": {},
+            "corpo": {"arranjo": "vertical", "elementos": [{
+                "id": "con", "tipo": "console", "titulo": "Console",
+                "politica_selecao": "nenhuma",
+                "regra_geracao_itens": {"tipo": "estatica"},
+            }]},
+            "barra_de_menus": {"chips": []},
+        },
+    )
+
+    # RGI-P6-10: variante 2 completa (regra_geracao_itens + 6 base, sem itens):
+    #   - em tela NOVA (nao legada) -> REJEITADO (nao pode evitar D23);
+    #   - em tela LEGADA nominal (demo) -> ACEITO por compatibilidade historica.
+    # Espera REJEITADO_SE_FORMAS_MUTUAMENTE_EXCLUSIVAS para tela nova.
+    _rejeita_carrega_em_tmp(
+        "RGI-P6-10: variante 2 completa em tela nova rejeitada (nao evita D23)",
+        _console_variante2("rgi_p6_10_nova"),
+    )
+    # Variante 2 completa com id legado nominal (demo) — via carregar_tela real:
+    # ja coberto por RGI-P6-01 (demo.json carrega). Aqui verificamos diretamente
+    # _console_em_escopo_d23 retornando False para id legado.
+    _registrar(
+        "RGI-P6-10 dir: variante 2 completa em 'demo' retorna False (legada, fora D23)",
+        _console_em_escopo_d23(
+            dict({"id": "con", "tipo": "console", "titulo": "C",
+                  "regra_geracao_itens": {"tipo": "pendente"}},
+                 **_seis_campos_envelope),
+            "demo",
+        ) is False,
+    )
+
+    # RGI-P6-11: consumidor multinivel (0 envelope) + regra_geracao_itens com
+    # 0 a 6 campos de envelope -> todos REJEITADOS (hibrido em 0 campos;
+    # variante 2 incompleta em 1-5 campos; variante 2 em tela nova em 6 campos).
+    for _n_campos, _campos_adic in [
+        (0, {}),
+        (1, {"politica_selecao": "nenhuma"}),
+        (3, {"origem_dados": None, "politica_selecao": "nenhuma",
+             "politica_paginacao": "sem"}),
+        (6, dict(_seis_campos_envelope)),
+    ]:
+        _rejeita_carrega_em_tmp(
+            "RGI-P6-11: consumidor + regra_geracao_itens + {0} campos de envelope rejeitado".format(
+                _n_campos),
+            _console_consumidor_com_regra(
+                "rgi_p6_11_{0}".format(_n_campos),
+                {},  # objeto vazio — a chave em si e o defeito, nao o valor
+                **_campos_adic),
+        )
+
+    # RGI-P6-12: envelope VARIANTE 1 incompleto (6/7 campos, sem
+    # regra_geracao_itens) -> REJEITADO. Variante 1 exige os 6 base + itens.
+    _elem_incompleto_rgi = {"id": "con", "tipo": "console", "titulo": "Console"}
+    _elem_incompleto_rgi.update(_ENVELOPE_COMPLETO)
+    del _elem_incompleto_rgi["politica_paginacao"]
+    _rejeita_carrega_em_tmp(
+        "RGI-P6-12: envelope variante 1 incompleto (6/7) sem regra rejeitado",
+        {
+            "schema": "tela.v1", "id": "rgi_p6_12", "cabecalho": {},
+            "corpo": {"arranjo": "vertical", "elementos": [_elem_incompleto_rgi]},
+            "barra_de_menus": {"chips": []},
+        },
+    )
+
+    # RGI-P6-13: cinco legados nominais (3 H-0036 + 2 H-0035) preservados como
+    # consumidores multinivel isentos (sem regra_geracao_itens, sem envelope).
+    for id_legado_rgi in (
+        "h0036_console_hierarquia", "h0036_console_tabela", "h0036_console_conjuntos",
+        "h0035_console_com", "h0035_console_sem",
+    ):
+        _carrega_em_tmp(
+            "RGI-P6-13: legado {0} preservado (consumidor isento)".format(
+                id_legado_rgi),
+            _console_consumidor(id_legado_rgi),
+        )
+
+    # Verificacoes diretas de _console_em_escopo_d23 para regra_geracao_itens.
+    # Consumidor multinivel (0 envelope) + regra_geracao_itens: a chave nao
+    # isenta — levanta TelaEstruturaInvalida (hibrido), qualquer que seja o valor.
+    for _rotulo_dir, _valor_dir in [
+        ("objeto_vazio", {}),
+        ("null", None),
+        ("string", "estatica"),
+        ("objeto_sintatico", {"tipo": "estatica", "ids": []}),
+    ]:
+        try:
+            _console_em_escopo_d23(
+                {"id": "c", "tipo": "console", "titulo": "C",
+                 "regra_geracao_itens": _valor_dir},
+                "tela_nova_xyz",
+            )
+            _registrar(
+                "RGI-P6 dir: consumidor + regra_geracao_itens={0} levanta hibrido".format(
+                    _rotulo_dir),
+                False, "nenhuma excecao (esperava TelaEstruturaInvalida)",
+            )
+        except TelaEstruturaInvalida:
+            _registrar(
+                "RGI-P6 dir: consumidor + regra_geracao_itens={0} levanta hibrido".format(
+                    _rotulo_dir),
+                True,
+            )
+        except Exception as _exc_dir_rgi:  # pragma: no cover
+            _registrar(
+                "RGI-P6 dir: consumidor + regra_geracao_itens={0} levanta hibrido".format(
+                    _rotulo_dir),
+                False, "excecao errada: {0}".format(type(_exc_dir_rgi).__name__),
+            )
+
+    # Consumidor multinivel (0 envelope) sem regra_geracao_itens: em escopo D23.
+    _registrar(
+        "RGI-P6 dir: consumidor novo sem regra retorna True (em D23)",
+        _console_em_escopo_d23(
+            {"id": "c", "tipo": "console", "titulo": "C"}, "tela_nova_xyz",
+        ) is True,
+    )
+    # Variante 2 completa (regra + 6 base) em tela NOVA: rejeitada (levanta
+    # excecao, nao retorna False). Confirma que a variante 2 nao isenta telas
+    # novas de D23.
+    try:
+        _console_em_escopo_d23(
+            dict({"id": "c", "tipo": "console", "titulo": "C",
+                  "regra_geracao_itens": {"tipo": "estatica"}},
+                 **_seis_campos_envelope),
+            "tela_nova_xyz",
+        )
+        _registrar(
+            "RGI-P6 dir: variante 2 em tela nova levanta excecao",
+            False, "nenhuma excecao",
+        )
+    except TelaEstruturaInvalida:
+        _registrar("RGI-P6 dir: variante 2 em tela nova levanta excecao", True)
+    except Exception as _exc_v2_nova:  # pragma: no cover
+        _registrar(
+            "RGI-P6 dir: variante 2 em tela nova levanta excecao",
+            False, "excecao errada: {0}".format(type(_exc_v2_nova).__name__),
+        )
 
 
 def main():
@@ -2855,6 +4132,7 @@ def main():
     teste_raiz_telas_h0032()
     teste_id_incorreto_classe()
     teste_conteudo_externo_h0036()
+    teste_d23_estrutural()
 
     print("")
     print("== Resumo ==")

@@ -1853,3 +1853,95 @@ O fato de um elemento declarar `distribuicao_matricial` não autoriza:
 - espaço externo indevido;
 - redefinição da área útil entregue;
 - violação das regras de ocupação integral (ADR-0024, DA-01 a DA-04).
+
+---
+
+## 12. Regras físicas da área de conteúdo multinível no console (ADR-0028)
+
+A ADR-0028 (2026-07-17) formaliza as regras normativas das apresentações de
+conteúdo multinível no `console`. Esta seção delimita as regras físicas
+relevantes para a composição do corpo.
+
+### 12.1 Área útil entregue ao console
+
+A área útil entregue ao `console` pela composição do corpo (ADR-0015, ADR-0018)
+é o limite físico disponível para as apresentações de conteúdo multinível. O
+renderizador calcula a representação a partir dessa área.
+
+### 12.2 Linha lógica e linha física
+
+| Conceito | Definição |
+|---|---|
+| Linha lógica | Unidade de conteúdo semântico; exemplos: uma linha de tabela, um nó de hierarquia, um campo nome-valor |
+| Linha física | Linha de terminal dentro da área útil; uma linha lógica pode produzir uma (modo não verboso) ou mais (modo verboso) linhas físicas |
+
+A quantidade de linhas físicas produzidas por uma linha lógica é calculada pelo
+renderizador e não é armazenada no JSON externo.
+
+### 12.3 Paginação vertical
+
+Quando o conteúdo multinível não couber integralmente na área útil disponível,
+o renderizador pagina verticalmente. Cada página ocupa a área útil completa do
+`console`.
+
+A paginação não resolve a impossibilidade horizontal. Ver §12.4.
+
+### 12.4 Impossibilidade geométrica horizontal
+
+Quando nem a unidade mínima de conteúdo multinível couber na largura útil da
+área disponível:
+
+1. a paginação não resolve a condição;
+2. o renderizador aciona a política de impossibilidade geométrica;
+3. as políticas vigentes (quadro mínimo canônico global, fallback, mensagem de
+   erro ou rejeição) estão definidas nas ADR-0017 e ADR-0023.
+
+Nenhuma política nova de impossibilidade é criada pela ADR-0028. Lacunas entre
+a ADR-0028 e as autoridades vigentes serão tratadas na aplicação documental
+futura.
+
+### 12.5 Recuperação após redimensionamento
+
+Após redimensionamento do terminal, o renderizador recalcula a representação
+física do conteúdo multinível com o modo visual corrente da sessão (verboso ou
+não verboso). As políticas de recuperação estão definidas pela ADR-0017.
+
+### 12.6 Separação de responsabilidades
+
+| Capacidade | Operada por | Regida por |
+|---|---|---|
+| Entrega da área útil ao `console` | Composição hierárquica do corpo | ADR-0015, ADR-0018 |
+| Representação física do conteúdo multinível | Renderizador do `console` | ADR-0028 |
+| Impossibilidade geométrica global | Quadro mínimo canônico | ADR-0017, ADR-0023 |
+
+A ADR-0028 não altera a composição hierárquica do corpo, a distribuição de área
+entre filhos diretos nem as regras de ocupação integral (ADR-0024, DA-01 a
+DA-04).
+
+### 12.7 Remissões
+
+- `contrato_console.md` — seção 21 (ADR-0028): estado de visualização, alternância e políticas de modo;
+- `contrato_json_console.md` — seção 13 (ADR-0028): regras normativas, validações e política de modo;
+- `contrato_tela_json.md` — seção 33 (ADR-0028): declaração de política no JSON estrutural;
+- `docs/NOMENCLATURA.md` — seção 19: terminologia canônica da ADR-0028.
+
+### 12.8 Delegação de política de modo ao console (D23)
+
+A revisão D23 da ADR-0028 estabelece que a política de modo de apresentação
+(somente verbosa, somente não verbosa ou alternável) é declarada no JSON
+estrutural da tela e pertence ao elemento `console`, não à composição do corpo.
+
+A composição do corpo:
+
+- **preserva a área útil alocada ao `console`** conforme as regras de distribuição
+  de área (ADR-0015, ADR-0018, ADR-0024) — independentemente da política de modo;
+- **não infere nem determina** a política de modo a partir da distribuição,
+  quantidade de linhas ou qualquer parâmetro geométrico;
+- **não exige** que o `console` suporte dois modos para receber a área que lhe
+  cabe;
+- **delega integralmente** ao elemento `console` a interpretação da política de
+  modo e a apresentação do conteúdo.
+
+A política de modo de apresentação não altera a composição hierárquica do corpo
+nem as regras de ocupação integral (DA-01 a DA-04). Telas de modo único (somente
+verbosa ou somente não verbosa) recebem a mesma área útil que telas alternáveis.

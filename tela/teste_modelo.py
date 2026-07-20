@@ -206,11 +206,11 @@ def teste_modelo_orquestrador():
     itens_inerte_ok = (
         lancador is not None
         and isinstance(lancador._campos_inertes.get("itens"), list)
-        and len(lancador._campos_inertes.get("itens")) == 7
+        and len(lancador._campos_inertes.get("itens")) == 11
     )
     _registrar(
-        "lancador_principal._campos_inertes['itens'] e lista com 7 itens "
-        "(H-0013 d/g + H-0030 chips 1-5)",
+        "lancador_principal._campos_inertes['itens'] e lista com 11 itens "
+        "(H-0013 d/g + H-0030 chips 1-5 + H-0037 chips 6-9)",
         itens_inerte_ok,
         "itens={0!r}".format(
             lancador._campos_inertes.get("itens") if lancador else None

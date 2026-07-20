@@ -1,0 +1,28 @@
+{
+  "schema": "tela.v1",
+  "id": "h0037_console_verboso_dois_niveis",
+  "cabecalho": {
+    "titulo": "H0037 Verboso Dois Niveis",
+    "descricao": "Console somente verboso em dois niveis de hierarquia"
+  },
+  "corpo": {
+    "arranjo": "vertical",
+    "elementos": [
+      {
+        "id": "con",
+        "tipo": "console",
+        "titulo": "Console",
+        "formato": {
+          "excesso": {
+            "politica_modo": "somente_verboso"
+          }
+        }
+      }
+    ]
+  },
+  "barra_de_menus": {
+    "chips": [
+      {"id": "esc", "tipo": "acao", "tecla": "Esc", "texto": "Voltar"}
+    ]
+  }
+}

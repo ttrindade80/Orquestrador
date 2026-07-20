@@ -672,3 +672,168 @@ recebendo o mesmo contrato semântico. O protocolo do script permanece deferido.
 - `contrato_tela_json.md` — seção 32 (ADR-0027): fronteira do JSON estrutural;
 - `contrato_json_console.md` — seção 12 (ADR-0027): schema semântico multinível;
 - `docs/NOMENCLATURA.md` — seção 18: terminologia canônica da ADR-0027.
+
+---
+
+## 21. Apresentações de conteúdo multinível, alternância verbosa e estado de sessão (ADR-0028)
+
+A ADR-0028 (2026-07-17) formaliza as regras normativas das apresentações de
+conteúdo multinível no `console`, a semântica da tecla `V` e o estado de
+visualização da sessão. Esta seção propaga essas regras para o contrato do
+`console`.
+
+### 21.1 Escopo exclusivo
+
+Esta seção aplica-se exclusivamente a instâncias de `console` que recebem
+conteúdo multinível externo (`tipo: "multinivel"`). O `console` sem conteúdo
+externo preserva integralmente o comportamento histórico definido pelos contratos
+ativos.
+
+### 21.2 Modo não verboso
+
+No modo não verboso, cada conteúdo aplicável do `console` com dados multinível
+ocupa exatamente uma linha física. O excedente é truncado conforme a política
+declarada. Os dados originais permanecem inalterados.
+
+### 21.3 Modo verboso
+
+No modo verboso, o conteúdo pode ocupar várias linhas físicas calculadas pelo
+renderizador. As linhas de continuação respeitam o alinhamento definido no
+documento de conteúdo.
+
+### 21.4 Relação com `modo normal`
+
+O `contrato_console.md` (§6) utiliza o termo **`modo normal`** para o modo
+operacional do `console` sem quebra de linha, declarado como default da instância.
+A ADR-0028 utiliza o termo **`modo não verboso`** para o mesmo comportamento
+conceitual aplicado às apresentações de conteúdo multinível.
+
+Os dois termos descrevem o mesmo comportamento: exibição de cada conteúdo
+aplicável em uma única linha física, com truncamento do excedente. A reconciliação
+terminológica definitiva é adiada. O registro desta equivalência conceitual não
+implica que `modo normal` seja sinônimo de `somente_nao_verboso`: uma tela com
+política `alternavel` também pode exibir em modo não verboso sem ser classificada
+como somente não verbosa.
+
+### 21.5 Alternância pela tecla V
+
+A disponibilidade da tecla `V` e do chip `[V] Verboso` depende da política de
+modo declarada pela tela (D23, §21.11):
+
+- **Telas alternáveis** (`politica_modo: "alternavel"`): a tecla `V` alterna entre
+  os estados verboso e não verboso durante a sessão; a barra de menus apresenta
+  o chip `[V] Verboso`.
+- **Telas de modo único** (`politica_modo: "somente_verboso"` ou
+  `"somente_nao_verboso"`): a tecla `V` não é uma ação aplicável; o chip
+  `[V] Verboso` não é obrigatório.
+
+A alternância (quando aplicável):
+
+- usa os mesmos dados;
+- usa a mesma tela;
+- usa o mesmo documento de conteúdo;
+- não troca a apresentação;
+- não persiste alteração;
+- é reversível: uma segunda ativação retorna ao modo anterior.
+
+O `console` sem conteúdo multinível externo não expõe nem utiliza a tecla `V`.
+
+### 21.6 Estado visual da sessão
+
+O estado de visualização verboso/não verboso é um estado da sessão. Ele não
+deve:
+
+- reescrever o JSON externo de conteúdo;
+- reescrever o JSON estrutural da tela;
+- alterar permanentemente uma fixture;
+- substituir os dados;
+- persistir preferência global;
+- vazar para outra instância de `console`;
+- alterar a identidade do cenário.
+
+Ao recarregar a tela ou trocar de cenário, o modo inicial volta a ser determinado
+pela configuração declarativa carregada.
+
+### 21.7 Modo inicial
+
+O modo inicial é determinado pela política de modo declarada no JSON estrutural da
+tela (campo `formato.excesso.politica_modo` do elemento `console`), conforme D23:
+
+- **Tela somente verbosa**: inicia necessariamente em modo verboso;
+- **Tela somente não verbosa**: inicia necessariamente em modo não verboso;
+- **Tela alternável**: inicia no modo declarado em `formato.excesso.modo_inicial`
+  (campo obrigatório para essa política; valores aceitos: `"verboso"`,
+  `"nao_verboso"`).
+
+Ao recarregar a tela ou trocar de cenário, o modo inicial volta a ser determinado
+pela política declarada carregada.
+
+A definição do modo inicial estava anteriormente adiada conforme ADR-0028 §43
+item 3. A revisão D23 encerra esse adiamento para telas novas ou revisadas: a
+política ausente é inválida e nenhum default implícito é permitido.
+
+O campo `excesso.modo` que existia no documento JSON externo de conteúdo
+(mecanismo anterior ao D23, registrado em `contrato_json_console.md` §12.7) é
+supersedido por `formato.excesso.politica_modo` e `formato.excesso.modo_inicial`
+no JSON estrutural para telas novas ou revisadas.
+
+### 21.8 Redimensionamento
+
+Após redimensionamento, o modo visual da sessão é preservado. O renderizador
+recalcula a representação física com o modo corrente.
+
+### 21.9 Paginação e impossibilidade geométrica
+
+Paginação não resolve impossibilidade horizontal no conteúdo multinível. Quando
+nem a unidade mínima couber na área útil, o `console` aciona a política de
+impossibilidade geométrica das ADRs vigentes (ADR-0017, ADR-0023).
+
+### 21.10 Remissões
+
+- `contrato_json_console.md` — seção 13 (ADR-0028): regras normativas, validações e política de modo;
+- `contrato_barra_de_menus.md` — seção 22 (ADR-0028): chip `[V] Verboso`;
+- `contrato_tela_json.md` — seção 33 (ADR-0028): JSON estrutural e política de modo;
+- `docs/NOMENCLATURA.md` — seção 19: terminologia canônica da ADR-0028.
+
+### 21.11 Políticas de modo por tela (D23)
+
+A revisão D23 da ADR-0028 formaliza que cada tela de `console` com conteúdo
+multinível nova ou revisada deve declarar uma das três políticas de modo no JSON
+estrutural da tela (campo `formato.excesso.politica_modo`).
+
+#### 21.11.1 Tela somente verbosa (`"somente_verboso"`)
+
+- A tela sempre exibe o conteúdo em modo verboso.
+- A tecla `V` não é uma ação aplicável.
+- O chip `[V] Verboso` não é obrigatório na barra de menus.
+- O comportamento visual segue integralmente as regras do modo verboso (§21.3).
+- O `console` não precisa declarar `modo_inicial`.
+
+#### 21.11.2 Tela somente não verbosa (`"somente_nao_verboso"`)
+
+- A tela sempre exibe o conteúdo em modo não verboso.
+- A tecla `V` não é uma ação aplicável.
+- O chip `[V] Verboso` não é obrigatório na barra de menus.
+- O comportamento visual segue integralmente as regras do modo não verboso (§21.2).
+- O truncamento com `...` permanece válido quando aplicável.
+- O `console` não precisa declarar `modo_inicial`.
+
+#### 21.11.3 Tela alternável (`"alternavel"`)
+
+- A tela suporta os dois modos.
+- A tecla `V` alterna entre os estados verboso e não verboso.
+- O chip `[V] Verboso` é obrigatório na barra de menus.
+- O `console` deve declarar `modo_inicial` (`"verboso"` ou `"nao_verboso"`).
+- A alternância é reversível: uma segunda ativação retorna ao modo anterior.
+
+#### 21.11.4 Escopo de obrigatoriedade
+
+A obrigação de declarar `politica_modo` aplica-se a telas novas ou revisadas.
+Telas legadas (criadas antes da incorporação de D23) permanecem válidas sem
+declaração. Ausência de `politica_modo` em tela nova ou revisada é inválida;
+nenhum default implícito é permitido.
+
+#### 21.11.5 Cenários futuros mínimos (§36.2)
+
+Quatro cenários mínimos de demonstração estão definidos em `contrato_json_console.md`
+§13.13.10, cobrindo as três políticas de modo.

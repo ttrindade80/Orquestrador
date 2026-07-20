@@ -97,6 +97,7 @@ _this_dir = str(Path(__file__).resolve().parent)
 while _this_dir in sys.path:
     sys.path.remove(_this_dir)
 
+import pytest  # noqa: E402
 import signal  # noqa: E402
 import subprocess  # noqa: E402
 import os  # noqa: E402
@@ -136,14 +137,13 @@ _RESULTADOS = []
 
 
 _LARGURA_SUBPROCESS = 80
-# Altura deterministica do subprocess da demo (H-0015 / H-0030). Em contexto de
-# pipe/nao-tty, ``shutil.get_terminal_size(fallback=(80, 24))`` usa o fallback
-# ``lines=24``. A partir do H-0030 o lancador do demo possui 7 itens
-# (d, g, 1..5), de modo que a caixa NAVEGAR exige mais linhas e o demo
-# requer altura >= 28 em largura 80. Para garantir determinismo entre ambientes
-# (ACH-H15-03) e acomodar o lancador ampliado, o env do subprocess define
-# COLUMNS=80 e LINES=30 explicitamente; o esperado e computado com largura=80 e
-# altura=30.
+# Altura deterministica do subprocess da demo (H-0015 / H-0030 / H-0037). Em
+# contexto de pipe/nao-tty, ``shutil.get_terminal_size(fallback=(80, 24))`` usa
+# o fallback ``lines=24``. A partir do H-0037 o lancador do demo possui 11
+# itens (d, g, 1..9), de modo que a caixa NAVEGAR exige mais linhas; a altura
+# minima em largura 80 e >= 23. Para garantir determinismo entre ambientes
+# (ACH-H15-03), o env do subprocess define COLUMNS=80 e LINES=30
+# explicitamente; o esperado e computado com largura=80 e altura=30.
 _ALTURA_SUBPROCESS = 30
 
 
@@ -158,8 +158,9 @@ _EXPECTED_CURVA = (
     "╰──────────────────────────────────────────────────────────────────────────────╯\n"
     "╭ NAVEGAR ─────────────────────────────────────────────────────────────────────╮\n"
     "│                                                                              │\n"
-    "│      [d] Destino        [1] Console       [3] Matriz 2x2     [5] Matriz 2x4  │\n"
-    "│      [g] Grupo Min.     [2] Dashboard     [4] Matriz 3x2                     │\n"
+    "│   [d] Destino        [2] Dashboard      [5] Matriz 2x4      [8] Alternavel   │\n"
+    "│   [g] Grupo Min.     [3] Matriz 2x2     [6] Nao Verboso     [9] Tab Altern.  │\n"
+    "│   [1] Console        [4] Matriz 3x2     [7] Verboso                          │\n"
     "│                                                                              │\n"
     "╰──────────────────────────────────────────────────────────────────────────────╯\n"
     "╭ Menus ───────────────────────────────────────────────────────────────────────╮\n"
@@ -178,8 +179,9 @@ _EXPECTED_RETA = (
     "└──────────────────────────────────────────────────────────────────────────────┘\n"
     "┌ NAVEGAR ─────────────────────────────────────────────────────────────────────┐\n"
     "│                                                                              │\n"
-    "│      [d] Destino        [1] Console       [3] Matriz 2x2     [5] Matriz 2x4  │\n"
-    "│      [g] Grupo Min.     [2] Dashboard     [4] Matriz 3x2                     │\n"
+    "│   [d] Destino        [2] Dashboard      [5] Matriz 2x4      [8] Alternavel   │\n"
+    "│   [g] Grupo Min.     [3] Matriz 2x2     [6] Nao Verboso     [9] Tab Altern.  │\n"
+    "│   [1] Console        [4] Matriz 3x2     [7] Verboso                          │\n"
     "│                                                                              │\n"
     "└──────────────────────────────────────────────────────────────────────────────┘\n"
     "┌ Menus ───────────────────────────────────────────────────────────────────────┐\n"
@@ -199,10 +201,12 @@ _EXPECTED_DIAGNOSTICO_CURVA_42 = (
     "╰────────────────────────────────────────╯\n"
     "╭ NAVEGAR ───────────────────────────────╮\n"
     "│                                        │\n"
-    "│     [d] Destino        [3] Matriz 2x2  │\n"
-    "│     [g] Grupo Min.     [4] Matriz 3x2  │\n"
-    "│     [1] Console        [5] Matriz 2x4  │\n"
-    "│     [2] Dashboard                      │\n"
+    "│    [d] Destino        [5] Matriz 2x4   │\n"
+    "│    [g] Grupo Min.     [6] Nao Verboso  │\n"
+    "│    [1] Console        [7] Verboso      │\n"
+    "│    [2] Dashboard      [8] Alternavel   │\n"
+    "│    [3] Matriz 2x2     [9] Tab Altern.  │\n"
+    "│    [4] Matriz 3x2                      │\n"
     "│                                        │\n"
     "╰────────────────────────────────────────╯\n"
     "╭ Menus ─────────────────────────────────╮\n"
@@ -275,6 +279,11 @@ def _registrar(nome, passou, detalhe=""):
 def _carregar_modelo():
     tela_raw = carregar_tela(_BASE_PADRAO, "demo", _RAIZ_TELAS_DEMO)
     return construir_modelo(tela_raw)
+
+
+@pytest.fixture(name="modelo")
+def _fixture_modelo():
+    return _carregar_modelo()
 
 
 def _carregar_modelo_por_id(id_tela):
@@ -700,29 +709,30 @@ def teste_renderizar_estado_altura(modelo):
 
     # CA-02: altura explicita suficiente -> exatamente `altura` linhas.
     # H-0030: o demo com 7 itens no lancador requer altura >= 29 em
-    # largura 42 (fracao [2,1,2]); usa-se altura=30 para exercitar o fill.
-    res_30 = renderizar_estado(
-        estado_curva, modelo, largura=42, altura=30
+    # largura 42 (fracao [2,1,2]); H-0037 amplia para 11 itens, minimo
+    # passa a 31; usa-se altura=32 para exercitar o fill.
+    res_32 = renderizar_estado(
+        estado_curva, modelo, largura=42, altura=32
     )
     _registrar(
-        "renderizar_estado(estado, modelo, largura=42, altura=30) -> 30 linhas",
-        isinstance(res_30, str) and res_30.count("\n") == 30,
-        "count={0}".format(res_30.count("\n") if isinstance(res_30, str) else "n/a"),
+        "renderizar_estado(estado, modelo, largura=42, altura=32) -> 32 linhas",
+        isinstance(res_32, str) and res_32.count("\n") == 32,
+        "count={0}".format(res_32.count("\n") if isinstance(res_32, str) else "n/a"),
     )
 
     # CA-01 / CA-03: altura minima sem preenchimento, saida identica
     # ao comportamento natural (sem altura). H-0016: com a barra horizontal
-    # responsiva em 1 linha, L_barra=3. H-0030/H-0034: com 7 itens no lancador
-    # em matriz 4x2 com margens verticais, NAVEGAR tem 8 linhas,
-    # L_corpo_conteudo=13 (ITENS=3, INFO=2, NAVEGAR=8) -> n_minimo=19.
+    # responsiva em 1 linha, L_barra=3. H-0037: com 11 itens no lancador
+    # em matriz 6x2 com margens verticais, NAVEGAR tem 10 linhas,
+    # L_corpo_conteudo=15 (ITENS=3, INFO=2, NAVEGAR=10) -> n_minimo=21.
     #
     # H-0025 secao 11.5 (item 1): o demo real agora declara
-    # distribuicao (fracao [2,1,2]); em altura=19 essa distribuicao produz
+    # distribuicao (fracao [2,1,2]); em altura=21 essa distribuicao produz
     # uma cota menor que a altura natural de algum filho — terminal
     # insuficiente, caso explicitamente fora de escopo (ADR-0018 D8). Para
     # preservar a cobertura "altura minima sem fill = saida natural", o
     # sub-cenario usa um modelo SEM distribuicao (ausencia preserva o
-    # preenchimento externo H-0013/ADR-0018 D2). altura=19 nao e altura
+    # preenchimento externo H-0013/ADR-0018 D2). altura=21 nao e altura
     # suportada normativa do produto; e apenas o minimo natural desta tela.
     tela_raw_sd = carregar_tela(_BASE_PADRAO, "demo", _RAIZ_TELAS_DEMO)
     corpo_sd = dict(tela_raw_sd["corpo"])
@@ -730,18 +740,18 @@ def teste_renderizar_estado_altura(modelo):
     tela_raw_sd = dict(tela_raw_sd)
     tela_raw_sd["corpo"] = corpo_sd
     modelo_sd = construir_modelo(tela_raw_sd)
-    res_19 = renderizar_estado(
-        estado_curva, modelo_sd, largura=42, altura=19
+    res_21 = renderizar_estado(
+        estado_curva, modelo_sd, largura=42, altura=21
     )
     _registrar(
-        "renderizar_estado(..., altura=19, sem distribuicao) -> 19 linhas (sem fill)",
-        res_19.count("\n") == 19,
-        "count={0}".format(res_19.count("\n")),
+        "renderizar_estado(..., altura=21, sem distribuicao) -> 21 linhas (sem fill)",
+        res_21.count("\n") == 21,
+        "count={0}".format(res_21.count("\n")),
     )
     _registrar(
-        "renderizar_estado(..., altura=19, sem distribuicao) == "
+        "renderizar_estado(..., altura=21, sem distribuicao) == "
         "renderizar_estado(..., largura=42) [sem altura]",
-        res_19 == renderizar_estado(estado_curva, modelo_sd, largura=42),
+        res_21 == renderizar_estado(estado_curva, modelo_sd, largura=42),
     )
 
     # altura=None preserva o comportamento atual.
@@ -754,37 +764,37 @@ def teste_renderizar_estado_altura(modelo):
 
     # Consistencia: renderizar_estado repassa altura ao renderer.
     _registrar(
-        "renderizar_estado(..., altura=30) == renderizar_tela(modelo, 'curva', "
-        "largura=42, altura=30)",
-        res_30 == renderizar_tela(
-            modelo, tipo_borda="curva", largura=42, altura=30
+        "renderizar_estado(..., altura=32) == renderizar_tela(modelo, 'curva', "
+        "largura=42, altura=32)",
+        res_32 == renderizar_tela(
+            modelo, tipo_borda="curva", largura=42, altura=32
         ),
     )
 
     # Barra_de_menus preservada no rodape (ultima linha nao-vazia termina
     # com a borda inferior) e invariante de largura preservado.
-    linhas_30 = res_30.split("\n")
-    ultima = [ln for ln in linhas_30 if ln != ""][-1]
+    linhas_32 = res_32.split("\n")
+    ultima = [ln for ln in linhas_32 if ln != ""][-1]
     _registrar(
-        "renderizar_estado(..., altura=30): barra_de_menus no rodape ('╯')",
+        "renderizar_estado(..., altura=32): barra_de_menus no rodape ('╯')",
         ultima.endswith("╯"),
         "ultima={0!r}".format(ultima),
     )
     _registrar(
-        "renderizar_estado(..., altura=30): cada linha nao-vazia tem 42 chars",
-        all(len(ln) == 42 for ln in linhas_30 if ln != ""),
+        "renderizar_estado(..., altura=32): cada linha nao-vazia tem 42 chars",
+        all(len(ln) == 42 for ln in linhas_32 if ln != ""),
     )
 
     # renderizar_estado nao altera estado nem modelo.
     estado_snap = {"tipo_borda": "curva", "saindo": False, "pilha_telas": []}
     cabecalho_antes = dict(modelo.cabecalho)
-    renderizar_estado(estado_snap, modelo, largura=42, altura=30)
+    renderizar_estado(estado_snap, modelo, largura=42, altura=32)
     _registrar(
-        "renderizar_estado(..., altura=30) nao altera estado",
+        "renderizar_estado(..., altura=32) nao altera estado",
         estado_snap == {"tipo_borda": "curva", "saindo": False, "pilha_telas": []},
     )
     _registrar(
-        "renderizar_estado(..., altura=30) nao altera modelo.cabecalho",
+        "renderizar_estado(..., altura=32) nao altera modelo.cabecalho",
         modelo.cabecalho == cabecalho_antes,
     )
 
@@ -2710,6 +2720,7 @@ def teste_redimensionamento_reativo_h0023():
     with _patch("demo.demo._instalar_handler_sigwinch",
                 side_effect=_track_sigwinch_install), \
          _patch.dict(os.environ, env_notty, clear=False), \
+         _patch("sys.argv", ["demo.py"]), \
          _patch("sys.stdin") as _mock_stdin_nt, \
          _patch("sys.stdout") as _mock_stdout_nt:
         _mock_stdin_nt.isatty.return_value = False
@@ -2839,12 +2850,12 @@ def teste_redimensionamento_reativo_h0023():
         _proc_pty = None
 
         # Dimensoes deterministas:
-        #   normal   40x30 -> tela normal (contem "ORQUESTRADOR")
+        #   normal   40x32 -> tela normal (contem "ORQUESTRADOR")
         #   reduzido 30x5  -> quadro minimo ("terminal pequeno demais"): altura < 6
-        #   ampliado 40x30 -> tela normal restaurada
-        # H-0030: o demo com 7 itens no lancador requer altura >= 28
-        # mesmo em largura 40; _LINS_NORM subiu de 20 para 30.
-        _COLS_NORM, _LINS_NORM = 40, 30
+        #   ampliado 40x32 -> tela normal restaurada
+        # H-0037: 11 itens no lancador requerem altura >= 31 a largura 40;
+        # _LINS_NORM subiu de 30 para 32 (margem de 1 linha).
+        _COLS_NORM, _LINS_NORM = 40, 32
         _COLS_RED, _LINS_RED = 30, 5
 
         try:

@@ -735,3 +735,93 @@ nem de ativação de `[✥]` (ADR-0005).
 - **`config/elementos/barra_de_menus.json` como artefato transicional**: a
   reavaliar e migrar para o modelo de configuração por tela (ADR-0008) em
   tarefa posterior, preservada a organização prevista pela ADR-0021.
+
+---
+
+## 22. Chip `[V] Verboso` nas demonstrações de conteúdo multinível do console (ADR-0028)
+
+A ADR-0028 (2026-07-17) formaliza a semântica da tecla `V` e do chip
+`[V] Verboso` para instâncias de `console` com conteúdo multinível externo.
+
+### 22.1 Existência condicional
+
+O chip `[V] Verboso` existe apenas quando a instância de `console` apresenta
+dados multinível externos e declara a política de modo `"alternavel"` no campo
+`formato.excesso.politica_modo` do JSON estrutural da tela (D23).
+
+Telas com política `"somente_verboso"` ou `"somente_nao_verboso"` não exibem o
+chip `[V] Verboso` e não expõem a tecla `V` como ação aplicável.
+
+A existência do chip é derivada exclusivamente da política declarada no
+`tela.json`. O renderer não infere a política a partir do conteúdo externo nem
+de outra condição de ambiente.
+
+### 22.2 Semântica da alternância
+
+A ativação de `[V]`:
+
+- alterna o estado de visualização entre verboso e não verboso;
+- usa os mesmos dados, a mesma tela e o mesmo documento de conteúdo;
+- não troca a apresentação;
+- não persiste alteração;
+- é reversível: uma segunda ativação retorna ao modo anterior.
+
+### 22.3 Estado de sessão
+
+O estado verboso/não verboso é estado da sessão. Ele não é gravado no JSON
+externo de conteúdo, no JSON estrutural da tela nem em nenhum arquivo.
+
+Ao recarregar a tela ou trocar de cenário, o modo inicial volta a ser determinado
+pela política de modo declarada no JSON estrutural da tela
+(`formato.excesso.politica_modo` e, para telas alternáveis,
+`formato.excesso.modo_inicial`).
+
+### 22.4 Isolamento
+
+A ativação de `[V]` em uma instância de `console` com dados multinível:
+
+- não vaza para outra instância de `console`;
+- não altera a identidade do cenário;
+- não persiste preferência global.
+
+### 22.5 Inaplicabilidade fora do escopo
+
+O chip `[V]` desta seção aplica-se exclusivamente às demonstrações de conteúdo
+multinível do `console`. Ele não se aplica a:
+
+- `dashboard`;
+- `lancador`;
+- `console` sem conteúdo multinível externo;
+- distribuição matricial de nível único.
+
+### 22.6 Posição canônica
+
+O chip `[V] Verboso` das demonstrações de conteúdo multinível do `console`
+ocupa a mesma posição canônica já definida pela seção 7 deste contrato — após
+os chips específicos de classe e antes de `[?]`.
+
+### 22.7 Remissões
+
+- `contrato_console.md` — seção 21 (ADR-0028): estado de visualização, alternância e políticas de modo;
+- `contrato_json_console.md` — seção 13 (ADR-0028): regras normativas, validações e política de modo;
+- `contrato_tela_json.md` — seção 33 (ADR-0028): JSON estrutural e declaração de política;
+- `docs/NOMENCLATURA.md` — seção 19: terminologia canônica da ADR-0028.
+
+### 22.8 Três políticas de modo e o chip `[V] Verboso` (D23)
+
+A revisão D23 da ADR-0028 distingue três políticas de modo para telas de `console`
+multinível. A presença ou ausência do chip `[V] Verboso` é determinada pela
+política declarada no JSON estrutural (`formato.excesso.politica_modo`):
+
+| Política (`politica_modo`) | Chip `[V] Verboso` | Tecla `V` |
+|---|---|---|
+| `"somente_verboso"` | Não obrigatório | Não aplicável |
+| `"somente_nao_verboso"` | Não obrigatório | Não aplicável |
+| `"alternavel"` | **Obrigatório** | Ativa alternância |
+
+O chip representa a **disponibilidade de alternância**, não o modo corrente nem a
+política por si só. Em telas alternáveis, o chip é sempre exibido,
+independentemente de o estado corrente da sessão ser verboso ou não verboso.
+
+Telas de modo único não necessitam do chip. O renderer não deve exibir o chip por
+inferência em telas cuja política não seja `"alternavel"`.

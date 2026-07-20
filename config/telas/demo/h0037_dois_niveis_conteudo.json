@@ -1,0 +1,46 @@
+{
+  "tipo": "multinivel",
+  "formato": {
+    "apresentacao": "hierarquia",
+    "niveis": [
+      {
+        "id": "secao",
+        "tipo": "container",
+        "conteudo": "titulo",
+        "designador": {"tipo": "decimal", "sufixo": "."}
+      },
+      {
+        "id": "item",
+        "tipo": "conteudo",
+        "conteudo": "texto",
+        "designador": {"tipo": "nenhum"}
+      }
+    ]
+  },
+  "dados": [
+    {
+      "id": "s1",
+      "nivel": "secao",
+      "titulo": "H-0037 conteudo_dois_niveis",
+      "filhos": [
+        {
+          "id": "i1",
+          "nivel": "item",
+          "texto": "Politica somente_nao_verboso aplicada quando o documento e carregado pela tela nao verbosa; o mesmo conteudo e carregado pela tela verbosa com politica somente_verboso provando que a politica pertence a tela."
+        }
+      ]
+    },
+    {
+      "id": "s2",
+      "nivel": "secao",
+      "titulo": "H-0037 conteudo_dois_niveis",
+      "filhos": [
+        {
+          "id": "i2",
+          "nivel": "item",
+          "texto": "Politica somente_verboso aplicada quando o documento e carregado pela tela verbosa; identidade semantica distinta comprova independencia entre politica de modo e conteudo do documento externo."
+        }
+      ]
+    }
+  ]
+}

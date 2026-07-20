@@ -1715,3 +1715,142 @@ decidido:
 | Diretório global definitivo de dados de runtime do produto | Não decidido |
 | Suporte ao `tipo: "matriz"` no mecanismo de fornecimento externo | Não decidido |
 | Comportamento diante de fonte ausente ou inválida | Não decidido |
+
+---
+
+## 19. Apresentações de conteúdo multinível no console e alternância verbosa (ADR-0028)
+
+### 19.1 Escopo
+
+A terminologia desta seção aplica-se exclusivamente a dados multinível exibidos
+em componentes do tipo `console`. Ela não se aplica a `dashboard`, `lancador`,
+distribuição matricial de nível único (ADR-0025) nem telas sem conteúdo
+multinível externo.
+
+### 19.2 Termos principais
+
+| Termo | Definição |
+|---|---|
+| `conteúdo multinível do console` | Dados de runtime exibidos no `console` com estrutura hierárquica declarada de múltiplos níveis, fornecidos por documento JSON externo com `tipo: "multinivel"` |
+| `documento JSON externo de conteúdo` | Documento com envelope `{tipo, formato, dados}` que transporta o conteúdo semântico para o `console`; separado do JSON estrutural da tela; não armazena resultados físicos calculados |
+| `modo não verboso` | Estado de visualização em que cada conteúdo aplicável ocupa exatamente uma linha física; excedente é truncado; sem continuação em linhas adicionais |
+| `modo verboso` | Estado de visualização em que o conteúdo pode ocupar várias linhas físicas; as quebras são calculadas pelo renderizador; linhas de continuação respeitam alinhamento definido |
+| `alternância por V` | Ativação da tecla `V` que troca o estado de visualização entre verboso e não verboso durante a sessão; reversível; não altera os dados, a tela nem o documento de conteúdo; não persiste |
+| `estado visual da sessão` | Estado verboso/não verboso mantido durante a sessão corrente; não é persistido no JSON externo, no JSON estrutural da tela nem em nenhum arquivo; não vaza para outra instância de `console` |
+| `modo inicial` | Modo de visualização estabelecido pela configuração declarativa ao carregar o conteúdo; determinado pelo campo do bloco `excesso` no documento JSON externo; se ausente, comportamento não definido por esta ADR |
+| `linha lógica` | Unidade de conteúdo semântico que pode produzir uma ou mais linhas físicas; exemplos: uma linha de tabela, um nó de hierarquia, um campo nome-valor |
+| `linha física` | Unidade de espaço vertical na área útil do terminal; correspondência com linha lógica depende do modo verboso/não verboso |
+| `contexto visual repetido` | Ancestrais ou cabeçalhos repetidos pelo renderizador no início de uma nova página para preservar a orientação do leitor; não alteram numeração nem dados |
+| `contêiner` (tipo conceitual) | Tipo de nível que pode possuir filhos; corresponde ao tipo `container` no schema do projeto (ADR-0027) |
+| `folha` (tipo conceitual) | Tipo de nível sem filhos; corresponde ao tipo `conteudo` no schema do projeto (ADR-0027) |
+| `campo nome-valor` (tipo conceitual) | Tipo de nível composto por nome, separador e valor; corresponde ao tipo `nome_valor` no schema do projeto (ADR-0027) |
+| `designador` | Marcador visual de um nível (decimal, alfabético, símbolo, composto, nenhum ou personalizado); independente da estrutura hierárquica; troca de designador não altera os dados |
+| `escopo de alinhamento` | Âmbito de cálculo compartilhado para largura reservada de designadores ou nomes; exemplos: irmãos, grupo, nível, página, conteúdo completo |
+| `[V] Verboso` | Chip da barra de menus, tecla `V`, presente nas demonstrações de dados multinível do `console`; aciona a alternância de modo |
+| `impossibilidade geométrica (multinível)` | Condição em que nem a unidade mínima de conteúdo multinível cabe na largura útil disponível; a paginação não resolve a impossibilidade horizontal; aciona a política de impossibilidade já definida pelas ADRs vigentes (ADR-0017, ADR-0023) |
+
+### 19.3 Diferenças terminológicas registradas (não resolvidas)
+
+A ADR-0028 registra as seguintes diferenças entre o contrato externo e o schema
+atual do projeto (ADR-0027). Nenhuma renomeação foi decidida.
+
+| Conceito normativo | Contrato externo | Schema atual (ADR-0027) |
+|---|---|---|
+| Tipo de nível — folha | `folha` | `conteudo` |
+| Tipo de nível — par nome e valor | `campo` | `nome_valor` |
+| Apresentação hierárquica com recuo | `hierarquia_indentada` | `hierarquia` |
+
+A reconciliação definitiva — incluindo o nome concreto no schema — é adiada
+para a futura etapa de schema ou aplicação documental.
+
+### 19.4 `modo normal` × `modo não verboso`
+
+O `contrato_console.md` (§6) usa o termo **`modo normal`** para o modo de
+exibição do console sem quebra de linha, declarando-o como default da instância.
+A ADR-0028 usa o termo **`modo não verboso`** para o mesmo comportamento
+conceitual nas apresentações de conteúdo multinível.
+
+Esses termos descrevem o mesmo comportamento: exibição de cada conteúdo
+aplicável em uma única linha física, com truncamento do excedente. A
+equivalência conceitual está registrada. A reconciliação terminológica
+definitiva — incluindo qual será o nome canônico no schema — é adiada.
+
+### 19.5 Distinções obrigatórias
+
+| Termo | Contexto | Não confundir com |
+|---|---|---|
+| `modo não verboso` | Estado de visualização das apresentações multinível do `console` (ADR-0028) | `modo normal` (`contrato_console.md` §6) — termos equivalentes conceitualmente, não reconciliados |
+| `modo verboso` | Estado de visualização das apresentações multinível (ADR-0028) | `modo verboso` geral do `console` — aplicado especificamente ao conteúdo multinível por esta ADR |
+| `estado visual da sessão` | Estado verboso/não verboso durante a sessão (ADR-0028) | Persistência em arquivo ou configuração global — explicitamente proibida |
+| `linha lógica` | Unidade semântica de conteúdo (ADR-0028) | `linha física` — linha de terminal calculada pelo renderizador |
+| `contexto visual repetido` | Ancestrais/cabeçalhos repetidos em nova página (ADR-0028) | Dados novos — contexto repetido não altera numeração nem dados |
+| `documento JSON externo de conteúdo` | Documento com envelope `{tipo, formato, dados}` para conteúdo multinível (ADR-0026) | `JSON estrutural da tela` (`tela.json`) — domínios separados |
+| `contêiner` / `folha` / `campo nome-valor` | Tipos conceituais da ADR-0028 | `container` / `conteudo` / `nome_valor` — nomes do schema atual (ADR-0027); correspondência registrada em §19.3 |
+
+### 19.6 Decisões deferidas (ADR-0028)
+
+Permanecem para decisão futura; nenhum nome, campo ou protocolo abaixo foi
+decidido:
+
+| Item | Status |
+|---|---|
+| Nomes definitivos das propriedades do JSON de conteúdo multinível | Não decidido |
+| Versão inicial do schema | Não decidido |
+| Marcador padrão de truncamento | Não decidido |
+| Limites máximos de profundidade | Não decidido |
+| Política global de fallback visual para impossibilidade no conteúdo multinível | Não decidido |
+| Protocolo de integração com o Pipeline | Não decidido |
+| Reconciliação terminológica definitiva entre `modo normal` e `modo não verboso` | Não decidido |
+| Estratégia de migração de telas legadas para D23 | Não decidido |
+
+### 19.7 Política de modo de apresentação por tela (D23)
+
+A revisão D23 da ADR-0028 estabelece que cada tela de `console` multinível nova
+ou revisada deve declarar sua política de modo. Esta seção é a referência
+terminológica canônica das decisões de D23.
+
+#### 19.7.1 Termos da política de modo
+
+| Termo | Definição normativa | Não confundir com |
+|---|---|---|
+| `política de modo` | Declaração no JSON estrutural da tela (`formato.excesso.politica_modo`) que determina se a tela exibe sempre em modo verboso, sempre em modo não verboso ou permite alternância | `estado visual da sessão` — estado corrente em runtime, não persistido |
+| `somente verbosa` | Política em que a tela sempre exibe em modo verboso; sem alternância por `V`; chip `[V]` não obrigatório; campo `politica_modo: "somente_verboso"` | `alternável` — que suporta dois modos; `modo verboso corrente` — estado de sessão |
+| `somente não verbosa` | Política em que a tela sempre exibe em modo não verboso; sem alternância por `V`; chip `[V]` não obrigatório; truncamento `...` válido; campo `politica_modo: "somente_nao_verboso"` | `alternável`; `modo não verboso corrente` — estado de sessão |
+| `alternável` | Política em que a tela suporta os dois modos; chip `[V] Verboso` obrigatório; tecla `V` alterna; modo inicial declarado em `formato.excesso.modo_inicial`; campo `politica_modo: "alternavel"` | `somente verbosa`; `somente não verbosa` |
+| `modo inicial (D23)` | Modo de visualização com que uma tela inicia, determinado pela política declarada: telas de modo único iniciam no único modo disponível; telas alternáveis iniciam no modo declarado em `formato.excesso.modo_inicial` | `estado visual da sessão` (corrente, pode ter sido alterado por `V`); `modo normal` (§19.4) |
+| `tela legada` | Tela criada antes da incorporação de D23 que não declara `politica_modo`; permanece válida sem reinterpretação; não recebe política por inferência; migração adiada | `tela nova ou revisada` — que exige declaração obrigatória de política |
+
+#### 19.7.2 Campos canônicos no JSON estrutural
+
+| Campo | Localização | Tipo | Valores aceitos |
+|---|---|---|---|
+| `formato.excesso.politica_modo` | Elemento `console` no JSON estrutural | string | `"somente_verboso"`, `"somente_nao_verboso"`, `"alternavel"` |
+| `formato.excesso.modo_inicial` | Elemento `console` no JSON estrutural | string | `"verboso"`, `"nao_verboso"` (somente quando `politica_modo: "alternavel"`) |
+
+#### 19.7.3 Distinções obrigatórias (D23)
+
+| Par | Distinção normativa |
+|---|---|
+| `política de modo` × `estado visual da sessão` | Política: declaração estática no JSON estrutural; estado: valor corrente em runtime da sessão, não persistido |
+| `modo inicial (D23)` × `modo corrente da sessão` | Inicial: determinado pela política ao carregar a tela; corrente: pode ter sido alterado pela tecla `V` |
+| `somente não verbosa` × `alternável em modo não verboso` | Somente não verbosa: sem chip `[V]`, sem tecla `V`; alternável em modo não verboso: tem chip `[V]`, tecla `V` disponível |
+| `tela legada` × `tela nova ou revisada` | Legada: sem declaração de política, reinterpretação proibida; nova ou revisada: política obrigatória, ausência inválida |
+| `excesso.modo` (legado) × `politica_modo` (D23) | `excesso.modo` estava no documento externo de conteúdo (supersedido para telas novas); `politica_modo` está no JSON estrutural da tela |
+
+#### 19.7.4 `modo normal` × `somente não verboso` (nota sobre §19.4)
+
+O termo `modo normal` (§19.4, §6 de `contrato_console.md`) é a designação
+histórica para exibição em linha única com truncamento. Ele não é um sinônimo
+automático de `somente_nao_verboso`:
+
+- uma tela com política `"alternavel"` pode estar exibindo em modo não verboso —
+  esse estado não classifica a tela como somente não verbosa;
+- `"somente_nao_verboso"` é uma **política**, não um estado corrente.
+
+#### 19.7.5 Itens de D23 ainda deferidos
+
+| Item | Status |
+|---|---|
+| Estratégia de migração das telas legadas | Adiado |
+| Representação de compatibilidade no loader para telas legadas | Adiado |
+| Valores padrão quando `politica_modo` estiver ausente em tela legada | Adiado (para telas novas ou revisadas: ausência é inválida; não há default) |
