@@ -7,7 +7,7 @@ metadata:
   versao: "0.2"
   status: ativo
   rastreabilidade:
-    origem_especificacao: "docs/NOMENCLATURA.md#13-decisao-terminologica-lancador"
+    origem_especificacao: "docs/nomenclatura/33_LANCADOR.md"
     adrs_aplicadas:
       - docs/adr/ADR-0001-menu-suporta-matriz.md
       - docs/adr/ADR-0002-menu-sobra-direita.md
@@ -17,6 +17,17 @@ metadata:
       - docs/adr/ADR-0023-largura-minima-funcional-lancador.md
       - docs/adr/ADR-0025-distribuicao-matricial-configuravel-nivel-unico-conteudo-elementos.md
     reaproveitado_de_legado: false
+  dependencias_nomenclatura:
+    dependencias_obrigatorias:
+      - docs/nomenclatura/01_NUCLEO_COMUM.md
+      - docs/nomenclatura/33_LANCADOR.md
+    dependencias_condicionais:
+      - modulo: docs/nomenclatura/20_TELA_CORPO_E_COMPOSICAO.md
+        quando: tratar composição do corpo contendo lançador
+      - modulo: docs/nomenclatura/21_LAYOUT_REDIMENSIONAMENTO_E_PAGINACAO.md
+        quando: tratar dimensões gerais, terminal ou quadro mínimo
+      - modulo: docs/nomenclatura/90_ALIASES_E_TERMOS_DESCONTINUADOS.md
+        quando: houver referência histórica menu para lancador
 ---
 
 # Contrato — lancador
@@ -33,7 +44,7 @@ Este contrato define o schema, os invariantes e o comportamento mínimo do
 visuais de cada **instância** vêm do `tela.json` da tela onde o `lancador` é
 declarado.
 
-Este contrato cobre a seção 13 de `docs/NOMENCLATURA.md` e aplica ADR-0008.
+Este contrato cobre a terminologia de `docs/nomenclatura/33_LANCADOR.md` e aplica ADR-0008.
 Estilo universal (`contrato_estilo.md`, `ativo`), composição de corpo
 (`contrato_composicao_corpo.md`, `ativo`) e `barra_de_menus`
 (`contrato_barra_de_menus.md`, `ativo`) são módulos separados e externos —

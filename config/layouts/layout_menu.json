@@ -2,7 +2,7 @@
   "_meta": {
     "name": "layout_menu",
     "description": "Artefato obsoleto/transicional do antigo corpo tipo menu; nao e canonico",
-    "origem": "docs/NOMENCLATURA.md secao 8",
+    "origem": "docs/nomenclatura/33_LANCADOR.md",
     "status": "obsoleto_transicional",
     "arquivo_canonico": false,
     "substituido_por": "config/lancador.json",

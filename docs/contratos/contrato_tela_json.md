@@ -16,6 +16,34 @@ metadata:
       - docs/adr/ADR-0026-fornecimento-externo-dados-console-json-multinivel.md
       - docs/adr/ADR-0027-carregamento-conjunto-tela-conteudo-externo-ponto-entrada.md
     reaproveitado_de_legado: false
+  dependencias_nomenclatura:
+    dependencias_obrigatorias:
+      - docs/nomenclatura/01_NUCLEO_COMUM.md
+      - docs/nomenclatura/02_ARTEFATOS_CONFIGURACAO_E_RUNTIME.md
+      - docs/nomenclatura/20_TELA_CORPO_E_COMPOSICAO.md
+    dependencias_condicionais:
+      - modulo: docs/nomenclatura/30_CABECALHO.md
+        quando: a tela declarar cabeçalho
+      - modulo: docs/nomenclatura/31_BARRA_DE_MENUS_E_CHIPS.md
+        quando: a tela declarar barra_de_menus ou chips
+      - modulo: docs/nomenclatura/32_CONSOLE.md
+        quando: a tela declarar elemento console
+      - modulo: docs/nomenclatura/33_LANCADOR.md
+        quando: a tela declarar elemento lancador
+      - modulo: docs/nomenclatura/34_DASHBOARD.md
+        quando: a tela declarar elemento dashboard
+      - modulo: docs/nomenclatura/40_GRUPOS_E_DISTRIBUICAO_DE_AREA.md
+        quando: a tela declarar grupos ou distribuição de área
+      - modulo: docs/nomenclatura/41_DISTRIBUICAO_MATRICIAL.md
+        quando: a tela declarar distribuição matricial
+      - modulo: docs/nomenclatura/42_DADOS_EXTERNOS_MULTINIVEL.md
+        quando: a tela declarar console com dados externos
+      - modulo: docs/nomenclatura/43_CARREGAMENTO_E_ASSOCIACAO_DE_CONTEUDO.md
+        quando: a tela declarar carregamento externo de conteúdo
+      - modulo: docs/nomenclatura/44_APRESENTACOES_E_MODOS_MULTINIVEL_DO_CONSOLE.md
+        quando: a tela declarar política de modo ou apresentação multinível
+      - modulo: docs/nomenclatura/90_ALIASES_E_TERMOS_DESCONTINUADOS.md
+        quando: a tela referenciar elemento ou campo com termo legado
 ---
 
 # Contrato — `tela.json`
@@ -1109,8 +1137,8 @@ livres ou scripts não registrados.
 
 Pendências obrigatórias derivadas deste contrato:
 
-- aplicar o contrato de `tela.json` em `docs/NOMENCLATURA.md`, quando a
-  revisão ampla da ADR-0008 for executada;
+- atualizar os módulos de nomenclatura proprietários com base neste contrato de
+  `tela.json`, quando a revisão ampla da ADR-0008 for executada;
 - revisar `contrato_lancador.md` para instância em `tela.json`;
 - revisar `dashboard` e composição para instância em `tela.json`;
 - revisar `contrato_barra_de_menus.md` para lista de chips declarados;
@@ -1245,7 +1273,7 @@ específicos:
 - `contrato_json_console.md` — seção 10 (ADR-0025);
 - `contrato_json_lancador.md` — seção 9 (ADR-0025).
 
-A terminologia canônica está em `docs/NOMENCLATURA.md` seção 16.
+A terminologia canônica está em `docs/nomenclatura/41_DISTRIBUICAO_MATRICIAL.md`.
 
 ---
 
@@ -1310,7 +1338,7 @@ calculada) nem dados de conteúdo de runtime do console.
 
 - `contrato_json_console.md` — seção 11 (ADR-0026): envelope declarativo do documento externo;
 - `contrato_console.md` — seção 19 (ADR-0026): fronteira do console como consumidor;
-- `docs/NOMENCLATURA.md` — seção 17: terminologia canônica da ADR-0026.
+- `docs/nomenclatura/42_DADOS_EXTERNOS_MULTINIVEL.md` — terminologia canônica da ADR-0026.
 
 ---
 
@@ -1368,7 +1396,7 @@ H-0036 sem reabrir o ciclo já fechado. A inspeção nominal fica para o
 
 - `contrato_console.md` — seção 20 (ADR-0027): fluxo de responsabilidade no console;
 - `contrato_json_console.md` — seção 12 (ADR-0027): schema semântico multinível;
-- `docs/NOMENCLATURA.md` — seção 18: terminologia canônica da ADR-0027.
+- `docs/nomenclatura/43_CARREGAMENTO_E_ASSOCIACAO_DE_CONTEUDO.md` — terminologia canônica da ADR-0027.
 
 ---
 
@@ -1417,7 +1445,7 @@ A ADR-0028 não altera essas responsabilidades.
 - `contrato_console.md` — seção 21 (ADR-0028): estado de visualização, tecla V e políticas de modo;
 - `contrato_json_console.md` — seção 13 (ADR-0028): regras normativas, validações e política de modo;
 - `contrato_barra_de_menus.md` — seção 22 (ADR-0028): chip `[V] Verboso` e políticas de modo;
-- `docs/NOMENCLATURA.md` — seção 19: terminologia canônica da ADR-0028.
+- `docs/nomenclatura/44_APRESENTACOES_E_MODOS_MULTINIVEL_DO_CONSOLE.md` — terminologia canônica da ADR-0028.
 
 ### 33.6 Declaração de política de modo no JSON estrutural (D23)
 

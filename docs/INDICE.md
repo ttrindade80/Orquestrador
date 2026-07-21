@@ -29,9 +29,15 @@ Antes de mover este padrao para outro projeto, verificar:
 
 1. `docs/INDICE.md`
 2. `docs/contratos/contrato_processo_desenvolvimento.md`
-3. `docs/NOMENCLATURA.md` — fonte de verdade dos nomes; todo contrato de
-   modulo é escrito a partir dela, nunca do codigo antigo (ver seção 0 do
-   proprio glossário para a política schema × dados)
+3. `docs/nomenclatura/00_INDICE.md` — índice e roteador da nomenclatura modular;
+   identifica o módulo proprietário de cada domínio e explica a leitura
+   seletiva. Em seguida, `docs/nomenclatura/01_NUCLEO_COMUM.md` — terminologia
+   transversal obrigatória. `docs/NOMENCLATURA.md` é a fachada permanente de
+   compatibilidade; as definições vivem nos módulos em `docs/nomenclatura/`.
+   **Leitura seletiva**: identificar o contrato alvo e carregar somente os
+   módulos declarados em suas `dependencias_obrigatorias` e
+   `dependencias_condicionais`. Leitura preventiva de todos os módulos é
+   proibida (D-NOM-03, ADR-0029).
 4. `docs/adr/INDICE_ADR.md`
 5. `docs/contratos/` — demais contratos de modulo ja `ativo` (hoje:
    `contrato_estilo.md`, `contrato_composicao_corpo.md`,
@@ -112,14 +118,14 @@ demo/                      # futuro; pontos de entrada demonstrativos
 ```
 
 **`config/` não é documentação** — é dado de produção lido pelo renderer em
-tempo de execução (ver `docs/NOMENCLATURA.md` seção 0). Fica na raiz do
-Orquestrador, irmã de `docs/`, nunca dentro de `docs/`.
+tempo de execução (ver `docs/nomenclatura/02_ARTEFATOS_CONFIGURACAO_E_RUNTIME.md`).
+Fica na raiz do Orquestrador, irmã de `docs/`, nunca dentro de `docs/`.
 
 ## Artefatos
 
 | Artefato | Funcao | Regra |
 |---|---|---|
-| Glossário (`NOMENCLATURA.md`) | Fonte única de nomes e schema | Todo contrato deriva dele; ele não guarda valor concreto de produção (ver seção 0) |
+| Nomenclatura modular (`docs/nomenclatura/`) | Base terminológica modular — 17 módulos proprietários por domínio | Leitura seletiva por contrato; `docs/NOMENCLATURA.md` é fachada de navegação; definições vivem nos módulos proprietários (ADR-0029) |
 | Config (`config/*.json`) | Valores concretos que o renderer lê | Modelo em migração pela ADR-0008 e organizado pela ADR-0021/ADR-0022: `config/estilo.json` permanece biblioteca global de estilo; telas do produto real ficam em `config/telas/<id>.json`; `config/telas/orquestrador.json` fica reservado à tela inicial real com `id: "orquestrador"`; telas demonstrativas ficam na futura raiz `config/telas/demo/<id>.json`; parâmetros gerais futuros ficam em `config/layouts/` e `config/elementos/`. |
 | Contrato | Define comportamento esperado | Deve ser aprovado antes da implementacao |
 | ADR | Registra decisao arquitetural | Nao substitui contrato; contratos afetados devem ser atualizados |

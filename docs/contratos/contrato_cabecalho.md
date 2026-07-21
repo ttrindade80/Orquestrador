@@ -7,10 +7,19 @@ metadata:
   versao: "0.1"
   status: ativo
   rastreabilidade:
-    origem_especificacao: "docs/NOMENCLATURA.md#7-cabecalho"
+    origem_especificacao: "docs/nomenclatura/30_CABECALHO.md"
     adrs_aplicadas:
       - docs/adr/ADR-0022-ponto-entrada-tela-inicial-orquestrador.md
     reaproveitado_de_legado: false
+  dependencias_nomenclatura:
+    dependencias_obrigatorias:
+      - docs/nomenclatura/01_NUCLEO_COMUM.md
+      - docs/nomenclatura/30_CABECALHO.md
+    dependencias_condicionais:
+      - modulo: docs/nomenclatura/02_ARTEFATOS_CONFIGURACAO_E_RUNTIME.md
+        quando: tratar caminho ou natureza do artefato de configuração do cabeçalho
+      - modulo: docs/nomenclatura/10_ESTILO.md
+        quando: tratar aparência do cabeçalho
 ---
 
 # Contrato — cabecalho
@@ -22,7 +31,7 @@ dois campos textuais que o compõem, os parâmetros de apresentação de cada
 campo, a semântica de renderização, e as regras de uso que vinculam todos os
 renderers a este contrato.
 
-Este contrato cobre a seção 7 de `docs/NOMENCLATURA.md`. Estilo universal
+Este contrato cobre a terminologia de `docs/nomenclatura/30_CABECALHO.md`. Estilo universal
 (`contrato_estilo.md`, `ativo`), composição de corpo
 (`contrato_composicao_corpo.md`, `ativo`) e `barra_de_menus`
 (`contrato_barra_de_menus.md`, `ativo`) são módulos separados e externos —
@@ -89,8 +98,8 @@ limite de caracteres — vivem no futuro caminho
 
 Este contrato define a **semântica**, as **regras** e os **invariantes**.
 O JSON guarda os **valores concretos de apresentação**. Os dois artefatos têm
-responsabilidades separadas e não sobrepostas (política da seção 0 de
-`docs/NOMENCLATURA.md`).
+responsabilidades separadas e não sobrepostas (ver
+`docs/nomenclatura/02_ARTEFATOS_CONFIGURACAO_E_RUNTIME.md`).
 
 O renderer deve ler o futuro caminho `config/elementos/cabecalho.json` em tempo
 de execução quando ele for criado. Nenhum parâmetro de apresentação do

@@ -2,7 +2,7 @@
   "_meta": {
     "name": "barra_de_menus",
     "description": "Ordem canonica, rotulos e condicoes de existencia dos chips da barra_de_menus — nao confundir com config/lancador.json (corpo tipo lancador)",
-    "origem": "docs/NOMENCLATURA.md secao 5",
+    "origem": "docs/nomenclatura/31_BARRA_DE_MENUS_E_CHIPS.md",
     "status": "rascunho_inicial",
     "reaproveitado_de_legado": false,
     "pendencias": [
@@ -96,7 +96,7 @@
         "eixo_composicao": "formacao_de_selecao",
         "valor_requerido": "com"
       },
-      "comportamento": "toggle nomeado; ocupa o espaco tg do item (ec+tg+tx, ver docs/NOMENCLATURA.md secao 4.2); indicador on/off vem do preset 'incluido' do schema de estilo (default: circulo, ● / ○) quando ha selecao real; simbolo estatico configuravel quando o item so navega sem selecionar"
+      "comportamento": "toggle nomeado; ocupa o espaco tg do item (ec+tg+tx, ver docs/nomenclatura/32_CONSOLE.md); indicador on/off vem do preset 'incluido' do schema de estilo (default: circulo, ● / ○) quando ha selecao real; simbolo estatico configuravel quando o item so navega sem selecionar"
     },
     "executar": {
       "simbolo": "[⏎]",
@@ -127,7 +127,7 @@
       "simbolo": null,
       "rotulo": null,
       "existencia": {
-        "condicao": "definido por classe — ver docs/NOMENCLATURA.md secao 5.2"
+        "condicao": "definido por classe — ver docs/nomenclatura/31_BARRA_DE_MENUS_E_CHIPS.md"
       },
       "posicao": "entre executar e verboso/ajuda, conforme chips presentes"
     },

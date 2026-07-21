@@ -2,7 +2,7 @@
   "_meta": {
     "name": "layout_dado",
     "description": "Artefato obsoleto/transicional do antigo corpo tipo dado; nao e canonico",
-    "origem": "docs/NOMENCLATURA.md secao 4",
+    "origem": "docs/nomenclatura/32_CONSOLE.md",
     "status": "obsoleto_transicional",
     "arquivo_canonico": false,
     "substituido_por": "config/layout_console.json",

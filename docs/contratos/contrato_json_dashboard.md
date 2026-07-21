@@ -361,7 +361,7 @@ ADR-0023). Não é criada variante concorrente de estado de fallback.
 
 ### 9.5 Pendência de alinhamento horizontal do `dashboard`
 
-A questão pendente de alinhamento horizontal do `dashboard` (seção 11 de
-`docs/NOMENCLATURA.md` — centralizado vs. bloco à esquerda com sobra à direita)
+A questão pendente de alinhamento horizontal do `dashboard`
+(`docs/nomenclatura/34_DASHBOARD.md` — centralizado vs. bloco à esquerda com sobra à direita)
 não é resolvida por esta aplicação documental. A reconciliação permanece como
 tarefa futura explicitamente identificada.

@@ -19,6 +19,20 @@ metadata:
       - docs/adr/ADR-0026-fornecimento-externo-dados-console-json-multinivel.md
       - docs/adr/ADR-0027-carregamento-conjunto-tela-conteudo-externo-ponto-entrada.md
     reaproveitado_de_legado: false
+  dependencias_nomenclatura:
+    dependencias_obrigatorias:
+      - docs/nomenclatura/01_NUCLEO_COMUM.md
+      - docs/nomenclatura/32_CONSOLE.md
+      - docs/nomenclatura/42_DADOS_EXTERNOS_MULTINIVEL.md
+    dependencias_condicionais:
+      - modulo: docs/nomenclatura/41_DISTRIBUICAO_MATRICIAL.md
+        quando: o campo distribuicao_matricial estiver presente
+      - modulo: docs/nomenclatura/43_CARREGAMENTO_E_ASSOCIACAO_DE_CONTEUDO.md
+        quando: tratar origem_dados ou carregamento externo
+      - modulo: docs/nomenclatura/44_APRESENTACOES_E_MODOS_MULTINIVEL_DO_CONSOLE.md
+        quando: tratar apresentação, modo ou política de modo (D23)
+      - modulo: docs/nomenclatura/90_ALIASES_E_TERMOS_DESCONTINUADOS.md
+        quando: houver referência a modo normal ou forma legada
 ---
 
 # Contrato — JSON mínimo de elemento `console` (`contrato_json_console.md`)
@@ -482,7 +496,7 @@ são mais decisões deferidas.
 
 - `contrato_console.md` — seção 19 (ADR-0026): fronteira comportamental do console;
 - `contrato_tela_json.md` — seção 31 (ADR-0026): fronteira do JSON estrutural;
-- `docs/NOMENCLATURA.md` — seção 17: terminologia canônica da ADR-0026.
+- `docs/nomenclatura/42_DADOS_EXTERNOS_MULTINIVEL.md` — terminologia canônica da ADR-0026.
 
 ---
 
@@ -867,7 +881,7 @@ timeout, autenticação, atualização, cache, versionamento e persistência.
 
 - `contrato_console.md` — seção 20 (ADR-0027): fluxo de responsabilidade;
 - `contrato_tela_json.md` — seção 32 (ADR-0027): fronteira do JSON estrutural;
-- `docs/NOMENCLATURA.md` — seção 18: terminologia canônica da ADR-0027.
+- `docs/nomenclatura/43_CARREGAMENTO_E_ASSOCIACAO_DE_CONTEUDO.md` — terminologia canônica da ADR-0027.
 
 ---
 
@@ -1041,7 +1055,7 @@ permitir alternância.
 - `contrato_console.md` — seção 21 (ADR-0028): estado de visualização, tecla V e alternância;
 - `contrato_barra_de_menus.md` — seção 22 (ADR-0028): chip `[V] Verboso`;
 - `contrato_tela_json.md` — seção 33 (ADR-0028): JSON estrutural e política de modo;
-- `docs/NOMENCLATURA.md` — seção 19: terminologia canônica da ADR-0028.
+- `docs/nomenclatura/44_APRESENTACOES_E_MODOS_MULTINIVEL_DO_CONSOLE.md` — terminologia canônica da ADR-0028.
 
 ### 13.13 Política de modo de apresentação da tela (D23)
 

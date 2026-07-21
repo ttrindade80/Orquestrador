@@ -8,7 +8,7 @@ metadata:
   status: ativo
   rastreabilidade:
     origem_especificacao:
-      - "docs/NOMENCLATURA.md#4-corpo-tipo-console"
+      - "docs/nomenclatura/32_CONSOLE.md"
       - "docs/adr/ADR-0008-modelo-configuracao-por-tela.md"
       - "docs/contratos/contrato_tela_json.md"
       - "docs/contratos/contrato_composicao_corpo.md"
@@ -20,6 +20,21 @@ metadata:
       - docs/adr/ADR-0026-fornecimento-externo-dados-console-json-multinivel.md
       - docs/adr/ADR-0027-carregamento-conjunto-tela-conteudo-externo-ponto-entrada.md
     reaproveitado_de_legado: false
+  dependencias_nomenclatura:
+    dependencias_obrigatorias:
+      - docs/nomenclatura/01_NUCLEO_COMUM.md
+      - docs/nomenclatura/32_CONSOLE.md
+    dependencias_condicionais:
+      - modulo: docs/nomenclatura/31_BARRA_DE_MENUS_E_CHIPS.md
+        quando: tratar chips de navegação, seleção ou filtro
+      - modulo: docs/nomenclatura/42_DADOS_EXTERNOS_MULTINIVEL.md
+        quando: tratar conteúdo externo recebido pelo console
+      - modulo: docs/nomenclatura/43_CARREGAMENTO_E_ASSOCIACAO_DE_CONTEUDO.md
+        quando: tratar carregamento externo ou associação de conteúdo
+      - modulo: docs/nomenclatura/44_APRESENTACOES_E_MODOS_MULTINIVEL_DO_CONSOLE.md
+        quando: tratar apresentações ou modos do console multinível
+      - modulo: docs/nomenclatura/90_ALIASES_E_TERMOS_DESCONTINUADOS.md
+        quando: houver referência a dado, modo normal ou outro termo legado
 ---
 
 # Contrato — `console`
@@ -591,7 +606,7 @@ Permanecem para decisão futura, fora do escopo desta seção:
 
 - `contrato_json_console.md` — seção 11 (ADR-0026): envelope declarativo do documento externo;
 - `contrato_tela_json.md` — seção 31 (ADR-0026): fronteira do JSON estrutural;
-- `docs/NOMENCLATURA.md` — seção 17: terminologia canônica da ADR-0026.
+- `docs/nomenclatura/42_DADOS_EXTERNOS_MULTINIVEL.md` — terminologia canônica da ADR-0026.
 
 ---
 
@@ -671,7 +686,7 @@ recebendo o mesmo contrato semântico. O protocolo do script permanece deferido.
 
 - `contrato_tela_json.md` — seção 32 (ADR-0027): fronteira do JSON estrutural;
 - `contrato_json_console.md` — seção 12 (ADR-0027): schema semântico multinível;
-- `docs/NOMENCLATURA.md` — seção 18: terminologia canônica da ADR-0027.
+- `docs/nomenclatura/43_CARREGAMENTO_E_ASSOCIACAO_DE_CONTEUDO.md` — terminologia canônica da ADR-0027.
 
 ---
 
@@ -793,7 +808,7 @@ impossibilidade geométrica das ADRs vigentes (ADR-0017, ADR-0023).
 - `contrato_json_console.md` — seção 13 (ADR-0028): regras normativas, validações e política de modo;
 - `contrato_barra_de_menus.md` — seção 22 (ADR-0028): chip `[V] Verboso`;
 - `contrato_tela_json.md` — seção 33 (ADR-0028): JSON estrutural e política de modo;
-- `docs/NOMENCLATURA.md` — seção 19: terminologia canônica da ADR-0028.
+- `docs/nomenclatura/44_APRESENTACOES_E_MODOS_MULTINIVEL_DO_CONSOLE.md` — terminologia canônica da ADR-0028.
 
 ### 21.11 Políticas de modo por tela (D23)
 

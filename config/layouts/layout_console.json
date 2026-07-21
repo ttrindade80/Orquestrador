@@ -2,7 +2,7 @@
   "_meta": {
     "name": "layout_console",
     "description": "Parametros de layout do corpo tipo console (estrutura de item, vaos, colunas, navegacao) — regras proprias, nao compartilha arquivo com config/lancador.json",
-    "origem": "docs/NOMENCLATURA.md secao 4",
+    "origem": "docs/nomenclatura/32_CONSOLE.md",
     "status": "rascunho_inicial",
     "arquivo_canonico": true,
     "reaproveitado_de_legado": false,

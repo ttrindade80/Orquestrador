@@ -8,7 +8,7 @@ metadata:
   status: ativo
   rastreabilidade:
     origem_especificacao:
-      - "docs/NOMENCLATURA.md#5-barra_de_menus"
+      - "docs/nomenclatura/31_BARRA_DE_MENUS_E_CHIPS.md"
       - "docs/adr/ADR-0008-modelo-configuracao-por-tela.md"
       - "docs/contratos/contrato_tela_json.md"
       - "docs/contratos/contrato_barra_de_menus.md"
@@ -18,6 +18,21 @@ metadata:
       - docs/adr/ADR-0008-modelo-configuracao-por-tela.md
       - docs/adr/ADR-0022-ponto-entrada-tela-inicial-orquestrador.md
     reaproveitado_de_legado: false
+  dependencias_nomenclatura:
+    dependencias_obrigatorias:
+      - docs/nomenclatura/01_NUCLEO_COMUM.md
+      - docs/nomenclatura/31_BARRA_DE_MENUS_E_CHIPS.md
+    dependencias_condicionais:
+      - modulo: docs/nomenclatura/10_ESTILO.md
+        quando: tratar forma visual do chip
+      - modulo: docs/nomenclatura/32_CONSOLE.md
+        quando: tratar chip associado ao console
+      - modulo: docs/nomenclatura/33_LANCADOR.md
+        quando: tratar distinção ou associação com lançador
+      - modulo: docs/nomenclatura/34_DASHBOARD.md
+        quando: tratar distinção ou associação com dashboard
+      - modulo: docs/nomenclatura/90_ALIASES_E_TERMOS_DESCONTINUADOS.md
+        quando: houver termo descontinuado ou alias
 ---
 
 # Contrato — `chip`
@@ -56,7 +71,7 @@ Propriedades fundamentais:
   nem regra de estado. Percorre `chips[]` da instância declarada e aplica as
   regras deste contrato.
 
-Distinção de conceito central (origem: ADR-0004 e `NOMENCLATURA.md` seção 1.5):
+Distinção de conceito central (origem: ADR-0004 e `docs/nomenclatura/10_ESTILO.md`):
 
 | Propriedade | Natureza | Quem decide |
 |---|---|---|
@@ -304,7 +319,7 @@ Regras:
 
 Exemplo de rótulo dinâmico contratual: `[⏎]` tem texto diferente conforme o
 estado da seleção e o tipo de ação do item em foco (ver `contrato_barra_de_menus.md`
-seção 10 e `NOMENCLATURA.md` seção 5.1.2).
+seção 10 e `docs/nomenclatura/31_BARRA_DE_MENUS_E_CHIPS.md`).
 
 ---
 

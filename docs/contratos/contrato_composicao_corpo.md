@@ -7,7 +7,12 @@ metadata:
   versao: "0.3"
   status: ativo
   rastreabilidade:
-    origem_especificacao: "docs/NOMENCLATURA.md#3-composicao-de-corpo, #6-layout-e-largura, #8-corpo-tipo-lancador, #9-objeto-dashboard, #10-tiling"
+    origem_especificacao:
+      - "docs/nomenclatura/20_TELA_CORPO_E_COMPOSICAO.md"
+      - "docs/nomenclatura/21_LAYOUT_REDIMENSIONAMENTO_E_PAGINACAO.md"
+      - "docs/nomenclatura/33_LANCADOR.md"
+      - "docs/nomenclatura/34_DASHBOARD.md"
+      - "docs/nomenclatura/10_ESTILO.md"
     adrs_aplicadas:
       - docs/adr/ADR-0001-menu-suporta-matriz.md
       - docs/adr/ADR-0002-menu-sobra-direita.md
@@ -28,6 +33,26 @@ metadata:
       - docs/adr/ADR-0023-largura-minima-funcional-lancador.md
       - docs/adr/ADR-0025-distribuicao-matricial-configuravel-nivel-unico-conteudo-elementos.md
     reaproveitado_de_legado: false
+  dependencias_nomenclatura:
+    dependencias_obrigatorias:
+      - docs/nomenclatura/01_NUCLEO_COMUM.md
+      - docs/nomenclatura/20_TELA_CORPO_E_COMPOSICAO.md
+      - docs/nomenclatura/40_GRUPOS_E_DISTRIBUICAO_DE_AREA.md
+    dependencias_condicionais:
+      - modulo: docs/nomenclatura/10_ESTILO.md
+        quando: tratar tiling ou estilo do corpo
+      - modulo: docs/nomenclatura/21_LAYOUT_REDIMENSIONAMENTO_E_PAGINACAO.md
+        quando: tratar redimensionamento, paginação ou ocupação vertical
+      - modulo: docs/nomenclatura/33_LANCADOR.md
+        quando: tratar área ou elemento lançador
+      - modulo: docs/nomenclatura/34_DASHBOARD.md
+        quando: tratar área ou elemento dashboard
+      - modulo: docs/nomenclatura/41_DISTRIBUICAO_MATRICIAL.md
+        quando: tratar distribuição matricial dos participantes
+      - modulo: docs/nomenclatura/44_APRESENTACOES_E_MODOS_MULTINIVEL_DO_CONSOLE.md
+        quando: tratar área física ou modo de console multinível
+      - modulo: docs/nomenclatura/90_ALIASES_E_TERMOS_DESCONTINUADOS.md
+        quando: houver termo legado ou transicional
 ---
 
 # Contrato — Módulo de Composição de Corpo
@@ -43,8 +68,11 @@ estrutural `grupo`, arranjo e distribuição por container, arredondamento
 determinístico, preenchimento de área alocada, regras dinâmicas de dimensão
 e sincronização de cortes (ADR-0015, 2026-07-10).
 
-Este contrato cobre as seções 2, 3, 6, 6.1, 8, 9 e 10 de
-`docs/NOMENCLATURA.md`. Estilo universal (`contrato_estilo.md`),
+Este contrato cobre a terminologia de `docs/nomenclatura/20_TELA_CORPO_E_COMPOSICAO.md`,
+`docs/nomenclatura/21_LAYOUT_REDIMENSIONAMENTO_E_PAGINACAO.md`,
+`docs/nomenclatura/33_LANCADOR.md`, `docs/nomenclatura/34_DASHBOARD.md`
+e `docs/nomenclatura/10_ESTILO.md` (tiling).
+Estilo universal (`contrato_estilo.md`),
 barra_de_menus (`contrato_barra_de_menus.md`) e mecanismos de seleção
 (contrato ainda não escrito) são módulos separados. Este contrato pode referenciar
 esses módulos como dependências externas, mas não redefine nem duplica suas regras.
@@ -72,7 +100,7 @@ Complementos obrigatórios da regra:
 - `estilo.json` não decide composição;
 - o estado de runtime não pertence ao JSON da tela.
 
-Esta regra deriva da ADR-0008 e da seção 3 de `docs/NOMENCLATURA.md`.
+Esta regra deriva da ADR-0008 e de `docs/nomenclatura/20_TELA_CORPO_E_COMPOSICAO.md`.
 
 ---
 
@@ -604,12 +632,11 @@ molduras. Molduras adjacentes ficam coladas, produzindo bordas lado a lado
 a última termina no último caractere útil. (ADR-0015)
 
 > **Nota**: a formulação anterior de "3 vãos iguais" registrada neste contrato
-> e em `docs/NOMENCLATURA.md` seção 10 está **supersedida** pela ADR-0015. A
+> e em `docs/nomenclatura/10_ESTILO.md` está **supersedida** pela ADR-0015. A
 > regra correta é particionamento contíguo, conforme decisão explícita do usuário
-> na revisão pós-auditoria do H-0019 (2026-07-09). `docs/NOMENCLATURA.md`
-> seção 10 foi atualizada neste ciclo — a regra de "3 vãos iguais" consta apenas
-> como referência histórica supersedida; a regra vigente é particionamento contíguo
-> conforme ADR-0015.
+> na revisão pós-auditoria do H-0019 (2026-07-09). A regra de "3 vãos iguais"
+> consta apenas como referência histórica supersedida; a regra vigente é
+> particionamento contíguo conforme ADR-0015.
 
 ---
 
@@ -1737,7 +1764,7 @@ Itens adiados intencionalmente — não são lacunas de especificação:
 - **Relação entre `filtro_de_grupo` e `formacao_de_selecao`**: coexistência,
   exclusividade ou atalho entre `[#]` (filtrar exibição por grupo) e `[␣]`
   (marcar item para seleção) — não está definida. Ver
-  `docs/NOMENCLATURA.md` seção 4.
+  `docs/nomenclatura/32_CONSOLE.md`.
 - **Migração do campo `posicao_dashboard`** (ADR-0010): JSONs existentes com
   `posicao_dashboard` serão migrados/descartados em handoff futuro de migração.
   Até então, o campo pode ser honrado por compatibilidade.
@@ -1923,7 +1950,7 @@ DA-04).
 - `contrato_console.md` — seção 21 (ADR-0028): estado de visualização, alternância e políticas de modo;
 - `contrato_json_console.md` — seção 13 (ADR-0028): regras normativas, validações e política de modo;
 - `contrato_tela_json.md` — seção 33 (ADR-0028): declaração de política no JSON estrutural;
-- `docs/NOMENCLATURA.md` — seção 19: terminologia canônica da ADR-0028.
+- `docs/nomenclatura/44_APRESENTACOES_E_MODOS_MULTINIVEL_DO_CONSOLE.md` — terminologia canônica da ADR-0028.
 
 ### 12.8 Delegação de política de modo ao console (D23)
 

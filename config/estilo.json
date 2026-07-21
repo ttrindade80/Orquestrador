@@ -1,8 +1,8 @@
 {
   "_meta": {
     "name": "estilo",
-    "description": "Presets concretos de borda, chip e indicadores — valores que o renderer le e aplica. Schema e semantica vivem em docs/NOMENCLATURA.md secao 1 e docs/contratos/contrato_estilo.md.",
-    "origem": "docs/NOMENCLATURA.md secao 1 / docs/contratos/contrato_estilo.md secoes 3.1, 3.2, 3.3",
+    "description": "Presets concretos de borda, chip e indicadores — valores que o renderer le e aplica. Schema e semantica vivem em docs/nomenclatura/10_ESTILO.md e docs/contratos/contrato_estilo.md.",
+    "origem": "docs/nomenclatura/10_ESTILO.md / docs/contratos/contrato_estilo.md secoes 3.1, 3.2, 3.3",
     "status": "rascunho_inicial",
     "reaproveitado_de_legado": false,
     "pendencias": [

@@ -7,11 +7,22 @@ metadata:
   versao: "0.1"
   status: ativo
   rastreabilidade:
-    origem_especificacao: "docs/NOMENCLATURA.md#1-estilo-universal"
+    origem_especificacao: "docs/nomenclatura/10_ESTILO.md"
     adrs_aplicadas:
       - docs/adr/ADR-0021-separacao-demo-produto-politica-caminhos.md
       - docs/adr/ADR-0022-ponto-entrada-tela-inicial-orquestrador.md
     reaproveitado_de_legado: false
+  dependencias_nomenclatura:
+    dependencias_obrigatorias:
+      - docs/nomenclatura/01_NUCLEO_COMUM.md
+      - docs/nomenclatura/10_ESTILO.md
+    dependencias_condicionais:
+      - modulo: docs/nomenclatura/20_TELA_CORPO_E_COMPOSICAO.md
+        quando: o contrato tratar tiling ou arranjo do corpo
+      - modulo: docs/nomenclatura/31_BARRA_DE_MENUS_E_CHIPS.md
+        quando: o contrato tratar chip como entidade de interface
+      - modulo: docs/nomenclatura/90_ALIASES_E_TERMOS_DESCONTINUADOS.md
+        quando: houver termo legado sobreposto ou lado_a_lado
 ---
 
 # Contrato — Módulo de Estilo
@@ -22,8 +33,8 @@ Especificar o schema de estilo universal do sistema novo: os campos que
 compõem borda, chip, indicadores e tiling, e as regras de uso que vinculam
 todos os módulos a esse schema.
 
-Este contrato cobre exclusivamente a seção 1 ("Estilo — universal") de
-`docs/NOMENCLATURA.md`. Composição de corpo (`contrato_composicao_corpo.md`,
+Este contrato cobre a terminologia de `docs/nomenclatura/10_ESTILO.md`.
+Composição de corpo (`contrato_composicao_corpo.md`,
 `ativo`) e barra_de_menus (`contrato_barra_de_menus.md`, `ativo`) são módulos
 separados com contratos próprios. Os demais domínios devem ser tratados em
 contratos próprios quando formalizados.
@@ -45,8 +56,8 @@ defaults listados abaixo e os estados dinâmicos de cor da seção 3.5
 estilo em tempo de execução.
 Hardcoding de qualquer campo desta seção é violação contratual.
 
-Esta regra vem de `docs/NOMENCLATURA.md` seção 1, parágrafo de abertura e
-parágrafo final da seção 1.3.
+Esta regra vem de `docs/nomenclatura/10_ESTILO.md`, seção de responsabilidade
+e definições (correspondência: §1 do monólito original).
 
 ---
 
@@ -242,7 +253,7 @@ estilo requer reconstrução da tela.
 
 **R-5. Independência de tela e classe.**
 O schema não carrega referência a nenhuma tela ou classe específica. É
-universal por definição (NOMENCLATURA.md seção 1, abertura).
+universal por definição (`docs/nomenclatura/10_ESTILO.md`).
 
 **R-6. Restrição de comprimento de símbolos.**
 Todo campo de símbolo ou caractere do schema (borda, chip, indicadores) é

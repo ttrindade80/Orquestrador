@@ -11,11 +11,11 @@ metadata:
 
 ## Papel nesta pasta
 
-Aqui só se constrói documentação (`docs/NOMENCLATURA.md`, ADRs, contratos,
-`config/*.json`). Nenhum código fora de `docs/build_docs/` é
-tocado. Nenhuma implementação começa antes da documentação relevante
-estar fechada — o objetivo é reduzir risco de ter que mudar código porque
-foi necessário mudar a documentação depois.
+Aqui só se constrói documentação (módulos em `docs/nomenclatura/`, fachada
+`docs/NOMENCLATURA.md`, ADRs, contratos, `config/*.json`). Nenhum código
+fora de `docs/build_docs/` é tocado. Nenhuma implementação começa antes
+da documentação relevante estar fechada — o objetivo é reduzir risco de
+ter que mudar código porque foi necessário mudar a documentação depois.
 
 ## Regras herdadas do processo (não repetir, só lembrar)
 
@@ -28,7 +28,7 @@ foi necessário mudar a documentação depois.
   regra 6).
 - Nomenclatura de arquivo nunca abrevia de forma que misture dois termos
   já distinguidos no glossário (ex.: `menu` vs `barra_de_menus` — ver
-  `docs/NOMENCLATURA.md` seção 0).
+  `docs/nomenclatura/02_ARTEFATOS_CONFIGURACAO_E_RUNTIME.md`).
 
 ## Como conduzir a sessão interativa
 
@@ -57,11 +57,11 @@ foi necessário mudar a documentação depois.
 
 | Tipo de informação | Vai para |
 |---|---|
-| Nome, significado, tipo e regra de interpretação de um campo | `docs/NOMENCLATURA.md` |
+| Nome, significado, tipo e regra de interpretação de um campo | módulo proprietário do domínio (localizar via `docs/nomenclatura/00_INDICE.md`) |
 | Valor concreto/default que o renderer vai ler | `config/<dominio>.json` |
 | Mudança que contradiz um contrato já `ativo` | Nova entrada em `to_do.md` como `pronto_para_execucao`, tipo `adr` — nunca editar o contrato ativo direto |
-| Decisão ainda não fechada, ou que o usuário decidiu adiar | `to_do.md`, seção "pendências"/"bloqueados" do glossário (seção 11) |
-| Fato levantado do sistema antigo (não é decisão) | Seção 11 do `NOMENCLATURA.md`, marcado explicitamente como "levantamento, não decisão" |
+| Decisão ainda não fechada, ou que o usuário decidiu adiar | `to_do.md`, seção "pendências"/"bloqueados" |
+| Fato levantado do sistema antigo (não é decisão) | módulo proprietário do domínio (seção de proveniência da migração), marcado explicitamente como "levantamento, não decisão" |
 
 ## Como extrair fatos do sistema antigo via Codex
 
@@ -80,14 +80,14 @@ antigo realmente faz (não de como ele deveria funcionar).
 - O Codex **nunca lê** `docs/NOMENCLATURA.md`, `docs/contratos/` nem
   qualquer artefato do sistema novo — a extração é só sobre o legado, pra
   não contaminar o levantamento com decisão já tomada.
-- Resultado da extração entra na seção 11 do `NOMENCLATURA.md` como
-  "levantamento — referência, não decisão" — só vira regra depois que o
-  usuário decidir o que fazer com ela (pode confirmar, adaptar, ou
-  descartar o comportamento do legado).
+- Resultado da extração entra no módulo proprietário do domínio (seção de
+  proveniência da migração) como "levantamento — referência, não decisão"
+  — só vira regra depois que o usuário decidir o que fazer com ela (pode
+  confirmar, adaptar, ou descartar o comportamento do legado).
 
 **Modelo de prompt** (adaptar escopo e perguntas pra cada caso — ver
 exemplo real usado nesta sessão sobre `teste_classe_c.py`/`teste_combo.py`
-no histórico, seção 11 do `NOMENCLATURA.md`):
+no histórico):
 
 ```
 # Prompt de extração — Codex

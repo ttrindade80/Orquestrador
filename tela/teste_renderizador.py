@@ -7249,7 +7249,7 @@ class TestCatalogoH0030:
 # ===========================================================================
 # H-0034 — Distribuicao responsiva do lancador (fila/matriz/coluna minima/
 # quadro minimo global). Autoridades: handoff H-0034 secao 3-10, ADR-0023,
-# contrato_lancador.md 6.1-6.7, NOMENCLATURA.md 6.3/8.1-8.3.
+# contrato_lancador.md 6.1-6.7, docs/nomenclatura/21_LAYOUT_REDIMENSIONAMENTO_E_PAGINACAO.md / docs/nomenclatura/33_LANCADOR.md.
 #
 # Itens da configuracao demo (config/telas/demo/demo.json, lancador_principal):
 #   idx 0 d  "Destino"      chip_sub=3 texto=7  item_w_min=11

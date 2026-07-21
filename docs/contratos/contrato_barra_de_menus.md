@@ -7,7 +7,7 @@ metadata:
   versao: "0.2"
   status: ativo
   rastreabilidade:
-    origem_especificacao: "docs/NOMENCLATURA.md#5-barra_de_menus"
+    origem_especificacao: "docs/nomenclatura/31_BARRA_DE_MENUS_E_CHIPS.md"
     adrs_aplicadas:
       - docs/adr/ADR-0004-estilo-cor-inativo-cor-alerta.md
       - docs/adr/ADR-0005-lancador-nao-e-corpo-navegavel.md
@@ -16,6 +16,19 @@ metadata:
       - docs/adr/ADR-0014-barra-horizontal-termos-especificos.md
       - docs/adr/ADR-0022-ponto-entrada-tela-inicial-orquestrador.md
     reaproveitado_de_legado: false
+  dependencias_nomenclatura:
+    dependencias_obrigatorias:
+      - docs/nomenclatura/01_NUCLEO_COMUM.md
+      - docs/nomenclatura/31_BARRA_DE_MENUS_E_CHIPS.md
+    dependencias_condicionais:
+      - modulo: docs/nomenclatura/10_ESTILO.md
+        quando: tratar estado ou apresentação visual dos chips
+      - modulo: docs/nomenclatura/32_CONSOLE.md
+        quando: tratar chips ligados a console
+      - modulo: docs/nomenclatura/44_APRESENTACOES_E_MODOS_MULTINIVEL_DO_CONSOLE.md
+        quando: tratar chip [V] Verboso ou política de modo (D23)
+      - modulo: docs/nomenclatura/90_ALIASES_E_TERMOS_DESCONTINUADOS.md
+        quando: houver termo transicional
 ---
 
 # Contrato — barra_de_menus
@@ -36,7 +49,7 @@ declaração sem hardcodar lista de chips, textos, teclas ou ações.
 Este contrato prepara a modelagem futura de `chip` como classe própria
 (DOC-B006), sem criar o contrato completo de `chip` nesta versão.
 
-Este contrato cobre a seção 5 de `docs/NOMENCLATURA.md`. Estilo universal
+Este contrato cobre a terminologia de `docs/nomenclatura/31_BARRA_DE_MENUS_E_CHIPS.md`. Estilo universal
 (`contrato_estilo.md`, `ativo`) e composição de corpo
 (`contrato_composicao_corpo.md`, `ativo`) são módulos separados e externos —
 este contrato pode referenciá-los como dependências, mas não redefine nem
@@ -92,7 +105,7 @@ sinônimos ou de forma intercambiável.
 - `barra_de_menus` **não decide** composição do corpo.
 - O termo `barra_de_menus` não pode ser abreviado para `barra_menu` — essa
   abreviação mistura dois termos distinguidos no glossário (ver
-  `docs/NOMENCLATURA.md` seção 0).
+  `docs/nomenclatura/02_ARTEFATOS_CONFIGURACAO_E_RUNTIME.md`).
 
 ---
 
@@ -106,8 +119,8 @@ derivada de uma declaração no `tela.json` da tela. O renderer da
 declarados e os exibe conforme as regras deste contrato — sem deliberação
 própria, sem lógica de seleção de chips, sem fallback, sem lista hardcoded.
 
-Esta regra deriva da seção 5.1 de `docs/NOMENCLATURA.md`, parágrafo "Regra
-estrutural", e da ADR-0008.
+Esta regra deriva de `docs/nomenclatura/31_BARRA_DE_MENUS_E_CHIPS.md`
+(regra estrutural) e da ADR-0008.
 
 **Política declarativa por tela (ADR-0012, 2026-07-08)**: a `barra_de_menus`
 é declarativa por tela e **não contém todos os chips canônicos por padrão**.
@@ -219,7 +232,7 @@ render. Um chip inativo continua existindo na posição canônica — não desap
 O que muda é sua cor (usa `cor_inativo` do schema de estilo) e o fato de não
 reagir a acionamento.
 
-Esta distinção é definida em `docs/NOMENCLATURA.md` seção 1.5 e formalizada
+Esta distinção é definida em `docs/nomenclatura/10_ESTILO.md` e formalizada
 em ADR-0004, que inclui `cor_inativo` e `cor_alerta` no schema de estilo
 (`contrato_estilo.md` seção 3.5).
 
@@ -805,7 +818,7 @@ os chips específicos de classe e antes de `[?]`.
 - `contrato_console.md` — seção 21 (ADR-0028): estado de visualização, alternância e políticas de modo;
 - `contrato_json_console.md` — seção 13 (ADR-0028): regras normativas, validações e política de modo;
 - `contrato_tela_json.md` — seção 33 (ADR-0028): JSON estrutural e declaração de política;
-- `docs/NOMENCLATURA.md` — seção 19: terminologia canônica da ADR-0028.
+- `docs/nomenclatura/44_APRESENTACOES_E_MODOS_MULTINIVEL_DO_CONSOLE.md` — terminologia canônica da ADR-0028.
 
 ### 22.8 Três políticas de modo e o chip `[V] Verboso` (D23)
 
