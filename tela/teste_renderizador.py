@@ -173,7 +173,7 @@ def teste_renderizador_orquestrador():
             False,
             "{0}: {1}".format(type(exc).__name__, exc),
         )
-        return None
+        return
 
     try:
         saida = renderizar_tela(modelo)
@@ -183,7 +183,7 @@ def teste_renderizador_orquestrador():
             False,
             "{0}: {1}".format(type(exc).__name__, exc),
         )
-        return None
+        return
     _registrar("renderizar_tela aceita ModeloTela valido sem excecao", True)
 
     _registrar(
@@ -291,8 +291,6 @@ def teste_renderizador_orquestrador():
         print("--- obtido (repr) ---")
         print(repr(saida))
 
-    return modelo
-
 
 def teste_renderizador_destino_minimo():
     print("")
@@ -306,7 +304,7 @@ def teste_renderizador_destino_minimo():
             False,
             "{0}: {1}".format(type(exc).__name__, exc),
         )
-        return None
+        return
     _registrar(
         "pipeline carregar_tela + construir_modelo (destino_minimo)",
         True,
@@ -320,7 +318,7 @@ def teste_renderizador_destino_minimo():
             False,
             "{0}: {1}".format(type(exc).__name__, exc),
         )
-        return None
+        return
     _registrar("renderizar_tela(destino_minimo) sem excecao", True)
 
     _registrar(
@@ -360,8 +358,6 @@ def teste_renderizador_destino_minimo():
         larguras_ok,
     )
 
-    return modelo
-
 
 def teste_renderizador_grupo_minimo():
     print("")
@@ -375,7 +371,7 @@ def teste_renderizador_grupo_minimo():
             False,
             "{0}: {1}".format(type(exc).__name__, exc),
         )
-        return None
+        return
     _registrar(
         "pipeline carregar_tela + construir_modelo (grupo_minimo)",
         True,
@@ -389,7 +385,7 @@ def teste_renderizador_grupo_minimo():
             False,
             "{0}: {1}".format(type(exc).__name__, exc),
         )
-        return None
+        return
     _registrar("renderizar_tela(grupo_minimo) sem excecao", True)
 
     # CA-20: caixa bordeada do dashboard interno aparece
@@ -459,8 +455,6 @@ def teste_renderizador_grupo_minimo():
         "demo (lista plana) permanece inalterado (CA-24)",
         saida_o == _EXPECTED_ORQUESTRADOR,
     )
-
-    return modelo
 
 
 def teste_modelo_fabricado():

@@ -118,7 +118,6 @@ def teste_invariantes_anteriores():
             todos_ok = False
             sys.stderr.write(proc.stdout)
             sys.stderr.write(proc.stderr)
-    return todos_ok
 
 
 def teste_gerar_diagnostico():
@@ -133,7 +132,7 @@ def teste_gerar_diagnostico():
             False,
             "{0}: {1}".format(type(exc).__name__, exc),
         )
-        return None
+        return
     _registrar("gerar_diagnostico_tela() nao lanca excecao", True)
 
     _registrar(
@@ -231,10 +230,8 @@ def teste_gerar_diagnostico():
         explicito == resultado,
     )
 
-    return resultado
 
-
-def teste_modo_executavel(resultado_esperado):
+def teste_modo_executavel():
     print("")
     print("== Modo executavel: python demo/diagnostico.py ==")
 
@@ -254,6 +251,12 @@ def teste_modo_executavel(resultado_esperado):
         sys.stderr.write(proc.stderr)
         return
 
+    # H-0038: resultado esperado calculado internamente pela propria funcao,
+    # eliminando o parametro posicional que causava ERROR de setup no pytest
+    # (fixture 'resultado_esperado' not found). O valor computado aqui e o
+    # mesmo que `main()` repassava anteriormente a partir de
+    # `teste_gerar_diagnostico()`.
+    resultado_esperado = gerar_diagnostico_tela()
     stdout_igual = proc.stdout == resultado_esperado
     _registrar(
         "'python demo/diagnostico.py' stdout == gerar_diagnostico_tela()",
@@ -489,10 +492,11 @@ def main():
     # passar antes de qualquer teste sobre o diagnostico.
     teste_invariantes_anteriores()
 
-    resultado = teste_gerar_diagnostico()
+    teste_gerar_diagnostico()
 
-    if resultado is not None:
-        teste_modo_executavel(resultado)
+    # H-0038: teste_modo_executavel() agora computa internamente o resultado
+    # esperado via gerar_diagnostico_tela(); main() nao repassa mais retorno.
+    teste_modo_executavel()
 
     teste_proibicoes_importacao()
 

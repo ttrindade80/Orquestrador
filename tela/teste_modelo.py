@@ -96,7 +96,7 @@ def teste_modelo_orquestrador():
             False,
             "{0}: {1}".format(type(exc).__name__, exc),
         )
-        return None
+        return
     _registrar("construir_modelo(carregar_tela(demo))", True)
 
     _registrar(
@@ -335,8 +335,6 @@ def teste_modelo_orquestrador():
         "valor={0!r}".format(TIPOS_CORPO_VALIDOS),
     )
 
-    return modelo
-
 
 def teste_modelo_grupo_minimo():
     print("")
@@ -350,7 +348,7 @@ def teste_modelo_grupo_minimo():
             False,
             "{0}: {1}".format(type(exc).__name__, exc),
         )
-        return None
+        return
     _registrar("construir_modelo(carregar_tela(grupo_minimo))", True)
 
     _registrar(
@@ -1443,7 +1441,9 @@ def main():
     print("Base padrao: {0}".format(_BASE_PADRAO))
     print("Python: {0}".format(sys.version.split()[0]))
 
-    modelo = teste_modelo_orquestrador()
+    # H-0038: teste_modelo_orquestrador() nao retorna mais o modelo; o bloco
+    # de impressao do diagnostico dependente do retorno foi removido do main().
+    teste_modelo_orquestrador()
     teste_modelo_grupo_minimo()
     teste_erros_modelo()
     teste_hierarquia_grupos_adr0019_modelo()
@@ -1467,11 +1467,6 @@ def main():
         for nome, ok in _RESULTADOS:
             if not ok:
                 print("  - {0}".format(nome))
-
-    if modelo is not None:
-        print("")
-        print("== Diagnostico do modelo ==")
-        print(modelo.diagnostico())
 
     return 0 if falharam == 0 else 1
 

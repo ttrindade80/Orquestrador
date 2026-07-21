@@ -212,3 +212,35 @@ docs/relatorios/implementacao/IMP-0001-criar-comando-exemplo.md
 docs/handoff/para_qa/QA-0001-revisar-comando-exemplo.md
 docs/relatorios/qa/REL-QA-0001-revisar-comando-exemplo.md
 ```
+
+## 13. Suíte de testes canônica (H-0038)
+
+A suíte oficial de testes tem um único padrão e um único gate canônico:
+
+```yaml
+comando_canonico:
+  - PYTHONDONTWRITEBYTECODE=1 python -m pytest
+
+execucao_direta_dos_scripts:
+  status: permitida_mas_nao_canonica
+
+gate_oficial:
+  quantidade: um
+  ferramenta: pytest
+```
+
+Regras:
+
+- `PYTHONDONTWRITEBYTECODE=1 python -m pytest` é o comando canônico de
+  testes; descoberta e execução são automáticas, sem listagem manual de
+  arquivos.
+- Os dez scripts sob `tela/` e `demo/` permanecem executáveis diretamente,
+  mas **não constituem mais o gate canônico**; dois padrões oficiais
+  paralelos são proibidos.
+- O código de saída zero do comando canônico é válido somente quando não
+  houver itens `failed` ou `error`, nem verificações internas registradas
+  como falsas pelo mecanismo compartilhado de conversão de falhas
+  (`conftest.py`).
+- Esta declaração prevalece, por hierarquia documental (seção 3), sobre
+  qualquer handoff anterior que tratasse a execução direta dos scripts
+  como gate canônico.

@@ -216,7 +216,7 @@ def teste_caminho_feliz():
     except Exception as exc:  # pragma: no cover - diagnostico
         _registrar("carregar_tela(demo)", False,
                    "{0}: {1}".format(type(exc).__name__, exc))
-        return None
+        return
     _registrar("carregar_tela(demo)", True)
 
     _registrar(
@@ -436,8 +436,6 @@ def teste_caminho_feliz():
         "filtros preservado como declaracao inerte",
         isinstance(raw.get("filtros"), list),
     )
-
-    return tela
 
 
 def _run_erros(tmp_base):
@@ -4108,7 +4106,9 @@ def main():
     print("Base padrao: {0}".format(_BASE_PADRAO))
     print("Python: {0}".format(sys.version.split()[0]))
 
-    tela_real = teste_caminho_feliz()
+    # H-0038: teste_caminho_feliz() nao retorna mais o dict da tela; o bloco
+    # de impressao diagnostica dependente do retorno foi removido do main().
+    teste_caminho_feliz()
 
     tmp_base = Path(tempfile.mkdtemp(prefix="tela_loader_h0001_"))
     try:
@@ -4148,20 +4148,6 @@ def main():
         for nome, ok in _RESULTADOS:
             if not ok:
                 print("  - {0}".format(nome))
-
-    if tela_real is not None:
-        print("")
-        print("== Representacao interna carregada (resumo) ==")
-        print("id: {0}".format(tela_real.get("id")))
-        print("schema: {0}".format(tela_real.get("schema")))
-        print("corpo.arranjo: {0}".format(
-            tela_real.get("corpo", {}).get("arranjo")
-        ))
-        for el in tela_real.get("corpo", {}).get("elementos", []):
-            if isinstance(el, dict):
-                print("  elemento: id={0!r} tipo={1!r}".format(
-                    el.get("id"), el.get("tipo")
-                ))
 
     return 0 if falharam == 0 else 1
 
