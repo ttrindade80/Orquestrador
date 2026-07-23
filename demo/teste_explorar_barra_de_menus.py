@@ -22,6 +22,11 @@ while _this_dir in sys.path:
     sys.path.remove(_this_dir)
 
 from tela.renderizador import _linhas_barra, RenderizadorErro  # noqa: E402
+from tela.loader import carregar_estilo  # noqa: E402
+
+# H-0039: estilo global resolvido, carregado uma vez para os testes que
+# chamam _linhas_barra diretamente (agora exige estilo).
+_ESTILO = carregar_estilo()
 
 _SCRIPT = str(_BASE / "demo" / "explorar_barra_de_menus.py")
 
@@ -149,7 +154,7 @@ def teste_caso_3_linha_unica():
     ]
     bar = {"chips": chips, "distribuicao": _dist_canonica()}
     try:
-        linhas = _linhas_barra(bar, 80)
+        linhas = _linhas_barra(bar, _ESTILO, 80)
         _registrar(
             isinstance(linhas, list) and len(linhas) == 1,
             "linha unica: 3 chips em content_w=80 → lista com 1 string",
@@ -185,7 +190,7 @@ def teste_caso_4_multilinha_coluna_a_coluna():
     bar = {"chips": chips, "distribuicao": _dist_canonica("coluna_a_coluna", 2)}
     # content_w=25: col0=max(9,9)=9, col1=max(10,9)=10, gap=2 → total=21 <= 25
     try:
-        linhas = _linhas_barra(bar, 25)
+        linhas = _linhas_barra(bar, _ESTILO, 25)
         _registrar(
             isinstance(linhas, list) and len(linhas) == 2,
             "coluna_a_coluna K=2: 4 chips em content_w=25 → 2 linhas",
@@ -219,7 +224,7 @@ def teste_caso_5_multilinha_linha_a_linha():
     ]
     bar = {"chips": chips, "distribuicao": _dist_canonica("linha_a_linha", 2)}
     try:
-        linhas = _linhas_barra(bar, 25)
+        linhas = _linhas_barra(bar, _ESTILO, 25)
         _registrar(
             isinstance(linhas, list) and len(linhas) == 2,
             "linha_a_linha K=2: 4 chips em content_w=25 → 2 linhas",
@@ -279,7 +284,7 @@ def teste_caso_7_ancora_inexistente():
     dist = _dist_canonica(ancoras={"primeiro": ["chip_inexistente_xyz"]})
     bar = {"chips": chips, "distribuicao": dist}
     try:
-        _linhas_barra(bar, 39)
+        _linhas_barra(bar, _ESTILO, 39)
         _registrar(False, "ancora inexistente levanta RenderizadorErro", "nenhuma excecao")
     except RenderizadorErro as exc:
         msg = str(exc)
@@ -310,7 +315,7 @@ def teste_caso_8_ancora_posicao_errada():
     dist = _dist_canonica(ancoras={"primeiro": ["t8c_esc"]})  # esc não está na pos 0
     bar = {"chips": chips, "distribuicao": dist}
     try:
-        _linhas_barra(bar, 39)
+        _linhas_barra(bar, _ESTILO, 39)
         _registrar(False, "ancora posicao errada levanta RenderizadorErro", "nenhuma excecao")
     except RenderizadorErro as exc:
         msg = str(exc)
@@ -399,7 +404,7 @@ def teste_caso_11_vao_chip_texto_3_altera_saida():
     dist = _dist_canonica()
     dist["espacamentos"]["vao_chip_texto"] = {"minimo": 3, "maximo": None}
     bar = {"chips": chips, "distribuicao": dist}
-    linhas = _linhas_barra(bar, 80)
+    linhas = _linhas_barra(bar, _ESTILO, 80)
     _registrar(
         isinstance(linhas, list) and len(linhas) >= 1,
         "vao_chip_texto=3: retorna lista com linha(s)",
@@ -423,7 +428,7 @@ def teste_caso_12_margem_horizontal_4_altera_saida():
     dist = _dist_canonica()
     dist["espacamentos"]["margem_horizontal"] = {"minimo": 4, "maximo": None}
     bar = {"chips": chips, "distribuicao": dist}
-    linhas = _linhas_barra(bar, 80)
+    linhas = _linhas_barra(bar, _ESTILO, 80)
     _registrar(
         isinstance(linhas, list) and linhas
         and linhas[0].startswith("    "),
@@ -443,7 +448,7 @@ def teste_caso_13_margem_horizontal_overflow():
     dist["espacamentos"]["margem_horizontal"] = {"minimo": 50, "maximo": None}
     bar = {"chips": chips, "distribuicao": dist}
     try:
-        linhas = _linhas_barra(bar, 39)
+        linhas = _linhas_barra(bar, _ESTILO, 39)
         _registrar(
             False,
             "margem=50 com content_w=39: deveria lancar RenderizadorErro",

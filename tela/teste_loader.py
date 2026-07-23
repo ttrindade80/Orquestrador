@@ -38,6 +38,8 @@ from tela.loader import (  # noqa: E402
     MODOS_DISTRIBUICAO_CORPO_VALIDOS,
     TIPOS_CORPO_VALIDOS,
     TIPOS_ESTRUTURAIS_VALIDOS,
+    EstiloErro,
+    EstiloResolvido,
     TelaArquivoNaoEncontrado,
     TelaCampoObrigatorioAusente,
     TelaElementoSemId,
@@ -49,8 +51,9 @@ from tela.loader import (  # noqa: E402
     TelaIdNaoCoincideComArquivo,
     TelaJsonInvalido,
     TelaTipoDesconhecido,
-    carregar_tela,
     carregar_conteudo_externo,
+    carregar_estilo,
+    carregar_tela,
     validar_conteudo_externo,
 )
 
@@ -4101,6 +4104,319 @@ def teste_d23_estrutural():
         )
 
 
+def _escrever_estilo(base_dir, conteudo):
+    """Escreve ``config/estilo.json`` em ``base_dir`` (H-0039)."""
+    diretorio = base_dir / "config"
+    diretorio.mkdir(parents=True, exist_ok=True)
+    caminho = diretorio / "estilo.json"
+    if isinstance(conteudo, str):
+        caminho.write_text(conteudo, encoding="utf-8")
+    else:
+        caminho.write_text(json.dumps(conteudo, ensure_ascii=False), encoding="utf-8")
+    return caminho
+
+
+# Conteudo valido canonico para testes positivos do loader de estilo (H-0039).
+# Espelha config/estilo.json apos a migracao do Bloco 1 (caixa_alta=false).
+_ESTILO_VALIDO = {
+    "_meta": {"status": "rascunho_inicial"},
+    "borda": {
+        "preset_default": "Borda Curva",
+        "presets": {
+            "Borda Curva": {
+                "canto_superior_esquerdo": "╭",
+                "canto_superior_direito": "╮",
+                "canto_inferior_esquerdo": "╰",
+                "canto_inferior_direito": "╯",
+                "traco_superior": "─",
+                "traco_inferior": "─",
+                "lateral": "│",
+            },
+        },
+    },
+    "chip": {
+        "preset_default": "Colchete",
+        "presets": {
+            "Colchete": {
+                "caractere_esquerdo": "[",
+                "caractere_direito": "]",
+                "cor_texto": "padrão",
+                "cor_fundo": "padrão",
+                "caixa_alta": False,
+            },
+        },
+    },
+    "indicadores": {
+        "concluido": {"on": "✓", "off": " "},
+        "selecionado": {
+            "preset_default": "Seta",
+            "off": " ",
+            "presets": {"Seta": {"simbolo": "→"}},
+        },
+        "incluido": {
+            "preset_default": "Círculo",
+            "presets": {"Círculo": {"on": "●", "off": "○"}},
+        },
+    },
+}
+
+
+def teste_carregar_estilo():
+    """Testa carregar_estilo / EstiloResolvido / EstiloErro (H-0039).
+
+    Positivos: carregamento valido, materializacao dos 18 campos, presets
+    ativos resolvidos, literais "padrão", caixa_alta false, regra len==1.
+    Negativos: V-01 a V-29 (arquivo ausente, JSON invalido, secoes ausentes,
+    preset_default ausente, catalogos vazios, preset inexistente sem fallback,
+    campos obrigatorios ausentes, tipos invalidos, len!=1, string vazia) e
+    prova de nao-retorno parcial (configuracao invalida nunca produz
+    EstiloResolvido).
+    """
+    print("")
+    print("== H-0039: carregar_estilo / EstiloResolvido / EstiloErro ==")
+
+    # --- Positivo: arquivo real config/estilo.json (base padrao). ---
+    estilo = carregar_estilo(_BASE_PADRAO)
+    _registrar(
+        "carregar_estilo() real retorna EstiloResolvido",
+        isinstance(estilo, EstiloResolvido),
+    )
+
+    campos_esperados = (
+        "canto_superior_esquerdo", "canto_superior_direito",
+        "canto_inferior_esquerdo", "canto_inferior_direito",
+        "traco_superior", "traco_inferior", "lateral",
+        "caractere_esquerdo", "caractere_direito", "cor_texto",
+        "caixa_alta", "cor_fundo",
+        "concluido_on", "concluido_off",
+        "selecionado_simbolo", "selecionado_off",
+        "incluido_on", "incluido_off",
+    )
+    nenhuma_ausente = all(getattr(estilo, c, None) is not None for c in campos_esperados)
+    _registrar(
+        "EstiloResolvido materializa os 18 campos (nenhum ausente/None)",
+        nenhuma_ausente,
+    )
+
+    _registrar(
+        "preset ativo de borda 'Borda Curva' -> canto_superior_esquerdo == '╭'",
+        estilo.canto_superior_esquerdo == "╭",
+    )
+    _registrar(
+        "preset ativo de borda -> canto_inferior_direito == '╯'",
+        estilo.canto_inferior_direito == "╯",
+    )
+    _registrar(
+        "preset ativo de chip 'Colchete' -> caractere_esquerdo == '['",
+        estilo.caractere_esquerdo == "[",
+    )
+    _registrar(
+        "preset ativo de chip 'Colchete' -> caractere_direito == ']'",
+        estilo.caractere_direito == "]",
+    )
+    _registrar(
+        "caixa_alta == False (preserva capitalizacao dos rotulos)",
+        estilo.caixa_alta is False,
+    )
+    _registrar(
+        "cor_texto == 'padrão' (literal preservado)",
+        estilo.cor_texto == "padrão",
+    )
+    _registrar(
+        "cor_fundo == 'padrão' (literal preservado)",
+        estilo.cor_fundo == "padrão",
+    )
+    _registrar(
+        "selecionado_simbolo == '→' (preset 'Seta' ativo)",
+        estilo.selecionado_simbolo == "→",
+    )
+    _registrar(
+        "selecionado_off == ' ' (campo direto)",
+        estilo.selecionado_off == " ",
+    )
+    _registrar(
+        "incluido_on == '●' e incluido_off == '○' (preset 'Círculo' ativo)",
+        estilo.incluido_on == "●" and estilo.incluido_off == "○",
+    )
+    _registrar(
+        "concluido_on == '✓' e concluido_off == ' ' (par direto)",
+        estilo.concluido_on == "✓" and estilo.concluido_off == " ",
+    )
+
+    # frozen=True (R-4).
+    import dataclasses
+    try:
+        estilo.caixa_alta = True  # type: ignore[misc]
+        _registrar("EstiloResolvido e frozen (R-4)", False)
+    except dataclasses.FrozenInstanceError:
+        _registrar("EstiloResolvido e frozen (R-4)", True)
+
+    # --- Negativos V-01 a V-29 em base temporaria. ---
+    tmp_base = Path(tempfile.mkdtemp(prefix="tela_loader_h0039_"))
+    try:
+        # V-01: arquivo ausente (base sem config/estilo.json).
+        base_vazia = tmp_base / "v01"
+        base_vazia.mkdir()
+        _espera_excecao(
+            "V-01 arquivo ausente -> EstiloErro",
+            lambda: carregar_estilo(base_vazia), EstiloErro,
+        )
+
+        # V-02: JSON invalido.
+        base_json_inv = tmp_base / "v02"
+        base_json_inv.mkdir()
+        _escrever_estilo(base_json_inv, "{ invalido ,")
+        _espera_excecao(
+            "V-02 JSON invalido -> EstiloErro",
+            lambda: carregar_estilo(base_json_inv), EstiloErro,
+        )
+
+        def _mutar(caminho, valor):
+            """Copia ``_ESTILO_VALIDO`` aplicando uma sobreposicao no caminho.
+
+            ``caminho`` e lista de chaves (suporta chaves com espaco, ex.
+            ``["borda", "presets", "Borda Curva", "lateral"]``). ``_VAZIO``
+            como ``valor`` remove a chave; caso contrario, atribui.
+            """
+            import copy
+            dados = copy.deepcopy(_ESTILO_VALIDO)
+            alvo = dados
+            for k in caminho[:-1]:
+                alvo = alvo[k]
+            if valor is _VAZIO:
+                del alvo[caminho[-1]]
+            else:
+                alvo[caminho[-1]] = valor
+            return dados
+
+        def _espera(nome, dados_mutados):
+            base = tmp_base / nome.replace(" ", "_").replace("/", "_")
+            base.mkdir()
+            _escrever_estilo(base, dados_mutados)
+            _espera_excecao(
+                "{0} -> EstiloErro".format(nome),
+                lambda b=base: carregar_estilo(b), EstiloErro,
+            )
+
+        BC = ["Borda Curva"]  # atalho para o preset de borda ativo
+        # V-03 a V-05: secoes obrigatorias ausentes.
+        _espera("V-03 secao 'borda' ausente", _mutar(["borda"], _VAZIO))
+        _espera("V-04 secao 'chip' ausente", _mutar(["chip"], _VAZIO))
+        _espera("V-05 secao 'indicadores' ausente", _mutar(["indicadores"], _VAZIO))
+
+        # V-06 a V-09: preset_default ausente em categorias com catalogo.
+        _espera("V-06 borda.preset_default ausente", _mutar(["borda", "preset_default"], _VAZIO))
+        _espera("V-07 chip.preset_default ausente", _mutar(["chip", "preset_default"], _VAZIO))
+        _espera(
+            "V-08 selecionado.preset_default ausente",
+            _mutar(["indicadores", "selecionado", "preset_default"], _VAZIO),
+        )
+        _espera(
+            "V-09 incluido.preset_default ausente",
+            _mutar(["indicadores", "incluido", "preset_default"], _VAZIO),
+        )
+
+        # V-10 a V-13: catalogo obrigatorio vazio/ausente.
+        _espera("V-10 borda.presets vazio", _mutar(["borda", "presets"], {}))
+        _espera("V-11 chip.presets vazio", _mutar(["chip", "presets"], {}))
+        _espera(
+            "V-12 selecionado.presets vazio",
+            _mutar(["indicadores", "selecionado", "presets"], {}),
+        )
+        _espera(
+            "V-13 incluido.presets vazio",
+            _mutar(["indicadores", "incluido", "presets"], {}),
+        )
+
+        # V-14 a V-17: preset_default referencia preset inexistente (sem fallback).
+        _espera("V-14 borda preset inexistente", _mutar(["borda", "preset_default"], "Inexistente"))
+        _espera("V-15 chip preset inexistente", _mutar(["chip", "preset_default"], "Inexistente"))
+        _espera(
+            "V-16 selecionado preset inexistente",
+            _mutar(["indicadores", "selecionado", "preset_default"], "Inexistente"),
+        )
+        _espera(
+            "V-17 incluido preset inexistente",
+            _mutar(["indicadores", "incluido", "preset_default"], "Inexistente"),
+        )
+
+        # V-18 a V-23: campo obrigatorio ausente no preset ativo / secao direta.
+        _espera(
+            "V-18 campo de borda ausente no preset ativo",
+            _mutar(["borda", "presets"] + BC + ["canto_superior_esquerdo"], _VAZIO),
+        )
+        _espera(
+            "V-19 campo de chip ausente no preset ativo",
+            _mutar(["chip", "presets", "Colchete", "caractere_esquerdo"], _VAZIO),
+        )
+        _espera(
+            "V-20 'simbolo' ausente no preset ativo de selecionado",
+            _mutar(["indicadores", "selecionado", "presets", "Seta", "simbolo"], _VAZIO),
+        )
+        _espera(
+            "V-21 'on' ausente no preset ativo de incluido",
+            _mutar(["indicadores", "incluido", "presets", "Círculo", "on"], _VAZIO),
+        )
+        _espera(
+            "V-22 'on'/'off' ausentes em concluido",
+            _mutar(["indicadores", "concluido", "on"], _VAZIO),
+        )
+        _espera(
+            "V-23 'off' ausente em selecionado",
+            _mutar(["indicadores", "selecionado", "off"], _VAZIO),
+        )
+
+        # V-24: tipo invalido (caractere de borda nao e string).
+        _espera(
+            "V-24 caractere de borda nao e string (tipo invalido)",
+            _mutar(["borda", "presets"] + BC + ["lateral"], 123),
+        )
+        # V-25: caixa_alta nao booleano.
+        _espera(
+            "V-25 caixa_alta nao e booleano (tipo invalido)",
+            _mutar(["chip", "presets", "Colchete", "caixa_alta"], "sim"),
+        )
+        # V-26: cor_texto/cor_fundo nao e string.
+        _espera(
+            "V-26 cor_texto nao e string (tipo invalido)",
+            _mutar(["chip", "presets", "Colchete", "cor_texto"], 5),
+        )
+        # V-27: comprimento diferente de 1 (R-6).
+        _espera(
+            "V-27 caractere com len != 1 (R-6)",
+            _mutar(["borda", "presets"] + BC + ["lateral"], "||"),
+        )
+        _espera(
+            "V-27b simbolo de selecionado com len != 1",
+            _mutar(["indicadores", "selecionado", "presets", "Seta", "simbolo"], "->"),
+        )
+        # V-28: string vazia.
+        _espera(
+            "V-28 caractere vazio (string de comprimento zero)",
+            _mutar(["borda", "presets"] + BC + ["lateral"], ""),
+        )
+
+        # V-29 + prova de ausencia de fallback: nenhuma chamada invalida acima
+        # produziu EstiloResolvido (ja coberto por _espera_excecao). Aqui
+        # confirma-se explicitamente que carregar_estilo de base invalida NUNCA
+        # devolve EstiloResolvido.
+        produziu_objeto = False
+        try:
+            resultado = carregar_estilo(tmp_base / "v01")
+            produziu_objeto = isinstance(resultado, EstiloResolvido)
+        except EstiloErro:
+            produziu_objeto = False
+        _registrar(
+            "V-29 configuracao invalida nao produz EstiloResolvido (sem parcial)",
+            not produziu_objeto,
+        )
+    finally:
+        try:
+            shutil.rmtree(tmp_base)
+        except OSError:
+            pass
+
+
 def main():
     print("Diagnostico H-0001 - loader/validador de tela.json")
     print("Base padrao: {0}".format(_BASE_PADRAO))
@@ -4133,6 +4449,7 @@ def main():
     teste_id_incorreto_classe()
     teste_conteudo_externo_h0036()
     teste_d23_estrutural()
+    teste_carregar_estilo()
 
     print("")
     print("== Resumo ==")

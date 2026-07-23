@@ -36,6 +36,11 @@ from demo.demo import (  # noqa: E402
     _tela_inicial_de_argv,
 )
 from tela.renderizador import renderizar_tela  # noqa: E402
+from tela.loader import carregar_estilo  # noqa: E402
+
+# H-0039: estilo global resolvido, carregado uma vez para os testes que
+# chamam renderizar_tela diretamente.
+_ESTILO = carregar_estilo()
 
 _RESULTADOS = []
 
@@ -196,7 +201,7 @@ def teste_apresentacoes_acessiveis():
         modelo = _carregar_modelo_por_id(cenario)
         _registrar("{0}: apresentacao {1} acessivel".format(cenario, apresentacao),
                    modelo.conteudo_externo.apresentacao == apresentacao)
-        saida = renderizar_tela(modelo, largura=70, altura=26)
+        saida = renderizar_tela(modelo, estilo=_ESTILO, largura=70, altura=26)
         _registrar("{0}: renderiza sem placeholder".format(cenario),
                    "(console)" not in saida)
 
@@ -207,7 +212,7 @@ def teste_ausencia_de_mistura():
     saidas = {}
     for caso in _SMOKE:
         modelo = _carregar_modelo_por_id(caso["cenario"])
-        saidas[caso["cenario"]] = renderizar_tela(modelo, largura=70, altura=28)
+        saidas[caso["cenario"]] = renderizar_tela(modelo, estilo=_ESTILO, largura=70, altura=28)
     for caso in _SMOKE:
         saida = saidas[caso["cenario"]]
         _registrar("{0}: conteudo de outro cenario ausente ({1!r})".format(
@@ -218,7 +223,7 @@ def teste_ausencia_de_mistura():
     # conteudo, abrir um cenario sem conteudo produz placeholder e nenhuma marca.
     _carregar_modelo_por_id("h0036_console_hierarquia")
     modelo_sem = _carregar_modelo_por_id("h0030_console_unico")
-    saida_sem = renderizar_tela(modelo_sem, largura=60, altura=20)
+    saida_sem = renderizar_tela(modelo_sem, estilo=_ESTILO, largura=60, altura=20)
     _registrar("troca para cenario sem conteudo: placeholder presente, sem residuo",
                "(console)" in saida_sem
                and "H-0036" not in saida_sem
@@ -230,7 +235,7 @@ def teste_smoke_por_cenario():
     print("== Smoke tests semanticos por cenario ==")
     for caso in _SMOKE:
         modelo = _carregar_modelo_por_id(caso["cenario"])
-        saida = renderizar_tela(modelo, largura=72, altura=30)
+        saida = renderizar_tela(modelo, estilo=_ESTILO, largura=72, altura=30)
         identidade_ok = caso["identidade"] in saida and caso["identidade_extra"] in saida
         incorreto_ausente = caso["conteudo_incorreto"] not in saida
         placeholder_regra = ("(console)" not in saida)  # todos os smoke sao AUSENTE

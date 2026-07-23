@@ -3,8 +3,12 @@
 
 Ponto de entrada executavel da demonstracao. Exercita a API entregue pelo
 renderer (``renderizar_tela``) sobre a tela raiz demonstrativa e a tela
-destino minima, permitindo alternar em memoria entre borda curva e reta,
-abrir a tela destino via chip do lancador e voltar via Esc.
+destino minima, permitindo abrir a tela destino via chip do lancador e
+voltar via Esc.
+
+H-0039 / ADR-0030: a borda e os chips derivam de ``config/estilo.json``
+via ``carregar_estilo`` (carregado uma vez em ``main``). O comando ``b``
+(alternancia de borda) foi removido.
 
 Executavel via: python demo/demo.py
 
@@ -14,30 +18,26 @@ Encadeamento do pipeline:
         -> carregar_tela(None, id_tela, raiz_telas)  [tela/loader.py       - H-0001]
         -> construir_modelo(tela_raw)                [tela/modelo.py       - H-0002]
         -> ModeloTela
-        -> renderizar_tela(modelo, tipo_borda)       [tela/renderizador.py - H-0006/H-0007/H-0009/H-0010A]
+        -> renderizar_tela(modelo, estilo)           [tela/renderizador.py - H-0006/H-0007/H-0009/H-0010A]
         -> str
 
 ESCOPO (H-0008):
 - Aplicacao demonstravel local minima, separada de tela/diagnostico.py.
-- Renderiza inicialmente com borda curva (default H-0006/H-0007).
-- Aceita o comando interno ``b`` para alternar curva <-> reta em memoria.
 - Aceita o comando interno ``s`` para sair (atalho auxiliar para pipe).
-- Estado de borda mantido somente em memoria; nao grava arquivo,
-  nao altera JSON, nao persiste preferencia.
-- Os comandos ``b`` e ``s`` sao internos da demo: nao sao bindings
-  declarativos, nao sao registry de acoes.
+- O comando ``s`` e interno da demo: nao e binding declarativo, nao e
+  registry de acao.
 
 ADICOES DO H-0009:
 - Largura visual lida do terminal via ``shutil.get_terminal_size``.
 - Deteccao de TTY via ``sys.stdin.isatty() and sys.stdout.isatty()``:
   - Em TTY: leitura por tecla unica em modo cbreak (``termios``/``tty``),
     sem Enter e sem echo; ISIG preservado (Ctrl+C gera KeyboardInterrupt
-    capturado silenciosamente no loop); ``b`` alterna a borda; ``Esc``
-    sai; terminal restaurado em ``finally``.
+    capturado silenciosamente no loop); ``Esc`` sai; terminal restaurado
+    em ``finally``.
   - Fora de TTY (pipe/teste): leitura linha a linha preservada, com
     ``s`` e ``"\\x1b"`` como comandos de saida.
-- ``processar_comando`` aceita ``"\\x1b"`` como saida (mantendo
-  ``tipo_borda``); ``"s"`` permanece como atalho auxiliar.
+- ``processar_comando`` aceita ``"\\x1b"`` como saida;
+  ``"s"`` permanece como atalho auxiliar.
 - ``renderizar_estado`` aceita ``largura`` opcional repassada ao
   renderer.
 
@@ -116,7 +116,11 @@ import struct
 import termios
 import tty
 
-from tela.loader import carregar_tela, carregar_conteudo_externo
+from tela.loader import (
+    carregar_tela,
+    carregar_conteudo_externo,
+    carregar_estilo,
+)
 from tela.modelo import construir_modelo, ModeloTela
 from tela.renderizador import renderizar_tela, RenderizadorErro
 
@@ -153,14 +157,16 @@ def criar_estado_inicial():
     Retorna sempre um novo dict independente a cada chamada, sem estado
     global mutavel, sem leitura de arquivo, JSON ou sys.stdin. Campos:
 
-    - ``tipo_borda``: ``"curva"`` (default do renderer).
     - ``saindo``: ``False``.
     - ``tela_atual``: ``"demo"`` (tela raiz da demonstracao).
     - ``pilha_telas``: ``[]`` (sem telas empilhadas).
     - ``modo_verboso``: ``False`` (alternancia de verbosidade, H-0037).
+
+    H-0039 / ADR-0030: o estado nao carrega mais ``tipo_borda`` -- a borda
+    vem de ``config/estilo.json`` via ``carregar_estilo`` e o ``EstiloResolvido``
+    e injetado em ``estado`` pelo ``main`` (uma vez por sessao).
     """
     return {
-        "tipo_borda": "curva",
         "saindo": False,
         "tela_atual": "demo",
         "pilha_telas": [],
@@ -224,13 +230,16 @@ def processar_comando(estado, comando, modelo=None):
     """Processa um comando sobre o estado, retornando um novo dict.
 
     Nao modifica o dict ``estado`` recebido como argumento. Retorna
-    sempre um novo dict independente com as chaves ``"tipo_borda"``,
-    ``"saindo"``, ``"tela_atual"`` e ``"pilha_telas"``.
+    sempre um novo dict independente com as chaves ``"saindo"``,
+    ``"tela_atual"``, ``"pilha_telas"`` e ``"modo_verboso"``.
+
+    H-0039 / ADR-0030: o comando ``"b"`` (alternancia de borda) foi removido
+    -- a borda agora vem de ``config/estilo.json`` via ``carregar_estilo`` e
+    nao e alternavel em runtime por este via. O estado nao carrega mais
+    ``tipo_borda``.
 
     Comportamento (case-sensitive):
 
-    - ``"b"`` alterna ``tipo_borda``: curva -> reta ou reta -> curva.
-      Nao altera ``saindo`` nem ``tela_atual`` nem ``pilha_telas``.
     - ``"s"`` ou ``"\\x1b"`` (Esc):
       - Se ``pilha_telas`` nao vazia: faz pop; ``tela_atual`` passa a
         ser o ultimo elemento removido da pilha; ``saindo`` permanece
@@ -251,16 +260,15 @@ def processar_comando(estado, comando, modelo=None):
         (``"demo"`` e ``[]``).
     """
     novo = {
-        "tipo_borda": estado["tipo_borda"],
         "saindo": estado["saindo"],
         "tela_atual": estado.get("tela_atual", "demo"),
         "pilha_telas": list(estado.get("pilha_telas", [])),
         "modo_verboso": estado.get("modo_verboso", False),
     }
-
-    if comando == "b":
-        novo["tipo_borda"] = "reta" if estado["tipo_borda"] == "curva" else "curva"
-        return novo
+    # H-0039: o EstiloResolvido e imutavel e sessão-scopo; preservado entre
+    # comandos para que renderizar_estado continue consumindo o mesmo objeto.
+    if "estilo" in estado:
+        novo["estilo"] = estado["estilo"]
 
     if comando == "s" or comando == "\x1b":
         if novo["pilha_telas"]:
@@ -301,7 +309,7 @@ def processar_comando(estado, comando, modelo=None):
 
 
 def renderizar_estado(estado, modelo, largura=None, altura=None):
-    """Delega para o renderer usando a borda do estado e a largura dada.
+    """Delega para o renderer usando o estilo do estado e a largura dada.
 
     Nao modifica ``estado`` nem ``modelo``. Nenhum efeito colateral
     alem da chamada a ``renderizar_tela``. ``largura=None`` produz
@@ -309,9 +317,13 @@ def renderizar_estado(estado, modelo, largura=None, altura=None):
     preserva o comportamento atual (sem preenchimento vertical); quando
     fornecida, repassa a altura ao renderer para a ocupacao vertical da
     janela do terminal pelo corpo (H-0015 / ADR-0013).
+
+    H-0039 / ADR-0030: o ``EstiloResolvido`` e lido de ``estado["estilo"]``
+    (carregado uma vez em ``main``); a borda nao e mais alternavel nem
+    carregada por ``tipo_borda``.
     """
     return renderizar_tela(
-        modelo, tipo_borda=estado["tipo_borda"], largura=largura, altura=altura,
+        modelo, estado["estilo"], largura=largura, altura=altura,
         verboso=_verboso_efetivo(estado, modelo),
     )
 
@@ -658,6 +670,11 @@ def main(argv=None):
     if argv is None:
         argv = sys.argv
     estado = criar_estado_inicial()
+    # H-0039 / ADR-0030: carrega o estilo global uma unica vez por sessao a
+    # partir de config/estilo.json. O EstiloResolvido e imutavel e repassado
+    # ao renderer via estado["estilo"]; nao e recarregado por comando/render.
+    estilo = carregar_estilo()
+    estado = dict(estado, estilo=estilo)
     tela_inicial = _tela_inicial_de_argv(argv)
     if tela_inicial != estado["tela_atual"]:
         estado = dict(estado, tela_atual=tela_inicial)
@@ -723,7 +740,7 @@ def main(argv=None):
                             modo_verboso=_modo_verboso_de_modelo(modelo),
                         )
                     verboso_mudou = estado.get("modo_verboso", False) != verboso_antes
-                    if ch == "b" or estado["tela_atual"] != tela_antes or verboso_mudou:
+                    if estado["tela_atual"] != tela_antes or verboso_mudou:
                         _apresentar_quadro(
                             _resolver_conteudo(estado, modelo, largura, altura),
                             largura,
@@ -764,7 +781,7 @@ def main(argv=None):
                     modo_verboso=_modo_verboso_de_modelo(modelo),
                 )
             verboso_mudou = estado.get("modo_verboso", False) != verboso_antes
-            if comando == "b" or estado["tela_atual"] != tela_antes or verboso_mudou:
+            if estado["tela_atual"] != tela_antes or verboso_mudou:
                 print(renderizar_estado(estado, modelo, largura, altura=altura), end="")
     return 0
 

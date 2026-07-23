@@ -11,6 +11,7 @@ metadata:
     adrs_aplicadas:
       - docs/adr/ADR-0021-separacao-demo-produto-politica-caminhos.md
       - docs/adr/ADR-0022-ponto-entrada-tela-inicial-orquestrador.md
+      - docs/adr/ADR-0030-carregamento-global-e-materializacao-do-estilo.md
     reaproveitado_de_legado: false
   dependencias_nomenclatura:
     dependencias_obrigatorias:
@@ -47,17 +48,29 @@ contrato e de sua aplicação documental.
 
 ---
 
-## 2. Regra fundamental (formal, não observação)
+## 2. Regra fundamental e autoridade global (formal, não observação)
 
-**Nenhuma classe de tela ou renderer pode hardcodar símbolo, cor ou caractere
-pertencente a esta especificação.** Todo valor de estilo — incluindo os
-defaults listados abaixo e os estados dinâmicos de cor da seção 3.5
-(`cor_inativo` e `cor_alerta`, conforme ADR-0004) — deve vir do schema de
-estilo em tempo de execução.
+**`config/estilo.json` é a autoridade global exclusiva para a aparência
+compartilhada do terminal (ADR-0030 D1).** A escolha de aparência é global —
+não é possível escolha diferente por tela neste modelo. Nenhuma classe de tela
+ou renderer pode hardcodar símbolo, cor ou caractere pertencente a esta
+especificação. Todo valor de aparência — incluindo os defaults listados abaixo
+e os estados dinâmicos de cor da seção 3.5 (`cor_inativo` e `cor_alerta`,
+conforme ADR-0004) — deve vir do schema de estilo em tempo de execução, já
+resolvido pelo loader a partir de `config/estilo.json`.
 Hardcoding de qualquer campo desta seção é violação contratual.
 
-Esta regra vem de `docs/nomenclatura/10_ESTILO.md`, seção de responsabilidade
-e definições (correspondência: §1 do monólito original).
+**Consumidores**: loader ou camada equivalente, renderer e demais componentes
+que precisem de valores de aparência. O loader carrega, valida e materializa
+o estilo uma única vez por sessão (ADR-0030 D8). Consumidores recebem o
+objeto de estilo resolvido — não relêem `config/estilo.json` em cada render.
+
+**Não pertencem à autoridade de `config/estilo.json`**: estado vivo de cursor
+corrente, itens incluídos em seleção, foco de corpo, página atual, modo verboso
+ativo, navegação e seleção em progresso. Esses são estados de execução, não
+configuração de aparência.
+
+Esta regra vem de `docs/nomenclatura/10_ESTILO.md` §2 e ADR-0030 D1.
 
 ---
 
@@ -86,6 +99,23 @@ em múltiplos campos, cada campo continua declarado separadamente.
 "Borda Reta", "Linha") devem estar presentes na camada de dados. Valores
 concretos em `config/estilo.json`, seção `borda.presets`.
 
+**Catálogo e opção ativa (ADR-0030 D2)**: o campo `borda.preset_default` é
+obrigatório em `config/estilo.json` e identifica o preset ativo. Ausência
+de `preset_default`, referência a preset inexistente no catálogo ou catálogo
+vazio são erros de validação — sem fallback silencioso.
+
+**Materialização (ADR-0030 D3/D8)**: o loader resolve o preset ativo de
+`borda.presets[preset_default]` e produz os sete campos de runtime listados
+acima. A configuração parcialmente resolvida não pode ser usada.
+
+**Preservação visual inicial (ADR-0030 D4)**: o preset `"Borda Curva"` é o
+preset ativo inicial — correspondência verificada com os caracteres que estavam
+hardcoded em `_BORDAS["curva"]` no renderer anterior ao H-0039 (estado
+histórico; levantamento, seção 3.2 da ADR-0030). O renderer vigente recebe o
+estilo global já resolvido; os sete campos de borda vêm de `EstiloResolvido`.
+O renderer não mantém catálogo próprio nem escolhe preset. `_BORDAS` e
+`tipo_borda` não pertencem ao estado executável vigente.
+
 ### 3.2 Chip
 
 Cinco campos obrigatórios.
@@ -108,8 +138,25 @@ do renderer, nunca do schema de estilo.
 devem estar presentes na camada de dados. Valores concretos em
 `config/estilo.json`, seção `chip.presets`.
 
-`caixa_alta: true` é o default de todos os presets — regra geral, não
-exceção por preset.
+**Catálogo e opção ativa (ADR-0030 D2)**: o campo `chip.preset_default` é
+obrigatório em `config/estilo.json` e identifica o preset ativo. Ausência
+de `preset_default`, referência a preset inexistente ou catálogo vazio são
+erros de validação — sem fallback silencioso.
+
+**Materialização (ADR-0030 D3/D8)**: o loader resolve o preset ativo de
+`chip.presets[preset_default]` e produz os cinco campos de runtime listados
+acima. A configuração parcialmente resolvida não pode ser usada.
+
+**Preservação visual inicial (ADR-0030 D5)**: o preset `"Colchete"` é o
+preset ativo inicial. Os delimitadores `[` e `]` correspondem exatamente ao
+formato hardcoded `"[{tecla}]"` no renderer atual. `cor_texto: "padrão"` e
+`cor_fundo: "padrão"` não introduzem nova cor concreta.
+
+**`caixa_alta` é declarado por cada preset individualmente.** Não existe valor
+global de `caixa_alta` independente do preset. O preset `"Colchete"` usa
+`caixa_alta: false` para preservar a capitalização atual dos rótulos dos chips
+("Sair", "Voltar", "Ajuda", "Verboso") — a mudança de `true` para `false` em
+`config/estilo.json` pertence ao handoff do Bloco 1 (ADR-0030 D5).
 
 `caractere_esquerdo` e `caractere_direito` sempre ocupam posição (nunca
 vazios): espaço representa "sem moldura visível", não ausência de campo —
@@ -227,6 +274,72 @@ não como presets materializados no JSON.
   a cada render a partir do conteúdo atual. O renderer aplica a cor
   correspondente, mas não decide a existência estrutural do elemento.
 
+### 3.6 Preservação visual inicial (ADR-0030)
+
+Os presets ativos iniciais preservam a aparência vigente antes da migração:
+
+| Categoria | Preset ativo inicial | Campos relevantes |
+|---|---|---|
+| `borda` | `"Borda Curva"` | sete caracteres: `╭` `╮` `╰` `╯` `─` `│` |
+| `chip` | `"Colchete"` | `[`, `]`, `caixa_alta: false`, `cor_texto: "padrão"`, `cor_fundo: "padrão"` |
+| `indicadores.selecionado` | `"Seta"` | `simbolo: →`, `selecionado_off: (espaço)` |
+| `indicadores.incluido` | `"Círculo"` | `on: ●`, `off: ○` |
+| `indicadores.concluido` | par direto | `on: ✓`, `off: (espaço)` |
+
+O literal `"padrão"` em `cor_texto` e `cor_fundo` significa ausência de cor
+diferenciada — preserva o comportamento atual do renderer, que não aplica
+cor especial a chips. Os valores de `cor_inativo` e `cor_alerta` não possuem
+valor decidido neste ciclo (pendência registrada em `_meta` de
+`config/estilo.json` e nas decisões deferidas da ADR-0030).
+
+### 3.7 Fronteira com implementação (ADR-0030)
+
+**Na aplicação documental da ADR-0030** (estado histórico), as seguintes
+decisões ainda não tinham sido realizadas — pertenciam ao handoff de
+implementação do Bloco 1. A aplicação documental, isoladamente, não implementou
+código.
+
+- localização, nome e assinatura do loader de estilo;
+- assinatura do objeto de estilo resolvido (estrutura dos campos de runtime);
+- mecanismo de armazenamento do objeto por sessão;
+- transição interna do parâmetro `tipo_borda` durante a migração;
+- unidade técnica da validação de "exatamente 1 caractere" (R-6): code point,
+  grapheme cluster ou largura visual de terminal;
+- mecanismo de detecção de duplicidade de chaves no JSON bruto;
+- inclusão de `preset_default: "Borda Curva"` na seção `borda` de
+  `config/estilo.json`;
+- inclusão de `preset_default: "Colchete"` na seção `chip` de
+  `config/estilo.json`;
+- mudança de `chip.presets["Colchete"].caixa_alta` de `true` para `false`
+  em `config/estilo.json`;
+- remoção de `_BORDAS` e do parâmetro `tipo_borda` do renderer;
+- atualização dos testes que verificam constantes hardcoded de borda e chip;
+- promoção de `_meta.status` em `config/estilo.json` (critério não definido).
+
+**Distinção temporal — ciclo posterior H-0039:**
+
+```yaml
+aplicacao_documental_ADR_0030:
+  implementacao_executada_naquela_etapa: false
+
+ciclo_posterior_H_0039:
+  carregamento_global: implementado
+  materializacao_runtime: implementada
+  renderer_migrado: true
+  hardcodings_do_escopo_removidos: true
+```
+
+Continuam fora do estado implementado (pendências futuras):
+
+- tela de escolha de estilo;
+- persistência de escolha;
+- troca de estilo durante sessão;
+- `cor_inativo`;
+- `cor_alerta`;
+- `tiling`;
+- Blocos 2 e 3;
+- promoção de `_meta.status`.
+
 ---
 
 ## 4. Regras de uso
@@ -273,6 +386,20 @@ qualquer outra condição de ambiente. Não existe lógica de fallback que force
 `sobreposto` em terminais estreitos. O valor lido do schema é usado
 diretamente, sem exceção.
 
+**R-9. `preset_default` obrigatório em categorias com catálogo (ADR-0030 D2).**
+As categorias `borda`, `chip`, `indicadores.selecionado` e
+`indicadores.incluido` devem possuir campo `preset_default` em
+`config/estilo.json`. A ausência de `preset_default`, a referência a preset
+inexistente no catálogo e o catálogo vazio são erros de validação. Não existe
+fallback silencioso — configuração inválida não produz estilo degradado.
+
+**R-10. Carregamento único e materialização integral (ADR-0030 D8).**
+O loader carrega `config/estilo.json` uma única vez por sessão. Valida a
+estrutura, resolve todas as seções e produz a representação de runtime. Não
+relê `config/estilo.json` em cada chamada de renderização. Configura-
+ção parcialmente resolvida não pode ser usada pelo renderer nem por nenhum
+consumidor de aparência.
+
 ---
 
 ## 5. Critérios de validação
@@ -310,3 +437,30 @@ diretamente, sem exceção.
       outro valor é inválido.
 - [ ] O renderer não altera `tiling` com base em largura de terminal —
       o valor do schema é usado diretamente, sem fallback automático (R-8).
+- [ ] O loader produz erro explícito e interrompe a inicialização quando
+      `config/estilo.json` está ausente — sem fallback silencioso (ADR-0030 D9).
+- [ ] O loader produz erro explícito quando `config/estilo.json` contém
+      JSON inválido (parse error) (ADR-0030 D9).
+- [ ] O loader produz erro explícito quando uma seção obrigatória (`borda`,
+      `chip`, `indicadores`) está ausente (ADR-0030 D9).
+- [ ] O loader produz erro explícito quando `preset_default` está ausente em
+      categoria com catálogo (`borda`, `chip`, `indicadores.selecionado`,
+      `indicadores.incluido`) (ADR-0030 D9, R-9).
+- [ ] O loader produz erro explícito quando o catálogo de uma categoria
+      obrigatória está vazio (ADR-0030 D9).
+- [ ] O loader produz erro explícito quando o preset referenciado por
+      `preset_default` não existe no catálogo — sem fallback para outro preset
+      (ADR-0030 D9).
+- [ ] O loader produz erro explícito quando campos obrigatórios do preset
+      escolhido estão ausentes (ADR-0030 D9).
+- [ ] O loader produz erro explícito quando o tipo de um campo é inválido
+      (ex.: não-booleano em `caixa_alta`, não-string em `caractere_esquerdo`)
+      (ADR-0030 D9).
+- [ ] O loader produz erro explícito quando símbolo ou caractere obrigatório
+      é string vazia (ADR-0030 D9).
+- [ ] Configuração parcialmente resolvida não é aceita — erro explícito; nenhum
+      consumidor recebe objeto de estilo incompleto (ADR-0030 D9, R-10).
+- [ ] Duplicidade de identificadores ou nomes que permaneça observável na
+      estrutura materializada produz erro explícito (ADR-0030 D9).
+- [ ] O contrato não redefine "1 caractere" como code point, grapheme cluster
+      ou largura visual — essa unidade técnica pertence ao handoff (ADR-0030 D9).

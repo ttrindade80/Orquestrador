@@ -40,7 +40,11 @@ from demo.demo import (  # noqa: E402
     id_conteudo_externo_de,
 )
 from tela.distribuicao_matricial import calcular_distribuicao  # noqa: E402
-from tela.loader import carregar_conteudo_externo  # noqa: E402
+from tela.loader import carregar_conteudo_externo, carregar_estilo  # noqa: E402
+
+# H-0039 / ADR-0030: estilo carregado uma vez por execucao; passado a
+# descrever_tela sem releitura por helper.
+_ESTILO = carregar_estilo()
 
 _RESULTADOS = []
 
@@ -226,7 +230,7 @@ def teste_identidade_semantica():
     print("")
     print("== Identidade semantica material ==")
     m1 = _carregar_modelo_por_id("h0035_pref_colunas")
-    id1 = descrever_tela(m1, 80, 24)
+    id1 = descrever_tela(m1, _ESTILO, 80, 24)
     ok1 = (
         id1["nome"] == "h0035_pref_colunas"
         and id1["familia"] == "preferencia_colunas"
@@ -240,7 +244,7 @@ def teste_identidade_semantica():
     _registrar("identidade pref_colunas material completa", ok1, str(id1))
 
     m2 = _carregar_modelo_por_id("h0035_matriz_fixa_cabe")
-    id2 = descrever_tela(m2, 80, 24)
+    id2 = descrever_tela(m2, _ESTILO, 80, 24)
     ok2 = (
         id2["familia"] == "matriz_fixa"
         and id2["formacao"] == "3x4"
@@ -251,18 +255,18 @@ def teste_identidade_semantica():
     _registrar("identidade matriz_fixa formacao 3x4 H+V uniformes", ok2, str(id2))
 
     m3 = _carregar_modelo_por_id("h0035_lancador_com")
-    id3 = descrever_tela(m3, 80, 24)
+    id3 = descrever_tela(m3, _ESTILO, 80, 24)
     _registrar("identidade lancador consumidor correto",
                id3["consumidor"] == "lancador", str(id3))
 
     m4 = _carregar_modelo_por_id("h0035_console_com")
-    id4 = descrever_tela(m4, 80, 24)
+    id4 = descrever_tela(m4, _ESTILO, 80, 24)
     _registrar("identidade console consumidor correto",
                id4["consumidor"] == "console", str(id4))
 
     # Objetivo vem do campo descricao do cabecalho.
     m5 = _carregar_modelo_por_id("h0035_pref_linhas")
-    id5 = descrever_tela(m5, 80, 24)
+    id5 = descrever_tela(m5, _ESTILO, 80, 24)
     _registrar("identidade objetivo nao vazio",
                bool(id5.get("objetivo")) and id5["objetivo"] != "n/a",
                "objetivo={0!r}".format(id5.get("objetivo")))
@@ -273,11 +277,14 @@ def teste_quadro_minimo_e_recuperacao():
     print("== Quadro minimo e recuperacao ==")
     modelo = _carregar_modelo_por_id("h0035_matriz_fixa_quadro_minimo")
     estado = criar_estado_inicial("h0035_matriz_fixa_quadro_minimo")
+    # H-0039: _resolver_conteudo consome estado["estilo"]; injetar o estilo
+    # resolvido (em runtime isso e feito pelo main uma vez por sessao).
+    estado = dict(estado, estilo=carregar_estilo())
     # Area pequena -> quadro minimo canonico.
     peq = _resolver_conteudo(estado, modelo, 42, 14)
     _registrar("quadro minimo acionado em area pequena",
                "terminal pequeno demais" in peq)
-    id_peq = descrever_tela(modelo, 42, 14)
+    id_peq = descrever_tela(modelo, _ESTILO, 42, 14)
     _registrar("identidade reporta estado quadro_minimo",
                id_peq["estado"] == "quadro_minimo", str(id_peq))
     # Area grande -> recuperacao deterministica (renderiza a grade).
@@ -566,7 +573,7 @@ def teste_selecao_integral_25_telas():
             )
             continue
         modelo_dest = _carregar_modelo_por_id(tela_id)
-        ident = descrever_tela(modelo_dest, 80, 24)
+        ident = descrever_tela(modelo_dest, _ESTILO, 80, 24)
         identidade_ok = ident["nome"] == tela_id
         if not identidade_ok:
             todas_ok = False
@@ -1034,9 +1041,9 @@ def teste_fixtures_geometria():
 
     # --- consumidores com/sem DM distinguiveis ---
     m_con_com = _carregar_modelo_por_id("h0035_console_com")
-    id_con_com = descrever_tela(m_con_com, 80, 24)
+    id_con_com = descrever_tela(m_con_com, _ESTILO, 80, 24)
     m_con_sem = _carregar_modelo_por_id("h0035_console_sem")
-    id_con_sem = descrever_tela(m_con_sem, 80, 24)
+    id_con_sem = descrever_tela(m_con_sem, _ESTILO, 80, 24)
     _registrar(
         "console_com: familia indica DM presente",
         id_con_com["familia"] != "(sem distribuicao_matricial)",
@@ -1053,18 +1060,18 @@ def teste_fixtures_geometria():
     )
 
     m_lan_com = _carregar_modelo_por_id("h0035_lancador_com")
-    id_lan_com = descrever_tela(m_lan_com, 80, 24)
+    id_lan_com = descrever_tela(m_lan_com, _ESTILO, 80, 24)
     m_lan_sem = _carregar_modelo_por_id("h0035_lancador_sem")
-    id_lan_sem = descrever_tela(m_lan_sem, 80, 24)
+    id_lan_sem = descrever_tela(m_lan_sem, _ESTILO, 80, 24)
     _registrar(
         "lancador com/sem: familias inequivocamente distintas",
         id_lan_com["familia"] != id_lan_sem["familia"],
     )
 
     m_dash_com = _carregar_modelo_por_id("h0035_dashboard_com")
-    id_dash_com = descrever_tela(m_dash_com, 80, 24)
+    id_dash_com = descrever_tela(m_dash_com, _ESTILO, 80, 24)
     m_dash_sem = _carregar_modelo_por_id("h0035_dashboard_sem")
-    id_dash_sem = descrever_tela(m_dash_sem, 80, 24)
+    id_dash_sem = descrever_tela(m_dash_sem, _ESTILO, 80, 24)
     _registrar(
         "dashboard com/sem: familias inequivocamente distintas",
         id_dash_com["familia"] != id_dash_sem["familia"],

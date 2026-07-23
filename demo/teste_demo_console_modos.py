@@ -44,6 +44,11 @@ from demo.demo import (  # noqa: E402
     main as _demo_main,
 )
 from tela.renderizador import renderizar_tela  # noqa: E402
+from tela.loader import carregar_estilo  # noqa: E402
+
+# H-0039: estilo global resolvido, carregado uma vez para os testes que
+# chamam renderizar_tela diretamente e para construir estados de demo.
+_ESTILO = carregar_estilo()
 
 _RESULTADOS = []
 
@@ -69,11 +74,11 @@ def _registrar(nome, passou, detalhe=""):
 
 def _estado(tela, modo_verboso=False):
     return {
-        "tipo_borda": "curva",
         "saindo": False,
         "tela_atual": tela,
         "pilha_telas": [],
         "modo_verboso": modo_verboso,
+        "estilo": _ESTILO,
     }
 
 
@@ -236,8 +241,8 @@ def teste_alternancia_v_nas_alternaveis():
     # V nao altera outros campos do estado
     _registrar("cenario 3: V preserva saindo",
                novo3a["saindo"] is False)
-    _registrar("cenario 3: V preserva tipo_borda",
-               novo3a["tipo_borda"] == "curva")
+    _registrar("cenario 3: V preserva estilo (H-0039)",
+               novo3a["estilo"] is _ESTILO)
     _registrar("cenario 3: V preserva tela_atual",
                novo3a["tela_atual"] == "h0037_console_alternavel_tres_niveis")
     _registrar("processar_comando nao modifica o dict original",
@@ -306,15 +311,15 @@ def teste_renderizacao_modo_nao_verboso_vs_verboso():
     m2 = _carregar_modelo_por_id("h0037_console_verboso_dois_niveis")
     m3 = _carregar_modelo_por_id("h0037_console_alternavel_tres_niveis")
 
-    r_nv = renderizar_tela(m2, tipo_borda="curva", largura=80, verboso=False)
-    r_v = renderizar_tela(m2, tipo_borda="curva", largura=80, verboso=True)
+    r_nv = renderizar_tela(m2, estilo=_ESTILO, largura=80, verboso=False)
+    r_v = renderizar_tela(m2, estilo=_ESTILO, largura=80, verboso=True)
     _registrar("cenario 2: renderizacao verbosa difere da nao verbosa",
                r_nv != r_v)
     _registrar("cenario 2 verboso: mais linhas que nao verboso",
                r_v.count("\n") >= r_nv.count("\n"))
 
-    r3_nv = renderizar_tela(m3, tipo_borda="curva", largura=80, verboso=False)
-    r3_v = renderizar_tela(m3, tipo_borda="curva", largura=80, verboso=True)
+    r3_nv = renderizar_tela(m3, estilo=_ESTILO, largura=80, verboso=False)
+    r3_v = renderizar_tela(m3, estilo=_ESTILO, largura=80, verboso=True)
     _registrar("cenario 3: renderizacao verbosa difere da nao verbosa",
                r3_nv != r3_v)
     _registrar("cenario 3 verboso: mais linhas que nao verboso",
@@ -322,15 +327,15 @@ def teste_renderizacao_modo_nao_verboso_vs_verboso():
 
     # Cenario 1 (somente_nao_verboso): verboso=True e ignorado pela politica
     m1 = _carregar_modelo_por_id("h0037_console_nao_verboso")
-    r1_nv = renderizar_tela(m1, tipo_borda="curva", largura=80, verboso=False)
-    r1_v_flag = renderizar_tela(m1, tipo_borda="curva", largura=80, verboso=True)
+    r1_nv = renderizar_tela(m1, estilo=_ESTILO, largura=80, verboso=False)
+    r1_v_flag = renderizar_tela(m1, estilo=_ESTILO, largura=80, verboso=True)
     _registrar("cenario 1 (somente_nao_verboso): flag verboso=True nao altera saida via _verboso_efetivo",
                _verboso_efetivo(_estado("h0037_console_nao_verboso", modo_verboso=True), m1) is False)
 
     # Cenario 4 tabela alternavel
     m4 = _carregar_modelo_por_id("h0037_console_tabela_alternavel")
-    r4_nv = renderizar_tela(m4, tipo_borda="curva", largura=80, verboso=False)
-    r4_v = renderizar_tela(m4, tipo_borda="curva", largura=80, verboso=True)
+    r4_nv = renderizar_tela(m4, estilo=_ESTILO, largura=80, verboso=False)
+    r4_v = renderizar_tela(m4, estilo=_ESTILO, largura=80, verboso=True)
     _registrar("cenario 4 (tabela_alternavel): renderizacao verbosa difere da nao verbosa",
                r4_nv != r4_v)
 
@@ -342,7 +347,7 @@ def teste_todos_cenarios_renderizam_sem_excecao():
     for cenario in _CENARIOS:
         modelo = _carregar_modelo_por_id(cenario)
         try:
-            renderizar_tela(modelo, tipo_borda="curva", largura=80)
+            renderizar_tela(modelo, estilo=_ESTILO, largura=80)
             _registrar("{0}: renderiza sem excecao (modo padrao)".format(cenario), True)
         except Exception as exc:
             _registrar("{0}: renderiza sem excecao (modo padrao)".format(cenario),
@@ -352,7 +357,7 @@ def teste_todos_cenarios_renderizam_sem_excecao():
         modelo = _carregar_modelo_por_id(cenario)
         for verboso in (False, True):
             try:
-                renderizar_tela(modelo, tipo_borda="curva", largura=80, verboso=verboso)
+                renderizar_tela(modelo, estilo=_ESTILO, largura=80, verboso=verboso)
                 _registrar("{0}: renderiza sem excecao (verboso={1})".format(cenario, verboso), True)
             except Exception as exc:
                 _registrar("{0}: renderiza sem excecao (verboso={1})".format(cenario, verboso),
@@ -492,10 +497,10 @@ def teste_h0037_manual_003_tecla_v_minuscula():
 
     # --- TECLA-08: sem eco — a entrada nao aparece como caractere no conteudo ---
     est3_eco = _estado("h0037_console_alternavel_tres_niveis", modo_verboso=False)
-    saida_antes = renderizar_tela(m3, tipo_borda="curva", largura=80,
+    saida_antes = renderizar_tela(m3, estilo=_ESTILO, largura=80,
                                   verboso=_verboso_efetivo(est3_eco, m3))
     novo_eco = processar_comando(est3_eco, "v", m3)
-    saida_depois = renderizar_tela(m3, tipo_borda="curva", largura=80,
+    saida_depois = renderizar_tela(m3, estilo=_ESTILO, largura=80,
                                    verboso=_verboso_efetivo(novo_eco, m3))
     # A tecla 'v' jamais deve aparecer isolada como linha/caractere de eco
     # no conteudo renderizado da tela de console (ela so afeta modo_verboso).

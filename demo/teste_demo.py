@@ -7,52 +7,40 @@ Cobre os criterios de aceite testaveis dos handoffs H-0008, H-0009,
 H-0010A (navegacao minima com tela destino) e H-0022 (sessao TUI corrigida
 conforme ADR-0016).
 
-Secao 1 - Estado inicial:
+Secao 1 - Estado inicial (H-0039):
 - criar_estado_inicial() retorna dict;
-- estado inicial tem tipo_borda == "curva";
+- estado inicial NAO tem tipo_borda (removido em H-0039);
 - estado inicial tem saindo == False;
 - duas chamadas retornam dicts independentes.
 
-Secao 2 - processar_comando:
-- "b" sobre curva -> reta;
-- "b" sobre reta -> curva;
-- "b" nao altera saindo;
+Secao 2 - processar_comando (H-0039):
 - "s" define saindo == True;
-- "s" nao altera tipo_borda;
-- "s" sobre reta preserva tipo_borda == "reta";
-- "\x1b" (Esc) define saindo == True sem alterar tipo_borda (H-0009);
-- "\x1b" nao altera tipo_borda (curva nem reta) (H-0009);
+- "s" preserva estilo (H-0039);
+- "\x1b" (Esc) define saindo == True (H-0009);
+- "\x1b" preserva estilo (H-0039);
 - processar_comando nao modifica o dict original com "\x1b" (H-0009);
-- comando desconhecido "x" nao altera tipo_borda nem saindo;
+- comando desconhecido nao altera saindo;
 - string vazia nao altera estado;
-- "B" (maiusculo) nao tem efeito (case-sensitive);
 - "S" (maiusculo) nao altera saindo (case-sensitive);
-- processar_comando nao modifica o dict original com "b";
-- processar_comando nao modifica o dict original com "s";
-- alternancia completa curva -> reta -> curva.
+- processar_comando nao modifica o dict original com "s".
 
-Secao 3 - renderizar_estado:
-- renderizar_estado com tipo_borda="curva" retorna str;
+Secao 3 - renderizar_estado (H-0039):
+- renderizar_estado com EstiloResolvido (Borda Curva) retorna str;
 - saida curva comeca com "╭ ORQUESTRADOR";
 - saida curva bate com _EXPECTED_CURVA (igualdade estrita);
-- renderizar_estado com tipo_borda="reta" retorna str;
-- saida reta comeca com "┌ ORQUESTRADOR";
-- saida reta bate com _EXPECTED_RETA (igualdade estrita);
 - renderizar_estado nao altera estado;
 - renderizar_estado nao altera modelo;
-- renderizar_estado(..., largura=42) bate com _EXPECTED_* (H-0009);
+- renderizar_estado(..., largura=42) bate com _EXPECTED_CURVA (H-0009);
 - renderizar_estado(..., largura=60) produz linhas de 60 chars (H-0009);
 - renderizar_estado(..., largura=None) equivale a omitir largura (H-0009).
 
-Secao 4 - Integracao via subprocess (demo completo):
-- python demo/demo.py com input "b\ns\n" encerra com codigo 0;
-- stdout contem render curva inicial;
-- stdout contem render reta apos "b";
+Secao 4 - Integracao via subprocess (demo completo, H-0039):
+- python demo/demo.py com input "s\n" encerra com codigo 0;
+- stdout contem render curva inicial (borda vem de config/estilo.json);
 - stdout nao contem "\n\n" entre caixas (H-0009);
-- stdout bate com renderizar_tela(..., largura=80) curva+reta (H-0009);
+- stdout bate com renderizar_tela(..., largura=80) (H-0009);
 - stderr vazio;
-- config/telas/demo/demo.json inalterado apos demo;
-- subprocess com "b\n\x1b\n" encerra 0 e sai identico a "b\ns\n" (H-0009).
+- config/telas/demo/demo.json inalterado apos demo.
 
 Secao 5 - Preservacao do diagnostico:
 - gerar_diagnostico_tela() nao lanca excecao;
@@ -103,8 +91,13 @@ import subprocess  # noqa: E402
 import os  # noqa: E402
 
 from tela.loader import carregar_tela  # noqa: E402
+from tela.loader import carregar_estilo  # noqa: E402
 from tela.modelo import construir_modelo, ModeloTela  # noqa: E402
 from tela.renderizador import renderizar_tela  # noqa: E402
+
+# H-0039: estilo global resolvido, carregado uma vez para os testes que
+# chamam renderizar_tela diretamente e para construir estados de demo.
+_ESTILO = carregar_estilo()
 from demo.demo import (  # noqa: E402
     criar_estado_inicial,
     processar_comando,
@@ -302,8 +295,8 @@ def teste_estado_inicial():
         "tipo={0}".format(type(est).__name__),
     )
     _registrar(
-        "estado inicial tem tipo_borda == 'curva'",
-        est.get("tipo_borda") == "curva",
+        "estado inicial NAO tem tipo_borda (removido em H-0039)",
+        "tipo_borda" not in est,
         "tipo_borda={0!r}".format(est.get("tipo_borda")),
     )
     _registrar(
@@ -331,106 +324,80 @@ def teste_processar_comando():
     print("")
     print("== Secao 2 - processar_comando ==")
 
-    base = {"tipo_borda": "curva", "saindo": False, "pilha_telas": []}
+    # H-0039: o estado nao carrega mais ``tipo_borda`` (a borda vem de
+    # config/estilo.json via ``estilo``); o comando ``"b"`` (alternancia de
+    # borda) foi removido. Os testes abaixo cobrem ``s``/Esc/comando
+    # desconhecido e a imutabilidade do dict original.
+    base = {"estilo": _ESTILO, "saindo": False, "pilha_telas": [], "estilo": _ESTILO}
 
     _registrar(
-        "'b' sobre curva -> tipo_borda == 'reta'",
-        processar_comando({"tipo_borda": "curva", "saindo": False, "pilha_telas": []}, "b")["tipo_borda"] == "reta",
-    )
-    _registrar(
-        "'b' sobre reta -> tipo_borda == 'curva'",
-        processar_comando({"tipo_borda": "reta", "saindo": False, "pilha_telas": []}, "b")["tipo_borda"] == "curva",
-    )
-    _registrar(
-        "'b' nao altera saindo",
-        processar_comando({"tipo_borda": "curva", "saindo": False, "pilha_telas": []}, "b")["saindo"] is False,
-    )
-    _registrar(
         "'s' define saindo == True",
-        processar_comando({"tipo_borda": "curva", "saindo": False, "pilha_telas": []}, "s")["saindo"] is True,
+        processar_comando({"estilo": _ESTILO, "saindo": False, "pilha_telas": []}, "s")["saindo"] is True,
     )
     _registrar(
-        "'s' nao altera tipo_borda (curva preservado)",
-        processar_comando({"tipo_borda": "curva", "saindo": False, "pilha_telas": []}, "s")["tipo_borda"] == "curva",
-    )
-    _registrar(
-        "'s' sobre reta preserva tipo_borda == 'reta'",
-        processar_comando({"tipo_borda": "reta", "saindo": False, "pilha_telas": []}, "s")["tipo_borda"] == "reta",
+        "'s' preserva estilo (H-0039)",
+        processar_comando(
+            {"estilo": _ESTILO, "saindo": False, "pilha_telas": [], "estilo": _ESTILO}, "s"
+        )["estilo"] is _ESTILO,
     )
 
     _registrar(
         "'\\x1b' (Esc) define saindo == True",
-        processar_comando({"tipo_borda": "curva", "saindo": False, "pilha_telas": []}, "\x1b")["saindo"] is True,
+        processar_comando({"estilo": _ESTILO, "saindo": False, "pilha_telas": []}, "\x1b")["saindo"] is True,
     )
     _registrar(
-        "'\\x1b' nao altera tipo_borda (curva preservado)",
-        processar_comando({"tipo_borda": "curva", "saindo": False, "pilha_telas": []}, "\x1b")["tipo_borda"] == "curva",
-    )
-    _registrar(
-        "'\\x1b' nao altera tipo_borda (reta preservado)",
-        processar_comando({"tipo_borda": "reta", "saindo": False, "pilha_telas": []}, "\x1b")["tipo_borda"] == "reta",
+        "'\\x1b' preserva estilo (H-0039)",
+        processar_comando(
+            {"estilo": _ESTILO, "saindo": False, "pilha_telas": [], "estilo": _ESTILO}, "\x1b"
+        )["estilo"] is _ESTILO,
     )
 
-    estado_original_esc = {"tipo_borda": "curva", "saindo": False, "pilha_telas": []}
+    estado_original_esc = {"estilo": _ESTILO, "saindo": False, "pilha_telas": [], "estilo": _ESTILO}
     processar_comando(estado_original_esc, "\x1b")
     _registrar(
         "processar_comando nao modifica o dict original com '\\x1b'",
-        estado_original_esc["tipo_borda"] == "curva"
-        and estado_original_esc["saindo"] is False,
+        estado_original_esc["saindo"] is False
+        and estado_original_esc["estilo"] is _ESTILO,
         "estado apos chamada={0!r}".format(estado_original_esc),
     )
 
-    res_x = processar_comando({"tipo_borda": "curva", "saindo": False, "pilha_telas": []}, "x")
-    _registrar(
-        "comando desconhecido 'x' nao altera tipo_borda",
-        res_x["tipo_borda"] == "curva",
-    )
+    res_x = processar_comando({"estilo": _ESTILO, "saindo": False, "pilha_telas": []}, "x")
     _registrar(
         "comando desconhecido 'x' nao altera saindo",
         res_x["saindo"] is False,
     )
 
-    res_vazio = processar_comando({"tipo_borda": "reta", "saindo": True, "pilha_telas": []}, "")
-    _registrar(
-        "string vazia nao altera estado (tipo_borda preservado)",
-        res_vazio["tipo_borda"] == "reta",
-    )
+    res_vazio = processar_comando({"estilo": _ESTILO, "saindo": True, "pilha_telas": []}, "")
     _registrar(
         "string vazia nao altera estado (saindo preservado)",
         res_vazio["saindo"] is True,
     )
 
     _registrar(
-        "'B' (maiusculo) nao tem efeito sobre tipo_borda",
-        processar_comando({"tipo_borda": "curva", "saindo": False, "pilha_telas": []}, "B")["tipo_borda"] == "curva",
-    )
-    _registrar(
         "'S' (maiusculo) nao altera saindo",
-        processar_comando({"tipo_borda": "curva", "saindo": False, "pilha_telas": []}, "S")["saindo"] is False,
+        processar_comando({"estilo": _ESTILO, "saindo": False, "pilha_telas": []}, "S")["saindo"] is False,
     )
-
-    estado_original = {"tipo_borda": "curva", "saindo": False, "pilha_telas": []}
-    processar_comando(estado_original, "b")
     _registrar(
-        "processar_comando nao modifica o dict original com 'b'",
-        estado_original["tipo_borda"] == "curva" and estado_original["saindo"] is False,
-        "estado apos chamada={0!r}".format(estado_original),
+        "'b' (removido em H-0039) nao altera saindo nem estilo",
+        (
+            processar_comando(
+                {"estilo": _ESTILO, "saindo": False, "pilha_telas": [], "estilo": _ESTILO}, "b"
+            )["saindo"] is False
+        )
+        and (
+            processar_comando(
+                {"estilo": _ESTILO, "saindo": False, "pilha_telas": [], "estilo": _ESTILO}, "b"
+            )["estilo"] is _ESTILO
+        ),
     )
 
-    estado_original_s = {"tipo_borda": "curva", "saindo": False, "pilha_telas": []}
+    estado_original_s = {"estilo": _ESTILO, "saindo": False, "pilha_telas": [], "estilo": _ESTILO}
     processar_comando(estado_original_s, "s")
     _registrar(
         "processar_comando nao modifica o dict original com 's'",
-        estado_original_s["tipo_borda"] == "curva" and estado_original_s["saindo"] is False,
+        estado_original_s["saindo"] is False
+        and estado_original_s["estilo"] is _ESTILO,
         "estado apos chamada={0!r}".format(estado_original_s),
-    )
-
-    e1 = processar_comando(base, "b")
-    e2 = processar_comando(e1, "b")
-    _registrar(
-        "alternancia completa: curva -> reta -> curva",
-        e2["tipo_borda"] == "curva",
-        "tipo_borda final={0!r}".format(e2["tipo_borda"]),
     )
 
 
@@ -439,7 +406,6 @@ def teste_navegacao_minima(modelo):
     print("== Secao 2b - Navegacao minima (H-0010A) ==")
 
     estado_raiz = {
-        "tipo_borda": "curva",
         "saindo": False,
         "tela_atual": "demo",
         "pilha_telas": [],
@@ -457,12 +423,11 @@ def teste_navegacao_minima(modelo):
         "pilha_telas={0!r}".format(res_d.get("pilha_telas")),
     )
     _registrar(
-        "chip 'd' nao altera tipo_borda nem saindo",
-        res_d["tipo_borda"] == "curva" and res_d["saindo"] is False,
+        "chip 'd' nao altera saindo",
+        res_d["saindo"] is False,
     )
 
     estado_interno = {
-        "tipo_borda": "curva",
         "saindo": False,
         "tela_atual": "destino_minimo",
         "pilha_telas": ["demo"],
@@ -514,7 +479,6 @@ def teste_navegacao_minima(modelo):
     )
 
     estado_original = {
-        "tipo_borda": "curva",
         "saindo": False,
         "tela_atual": "demo",
         "pilha_telas": [],
@@ -536,23 +500,22 @@ def teste_navegacao_minima(modelo):
         and e_esc["saindo"] is False,
     )
 
-    estado_com_borda = {
-        "tipo_borda": "reta",
+    estado_com_estilo = {
         "saindo": False,
         "tela_atual": "demo",
         "pilha_telas": [],
+        "estilo": _ESTILO,
     }
-    res_d_reta = processar_comando(estado_com_borda, "d", modelo)
+    res_d_reta = processar_comando(estado_com_estilo, "d", modelo)
     _registrar(
-        "chip 'd' preserva tipo_borda ao navegar",
-        res_d_reta["tipo_borda"] == "reta",
+        "chip 'd' preserva estilo ao navegar (H-0039)",
+        res_d_reta["estilo"] is _ESTILO,
     )
 
     print("")
     print("-- Navegacao grupo_minimo (H-0013) --")
 
     estado_raiz_g = {
-        "tipo_borda": "curva",
         "saindo": False,
         "tela_atual": "demo",
         "pilha_telas": [],
@@ -570,12 +533,11 @@ def teste_navegacao_minima(modelo):
         "pilha_telas={0!r}".format(res_g.get("pilha_telas")),
     )
     _registrar(
-        "chip 'g' nao altera tipo_borda nem saindo (H-0013)",
-        res_g["tipo_borda"] == "curva" and res_g["saindo"] is False,
+        "chip 'g' nao altera saindo (H-0013)",
+        res_g["saindo"] is False,
     )
 
     estado_grupo_interno = {
-        "tipo_borda": "curva",
         "saindo": False,
         "tela_atual": "grupo_minimo",
         "pilha_telas": ["demo"],
@@ -608,12 +570,14 @@ def teste_renderizar_estado(modelo):
     print("")
     print("== Secao 3 - renderizar_estado ==")
 
-    estado_curva = {"tipo_borda": "curva", "saindo": False, "pilha_telas": []}
-    estado_reta = {"tipo_borda": "reta", "saindo": False, "pilha_telas": []}
+    # H-0039: a borda vem do ``EstiloResolvido`` em ``estado["estilo"]``;
+    # nao ha mais distincao curva/reta no estado. O estilo carregado (preset
+    # "Borda Curva") reproduz a aparencia curva vigente.
+    estado_curva = {"estilo": _ESTILO, "saindo": False, "pilha_telas": [], "estilo": _ESTILO}
 
     res_curva = renderizar_estado(estado_curva, modelo, largura=_LARGURA_SUBPROCESS)
     _registrar(
-        "renderizar_estado com tipo_borda='curva' retorna str",
+        "renderizar_estado com estilo (Borda Curva) retorna str",
         isinstance(res_curva, str),
         "tipo={0}".format(type(res_curva).__name__),
     )
@@ -634,46 +598,19 @@ def teste_renderizar_estado(modelo):
         print(repr(res_curva))
 
     _registrar(
-        "renderizar_estado(estado_curva, modelo, largura=80) == renderizar_tela(modelo, 'curva', largura=80)",
-        res_curva == renderizar_tela(modelo, "curva", largura=_LARGURA_SUBPROCESS),
+        "renderizar_estado(estado_curva, modelo, largura=80) == renderizar_tela(modelo, _ESTILO, largura=80)",
+        res_curva == renderizar_tela(modelo, _ESTILO, largura=_LARGURA_SUBPROCESS),
     )
 
-    res_reta = renderizar_estado(estado_reta, modelo, largura=_LARGURA_SUBPROCESS)
-    _registrar(
-        "renderizar_estado com tipo_borda='reta' retorna str",
-        isinstance(res_reta, str),
-        "tipo={0}".format(type(res_reta).__name__),
-    )
-    _registrar(
-        "saida reta comeca com '┌ ORQUESTRADOR'",
-        res_reta.startswith("┌ ORQUESTRADOR"),
-    )
-    bate_reta = res_reta == _EXPECTED_RETA
-    _registrar(
-        "saida reta bate com _EXPECTED_RETA (largura 80, igualdade estrita)",
-        bate_reta,
-        "" if bate_reta else "ver diff abaixo",
-    )
-    if not bate_reta:
-        print("--- esperado (repr) ---")
-        print(repr(_EXPECTED_RETA))
-        print("--- obtido (repr) ---")
-        print(repr(res_reta))
-
-    _registrar(
-        "renderizar_estado(estado_reta, modelo, largura=80) == renderizar_tela(modelo, 'reta', largura=80)",
-        res_reta == renderizar_tela(modelo, "reta", largura=_LARGURA_SUBPROCESS),
-    )
-
-    estado_snapshot = {"tipo_borda": "curva", "saindo": False, "pilha_telas": []}
+    estado_snapshot = {"estilo": _ESTILO, "saindo": False, "pilha_telas": [], "estilo": _ESTILO}
     renderizar_estado(estado_snapshot, modelo)
     _registrar(
         "renderizar_estado nao altera estado",
-        estado_snapshot == {"tipo_borda": "curva", "saindo": False, "pilha_telas": []},
+        estado_snapshot == {"estilo": _ESTILO, "saindo": False, "pilha_telas": [], "estilo": _ESTILO},
     )
 
     cabecalho_antes = dict(modelo.cabecalho)
-    renderizar_estado({"tipo_borda": "reta", "saindo": False, "pilha_telas": []}, modelo)
+    renderizar_estado({"estilo": _ESTILO, "saindo": False, "pilha_telas": [], "estilo": _ESTILO}, modelo)
     _registrar(
         "renderizar_estado nao altera modelo.cabecalho",
         modelo.cabecalho == cabecalho_antes,
@@ -684,8 +621,8 @@ def teste_renderizar_estado(modelo):
         renderizar_estado(estado_curva, modelo, largura=42) == _EXPECTED_DIAGNOSTICO_CURVA_42,
     )
     _registrar(
-        "renderizar_estado(estado_reta, modelo, largura=42) bate formato 42 chars",
-        all(len(ln) == 42 for ln in renderizar_estado(estado_reta, modelo, largura=42).split("\n") if ln),
+        "renderizar_estado(estado_curva, modelo, largura=42) bate formato 42 chars",
+        all(len(ln) == 42 for ln in renderizar_estado(estado_curva, modelo, largura=42).split("\n") if ln),
     )
 
     res_60 = renderizar_estado(estado_curva, modelo, largura=60)
@@ -705,7 +642,7 @@ def teste_renderizar_estado_altura(modelo):
     print("")
     print("== Secao 3b - renderizar_estado com altura (H-0015) ==")
 
-    estado_curva = {"tipo_borda": "curva", "saindo": False, "pilha_telas": []}
+    estado_curva = {"estilo": _ESTILO, "saindo": False, "pilha_telas": []}
 
     # CA-02: altura explicita suficiente -> exatamente `altura` linhas.
     # H-0030: o demo com 7 itens no lancador requer altura >= 29 em
@@ -767,7 +704,7 @@ def teste_renderizar_estado_altura(modelo):
         "renderizar_estado(..., altura=32) == renderizar_tela(modelo, 'curva', "
         "largura=42, altura=32)",
         res_32 == renderizar_tela(
-            modelo, tipo_borda="curva", largura=42, altura=32
+            modelo, estilo=_ESTILO, largura=42, altura=32
         ),
     )
 
@@ -786,12 +723,12 @@ def teste_renderizar_estado_altura(modelo):
     )
 
     # renderizar_estado nao altera estado nem modelo.
-    estado_snap = {"tipo_borda": "curva", "saindo": False, "pilha_telas": []}
+    estado_snap = {"estilo": _ESTILO, "saindo": False, "pilha_telas": []}
     cabecalho_antes = dict(modelo.cabecalho)
     renderizar_estado(estado_snap, modelo, largura=42, altura=32)
     _registrar(
         "renderizar_estado(..., altura=32) nao altera estado",
-        estado_snap == {"tipo_borda": "curva", "saindo": False, "pilha_telas": []},
+        estado_snap == {"estilo": _ESTILO, "saindo": False, "pilha_telas": []},
     )
     _registrar(
         "renderizar_estado(..., altura=32) nao altera modelo.cabecalho",
@@ -808,14 +745,14 @@ def teste_integracao_subprocess():
 
     modelo = _carregar_modelo()
     esperado_curva_80 = renderizar_tela(
-        modelo, tipo_borda="curva",
+        modelo, estilo=_ESTILO,
         largura=_LARGURA_SUBPROCESS, altura=_ALTURA_SUBPROCESS,
     )
-    esperado_reta_80 = renderizar_tela(
-        modelo, tipo_borda="reta",
-        largura=_LARGURA_SUBPROCESS, altura=_ALTURA_SUBPROCESS,
-    )
-    saida_esperada = esperado_curva_80 + esperado_reta_80
+    # H-0039: o comando "b" (alternancia de borda) foi removido; a borda vem
+    # de config/estilo.json. Em modo nao-TTY, a demo renderiza uma vez no
+    # inicio; "b" nao dispara redraw nem toggle. Logo "b\ns\n" produz um
+    # unico render (o inicial) e encerra com "s".
+    saida_esperada = esperado_curva_80
 
     # H-0030: o demo com 7 itens no lancador requer altura >= 28 em
     # largura 80. O env do subprocess fixa COLUMNS=80 e LINES=30 (em vez de
@@ -850,8 +787,8 @@ def teste_integracao_subprocess():
         "╭ ORQUESTRADOR" in proc.stdout,
     )
     _registrar(
-        "stdout contem render reta apos 'b' ('┌ ORQUESTRADOR')",
-        "┌ ORQUESTRADOR" in proc.stdout,
+        "stdout NAO contem render reta ('┌ ORQUESTRADOR') — 'b' removido (H-0039)",
+        "┌ ORQUESTRADOR" not in proc.stdout,
     )
     _registrar(
         "stdout nao contem linha em branco entre caixas ('\\n\\n' ausente)",
@@ -860,7 +797,7 @@ def teste_integracao_subprocess():
 
     bate = proc.stdout == saida_esperada
     _registrar(
-        "stdout bate com renderizar_tela(..., largura=80) curva+reta",
+        "stdout bate com renderizar_tela(..., estilo, largura=80) (unico render)",
         bate,
         "" if bate else "ver diff abaixo",
     )
@@ -896,8 +833,8 @@ def teste_integracao_subprocess():
         "returncode={0}".format(proc_esc.returncode),
     )
     _registrar(
-        "stdout de 'b\\n\\x1b\\n' contem render curva e reta apos 'b'",
-        "╭ ORQUESTRADOR" in proc_esc.stdout and "┌ ORQUESTRADOR" in proc_esc.stdout,
+        "stdout de 'b\\n\\x1b\\n' contem apenas render curva ('b' e no-op)",
+        "╭ ORQUESTRADOR" in proc_esc.stdout and "┌ ORQUESTRADOR" not in proc_esc.stdout,
     )
     _registrar(
         "stdout de 'b\\n\\x1b\\n' e identico ao de 'b\\ns\\n'",
@@ -911,7 +848,7 @@ def teste_eof_sem_s():
 
     modelo = _carregar_modelo()
     esperado_curva_80 = renderizar_tela(
-        modelo, tipo_borda="curva",
+        modelo, estilo=_ESTILO,
         largura=_LARGURA_SUBPROCESS, altura=_ALTURA_SUBPROCESS,
     )
     # H-0030: o demo com 7 itens no lancador requer altura >= 28 em
@@ -956,19 +893,19 @@ def teste_navegacao_subprocess():
     modelo_orq = _carregar_modelo()
     modelo_des = _carregar_modelo_por_id("destino_minimo")
     esperado_orq_curva_80 = renderizar_tela(
-        modelo_orq, tipo_borda="curva",
+        modelo_orq, estilo=_ESTILO,
         largura=_LARGURA_SUBPROCESS, altura=_ALTURA_SUBPROCESS,
     )
     esperado_orq_reta_80 = renderizar_tela(
-        modelo_orq, tipo_borda="reta",
+        modelo_orq, estilo=_ESTILO,
         largura=_LARGURA_SUBPROCESS, altura=_ALTURA_SUBPROCESS,
     )
     esperado_des_curva_80 = renderizar_tela(
-        modelo_des, tipo_borda="curva",
+        modelo_des, estilo=_ESTILO,
         largura=_LARGURA_SUBPROCESS, altura=_ALTURA_SUBPROCESS,
     )
     esperado_des_reta_80 = renderizar_tela(
-        modelo_des, tipo_borda="reta",
+        modelo_des, estilo=_ESTILO,
         largura=_LARGURA_SUBPROCESS, altura=_ALTURA_SUBPROCESS,
     )
 
@@ -1041,11 +978,13 @@ def teste_navegacao_subprocess():
         text=True,
         env=env_sem_dimensoes,
     )
+    # H-0039: "b" foi removido (no-op, nao alterna borda nem dispara redraw).
+    # Sequencia: render inicial (orq-c), "b" no-op, "d" -> des-c,
+    # "\x1b" -> orq-c, "\x1b" -> encerra. Logo 3 renders, todos curva.
     saida_esperada_nav_borda = (
         esperado_orq_curva_80
-        + esperado_orq_reta_80
-        + esperado_des_reta_80
-        + esperado_orq_reta_80
+        + esperado_des_curva_80
+        + esperado_orq_curva_80
     )
     _registrar(
         "demo 'b\\nd\\n\\x1b\\n\\x1b\\n' encerra com codigo 0",
@@ -1057,7 +996,7 @@ def teste_navegacao_subprocess():
         sys.stderr.write(proc_nav_borda.stderr)
     bate_nav_borda = proc_nav_borda.stdout == saida_esperada_nav_borda
     _registrar(
-        "demo 'b\\nd\\n\\x1b\\n\\x1b\\n' gera 4 renders (orq-c,orq-r,des-r,orq-r)",
+        "demo 'b\\nd\\n\\x1b\\n\\x1b\\n' gera 3 renders curva (b e no-op H-0039)",
         bate_nav_borda,
         "" if bate_nav_borda else "ver diff abaixo",
     )
@@ -1086,7 +1025,7 @@ def teste_navegacao_subprocess():
 
     modelo_grupo = _carregar_modelo_por_id("grupo_minimo")
     esperado_grupo_curva_80 = renderizar_tela(
-        modelo_grupo, tipo_borda="curva",
+        modelo_grupo, estilo=_ESTILO,
         largura=_LARGURA_SUBPROCESS, altura=_ALTURA_SUBPROCESS,
     )
 
@@ -1729,7 +1668,6 @@ def teste_sessao_tui_h0022():
 
     _chamadas_7h = [0]
     _ESTADO_SAINDO_7H = {
-        "tipo_borda": "curva",
         "saindo": True,
         "tela_atual": "demo",
         "pilha_telas": [],
@@ -2084,11 +2022,13 @@ def teste_redimensionamento_reativo_h0023():
     # main() cria; usar esse fd no mock de select.select para simular wakeup.
     _pq_calls_8 = []
     _estado_saindo_8 = {
-        "tipo_borda": "curva", "saindo": True,
+        "estilo": _ESTILO,
+        "saindo": True,
         "tela_atual": "demo", "pilha_telas": [],
     }
     _estado_normal_8 = {
-        "tipo_borda": "curva", "saindo": False,
+        "estilo": _ESTILO,
+        "saindo": False,
         "tela_atual": "demo", "pilha_telas": [],
     }
 
@@ -2155,7 +2095,7 @@ def teste_redimensionamento_reativo_h0023():
     # Handler restaurado ao final (saida normal)
     _sig_rest_calls = []
     _SAINDO_8b = {
-        "tipo_borda": "curva", "saindo": True,
+        "saindo": True,
         "tela_atual": "demo", "pilha_telas": [],
     }
     with _patch("demo.demo.processar_comando", return_value=_SAINDO_8b), \
@@ -2354,8 +2294,8 @@ def teste_redimensionamento_reativo_h0023():
     print("")
     print("-- 8.12: _resolver_conteudo --")
 
-    _estado_rc = {"tipo_borda": "curva", "saindo": False,
-                  "tela_atual": "demo", "pilha_telas": []}
+    _estado_rc = {"saindo": False,
+                  "tela_atual": "demo", "pilha_telas": [], "estilo": _ESTILO}
     _modelo_rc = _carregar_modelo_por_id("demo")
 
     r_rc_peq = _resolver_conteudo(_estado_rc, _modelo_rc, 5, 3)
@@ -3057,7 +2997,6 @@ def teste_navegacao_h0030(modelo):
     ]
 
     estado_raiz = {
-        "tipo_borda": "curva",
         "saindo": False,
         "tela_atual": "demo",
         "pilha_telas": [],
@@ -3091,11 +3030,11 @@ def teste_navegacao_h0030(modelo):
     for chip, id_tela, marker, texto in chip_para_h0030:
         modelo_dest = _carregar_modelo_por_id(id_tela)
         esperado_orq = renderizar_tela(
-            modelo, tipo_borda="curva",
+            modelo, estilo=_ESTILO,
             largura=_LARGURA_SUBPROCESS, altura=_ALTURA_SUBPROCESS,
         )
         esperado_dest = renderizar_tela(
-            modelo_dest, tipo_borda="curva",
+            modelo_dest, estilo=_ESTILO,
             largura=_LARGURA_SUBPROCESS, altura=_ALTURA_SUBPROCESS,
         )
         # Entrada: <chip> (abre) -> Esc (volta p/ demo) -> Esc (sai).

@@ -42,6 +42,12 @@ while _this_dir in sys.path:
 import subprocess  # noqa: E402
 
 from demo.diagnostico import gerar_diagnostico_tela  # noqa: E402
+from tela.loader import carregar_estilo  # noqa: E402
+
+# H-0039: estilo global resolvido, carregado uma vez para os testes que
+# chamam renderizar_tela diretamente. O ponto de entrada real carrega da
+# mesma forma em runtime.
+_ESTILO = carregar_estilo()
 
 
 _RESULTADOS = []
@@ -361,7 +367,7 @@ def teste_telas_h0035_diagnostico():
     try:
         tela_raw = carregar_tela(None, "h0035_matriz_fixa_cabe", raiz)
         modelo_mc = construir_modelo(tela_raw)
-        saida_mc = renderizar_tela(modelo_mc, largura=80, altura=30)
+        saida_mc = renderizar_tela(modelo_mc, estilo=_ESTILO, largura=80, altura=30)
         ident_mc = "H0035 MATRIZ 3X4" in saida_mc
         _registrar(
             "H0035 diagnostico h0035_matriz_fixa_cabe (identidade material)",
@@ -432,7 +438,7 @@ def teste_pipeline_h0036():
     for id_tela, titulo, marca in casos:
         try:
             modelo = _carregar_modelo_por_id(id_tela)
-            saida = renderizar_tela(modelo, largura=70, altura=28)
+            saida = renderizar_tela(modelo, estilo=_ESTILO, largura=70, altura=28)
             ok = (
                 titulo in saida
                 and marca in saida
@@ -455,7 +461,7 @@ def teste_pipeline_h0036():
                id_conteudo_externo_de("demo") is None)
     try:
         modelo_sem = _carregar_modelo_por_id("h0030_console_unico")
-        saida_sem = renderizar_tela(modelo_sem, largura=60, altura=20)
+        saida_sem = renderizar_tela(modelo_sem, estilo=_ESTILO, largura=60, altura=20)
         _registrar(
             "pipeline sem conteudo: placeholder '(console)' presente; sem externo",
             "(console)" in saida_sem and modelo_sem.conteudo_externo is None,

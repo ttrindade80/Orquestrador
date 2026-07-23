@@ -39,7 +39,7 @@ if __name__ == "__main__":
     if _raiz_scripts and _raiz_scripts not in sys.path:
         sys.path.insert(0, _raiz_scripts)
 
-from tela.loader import carregar_tela
+from tela.loader import carregar_tela, carregar_estilo
 from tela.modelo import construir_modelo
 from tela.renderizador import renderizar_tela
 
@@ -72,7 +72,8 @@ def gerar_diagnostico_tela(id_tela: str = "demo") -> str:
     """
     tela_raw = carregar_tela(None, id_tela, _RAIZ_TELAS_DEMO)
     modelo = construir_modelo(tela_raw)
-    return renderizar_tela(modelo)
+    estilo = carregar_estilo()
+    return renderizar_tela(modelo, estilo)
 
 
 if __name__ == "__main__":

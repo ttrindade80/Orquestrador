@@ -9,8 +9,8 @@ USO:
     python demo/demo_distribuicao.py <id_tela>  # abre diretamente uma familia
 
 Navegacao: no catalogo, cada item do lancador leva (chip -> tela_destino) a uma
-tela h0035_*. Esc/`s` volta ao catalogo; Esc/`s` no catalogo sai. `b` alterna a
-borda. Redimensionar a janela recalcula a distribuicao a cada SIGWINCH; quando a
+tela h0035_*. Esc/`s` volta ao catalogo; Esc/`s` no catalogo sai.
+Redimensionar a janela recalcula a distribuicao a cada SIGWINCH; quando a
 area e insuficiente, o quadro minimo canonico e exibido e a distribuicao e
 reconstruida deterministicamente ao aumentar.
 
@@ -42,7 +42,7 @@ if __name__ == "__main__":
     while _este_dir in sys.path:
         sys.path.remove(_este_dir)
 
-from tela.loader import carregar_tela, TelaErro
+from tela.loader import carregar_tela, TelaErro, carregar_estilo
 from tela.modelo import construir_modelo, ModeloTela
 from tela.renderizador import renderizar_tela, RenderizadorErro
 
@@ -88,9 +88,13 @@ _TELA_CATALOGO = "h0035_catalogo"
 
 
 def criar_estado_inicial(tela_inicial=_TELA_CATALOGO):
-    """Estado inicial do demo dedicado (borda curva, sem telas empilhadas)."""
+    """Estado inicial do demo dedicado (sem telas empilhadas).
+
+    H-0039 / ADR-0030: o estado nao carrega mais ``tipo_borda`` -- a borda
+    vem de ``config/estilo.json`` via ``carregar_estilo`` e o
+    ``EstiloResolvido`` e injetado em ``estado`` pelo ``main``.
+    """
     return {
-        "tipo_borda": "curva",
         "saindo": False,
         "tela_atual": tela_inicial,
         "pilha_telas": [],
@@ -116,12 +120,15 @@ def _consumidor_e_dm(modelo):
     return "(nenhum)", None
 
 
-def descrever_tela(modelo, largura=None, altura=None):
+def descrever_tela(modelo, estilo, largura=None, altura=None):
     """Identidade semantica material da tela (H-0035 secao 29).
 
     Retorna dict com: nome da tela, familia (politica de formacao), formacao
     (linhas x colunas quando declarada como matriz_fixa), ordem, consumidor
     testado, politica_horizontal, politica_vertical, objetivo e estado.
+
+    H-0039 / ADR-0030: recebe ``estilo`` (``EstiloResolvido``) do chamador;
+    nao chama ``carregar_estilo()`` internamente (sem releitura por helper).
     """
     consumidor, dm = _consumidor_e_dm(modelo)
     if dm is not None:
@@ -153,7 +160,7 @@ def descrever_tela(modelo, largura=None, altura=None):
         else:
             try:
                 saida = renderizar_tela(
-                    modelo, tipo_borda="curva", largura=largura, altura=altura
+                    modelo, estilo, largura=largura, altura=altura
                 )
                 if "terminal pequeno demais" in saida or "tela peq." in saida:
                     estado_visual = "quadro_minimo"
@@ -179,12 +186,15 @@ def _resolver_conteudo(estado, modelo, largura, altura):
 
     Quadro minimo de aviso quando terminal pequeno demais ou quando o renderer
     levanta RenderizadorErro (recuperacao automatica ao aumentar).
+
+    H-0039 / ADR-0030: consome o ``EstiloResolvido`` de ``estado["estilo"]``
+    (carregado uma vez em ``main``); a borda nao e mais alternavel.
     """
     if _tela_pequena_demais(largura, altura):
         return _quadro_minimo_aviso(largura, altura)
     try:
         return renderizar_tela(
-            modelo, tipo_borda=estado["tipo_borda"], largura=largura, altura=altura
+            modelo, estado["estilo"], largura=largura, altura=altura
         )
     except RenderizadorErro:
         return _quadro_minimo_aviso(largura, altura)
@@ -225,6 +235,8 @@ def main(argv=None):
         return 2
 
     estado = criar_estado_inicial(tela_inicial)
+    # H-0039 / ADR-0030: carrega o estilo global uma unica vez por sessao.
+    estado = dict(estado, estilo=carregar_estilo())
 
     if sys.stdin.isatty() and sys.stdout.isatty():
         fd = sys.stdin.fileno()
@@ -280,7 +292,7 @@ def main(argv=None):
                         break
                     if estado["tela_atual"] != tela_antes:
                         modelo = _carregar_modelo_por_id(estado["tela_atual"])
-                    if ch_cmd == "b" or estado["tela_atual"] != tela_antes:
+                    if estado["tela_atual"] != tela_antes:
                         _apresentar_quadro(
                             _resolver_conteudo(estado, modelo, largura, altura),
                             largura,
@@ -308,7 +320,7 @@ def main(argv=None):
         import shutil
         tamanho = shutil.get_terminal_size(fallback=(80, 24))
         largura, altura = tamanho.columns, tamanho.lines
-        ident = descrever_tela(modelo, largura, altura)
+        ident = descrever_tela(modelo, estado["estilo"], largura, altura)
         sys.stdout.write(
             "identidade: nome={0} familia={1} formacao={2} ordem={3} "
             "consumidor={4} pol_h={5} pol_v={6} estado={7}\n".format(
@@ -328,8 +340,8 @@ def main(argv=None):
                 break
             if estado["tela_atual"] != tela_antes:
                 modelo = _carregar_modelo_por_id(estado["tela_atual"])
-            if cmd == "b" or estado["tela_atual"] != tela_antes:
-                ident = descrever_tela(modelo, largura, altura)
+            if estado["tela_atual"] != tela_antes:
+                ident = descrever_tela(modelo, estado["estilo"], largura, altura)
                 sys.stdout.write(
                     "identidade: nome={0} familia={1} formacao={2} ordem={3} "
                     "consumidor={4} pol_h={5} pol_v={6} estado={7}\n".format(

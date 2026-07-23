@@ -46,6 +46,7 @@ _BASE_PADRAO = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(_BASE_PADRAO))
 
 from tela.loader import carregar_tela  # noqa: E402
+from tela.loader import EstiloResolvido  # noqa: E402
 from tela.modelo import (  # noqa: E402
     Corpo,
     ElementoCorpo,
@@ -75,6 +76,75 @@ from tela.modelo import construir_conteudo_externo  # noqa: E402
 _RESULTADOS = []
 
 _RAIZ_TELAS_DEMO = os.path.join("config", "telas", "demo")
+
+
+# H-0039 / ADR-0030: fixtures de EstiloResolvido para os testes do renderer.
+# ``_ESTILO_CURVA`` reproduz o antigo ``_BORDAS["curva"]`` + preset "Colchete"
+# com caixa_alta=False (preserva a capitalizacao dos rotulos). ``_ESTILO_RETA``
+# reproduz ``_BORDAS["reta"]``. ``_ESTILO_CAIXA_ALTA`` usa o mesmo chip de
+# "Colchete" mas com caixa_alta=True para testar a transformacao de rotulo.
+_ESTILO_CURVA = EstiloResolvido(
+    canto_superior_esquerdo="╭",
+    canto_superior_direito="╮",
+    canto_inferior_esquerdo="╰",
+    canto_inferior_direito="╯",
+    traco_superior="─",
+    traco_inferior="─",
+    lateral="│",
+    caractere_esquerdo="[",
+    caractere_direito="]",
+    cor_texto="padrão",
+    caixa_alta=False,
+    cor_fundo="padrão",
+    concluido_on="✓",
+    concluido_off=" ",
+    selecionado_simbolo="→",
+    selecionado_off=" ",
+    incluido_on="●",
+    incluido_off="○",
+)
+
+_ESTILO_RETA = EstiloResolvido(
+    canto_superior_esquerdo="┌",
+    canto_superior_direito="┐",
+    canto_inferior_esquerdo="└",
+    canto_inferior_direito="┘",
+    traco_superior="─",
+    traco_inferior="─",
+    lateral="│",
+    caractere_esquerdo="[",
+    caractere_direito="]",
+    cor_texto="padrão",
+    caixa_alta=False,
+    cor_fundo="padrão",
+    concluido_on="✓",
+    concluido_off=" ",
+    selecionado_simbolo="→",
+    selecionado_off=" ",
+    incluido_on="●",
+    incluido_off="○",
+)
+
+_ESTILO_CAIXA_ALTA = EstiloResolvido(
+    canto_superior_esquerdo="╭",
+    canto_superior_direito="╮",
+    canto_inferior_esquerdo="╰",
+    canto_inferior_direito="╯",
+    traco_superior="─",
+    traco_inferior="─",
+    lateral="│",
+    caractere_esquerdo="[",
+    caractere_direito="]",
+    cor_texto="padrão",
+    caixa_alta=True,
+    cor_fundo="padrão",
+    concluido_on="✓",
+    concluido_off=" ",
+    selecionado_simbolo="→",
+    selecionado_off=" ",
+    incluido_on="●",
+    incluido_off="○",
+)
 
 
 _EXPECTED_ORQUESTRADOR = (
@@ -176,7 +246,7 @@ def teste_renderizador_orquestrador():
         return
 
     try:
-        saida = renderizar_tela(modelo)
+        saida = renderizar_tela(modelo, _ESTILO_CURVA)
     except Exception as exc:  # pragma: no cover - diagnostico
         _registrar(
             "renderizar_tela aceita ModeloTela valido sem excecao",
@@ -265,7 +335,7 @@ def teste_renderizador_orquestrador():
         "╭ Menu " not in saida,
     )
 
-    saida2 = renderizar_tela(modelo)
+    saida2 = renderizar_tela(modelo, _ESTILO_CURVA)
     _registrar(
         "saida e deterministica (duas chamadas identicas)",
         saida == saida2,
@@ -311,15 +381,15 @@ def teste_renderizador_destino_minimo():
     )
 
     try:
-        saida = renderizar_tela(modelo)
+        saida = renderizar_tela(modelo, _ESTILO_CURVA)
     except Exception as exc:  # pragma: no cover - diagnostico
         _registrar(
-            "renderizar_tela(destino_minimo) sem excecao",
+            "renderizar_tela(destino_minimo, _ESTILO_CURVA) sem excecao",
             False,
             "{0}: {1}".format(type(exc).__name__, exc),
         )
         return
-    _registrar("renderizar_tela(destino_minimo) sem excecao", True)
+    _registrar("renderizar_tela(destino_minimo, _ESTILO_CURVA) sem excecao", True)
 
     _registrar(
         "saida destino comeca com '╭ DESTINO MINIMO'",
@@ -378,15 +448,15 @@ def teste_renderizador_grupo_minimo():
     )
 
     try:
-        saida = renderizar_tela(modelo)
+        saida = renderizar_tela(modelo, _ESTILO_CURVA)
     except Exception as exc:  # pragma: no cover - diagnostico
         _registrar(
-            "renderizar_tela(grupo_minimo) sem excecao",
+            "renderizar_tela(grupo_minimo, _ESTILO_CURVA) sem excecao",
             False,
             "{0}: {1}".format(type(exc).__name__, exc),
         )
         return
-    _registrar("renderizar_tela(grupo_minimo) sem excecao", True)
+    _registrar("renderizar_tela(grupo_minimo, _ESTILO_CURVA) sem excecao", True)
 
     # CA-20: caixa bordeada do dashboard interno aparece
     _registrar(
@@ -441,7 +511,7 @@ def teste_renderizador_grupo_minimo():
         barra_de_menus=modelo.barra_de_menus,
         _raw=modelo._raw,
     )
-    saida_plano = renderizar_tela(modelo_plano)
+    saida_plano = renderizar_tela(modelo_plano, _ESTILO_CURVA)
     _registrar(
         "saida do grupo == saida da lista plana equivalente (CA-23)",
         saida == saida_plano,
@@ -450,7 +520,7 @@ def teste_renderizador_grupo_minimo():
     # CA-24 reforco: Orquestrador (lista plana) segue inalterado
     tela_o = carregar_tela(_BASE_PADRAO, "demo", _RAIZ_TELAS_DEMO)
     modelo_o = construir_modelo(tela_o)
-    saida_o = renderizar_tela(modelo_o)
+    saida_o = renderizar_tela(modelo_o, _ESTILO_CURVA)
     _registrar(
         "demo (lista plana) permanece inalterado (CA-24)",
         saida_o == _EXPECTED_ORQUESTRADOR,
@@ -473,7 +543,7 @@ def teste_modelo_fabricado():
         _raw={},
     )
 
-    saida_fab = renderizar_tela(modelo_fab)
+    saida_fab = renderizar_tela(modelo_fab, _ESTILO_CURVA)
 
     _registrar(
         "saida fabricada comeca com '╭ FAB'",
@@ -523,13 +593,13 @@ def teste_erros_renderizador():
     print("== Casos de erro do renderer ==")
 
     _espera_excecao(
-        "renderizar_tela(None) lanca RenderizadorErro",
-        lambda: renderizar_tela(None),
+        "renderizar_tela(None, _ESTILO_CURVA) lanca RenderizadorErro",
+        lambda: renderizar_tela(None, _ESTILO_CURVA),
         RenderizadorErro,
     )
     _espera_excecao(
-        "renderizar_tela(<dict>) lanca RenderizadorErro",
-        lambda: renderizar_tela({"id": "x"}),
+        "renderizar_tela(<dict>, _ESTILO_CURVA) lanca RenderizadorErro",
+        lambda: renderizar_tela({"id": "x"}, _ESTILO_CURVA),
         RenderizadorErro,
     )
 
@@ -576,7 +646,7 @@ def teste_erros_renderizador():
     )
     exc_item = _espera_excecao(
         "item com texto de 16 chars levanta RenderizadorErro (sem truncamento)",
-        lambda: renderizar_tela(modelo_item_longo),
+        lambda: renderizar_tela(modelo_item_longo, _ESTILO_CURVA),
         RenderizadorErro,
     )
     if exc_item is not None:
@@ -615,7 +685,7 @@ def teste_erros_renderizador():
         _raw={},
     )
     try:
-        saida_limite = renderizar_tela(modelo_item_limite)
+        saida_limite = renderizar_tela(modelo_item_limite, _ESTILO_CURVA)
         _registrar(
             "item com texto de exatamente 15 chars e aceito",
             "[z] 123456789012345" in saida_limite,
@@ -739,7 +809,7 @@ def teste_inercia():
     elementos_antes = [(e.id, e.tipo) for e in modelo.corpo.elementos]
     chips_antes = list(modelo.barra_de_menus.get("chips", []))
 
-    saida = renderizar_tela(modelo)
+    saida = renderizar_tela(modelo, _ESTILO_CURVA)
 
     _registrar(
         "renderizar_tela nao altera modelo._raw",
@@ -774,42 +844,42 @@ def teste_inercia():
 
 def teste_alternancia_borda():
     print("")
-    print("== Alternancia de borda em memoria (H-0007) ==")
+    print("== Consumo do EstiloResolvido pelo renderer (H-0039 / ADR-0030) ==")
 
     tela_raw = carregar_tela(_BASE_PADRAO, "demo", _RAIZ_TELAS_DEMO)
     modelo = construir_modelo(tela_raw)
 
     try:
-        saida_curva_explicita = renderizar_tela(modelo, tipo_borda="curva")
+        saida_curva_explicita = renderizar_tela(modelo, estilo=_ESTILO_CURVA)
     except Exception as exc:  # pragma: no cover - diagnostico
         _registrar(
-            "renderizar_tela(modelo, tipo_borda='curva') sem excecao",
+            "renderizar_tela(modelo, estilo=_ESTILO_CURVA) sem excecao",
             False,
             "{0}: {1}".format(type(exc).__name__, exc),
         )
         return
     _registrar(
-        "renderizar_tela(modelo, tipo_borda='curva') sem excecao",
+        "renderizar_tela(modelo, estilo=_ESTILO_CURVA) sem excecao",
         True,
     )
 
-    saida_default = renderizar_tela(modelo)
+    saida_default = renderizar_tela(modelo, _ESTILO_CURVA)
     _registrar(
-        "renderizar_tela(modelo, tipo_borda='curva') == renderizar_tela(modelo)",
+        "renderizar_tela(modelo, _ESTILO_CURVA) e estavel entre chamadas",
         saida_curva_explicita == saida_default,
     )
 
     try:
-        saida_reta = renderizar_tela(modelo, tipo_borda="reta")
+        saida_reta = renderizar_tela(modelo, estilo=_ESTILO_RETA)
     except Exception as exc:  # pragma: no cover - diagnostico
         _registrar(
-            "renderizar_tela(modelo, tipo_borda='reta') sem excecao",
+            "renderizar_tela(modelo, estilo=_ESTILO_RETA) sem excecao",
             False,
             "{0}: {1}".format(type(exc).__name__, exc),
         )
         return
     _registrar(
-        "renderizar_tela(modelo, tipo_borda='reta') sem excecao",
+        "renderizar_tela(modelo, estilo=_ESTILO_RETA) sem excecao",
         True,
     )
 
@@ -889,7 +959,7 @@ def teste_alternancia_borda():
         .replace("╰", "└").replace("╯", "┘")
     )
     _registrar(
-        "trocar borda altera somente os quatro cantos",
+        "trocar estilo altera somente os quatro cantos",
         curva_convertida == saida_reta,
     )
 
@@ -904,21 +974,124 @@ def teste_alternancia_borda():
         linhas_conteudo_curva == linhas_conteudo_reta,
     )
 
+    # H-0039 CA-R2/R3: ``tipo_borda`` foi removido da assinatura; passar o
+    # argumento removido levanta TypeError (sem compatibilidade permanente).
     _espera_excecao(
-        "renderizar_tela(modelo, tipo_borda='invalida') lanca RenderizadorErro",
-        lambda: renderizar_tela(modelo, tipo_borda="invalida"),
-        RenderizadorErro,
+        "renderizar_tela(modelo, estilo, tipo_borda=...) levanta TypeError "
+        "(argumento removido)",
+        lambda: renderizar_tela(modelo, _ESTILO_CURVA, tipo_borda="invalida"),
+        TypeError,
     )
     _espera_excecao(
-        "renderizar_tela(modelo, tipo_borda='CURVA') lanca RenderizadorErro "
-        "(case sensitive)",
-        lambda: renderizar_tela(modelo, tipo_borda="CURVA"),
-        RenderizadorErro,
+        "renderizar_tela(modelo, estilo, tipo_borda='CURVA') levanta TypeError",
+        lambda: renderizar_tela(modelo, _ESTILO_CURVA, tipo_borda="CURVA"),
+        TypeError,
     )
 
     _registrar(
         "saida reta e deterministica (duas chamadas identicas)",
-        renderizar_tela(modelo, "reta") == renderizar_tela(modelo, "reta"),
+        renderizar_tela(modelo, _ESTILO_RETA) == renderizar_tela(modelo, _ESTILO_RETA),
+    )
+
+    # H-0039 CA-R1: ``_BORDAS`` foi removido do renderer.
+    import tela.renderizador as _mod_rend
+    _registrar(
+        "renderer nao possui atributo _BORDAS (CA-R1)",
+        not hasattr(_mod_rend, "_BORDAS"),
+    )
+
+    # H-0039 CA-R6: borda deriva do EstiloResolvido. Substituir o canto
+    # superior esquerdo por um valor alternativo altera a saida.
+    estilo_alt = EstiloResolvido(
+        canto_superior_esquerdo="X",
+        canto_superior_direito=_ESTILO_CURVA.canto_superior_direito,
+        canto_inferior_esquerdo=_ESTILO_CURVA.canto_inferior_esquerdo,
+        canto_inferior_direito=_ESTILO_CURVA.canto_inferior_direito,
+        traco_superior=_ESTILO_CURVA.traco_superior,
+        traco_inferior=_ESTILO_CURVA.traco_inferior,
+        lateral=_ESTILO_CURVA.lateral,
+        caractere_esquerdo=_ESTILO_CURVA.caractere_esquerdo,
+        caractere_direito=_ESTILO_CURVA.caractere_direito,
+        cor_texto=_ESTILO_CURVA.cor_texto,
+        caixa_alta=_ESTILO_CURVA.caixa_alta,
+        cor_fundo=_ESTILO_CURVA.cor_fundo,
+        concluido_on=_ESTILO_CURVA.concluido_on,
+        concluido_off=_ESTILO_CURVA.concluido_off,
+        selecionado_simbolo=_ESTILO_CURVA.selecionado_simbolo,
+        selecionado_off=_ESTILO_CURVA.selecionado_off,
+        incluido_on=_ESTILO_CURVA.incluido_on,
+        incluido_off=_ESTILO_CURVA.incluido_off,
+    )
+    saida_alt = renderizar_tela(modelo, estilo_alt)
+    _registrar(
+        "borda deriva do EstiloResolvido (canto_alt -> saida diferente)",
+        saida_alt != saida_curva_explicita and "X" in saida_alt,
+    )
+
+    # H-0039 CA-R7: delimitador de chip deriva do estilo.
+    estilo_chip_alt = EstiloResolvido(
+        canto_superior_esquerdo=_ESTILO_CURVA.canto_superior_esquerdo,
+        canto_superior_direito=_ESTILO_CURVA.canto_superior_direito,
+        canto_inferior_esquerdo=_ESTILO_CURVA.canto_inferior_esquerdo,
+        canto_inferior_direito=_ESTILO_CURVA.canto_inferior_direito,
+        traco_superior=_ESTILO_CURVA.traco_superior,
+        traco_inferior=_ESTILO_CURVA.traco_inferior,
+        lateral=_ESTILO_CURVA.lateral,
+        caractere_esquerdo="<",
+        caractere_direito=">",
+        cor_texto=_ESTILO_CURVA.cor_texto,
+        caixa_alta=_ESTILO_CURVA.caixa_alta,
+        cor_fundo=_ESTILO_CURVA.cor_fundo,
+        concluido_on=_ESTILO_CURVA.concluido_on,
+        concluido_off=_ESTILO_CURVA.concluido_off,
+        selecionado_simbolo=_ESTILO_CURVA.selecionado_simbolo,
+        selecionado_off=_ESTILO_CURVA.selecionado_off,
+        incluido_on=_ESTILO_CURVA.incluido_on,
+        incluido_off=_ESTILO_CURVA.incluido_off,
+    )
+    saida_chip_alt = renderizar_tela(modelo, estilo_chip_alt)
+    _registrar(
+        "delimitador de chip deriva do estilo (< > -> [Esc] vira <Esc>)",
+        "<Esc>" in saida_chip_alt and "[Esc]" not in saida_chip_alt,
+    )
+
+    # H-0039 CA-R8: caixa_alta=False preserva capitalizacao declarada.
+    _registrar(
+        "caixa_alta=False preserva 'Sair' (sem forcar maiusculas)",
+        "Sair" in saida_curva_explicita and "SAIR" not in saida_curva_explicita,
+    )
+
+    # H-0039 CA-R9: caixa_alta=True aplica .upper() ao rotulo (tecla Esc fica).
+    saida_caixa_alta = renderizar_tela(modelo, estilo=_ESTILO_CAIXA_ALTA)
+    _registrar(
+        "caixa_alta=True aplica maiusculas ao rotulo ('Sair' -> 'SAIR')",
+        "SAIR" in saida_caixa_alta,
+    )
+    _registrar(
+        "caixa_alta=True preserva a tecla 'Esc' (nao aplica upper na tecla)",
+        "[Esc]" in saida_caixa_alta,
+    )
+
+    # H-0039 CA-R10/R11: renderer nao abre config/estilo.json nem escolhe
+    # preset. A proibicao de importar tela.loader (e assim chamar
+    # carregar_estilo) e coberta por teste_proibicoes_importacao; aqui
+    # confirma-se que o renderer nao invoca o loader de estilo.
+    caminho_mod = _BASE_PADRAO / "tela" / "renderizador.py"
+    texto_mod = caminho_mod.read_text(encoding="utf-8")
+    _registrar(
+        "renderer nao invoca carregar_estilo (CA-R10/R11)",
+        "carregar_estilo(" not in texto_mod,
+    )
+
+    # H-0039: cor_texto e cor_fundo do EstiloResolvido sao consultados
+    # materialmente no caminho de renderizacao (_texto_chip_barra).
+    _registrar(
+        "renderer acessa estilo.cor_texto no caminho de renderizacao",
+        "estilo.cor_texto" in texto_mod,
+    )
+    _registrar(
+        "renderer acessa estilo.cor_fundo no caminho de renderizacao",
+        "estilo.cor_fundo" in texto_mod,
     )
 
 
@@ -929,10 +1102,10 @@ def teste_largura_explicita():
     tela_raw = carregar_tela(_BASE_PADRAO, "demo", _RAIZ_TELAS_DEMO)
     modelo = construir_modelo(tela_raw)
 
-    saida_42 = renderizar_tela(modelo, largura=42)
+    saida_42 = renderizar_tela(modelo, _ESTILO_CURVA, largura=42)
     bate_42 = saida_42 == _EXPECTED_ORQUESTRADOR
     _registrar(
-        "renderizar_tela(modelo, largura=42) == _EXPECTED_ORQUESTRADOR "
+        "renderizar_tela(modelo, _ESTILO_CURVA, largura=42) == _EXPECTED_ORQUESTRADOR "
         "(fallback equivalente)",
         bate_42,
         "" if bate_42 else "ver diff abaixo",
@@ -943,10 +1116,10 @@ def teste_largura_explicita():
         print("--- obtido (repr) ---")
         print(repr(saida_42))
 
-    saida_42_reta = renderizar_tela(modelo, largura=42, tipo_borda="reta")
+    saida_42_reta = renderizar_tela(modelo, largura=42, estilo=_ESTILO_RETA)
     bate_42_reta = saida_42_reta == _EXPECTED_ORQUESTRADOR_RETA
     _registrar(
-        "renderizar_tela(modelo, largura=42, tipo_borda='reta') == "
+        "renderizar_tela(modelo, largura=42, estilo=_ESTILO_RETA) == "
         "_EXPECTED_ORQUESTRADOR_RETA",
         bate_42_reta,
         "" if bate_42_reta else "ver diff abaixo",
@@ -957,9 +1130,9 @@ def teste_largura_explicita():
         print("--- obtido (repr) ---")
         print(repr(saida_42_reta))
 
-    saida_60 = renderizar_tela(modelo, largura=60)
+    saida_60 = renderizar_tela(modelo, _ESTILO_CURVA, largura=60)
     _registrar(
-        "renderizar_tela(modelo, largura=60) retorna str",
+        "renderizar_tela(modelo, _ESTILO_CURVA, largura=60) retorna str",
         isinstance(saida_60, str),
         "tipo={0}".format(type(saida_60).__name__),
     )
@@ -968,7 +1141,7 @@ def teste_largura_explicita():
         len(ln) == 60 for ln in saida_60.split("\n") if ln != ""
     )
     _registrar(
-        "cada linha nao-vazia de renderizar_tela(modelo, largura=60) tem 60 chars",
+        "cada linha nao-vazia de renderizar_tela(modelo, _ESTILO_CURVA, largura=60) tem 60 chars",
         linhas_60_ok,
     )
 
@@ -983,8 +1156,8 @@ def teste_largura_explicita():
     )
 
     _registrar(
-        "renderizar_tela(modelo) == renderizar_tela(modelo, largura=None)",
-        renderizar_tela(modelo) == renderizar_tela(modelo, largura=None),
+        "renderizar_tela(modelo, _ESTILO_CURVA) == renderizar_tela(modelo, _ESTILO_CURVA, largura=None)",
+        renderizar_tela(modelo, _ESTILO_CURVA) == renderizar_tela(modelo, _ESTILO_CURVA, largura=None),
     )
 
 
@@ -1039,15 +1212,15 @@ def teste_altura_explicita():
 
     # CA-09 / CA-10: altura=None preserva o comportamento atual.
     _registrar(
-        "renderizar_tela(modelo, largura=42) == "
-        "renderizar_tela(modelo, largura=42, altura=None)",
-        renderizar_tela(modelo, largura=42)
-        == renderizar_tela(modelo, largura=42, altura=None),
+        "renderizar_tela(modelo, _ESTILO_CURVA, largura=42) == "
+        "renderizar_tela(modelo, _ESTILO_CURVA, largura=42, altura=None)",
+        renderizar_tela(modelo, _ESTILO_CURVA, largura=42)
+        == renderizar_tela(modelo, _ESTILO_CURVA, largura=42, altura=None),
     )
 
     # CA-03: altura exatamente minima -> sem preenchimento (L_corpo_fill == 0),
     # saida identica ao comportamento natural.
-    saida_min = renderizar_tela(modelo, largura=42, altura=n_minimo)
+    saida_min = renderizar_tela(modelo, _ESTILO_CURVA, largura=42, altura=n_minimo)
     _registrar(
         "altura=N_minimo (21) -> count('\\n') == 21 (sem fill) (CA-03)",
         saida_min.count("\n") == n_minimo,
@@ -1055,7 +1228,7 @@ def teste_altura_explicita():
     )
     _registrar(
         "altura=N_minimo (21) gera saida identica a altura=None",
-        saida_min == renderizar_tela(modelo, largura=42),
+        saida_min == renderizar_tela(modelo, _ESTILO_CURVA, largura=42),
     )
 
     # ADR-0024 DA-02: 3 visuais sem distribuicao + area residual e invalido.
@@ -1063,12 +1236,12 @@ def teste_altura_explicita():
     # visuais levanta RenderizadorErro quando l_fill > 0 (area nao coberta).
     _espera_excecao(
         "ADR-0024 DA-02: altura=23 (3 visuais sem dist, l_fill=2) -> RenderizadorErro",
-        lambda: renderizar_tela(modelo, largura=42, altura=23),
+        lambda: renderizar_tela(modelo, _ESTILO_CURVA, largura=42, altura=23),
         RenderizadorErro,
     )
     _espera_excecao(
         "ADR-0024 DA-02: altura=26 (3 visuais sem dist, l_fill=5) -> RenderizadorErro",
-        lambda: renderizar_tela(modelo, largura=42, altura=26),
+        lambda: renderizar_tela(modelo, _ESTILO_CURVA, largura=42, altura=26),
         RenderizadorErro,
     )
 
@@ -1088,12 +1261,12 @@ def teste_altura_explicita():
     # ADR-0024 DA-02 em outras larguras e bordas com 3 visuais sem dist.
     _espera_excecao(
         "ADR-0024 DA-02: largura=60 altura=24 (3 visuais sem dist) -> RenderizadorErro",
-        lambda: renderizar_tela(modelo, largura=60, altura=24),
+        lambda: renderizar_tela(modelo, _ESTILO_CURVA, largura=60, altura=24),
         RenderizadorErro,
     )
     _espera_excecao(
         "ADR-0024 DA-02: borda_reta altura=26 (3 visuais sem dist) -> RenderizadorErro",
-        lambda: renderizar_tela(modelo, largura=42, altura=26, tipo_borda="reta"),
+        lambda: renderizar_tela(modelo, largura=42, altura=26, estilo=_ESTILO_RETA),
         RenderizadorErro,
     )
 
@@ -1102,7 +1275,7 @@ def teste_altura_explicita():
     n_overflow = l_cab + l_barra + l_corpo_conteudo - 1
     exc_overflow = _espera_excecao(
         "altura=20 (corpo overflow) levanta RenderizadorErro (CA-12)",
-        lambda: renderizar_tela(modelo, largura=42, altura=n_overflow),
+        lambda: renderizar_tela(modelo, _ESTILO_CURVA, largura=42, altura=n_overflow),
         RenderizadorErro,
     )
     if exc_overflow is not None:
@@ -1116,7 +1289,7 @@ def teste_altura_explicita():
     # Para o Orquestrador (H-0016): L_cab(3) + L_barra(3) = 6 > 5.
     exc_pequeno = _espera_excecao(
         "altura=5 (cabecalho + barra > altura) levanta RenderizadorErro (CA-11)",
-        lambda: renderizar_tela(modelo, largura=42, altura=5),
+        lambda: renderizar_tela(modelo, _ESTILO_CURVA, largura=42, altura=5),
         RenderizadorErro,
     )
     if exc_pequeno is not None:
@@ -1133,7 +1306,7 @@ def teste_altura_explicita():
     _espera_excecao(
         "altura == L_cab + L_barra (6) com corpo nao vazio levanta "
         "RenderizadorErro (sem truncamento silencioso)",
-        lambda: renderizar_tela(modelo, largura=42, altura=6),
+        lambda: renderizar_tela(modelo, _ESTILO_CURVA, largura=42, altura=6),
         RenderizadorErro,
     )
 
@@ -1141,8 +1314,8 @@ def teste_altura_explicita():
     # produzem saidas identicas.
     _registrar(
         "altura explicita e deterministica (duas chamadas identicas)",
-        renderizar_tela(modelo, largura=42, altura=n_minimo)
-        == renderizar_tela(modelo, largura=42, altura=n_minimo),
+        renderizar_tela(modelo, _ESTILO_CURVA, largura=42, altura=n_minimo)
+        == renderizar_tela(modelo, _ESTILO_CURVA, largura=42, altura=n_minimo),
     )
 
 
@@ -1219,7 +1392,7 @@ class TestLinhasBarra:
     def test_linha_unica_cabe(self):
         chips = [_chip("chip_esc", "Esc", "Sair"), _chip("chip_ajuda", "?", "Ajuda")]
         bar = {"distribuicao": _dist_canonica(), "chips": chips}
-        linhas = _linhas_barra(bar, 39)
+        linhas = _linhas_barra(bar, _ESTILO_CURVA, 39)
         self._r(
             "linha unica: retorna lista com 1 string quando cabe (content_w=39)",
             isinstance(linhas, list) and len(linhas) == 1,
@@ -1235,7 +1408,7 @@ class TestLinhasBarra:
         chips = [_chip("chip_esc", "Esc", "Sair"), _chip("chip_ajuda", "?", "Ajuda")]
         bar = {"distribuicao": _dist_canonica(), "chips": chips}
         # single = 21 > 15; multilinha K=2 (1 coluna, 2 linhas) cabe (max 10).
-        linhas = _linhas_barra(bar, 15)
+        linhas = _linhas_barra(bar, _ESTILO_CURVA, 15)
         self._r(
             "multilinha: content_w=15 -> 2 linhas",
             isinstance(linhas, list) and len(linhas) == 2,
@@ -1247,7 +1420,7 @@ class TestLinhasBarra:
         bar = {"distribuicao": _dist_canonica(), "chips": chips}
         exc = self._espera_erro(
             "erro_layout: content_w=5 nao cabe em nenhuma config",
-            lambda: _linhas_barra(bar, 5),
+            lambda: _linhas_barra(bar, _ESTILO_CURVA, 5),
         )
         if exc is not None:
             self._r(
@@ -1260,7 +1433,7 @@ class TestLinhasBarra:
         chips = [_chip("chip_esc", "Esc", "Sair"), _chip("chip_ajuda", "?", "Ajuda")]
         bar = {"distribuicao": "horizontal", "chips": chips}
         try:
-            linhas = _linhas_barra(bar, 39)
+            linhas = _linhas_barra(bar, _ESTILO_CURVA, 39)
             ok = isinstance(linhas, list) and len(linhas) == 1
         except RenderizadorErro as exc:
             ok = False
@@ -1273,7 +1446,7 @@ class TestLinhasBarra:
         chips = [_chip("chip_esc", "Esc", "Sair"), _chip("chip_ajuda", "?", "Ajuda")]
         bar = {"chips": chips}  # sem 'distribuicao'
         try:
-            linhas = _linhas_barra(bar, 39)
+            linhas = _linhas_barra(bar, _ESTILO_CURVA, 39)
             ok = isinstance(linhas, list) and len(linhas) >= 1
         except RenderizadorErro as exc:
             ok = False
@@ -1284,7 +1457,7 @@ class TestLinhasBarra:
 
     def test_chips_vazia_retorna_lista_vazia(self):
         bar = {"distribuicao": _dist_canonica(), "chips": []}
-        linhas = _linhas_barra(bar, 39)
+        linhas = _linhas_barra(bar, _ESTILO_CURVA, 39)
         self._r(
             "chips vazia retorna lista vazia",
             linhas == [],
@@ -1297,7 +1470,7 @@ class TestLinhasBarra:
         dist["ordem"]["ancoras"] = {"primeiro": ["chip_esc"]}
         bar = {"distribuicao": dist, "chips": chips}
         try:
-            _linhas_barra(bar, 39)
+            _linhas_barra(bar, _ESTILO_CURVA, 39)
             self._r("ancora primeiro valida: sem erro", True)
         except RenderizadorErro as exc:
             self._r("ancora primeiro valida: sem erro", False, str(exc))
@@ -1309,7 +1482,7 @@ class TestLinhasBarra:
         bar = {"distribuicao": dist, "chips": chips}
         self._espera_erro(
             "ancora primeiro violada -> RenderizadorErro",
-            lambda: _linhas_barra(bar, 39),
+            lambda: _linhas_barra(bar, _ESTILO_CURVA, 39),
         )
 
     def test_ancora_ultimo_valida(self):
@@ -1318,7 +1491,7 @@ class TestLinhasBarra:
         dist["ordem"]["ancoras"] = {"ultimo": ["chip_ajuda"]}
         bar = {"distribuicao": dist, "chips": chips}
         try:
-            _linhas_barra(bar, 39)
+            _linhas_barra(bar, _ESTILO_CURVA, 39)
             self._r("ancora ultimo valida: sem erro", True)
         except RenderizadorErro as exc:
             self._r("ancora ultimo valida: sem erro", False, str(exc))
@@ -1330,7 +1503,7 @@ class TestLinhasBarra:
         bar = {"distribuicao": dist, "chips": chips}
         self._espera_erro(
             "ancora ultimo violada -> RenderizadorErro",
-            lambda: _linhas_barra(bar, 39),
+            lambda: _linhas_barra(bar, _ESTILO_CURVA, 39),
         )
 
     def test_ancora_id_inexistente(self):
@@ -1340,7 +1513,7 @@ class TestLinhasBarra:
         bar = {"distribuicao": dist, "chips": chips}
         self._espera_erro(
             "ancora com id inexistente -> RenderizadorErro",
-            lambda: _linhas_barra(bar, 39),
+            lambda: _linhas_barra(bar, _ESTILO_CURVA, 39),
         )
 
     def test_ordem_preservada(self):
@@ -1350,7 +1523,7 @@ class TestLinhasBarra:
             _chip("c", "3", "CCC"),
         ]
         bar = {"distribuicao": _dist_canonica(), "chips": chips}
-        linhas = _linhas_barra(bar, 100)
+        linhas = _linhas_barra(bar, _ESTILO_CURVA, 100)
         saida = " ".join(linhas)
         self._r(
             "ordem preservada na saida (a antes de b antes de c)",
@@ -1362,7 +1535,7 @@ class TestLinhasBarra:
     def test_chips_declarados_aparecem_exatamente_uma_vez(self):
         chips = [_chip("chip_esc", "Esc", "Sair"), _chip("chip_ajuda", "?", "Ajuda")]
         bar = {"distribuicao": _dist_canonica(), "chips": chips}
-        linhas = _linhas_barra(bar, 39)
+        linhas = _linhas_barra(bar, _ESTILO_CURVA, 39)
         junta = " ".join(linhas)
         self._r(
             "cada chip declarado aparece exatamente uma vez",
@@ -1372,7 +1545,7 @@ class TestLinhasBarra:
 
     def test_chips_do_lancador_nao_entram_na_barra(self):
         modelo = construir_modelo(carregar_tela(_BASE_PADRAO, "demo", _RAIZ_TELAS_DEMO))
-        linhas = _linhas_barra(modelo.barra_de_menus, 39)
+        linhas = _linhas_barra(modelo.barra_de_menus, _ESTILO_CURVA, 39)
         junta = " ".join(linhas)
         self._r(
             "barra contem chips da barra ([Esc], [?])",
@@ -1385,7 +1558,7 @@ class TestLinhasBarra:
             "junta={0!r}".format(junta),
         )
         # corpo.arranjo nao influencia a barra: o lancador continua no corpo.
-        saida = renderizar_tela(modelo, largura=42)
+        saida = renderizar_tela(modelo, _ESTILO_CURVA, largura=42)
         self._r(
             "lancador ([d]/[g]) permanece no corpo, nao na barra",
             "[d] Destino" in saida and "[g] Grupo Min." in saida,
@@ -1403,7 +1576,7 @@ class TestLinhasBarra:
         dist = _dist_canonica(preenchimento="coluna_a_coluna")
         dist["linhas"] = {"minimo": 1, "maximo": 2, "preferir_menor_numero": True}
         bar = {"distribuicao": dist, "chips": chips}
-        linhas = _linhas_barra(bar, 25)
+        linhas = _linhas_barra(bar, _ESTILO_CURVA, 25)
         self._r(
             "coluna_a_coluna K=2 -> 2 linhas (content_w=25)",
             isinstance(linhas, list) and len(linhas) == 2,
@@ -1438,7 +1611,7 @@ class TestLinhasBarra:
         ]
         dist = _dist_canonica(preenchimento="linha_a_linha")
         bar = {"distribuicao": dist, "chips": chips}
-        linhas = _linhas_barra(bar, 25)
+        linhas = _linhas_barra(bar, _ESTILO_CURVA, 25)
         self._r(
             "linha_a_linha K=2 -> 2 linhas (content_w=25)",
             isinstance(linhas, list) and len(linhas) == 2,
@@ -1465,7 +1638,7 @@ class TestLinhasBarra:
         bar = {"distribuicao": dist, "chips": chips}
         self._espera_erro(
             "modo desconhecido ('vertical') -> RenderizadorErro",
-            lambda: _linhas_barra(bar, 39),
+            lambda: _linhas_barra(bar, _ESTILO_CURVA, 39),
         )
 
     def test_politica_desconhecida_erro(self):
@@ -1476,7 +1649,7 @@ class TestLinhasBarra:
         self._espera_erro(
             "ordem.politica nao suportada ('grupos_declarados') -> "
             "RenderizadorErro (PR-M-01)",
-            lambda: _linhas_barra(bar, 39),
+            lambda: _linhas_barra(bar, _ESTILO_CURVA, 39),
         )
 
     def test_preenchimento_multilinha_desconhecido_erro(self):
@@ -1485,7 +1658,7 @@ class TestLinhasBarra:
         bar = {"distribuicao": dist, "chips": chips}
         self._espera_erro(
             "preenchimento_multilinha desconhecido -> RenderizadorErro (PR-M-02)",
-            lambda: _linhas_barra(bar, 15),
+            lambda: _linhas_barra(bar, _ESTILO_CURVA, 15),
         )
 
     def test_linhas_minimo_invalido_erro(self):
@@ -1495,7 +1668,7 @@ class TestLinhasBarra:
         bar = {"distribuicao": dist, "chips": chips}
         self._espera_erro(
             "linhas.minimo invalido (0) -> RenderizadorErro (PR-M-03)",
-            lambda: _linhas_barra(bar, 39),
+            lambda: _linhas_barra(bar, _ESTILO_CURVA, 39),
         )
 
     def test_linhas_maximo_menor_que_minimo_erro(self):
@@ -1505,7 +1678,7 @@ class TestLinhasBarra:
         bar = {"distribuicao": dist, "chips": chips}
         self._espera_erro(
             "linhas.maximo < minimo -> RenderizadorErro (PR-M-03)",
-            lambda: _linhas_barra(bar, 39),
+            lambda: _linhas_barra(bar, _ESTILO_CURVA, 39),
         )
 
     def test_overflow_desconhecido_erro(self):
@@ -1520,7 +1693,7 @@ class TestLinhasBarra:
         bar = {"distribuicao": dist, "chips": chips}
         self._espera_erro(
             "overflow.quando_nao_couber desconhecido -> RenderizadorErro (PR-M-04)",
-            lambda: _linhas_barra(bar, 39),
+            lambda: _linhas_barra(bar, _ESTILO_CURVA, 39),
         )
 
     def test_overflow_flag_nao_booleana_erro(self):
@@ -1535,7 +1708,7 @@ class TestLinhasBarra:
         bar = {"distribuicao": dist, "chips": chips}
         self._espera_erro(
             "overflow flag nao booleana -> RenderizadorErro (PR-M-04)",
-            lambda: _linhas_barra(bar, 39),
+            lambda: _linhas_barra(bar, _ESTILO_CURVA, 39),
         )
 
     def test_renderizar_tela_com_distribuicao_canonica(self):
@@ -1548,7 +1721,7 @@ class TestLinhasBarra:
             and dist.get("ordem", {}).get("politica") == "declaracao",
             "modo={0!r}".format(dist.get("modo") if isinstance(dist, dict) else None),
         )
-        saida = renderizar_tela(modelo, largura=42)
+        saida = renderizar_tela(modelo, _ESTILO_CURVA, largura=42)
         self._r(
             "renderizar_tela com canonico: barra em linha horizontal",
             saida == _EXPECTED_ORQUESTRADOR,
@@ -1559,7 +1732,7 @@ class TestLinhasBarra:
         # ADR-0024 DA-02: modelo sem distribuicao com 3 visuais + area residual
         # levanta RenderizadorErro (fill externo proibido).
         modelo = _modelo_orquestrador_sem_distribuicao()
-        linhas = _linhas_barra(modelo.barra_de_menus, 39)
+        linhas = _linhas_barra(modelo.barra_de_menus, _ESTILO_CURVA, 39)
         l_barra = len(linhas) + 2
         self._r(
             "altura explicita: L_barra = len(linhas_barra)+2 = 3 (1 linha horizontal)",
@@ -1568,7 +1741,7 @@ class TestLinhasBarra:
         )
         excecao_da02 = None
         try:
-            renderizar_tela(modelo, largura=42, altura=24)
+            renderizar_tela(modelo, _ESTILO_CURVA, largura=42, altura=24)
         except RenderizadorErro as exc:
             excecao_da02 = exc
         self._r(
@@ -1586,11 +1759,11 @@ class TestLinhasBarra:
         # H-0016 / H-0037 / H-0034: com 11 itens no lancador em matriz 6x2 com
         # margens verticais, NAVEGAR tem 10 linhas, n_minimo = L_cab(3) +
         # L_corpo(15) + L_barra(3) = 21.
-        saida_21 = renderizar_tela(modelo, largura=42, altura=21)
+        saida_21 = renderizar_tela(modelo, _ESTILO_CURVA, largura=42, altura=21)
         self._r(
             "altura minima = 21 com barra horizontal (sem distribuicao)",
             saida_21.count("\n") == 21
-            and saida_21 == renderizar_tela(modelo, largura=42),
+            and saida_21 == renderizar_tela(modelo, _ESTILO_CURVA, largura=42),
             "count={0}".format(saida_21.count("\n")),
         )
 
@@ -1599,7 +1772,7 @@ class TestLinhasBarra:
         # da barra ([Esc]/[?]) no rodape; a navegacao g/d/b/Esc (tratada pela
         # demo) depende desses chips continuarem presentes e corretos.
         modelo = construir_modelo(carregar_tela(_BASE_PADRAO, "demo", _RAIZ_TELAS_DEMO))
-        saida = renderizar_tela(modelo, largura=42)
+        saida = renderizar_tela(modelo, _ESTILO_CURVA, largura=42)
         self._r(
             "fluxo g/d/b/Esc: lancador [d]/[g] e barra [Esc]/[?] presentes",
             "[d] Destino" in saida and "[g] Grupo Min." in saida
@@ -1667,7 +1840,7 @@ class TestDistribuicaoH0018:
         dist = _dist_canonica()
         dist["espacamentos"]["vao_chip_texto"]["minimo"] = 3
         bar = {"distribuicao": dist, "chips": chips}
-        linhas = _linhas_barra(bar, 39)
+        linhas = _linhas_barra(bar, _ESTILO_CURVA, 39)
         self._r(
             "vao_chip_texto=3: chip contem 3 espacos entre ] e texto",
             isinstance(linhas, list) and any("[Esc]   Sair" in l for l in linhas),
@@ -1680,7 +1853,7 @@ class TestDistribuicaoH0018:
         dist["espacamentos"]["vao_chip_texto"]["minimo"] = 10
         dist["espacamentos"]["vao_chip_texto"]["maximo"] = None
         bar = {"distribuicao": dist, "chips": chips}
-        linhas = _linhas_barra(bar, 39)
+        linhas = _linhas_barra(bar, _ESTILO_CURVA, 39)
         self._r(
             "vao_chip_texto=10: chip contem 10 espacos entre ] e texto",
             isinstance(linhas, list) and any("[Esc]          Sair" in l for l in linhas),
@@ -1694,8 +1867,8 @@ class TestDistribuicaoH0018:
         d5 = _dist_canonica()
         d5["espacamentos"]["vao_chip_texto"]["minimo"] = 5
         d5["espacamentos"]["vao_chip_texto"]["maximo"] = None
-        l1 = _linhas_barra({"distribuicao": d1, "chips": chips}, 80)
-        l5 = _linhas_barra({"distribuicao": d5, "chips": chips}, 80)
+        l1 = _linhas_barra({"distribuicao": d1, "chips": chips}, _ESTILO_CURVA, 80)
+        l5 = _linhas_barra({"distribuicao": d5, "chips": chips}, _ESTILO_CURVA, 80)
         self._r(
             "vao_chip_texto=5 produz linha mais longa que vao=1",
             isinstance(l1, list) and isinstance(l5, list)
@@ -1709,7 +1882,7 @@ class TestDistribuicaoH0018:
         dist = _dist_canonica()
         dist["espacamentos"]["margem_horizontal"]["minimo"] = 4
         bar = {"distribuicao": dist, "chips": chips}
-        linhas = _linhas_barra(bar, 39)
+        linhas = _linhas_barra(bar, _ESTILO_CURVA, 39)
         self._r(
             "margem_horizontal=4: linha comeca com 4 espacos",
             isinstance(linhas, list) and linhas and linhas[0].startswith("    "),
@@ -1723,7 +1896,7 @@ class TestDistribuicaoH0018:
         bar = {"distribuicao": dist, "chips": chips}
         exc = self._espera_erro(
             "margem_horizontal=50 com content_w=39 -> RenderizadorErro (largura_util negativa)",
-            lambda: _linhas_barra(bar, 39),
+            lambda: _linhas_barra(bar, _ESTILO_CURVA, 39),
         )
         if exc is not None:
             self._r(
@@ -1737,7 +1910,7 @@ class TestDistribuicaoH0018:
         dist = _dist_canonica()
         dist["espacamentos"]["margem_horizontal"]["minimo"] = 0
         bar = {"distribuicao": dist, "chips": chips}
-        linhas = _linhas_barra(bar, 39)
+        linhas = _linhas_barra(bar, _ESTILO_CURVA, 39)
         self._r(
             "margem_horizontal=0: linha comeca diretamente com [",
             isinstance(linhas, list) and linhas and linhas[0].startswith("["),
@@ -1750,7 +1923,7 @@ class TestDistribuicaoH0018:
         dist = _dist_canonica()
         dist["espacamentos"]["vao_entre_chips"]["minimo"] = 6
         bar = {"distribuicao": dist, "chips": chips}
-        linhas = _linhas_barra(bar, 80)
+        linhas = _linhas_barra(bar, _ESTILO_CURVA, 80)
         self._r(
             "vao_entre_chips=6: linha contem 6 espacos entre chips",
             isinstance(linhas, list) and linhas
@@ -1769,8 +1942,8 @@ class TestDistribuicaoH0018:
         d2["espacamentos"]["vao_entre_colunas"]["minimo"] = 2
         d8 = _dist_canonica(preenchimento="coluna_a_coluna")
         d8["espacamentos"]["vao_entre_colunas"]["minimo"] = 8
-        l2 = _linhas_barra({"distribuicao": d2, "chips": chips}, 40)
-        l8 = _linhas_barra({"distribuicao": d8, "chips": chips}, 40)
+        l2 = _linhas_barra({"distribuicao": d2, "chips": chips}, _ESTILO_CURVA, 40)
+        l8 = _linhas_barra({"distribuicao": d8, "chips": chips}, _ESTILO_CURVA, 40)
         self._r(
             "vao_entre_colunas=8 produz linha mais larga que vao=2 na multilinha",
             isinstance(l2, list) and isinstance(l8, list)
@@ -1786,7 +1959,7 @@ class TestDistribuicaoH0018:
         bar = {"distribuicao": dist, "chips": chips}
         exc = self._espera_erro(
             "vao_vertical_entre_linhas.minimo=1 -> RenderizadorErro (Option B)",
-            lambda: _linhas_barra(bar, 39),
+            lambda: _linhas_barra(bar, _ESTILO_CURVA, 39),
         )
         if exc is not None:
             self._r(
@@ -1800,7 +1973,7 @@ class TestDistribuicaoH0018:
         dist = _dist_canonica()
         dist["alinhamento_linhas"] = "esquerda"
         bar = {"distribuicao": dist, "chips": chips}
-        linhas = _linhas_barra(bar, 39)
+        linhas = _linhas_barra(bar, _ESTILO_CURVA, 39)
         self._r(
             "alinhamento_linhas='esquerda': aceito sem erro",
             isinstance(linhas, list) and len(linhas) >= 1,
@@ -1814,7 +1987,7 @@ class TestDistribuicaoH0018:
         bar = {"distribuicao": dist, "chips": chips}
         exc = self._espera_erro(
             "alinhamento_linhas='centro' -> RenderizadorErro (Option B)",
-            lambda: _linhas_barra(bar, 39),
+            lambda: _linhas_barra(bar, _ESTILO_CURVA, 39),
         )
         if exc is not None:
             self._r(
@@ -1829,7 +2002,7 @@ class TestDistribuicaoH0018:
         dist = _dist_canonica()
         dist["linhas"] = {"minimo": 2, "maximo": 2, "preferir_menor_numero": True}
         bar = {"distribuicao": dist, "chips": chips}
-        linhas = _linhas_barra(bar, 39)
+        linhas = _linhas_barra(bar, _ESTILO_CURVA, 39)
         self._r(
             "linhas.minimo=2: chips que caberiam em 1 linha -> forcado 2 linhas",
             isinstance(linhas, list) and len(linhas) == 2,
@@ -1843,7 +2016,7 @@ class TestDistribuicaoH0018:
         bar = {"distribuicao": dist, "chips": chips}
         exc = self._espera_erro(
             "linhas.maximo=1 com chips que nao cabem em linha unica -> erro_layout",
-            lambda: _linhas_barra(bar, 10),
+            lambda: _linhas_barra(bar, _ESTILO_CURVA, 10),
         )
         if exc is not None:
             self._r(
@@ -1857,7 +2030,7 @@ class TestDistribuicaoH0018:
         dist = _dist_canonica()
         dist["linhas"] = {"minimo": 1, "maximo": 1, "preferir_menor_numero": True}
         bar = {"distribuicao": dist, "chips": chips}
-        linhas = _linhas_barra(bar, 39)
+        linhas = _linhas_barra(bar, _ESTILO_CURVA, 39)
         self._r(
             "linhas.maximo=1 com chips que cabem -> 1 linha sem erro",
             isinstance(linhas, list) and len(linhas) == 1,
@@ -1876,7 +2049,7 @@ class TestDistribuicaoH0018:
         dist["linhas"] = {"minimo": 1, "maximo": 3, "preferir_menor_numero": True}
         bar = {"distribuicao": dist, "chips": chips}
         # K=2 nao cabe (19 > largura_util=18); K=3 cabe (12 <= 18)
-        linhas = _linhas_barra(bar, 20)
+        linhas = _linhas_barra(bar, _ESTILO_CURVA, 20)
         self._r(
             "linhas.maximo=3: 5 chips que nao cabem em K=2 -> K=3 (3 linhas)",
             isinstance(linhas, list) and len(linhas) == 3,
@@ -1891,7 +2064,7 @@ class TestDistribuicaoH0018:
         bar = {"distribuicao": dist, "chips": chips}
         exc = self._espera_erro(
             "preferir_menor_numero=false -> RenderizadorErro (Option B)",
-            lambda: _linhas_barra(bar, 39),
+            lambda: _linhas_barra(bar, _ESTILO_CURVA, 39),
         )
         if exc is not None:
             self._r(
@@ -1907,7 +2080,7 @@ class TestDistribuicaoH0018:
         bar = {"distribuicao": dist, "chips": chips}
         exc = self._espera_erro(
             "preferir_menor_numero='sim' (nao bool) -> RenderizadorErro",
-            lambda: _linhas_barra(bar, 39),
+            lambda: _linhas_barra(bar, _ESTILO_CURVA, 39),
         )
         if exc is not None:
             self._r(
@@ -1924,7 +2097,7 @@ class TestDistribuicaoH0018:
         bar = {"distribuicao": dist, "chips": chips}
         exc = self._espera_erro(
             "colunas.largura='por_percentual' -> RenderizadorErro",
-            lambda: _linhas_barra(bar, 39),
+            lambda: _linhas_barra(bar, _ESTILO_CURVA, 39),
         )
         if exc is not None:
             self._r(
@@ -1938,7 +2111,7 @@ class TestDistribuicaoH0018:
         dist = _dist_canonica()
         del dist["colunas"]["largura"]
         bar = {"distribuicao": dist, "chips": chips}
-        linhas = _linhas_barra(bar, 39)
+        linhas = _linhas_barra(bar, _ESTILO_CURVA, 39)
         self._r(
             "colunas.largura ausente: aceito sem erro (usa default)",
             isinstance(linhas, list) and len(linhas) >= 1,
@@ -1953,7 +2126,7 @@ class TestDistribuicaoH0018:
         bar = {"distribuicao": dist, "chips": chips}
         exc = self._espera_erro(
             "subcolunas.chip.alinhamento='centro' -> RenderizadorErro",
-            lambda: _linhas_barra(bar, 39),
+            lambda: _linhas_barra(bar, _ESTILO_CURVA, 39),
         )
         if exc is not None:
             self._r(
@@ -1969,7 +2142,7 @@ class TestDistribuicaoH0018:
         bar = {"distribuicao": dist, "chips": chips}
         exc = self._espera_erro(
             "subcolunas.texto.alinhamento='direita' -> RenderizadorErro",
-            lambda: _linhas_barra(bar, 39),
+            lambda: _linhas_barra(bar, _ESTILO_CURVA, 39),
         )
         if exc is not None:
             self._r(
@@ -1986,7 +2159,7 @@ class TestDistribuicaoH0018:
         bar = {"distribuicao": dist, "chips": chips}
         exc = self._espera_erro(
             "overflow.nao_omitir_chips=false -> RenderizadorErro",
-            lambda: _linhas_barra(bar, 39),
+            lambda: _linhas_barra(bar, _ESTILO_CURVA, 39),
         )
         if exc is not None:
             self._r(
@@ -2002,7 +2175,7 @@ class TestDistribuicaoH0018:
         bar = {"distribuicao": dist, "chips": chips}
         exc = self._espera_erro(
             "overflow.nao_truncar_texto=false -> RenderizadorErro",
-            lambda: _linhas_barra(bar, 39),
+            lambda: _linhas_barra(bar, _ESTILO_CURVA, 39),
         )
         if exc is not None:
             self._r(
@@ -2018,7 +2191,7 @@ class TestDistribuicaoH0018:
         bar = {"distribuicao": dist, "chips": chips}
         exc = self._espera_erro(
             "overflow.nao_reordenar=false -> RenderizadorErro",
-            lambda: _linhas_barra(bar, 39),
+            lambda: _linhas_barra(bar, _ESTILO_CURVA, 39),
         )
         if exc is not None:
             self._r(
@@ -2035,7 +2208,7 @@ class TestDistribuicaoH0018:
         bar = {"distribuicao": dist, "chips": chips}
         exc = self._espera_erro(
             "preenchimento='coluna_a_coluna' ausente em suportados -> RenderizadorErro",
-            lambda: _linhas_barra(bar, 39),
+            lambda: _linhas_barra(bar, _ESTILO_CURVA, 39),
         )
         if exc is not None:
             self._r(
@@ -2053,7 +2226,7 @@ class TestDistribuicaoH0018:
         bar = {"distribuicao": dist, "chips": chips}
         exc = self._espera_erro(
             "margem=50 com content_w=39 -> erro_layout (largura_util=-61)",
-            lambda: _linhas_barra(bar, 39),
+            lambda: _linhas_barra(bar, _ESTILO_CURVA, 39),
         )
         if exc is not None:
             self._r(
@@ -2070,7 +2243,7 @@ class TestDistribuicaoH0018:
         bar = {"distribuicao": dist, "chips": chips}
         # single=19+2+18=39>37 (largura_util) -> multilinha K=2: max=19<=37 -> 2 linhas
         try:
-            linhas = _linhas_barra(bar, 39)
+            linhas = _linhas_barra(bar, _ESTILO_CURVA, 39)
             self._r(
                 "vao_chip_texto=10: resultado deterministico (multilinha, nao silencio)",
                 isinstance(linhas, list) and len(linhas) >= 1,
@@ -2096,7 +2269,7 @@ class TestDistribuicaoH0018:
         bar = {"distribuicao": dist, "chips": chips}
         # single=10+20+9=39>18 (largura_util com content_w=20) -> multilinha K=2: max=10<=18 -> 2l
         try:
-            linhas = _linhas_barra(bar, 20)
+            linhas = _linhas_barra(bar, _ESTILO_CURVA, 20)
             self._r(
                 "vao_entre_chips=20: resultado deterministico (multilinha, nao silencio)",
                 isinstance(linhas, list) and len(linhas) >= 1,
@@ -2118,7 +2291,7 @@ class TestDistribuicaoH0018:
         bar = {"distribuicao": dist, "chips": chips}
         exc = self._espera_erro(
             "vao_entre_chips.maximo < minimo -> RenderizadorErro",
-            lambda: _linhas_barra(bar, 39),
+            lambda: _linhas_barra(bar, _ESTILO_CURVA, 39),
         )
         if exc is not None:
             self._r(
@@ -2135,7 +2308,7 @@ class TestDistribuicaoH0018:
         bar = {"distribuicao": dist, "chips": chips}
         exc = self._espera_erro(
             "vao_entre_colunas.maximo < minimo -> RenderizadorErro",
-            lambda: _linhas_barra(bar, 39),
+            lambda: _linhas_barra(bar, _ESTILO_CURVA, 39),
         )
         if exc is not None:
             self._r(
@@ -2151,7 +2324,7 @@ class TestDistribuicaoH0018:
         bar = {"distribuicao": dist, "chips": chips}
         exc = self._espera_erro(
             "vao_entre_chips.maximo nao-int -> RenderizadorErro",
-            lambda: _linhas_barra(bar, 39),
+            lambda: _linhas_barra(bar, _ESTILO_CURVA, 39),
         )
         if exc is not None:
             self._r(
@@ -2165,7 +2338,7 @@ class TestDistribuicaoH0018:
         dist = _dist_canonica()
         dist["espacamentos"]["vao_entre_colunas"]["maximo"] = None
         bar = {"distribuicao": dist, "chips": chips}
-        linhas = _linhas_barra(bar, 39)
+        linhas = _linhas_barra(bar, _ESTILO_CURVA, 39)
         self._r(
             "vao_entre_colunas.maximo=None: aceito sem erro",
             isinstance(linhas, list) and len(linhas) >= 1,
@@ -2179,7 +2352,7 @@ class TestDistribuicaoH0018:
         bar = {"distribuicao": dist, "chips": chips}
         exc = self._espera_erro(
             "tentativa_inicial='multilinha_primeiro' -> RenderizadorErro",
-            lambda: _linhas_barra(bar, 39),
+            lambda: _linhas_barra(bar, _ESTILO_CURVA, 39),
         )
         if exc is not None:
             self._r(
@@ -2195,7 +2368,7 @@ class TestDistribuicaoH0018:
         bar = {"distribuicao": dist, "chips": chips}
         exc = self._espera_erro(
             "quebra='truncar' -> RenderizadorErro",
-            lambda: _linhas_barra(bar, 39),
+            lambda: _linhas_barra(bar, _ESTILO_CURVA, 39),
         )
         if exc is not None:
             self._r(
@@ -2210,7 +2383,7 @@ class TestDistribuicaoH0018:
         dist["tentativa_inicial"] = "linha_unica"
         dist["quebra"] = "multilinha_quando_nao_couber"
         bar = {"distribuicao": dist, "chips": chips}
-        linhas = _linhas_barra(bar, 39)
+        linhas = _linhas_barra(bar, _ESTILO_CURVA, 39)
         self._r(
             "tentativa_inicial='linha_unica' e quebra='multilinha_quando_nao_couber': aceitos",
             isinstance(linhas, list) and len(linhas) >= 1,
@@ -2310,8 +2483,8 @@ class TestArranjoH0019:
         """None -> comportamento vertical atual preservado."""
         modelo_none = _modelo_horizontal(None, [("console", "A"), ("console", "B")])
         modelo_vert = _modelo_horizontal("vertical", [("console", "A"), ("console", "B")])
-        saida_none = renderizar_tela(modelo_none, largura=42)
-        saida_vert = renderizar_tela(modelo_vert, largura=42)
+        saida_none = renderizar_tela(modelo_none, _ESTILO_CURVA, largura=42)
+        saida_vert = renderizar_tela(modelo_vert, _ESTILO_CURVA, largura=42)
         self._r(
             "arranjo=None -> saida identica a arranjo='vertical'",
             saida_none == saida_vert,
@@ -2332,8 +2505,8 @@ class TestArranjoH0019:
         modelo_vert = _modelo_horizontal("vertical", [("console", "A"), ("dashboard", "B")])
         self._r(
             "arranjo='vertical' == arranjo=None",
-            renderizar_tela(modelo_none, largura=42)
-            == renderizar_tela(modelo_vert, largura=42),
+            renderizar_tela(modelo_none, _ESTILO_CURVA, largura=42)
+            == renderizar_tela(modelo_vert, _ESTILO_CURVA, largura=42),
         )
 
     def test_arranjo_sobreposto_preserva_vertical(self):
@@ -2342,8 +2515,8 @@ class TestArranjoH0019:
         modelo_sob = _modelo_horizontal("sobreposto", [("console", "A")])
         self._r(
             "arranjo='sobreposto' -> saida identica a 'vertical'",
-            renderizar_tela(modelo_vert, largura=42)
-            == renderizar_tela(modelo_sob, largura=42),
+            renderizar_tela(modelo_vert, _ESTILO_CURVA, largura=42)
+            == renderizar_tela(modelo_sob, _ESTILO_CURVA, largura=42),
         )
 
     def test_arranjo_horizontal_dois_elementos(self):
@@ -2351,9 +2524,8 @@ class TestArranjoH0019:
         dist = {"modo": "igual"}
         modelo = _modelo_horizontal("horizontal", [("console", "A"), ("console", "B")],
                                     distribuicao=dist)
-        saida_h = renderizar_tela(modelo, largura=42)
-        saida_v = renderizar_tela(
-            _modelo_horizontal("vertical", [("console", "A"), ("console", "B")]),
+        saida_h = renderizar_tela(modelo, _ESTILO_CURVA, largura=42)
+        saida_v = renderizar_tela(_modelo_horizontal("vertical", [("console", "A"), ("console", "B")]), _ESTILO_CURVA,
             largura=42,
         )
         self._r(
@@ -2379,15 +2551,15 @@ class TestArranjoH0019:
                                       distribuicao=dist)
         self._r(
             "arranjo='lado_a_lado' == arranjo='horizontal'",
-            renderizar_tela(modelo_h, largura=42)
-            == renderizar_tela(modelo_l, largura=42),
+            renderizar_tela(modelo_h, _ESTILO_CURVA, largura=42)
+            == renderizar_tela(modelo_l, _ESTILO_CURVA, largura=42),
         )
 
     def test_arranjo_horizontal_areas_contiguas(self):
         """horizontal: bordas adjacentes coladas (││, ╮╭, ╯╰); largura total preservada."""
         modelo = _modelo_horizontal("horizontal", [("console", "A"), ("console", "B")],
                                     largura=42, distribuicao={"modo": "igual"})
-        saida = renderizar_tela(modelo, largura=42)
+        saida = renderizar_tela(modelo, _ESTILO_CURVA, largura=42)
         # Extrair apenas o bloco do corpo (linhas entre cabecalho e barra)
         linhas = [ln for ln in saida.split("\n") if ln != ""]
         linhas_corpo = [ln for ln in linhas
@@ -2439,7 +2611,7 @@ class TestArranjoH0019:
             largura=100,
             distribuicao={"modo": "igual"},
         )
-        saida = renderizar_tela(modelo, largura=100)
+        saida = renderizar_tela(modelo, _ESTILO_CURVA, largura=100)
         linhas_nao_vazias = [ln for ln in saida.split("\n") if ln != ""]
         self._r(
             "horizontal: todas as linhas tem exatamente 100 chars (sum(larguras)==100)",
@@ -2476,7 +2648,7 @@ class TestArranjoH0019:
             largura=42,
             distribuicao={"modo": "igual"},
         )
-        saida = renderizar_tela(modelo, largura=42)
+        saida = renderizar_tela(modelo, _ESTILO_CURVA, largura=42)
         linhas_nao_vazias = [ln for ln in saida.split("\n") if ln != ""]
         # O bloco horizontal deve ter 3 linhas (max entre 3 e 2)
         # e cada linha deve ter 42 chars (padding aplicado na area B)
@@ -2500,7 +2672,7 @@ class TestArranjoH0019:
                                     distribuicao={"modo": "igual"})
         exc = self._espera_erro(
             "horizontal: largura=18 para 2 elementos -> RenderizadorErro",
-            lambda: renderizar_tela(modelo, largura=18),
+            lambda: renderizar_tela(modelo, _ESTILO_CURVA, largura=18),
         )
         if exc is not None:
             self._r(
@@ -2522,7 +2694,7 @@ class TestArranjoH0019:
             largura=42,
             distribuicao={"modo": "igual"},
         )
-        saida = renderizar_tela(modelo, largura=42)
+        saida = renderizar_tela(modelo, _ESTILO_CURVA, largura=42)
         self._r(
             "horizontal: 3 elementos -> '╮╭' aparece 2 vezes (3 areas contiguas)",
             saida.count("╮╭") >= 2,
@@ -2541,7 +2713,7 @@ class TestArranjoH0019:
             largura=42,
             distribuicao={"modo": "igual"},
         )
-        saida = renderizar_tela(modelo, largura=42, altura=40)
+        saida = renderizar_tela(modelo, _ESTILO_CURVA, largura=42, altura=40)
         self._r(
             "horizontal: altura=40 -> saida tem exatamente 40 linhas",
             saida.count("\n") == 40,
@@ -2564,7 +2736,7 @@ class TestArranjoH0019:
             largura=42,
             distribuicao={"modo": "igual"},
         )
-        saida = renderizar_tela(modelo, largura=42)
+        saida = renderizar_tela(modelo, _ESTILO_CURVA, largura=42)
         self._r(
             "horizontal: barra_de_menus aparece na saida",
             "╭ Menus" in saida,
@@ -2577,7 +2749,7 @@ class TestArranjoH0019:
         # com chips do JSON do orquestrador continua funcionando
         tela_raw = carregar_tela(_BASE_PADRAO, "demo", _RAIZ_TELAS_DEMO)
         modelo_orc = construir_modelo(tela_raw)
-        saida_orc = renderizar_tela(modelo_orc, largura=42)
+        saida_orc = renderizar_tela(modelo_orc, _ESTILO_CURVA, largura=42)
         self._r(
             "horizontal: barra_de_menus do demo inalterada pos-H0019",
             "[Esc] Sair" in saida_orc and "[?] Ajuda" in saida_orc,
@@ -2586,7 +2758,7 @@ class TestArranjoH0019:
     def test_arranjo_horizontal_n1(self):
         """horizontal: N=1 -> renderizar na largura total (sem particionamento). (A-002)."""
         modelo = _modelo_horizontal("horizontal", [("console", "A")], largura=42)
-        saida = renderizar_tela(modelo, largura=42)
+        saida = renderizar_tela(modelo, _ESTILO_CURVA, largura=42)
         self._r(
             "horizontal N=1: renderiza sem erro",
             isinstance(saida, str) and len(saida) > 0,
@@ -2642,8 +2814,18 @@ class TestPreenchimentoVerticalH0020:
                                   distribuicao=distribuicao)
 
     def _borda(self):
-        from tela.renderizador import _BORDAS
-        return _BORDAS["curva"]
+        # H-0039: _BORDAS foi removido; o dict interno de borda derivado do
+        # EstiloResolvido usa as chaves consumidas pelas helpers (incluindo
+        # h_superior/h_inferior distintos).
+        return {
+            "tl": _ESTILO_CURVA.canto_superior_esquerdo,
+            "tr": _ESTILO_CURVA.canto_superior_direito,
+            "bl": _ESTILO_CURVA.canto_inferior_esquerdo,
+            "br": _ESTILO_CURVA.canto_inferior_direito,
+            "v": _ESTILO_CURVA.lateral,
+            "h_superior": _ESTILO_CURVA.traco_superior,
+            "h_inferior": _ESTILO_CURVA.traco_inferior,
+        }
 
     def _corpo_linhas(self, saida):
         """Linhas entre o cabeçalho (3 linhas) e a barra_de_menus."""
@@ -2658,7 +2840,7 @@ class TestPreenchimentoVerticalH0020:
         modelo = self._modelo("horizontal", [("console", "A"), ("console", "B")],
                               distribuicao={"modo": "igual"})
         altura = 30
-        saida = renderizar_tela(modelo, largura=42, altura=altura)
+        saida = renderizar_tela(modelo, _ESTILO_CURVA, largura=42, altura=altura)
         self._r(
             "H0020-1: horizontal altura=30 -> total linhas == 30",
             saida.count("\n") == altura,
@@ -2712,7 +2894,7 @@ class TestPreenchimentoVerticalH0020:
         modelo = self._modelo("horizontal", [("console", "A"), ("console", "B")],
                               distribuicao={"modo": "igual"})
         altura = 40
-        saida = renderizar_tela(modelo, largura=42, altura=altura)
+        saida = renderizar_tela(modelo, _ESTILO_CURVA, largura=42, altura=altura)
         l_corpo_disponivel = altura - 3 - 3  # 34
         corpo = self._corpo_linhas(saida)
         self._r(
@@ -2737,7 +2919,7 @@ class TestPreenchimentoVerticalH0020:
         """Bordas ││ e ╮╭ presentes nas linhas estruturais (topo/conteúdo/base)."""
         modelo = self._modelo("horizontal", [("console", "A"), ("console", "B")],
                               distribuicao={"modo": "igual"})
-        saida = renderizar_tela(modelo, largura=42, altura=25)
+        saida = renderizar_tela(modelo, _ESTILO_CURVA, largura=42, altura=25)
         self._r(
             "H0020-4: '││' presente nas linhas de conteúdo do bloco horizontal",
             "││" in saida,
@@ -2761,7 +2943,7 @@ class TestPreenchimentoVerticalH0020:
         modelo = self._modelo("horizontal", [("console", "A"), ("console", "B")],
                               distribuicao={"modo": "igual"})
         altura = 20
-        saida = renderizar_tela(modelo, largura=42, altura=altura)
+        saida = renderizar_tela(modelo, _ESTILO_CURVA, largura=42, altura=altura)
         linhas_nv = [ln for ln in saida.split("\n") if ln != ""]
         self._r(
             "H0020-5: altura=20 -> 20 linhas",
@@ -2798,7 +2980,7 @@ class TestPreenchimentoVerticalH0020:
             "horizontal", [("console", "A"), ("dashboard", "B")],
             distribuicao={"modo": "igual"},
         )
-        saida = renderizar_tela(modelo, largura=42, altura=25)
+        saida = renderizar_tela(modelo, _ESTILO_CURVA, largura=42, altura=25)
         self._r(
             "H0020-6: renderizar_tela altura=25 -> 25 linhas",
             saida.count("\n") == 25,
@@ -2809,7 +2991,7 @@ class TestPreenchimentoVerticalH0020:
         """vertical: DA-01 (ADR-0024) - unico visual ocupa area integral."""
         modelo = self._modelo("vertical", [("console", "A")])
         altura = 20
-        saida = renderizar_tela(modelo, largura=42, altura=altura)
+        saida = renderizar_tela(modelo, _ESTILO_CURVA, largura=42, altura=altura)
         self._r(
             "H0020-7: vertical altura=20 -> 20 linhas",
             saida.count("\n") == altura,
@@ -2834,8 +3016,8 @@ class TestPreenchimentoVerticalH0020:
         """sobreposto: alias de vertical, comportamento idêntico."""
         modelo_v = self._modelo("vertical", [("console", "A")])
         modelo_s = self._modelo("sobreposto", [("console", "A")])
-        saida_v = renderizar_tela(modelo_v, largura=42, altura=20)
-        saida_s = renderizar_tela(modelo_s, largura=42, altura=20)
+        saida_v = renderizar_tela(modelo_v, _ESTILO_CURVA, largura=42, altura=20)
+        saida_s = renderizar_tela(modelo_s, _ESTILO_CURVA, largura=42, altura=20)
         self._r(
             "H0020-8: sobreposto == vertical (alias preservado)",
             saida_v == saida_s,
@@ -2850,8 +3032,8 @@ class TestPreenchimentoVerticalH0020:
         """None: equivale a vertical, fill externo H-0015 intacto."""
         modelo_n = self._modelo(None, [("console", "A")])
         modelo_v = self._modelo("vertical", [("console", "A")])
-        saida_n = renderizar_tela(modelo_n, largura=42, altura=20)
-        saida_v = renderizar_tela(modelo_v, largura=42, altura=20)
+        saida_n = renderizar_tela(modelo_n, _ESTILO_CURVA, largura=42, altura=20)
+        saida_v = renderizar_tela(modelo_v, _ESTILO_CURVA, largura=42, altura=20)
         self._r(
             "H0020-9: None == vertical (comportamento preservado)",
             saida_n == saida_v,
@@ -2870,8 +3052,8 @@ class TestPreenchimentoVerticalH0020:
         modelo_l = self._modelo("lado_a_lado", [("console", "A"), ("console", "B")],
                                 distribuicao=dist)
         altura = 25
-        saida_h = renderizar_tela(modelo_h, largura=42, altura=altura)
-        saida_l = renderizar_tela(modelo_l, largura=42, altura=altura)
+        saida_h = renderizar_tela(modelo_h, _ESTILO_CURVA, largura=42, altura=altura)
+        saida_l = renderizar_tela(modelo_l, _ESTILO_CURVA, largura=42, altura=altura)
         self._r(
             "H0020-10: lado_a_lado == horizontal com fill vertical interno",
             saida_h == saida_l,
@@ -2908,7 +3090,7 @@ class TestPreenchimentoVerticalH0020:
         # Via renderizar_tela com distribuicao valida (DA-02: multiplos elementos requerem distribuicao)
         modelo = self._modelo("horizontal", [("console", "A"), ("dashboard", "B")],
                               distribuicao={"modo": "igual"})
-        saida_sem = renderizar_tela(modelo, largura=42)
+        saida_sem = renderizar_tela(modelo, _ESTILO_CURVA, largura=42)
         # TestArranjoH0019.test_arranjo_horizontal_padding_inferior continua passando
         linhas_nv = [ln for ln in saida_sem.split("\n") if ln != ""]
         self._r(
@@ -2921,7 +3103,7 @@ class TestPreenchimentoVerticalH0020:
         """Barra de menus com chips corretos; funções protegidas intactas."""
         modelo = self._modelo("horizontal", [("console", "A"), ("console", "B")],
                               distribuicao={"modo": "igual"})
-        saida = renderizar_tela(modelo, largura=42, altura=25)
+        saida = renderizar_tela(modelo, _ESTILO_CURVA, largura=42, altura=25)
         self._r(
             "H0020-12: barra presente na saida horizontal com altura",
             "╭ Menus" in saida,
@@ -2933,7 +3115,7 @@ class TestPreenchimentoVerticalH0020:
         # Verificar orquestrador (usa _normalizar_distribuicao, _linhas_barra)
         tela_raw = carregar_tela(_BASE_PADRAO, "demo", _RAIZ_TELAS_DEMO)
         modelo_orc = construir_modelo(tela_raw)
-        saida_orc = renderizar_tela(modelo_orc, largura=42)
+        saida_orc = renderizar_tela(modelo_orc, _ESTILO_CURVA, largura=42)
         self._r(
             "H0020-12: barra demo inalterada (funções protegidas intactas)",
             "[Esc] Sair" in saida_orc and "[?] Ajuda" in saida_orc,
@@ -2977,8 +3159,18 @@ class TestPreenchimentoBordeadoH0021:
         return _modelo_horizontal(arranjo, specs, largura=largura, titulo_cab="H0021")
 
     def _borda(self):
-        from tela.renderizador import _BORDAS
-        return _BORDAS["curva"]
+        # H-0039: _BORDAS foi removido; o dict interno de borda derivado do
+        # EstiloResolvido usa as chaves consumidas pelas helpers (incluindo
+        # h_superior/h_inferior distintos).
+        return {
+            "tl": _ESTILO_CURVA.canto_superior_esquerdo,
+            "tr": _ESTILO_CURVA.canto_superior_direito,
+            "bl": _ESTILO_CURVA.canto_inferior_esquerdo,
+            "br": _ESTILO_CURVA.canto_inferior_direito,
+            "v": _ESTILO_CURVA.lateral,
+            "h_superior": _ESTILO_CURVA.traco_superior,
+            "h_inferior": _ESTILO_CURVA.traco_inferior,
+        }
 
     # ---------------------------------------------------------------------- 1
     def test_horizontal_fill_bordeado_orquestrador_json(self):
@@ -2986,7 +3178,7 @@ class TestPreenchimentoBordeadoH0021:
         tela_raw = carregar_tela(_BASE_PADRAO, "demo", _RAIZ_TELAS_DEMO)
         tela_raw["corpo"]["arranjo"] = "horizontal"
         modelo = construir_modelo(tela_raw)
-        saida = renderizar_tela(modelo, tipo_borda="curva", largura=80, altura=30)
+        saida = renderizar_tela(modelo, estilo=_ESTILO_CURVA, largura=80, altura=30)
 
         # l_cab=3, l_corpo_disponivel=24, l_barra=3
         linhas = saida.split("\n")
@@ -3020,13 +3212,13 @@ class TestPreenchimentoBordeadoH0021:
         tela_raw_h = carregar_tela(_BASE_PADRAO, "demo", _RAIZ_TELAS_DEMO)
         tela_raw_h["corpo"]["arranjo"] = "horizontal"
         saida_h = renderizar_tela(
-            construir_modelo(tela_raw_h), tipo_borda="curva", largura=80, altura=30
+            construir_modelo(tela_raw_h), estilo=_ESTILO_CURVA, largura=80, altura=30
         )
 
         tela_raw_l = carregar_tela(_BASE_PADRAO, "demo", _RAIZ_TELAS_DEMO)
         tela_raw_l["corpo"]["arranjo"] = "lado_a_lado"
         saida_l = renderizar_tela(
-            construir_modelo(tela_raw_l), tipo_borda="curva", largura=80, altura=30
+            construir_modelo(tela_raw_l), estilo=_ESTILO_CURVA, largura=80, altura=30
         )
 
         self._r(
@@ -3196,7 +3388,7 @@ class TestPreenchimentoBordeadoH0021:
         tela_raw = carregar_tela(_BASE_PADRAO, "demo", _RAIZ_TELAS_DEMO)
         tela_raw["corpo"]["arranjo"] = "horizontal"
         modelo = construir_modelo(tela_raw)
-        saida = renderizar_tela(modelo, tipo_borda="curva", largura=80, altura=30)
+        saida = renderizar_tela(modelo, estilo=_ESTILO_CURVA, largura=80, altura=30)
 
         self._r("H0021-8: '╭ ITENS' presente (console_principal)", "╭ ITENS" in saida)
         self._r("H0021-8: '╭ INFO' presente (dashboard_info)", "╭ INFO" in saida)
@@ -3249,7 +3441,7 @@ class TestPreenchimentoBordeadoH0021:
         # igual a _EXPECTED_ORQUESTRADOR (comportamento orientado pelo conteudo).
         tela_raw = carregar_tela(_BASE_PADRAO, "demo", _RAIZ_TELAS_DEMO)
         modelo = construir_modelo(tela_raw)  # arranjo=vertical (padrao do JSON)
-        saida = renderizar_tela(modelo, largura=42)
+        saida = renderizar_tela(modelo, _ESTILO_CURVA, largura=42)
         self._r(
             "H0021-10: vertical sem altura preserva _EXPECTED_ORQUESTRADOR",
             saida == _EXPECTED_ORQUESTRADOR,
@@ -3259,7 +3451,7 @@ class TestPreenchimentoBordeadoH0021:
         modelo_sd = _modelo_orquestrador_sem_distribuicao()
         excecao_da02 = None
         try:
-            renderizar_tela(modelo_sd, largura=42, altura=24)
+            renderizar_tela(modelo_sd, _ESTILO_CURVA, largura=42, altura=24)
         except RenderizadorErro as exc:
             excecao_da02 = exc
         self._r(
@@ -3273,8 +3465,8 @@ class TestPreenchimentoBordeadoH0021:
         """arranjo=sobreposto (alias de vertical) sem regressao."""
         modelo_v = _modelo_horizontal("vertical", [("console", "A")])
         modelo_s = _modelo_horizontal("sobreposto", [("console", "A")])
-        saida_v = renderizar_tela(modelo_v, largura=42, altura=20)
-        saida_s = renderizar_tela(modelo_s, largura=42, altura=20)
+        saida_v = renderizar_tela(modelo_v, _ESTILO_CURVA, largura=42, altura=20)
+        saida_s = renderizar_tela(modelo_s, _ESTILO_CURVA, largura=42, altura=20)
         self._r(
             "H0021-11: sobreposto == vertical (alias preservado)",
             saida_v == saida_s,
@@ -3289,8 +3481,8 @@ class TestPreenchimentoBordeadoH0021:
         """arranjo=None equivale a vertical, sem regressao."""
         modelo_n = _modelo_horizontal(None, [("console", "A")])
         modelo_v = _modelo_horizontal("vertical", [("console", "A")])
-        saida_n = renderizar_tela(modelo_n, largura=42, altura=20)
-        saida_v = renderizar_tela(modelo_v, largura=42, altura=20)
+        saida_n = renderizar_tela(modelo_n, _ESTILO_CURVA, largura=42, altura=20)
+        saida_v = renderizar_tela(modelo_v, _ESTILO_CURVA, largura=42, altura=20)
         self._r(
             "H0021-12: None == vertical (preservado)",
             saida_n == saida_v,
@@ -3306,7 +3498,7 @@ class TestPreenchimentoBordeadoH0021:
         tela_raw = carregar_tela(_BASE_PADRAO, "demo", _RAIZ_TELAS_DEMO)
         tela_raw["corpo"]["arranjo"] = "horizontal"
         modelo = construir_modelo(tela_raw)
-        saida = renderizar_tela(modelo, tipo_borda="curva", largura=80, altura=30)
+        saida = renderizar_tela(modelo, estilo=_ESTILO_CURVA, largura=80, altura=30)
 
         self._r("H0021-13: '╭ Menus' presente na saida horizontal", "╭ Menus" in saida)
         self._r("H0021-13: '[Esc] Sair' presente na barra", "[Esc] Sair" in saida)
@@ -3540,7 +3732,7 @@ class TestDistribuicaoVerticalH0025:
     # ----------------------------------------------------- ausencia (D2)
     def test_ausencia_preserva_altura_natural_sem_cota(self):
         modelo = self._modelo_sem_dist()
-        saida_none = renderizar_tela(modelo, largura=42)
+        saida_none = renderizar_tela(modelo, _ESTILO_CURVA, largura=42)
         corpo_none = _corpo_alturas(saida_none)
         # Cada console natural = 3 linhas (topo + "(console)" + base).
         self._r(
@@ -3552,7 +3744,7 @@ class TestDistribuicaoVerticalH0025:
         # e invalida (fill externo proibido pelo ADR-0024).
         excecao_da02 = None
         try:
-            renderizar_tela(modelo, largura=42, altura=24)
+            renderizar_tela(modelo, _ESTILO_CURVA, largura=42, altura=24)
         except RenderizadorErro as exc:
             excecao_da02 = exc
         self._r(
@@ -3572,7 +3764,7 @@ class TestDistribuicaoVerticalH0025:
     def test_igual_explicito_divide_igualmente(self):
         modelo = self._modelo_dist({"modo": "igual"})
         # l_cab=3, l_barra=3, l_corpo_disponivel = 24-3-3 = 18 -> [6,6,6].
-        saida = renderizar_tela(modelo, largura=42, altura=24)
+        saida = renderizar_tela(modelo, _ESTILO_CURVA, largura=42, altura=24)
         corpo = _corpo_alturas(saida)
         self._r(
             "igual explicito em altura=24 -> [6,6,6]",
@@ -3583,7 +3775,7 @@ class TestDistribuicaoVerticalH0025:
     def test_igual_explicito_maiores_restos(self):
         modelo = self._modelo_dist({"modo": "igual"})
         # altura=16 -> l_corpo=10 -> [4,3,3] (maiores restos + ordem).
-        saida = renderizar_tela(modelo, largura=42, altura=16)
+        saida = renderizar_tela(modelo, _ESTILO_CURVA, largura=42, altura=16)
         corpo = _corpo_alturas(saida)
         self._r(
             "igual explicito em altura=16 -> [4,3,3] (maiores restos)",
@@ -3595,7 +3787,7 @@ class TestDistribuicaoVerticalH0025:
         modelo = self._modelo_dist(
             {"modo": "percentual", "valores": [40, 20, 40]}
         )
-        saida = renderizar_tela(modelo, largura=42, altura=24)
+        saida = renderizar_tela(modelo, _ESTILO_CURVA, largura=42, altura=24)
         corpo = _corpo_alturas(saida)
         self._r(
             "percentual [40,20,40] em altura=24 -> [7,4,7] (proporcao)",
@@ -3605,7 +3797,7 @@ class TestDistribuicaoVerticalH0025:
 
     def test_fracao_111(self):
         modelo = self._modelo_dist({"modo": "fracao", "valores": [1, 1, 1]})
-        saida = renderizar_tela(modelo, largura=42, altura=24)
+        saida = renderizar_tela(modelo, _ESTILO_CURVA, largura=42, altura=24)
         corpo = _corpo_alturas(saida)
         self._r(
             "fracao [1,1,1] em altura=24 -> [6,6,6] (pesos iguais)",
@@ -3615,7 +3807,7 @@ class TestDistribuicaoVerticalH0025:
 
     def test_fracao_212(self):
         modelo = self._modelo_dist({"modo": "fracao", "valores": [2, 1, 2]})
-        saida = renderizar_tela(modelo, largura=42, altura=24)
+        saida = renderizar_tela(modelo, _ESTILO_CURVA, largura=42, altura=24)
         corpo = _corpo_alturas(saida)
         self._r(
             "fracao [2,1,2] em altura=24 -> [7,4,7] (proporcao 2:1:2)",
@@ -3627,7 +3819,7 @@ class TestDistribuicaoVerticalH0025:
         # [1,3,1] e [5,2,7] pelo mesmo codigo generico (sem especializacao).
         modelo_131 = self._modelo_dist({"modo": "fracao", "valores": [1, 3, 1]})
         corpo_131 = _corpo_alturas(
-            renderizar_tela(modelo_131, largura=42, altura=24)
+            renderizar_tela(modelo_131, _ESTILO_CURVA, largura=42, altura=24)
         )
         self._r(
             "fracao [1,3,1] em altura=24 -> [4,11,3] soma 18",
@@ -3636,7 +3828,7 @@ class TestDistribuicaoVerticalH0025:
         )
         modelo_527 = self._modelo_dist({"modo": "fracao", "valores": [5, 2, 7]})
         corpo_527 = _corpo_alturas(
-            renderizar_tela(modelo_527, largura=42, altura=24)
+            renderizar_tela(modelo_527, _ESTILO_CURVA, largura=42, altura=24)
         )
         self._r(
             "fracao [5,2,7] em altura=24 -> soma 18",
@@ -3654,7 +3846,7 @@ class TestDistribuicaoVerticalH0025:
             {"modo": "percentual", "valores": [40, 20, 40]},
         ]:
             modelo = self._modelo_dist(dist)
-            saida = renderizar_tela(modelo, largura=42, altura=24)
+            saida = renderizar_tela(modelo, _ESTILO_CURVA, largura=42, altura=24)
             corpo = _corpo_alturas(saida)
             self._r(
                 "soma cotas == l_corpo_disponivel (18) para {0}".format(dist),
@@ -3664,7 +3856,7 @@ class TestDistribuicaoVerticalH0025:
 
     def test_sem_sobra_externa_abaixo_do_ultimo_filho(self):
         modelo = self._modelo_dist({"modo": "fracao", "valores": [2, 1, 2]})
-        saida = renderizar_tela(modelo, largura=42, altura=24)
+        saida = renderizar_tela(modelo, _ESTILO_CURVA, largura=42, altura=24)
         linhas = saida.split("\n")
         # Localizar a ultima caixa do corpo (C) e a caixa Menus.
         idx_ultimo_topo = max(i for i, ln in enumerate(linhas) if ln.startswith("╭ C"))
@@ -3681,7 +3873,7 @@ class TestDistribuicaoVerticalH0025:
     # -------------------------------------------------- preenchimento interno
     def test_preenchimento_interno_moldura_ocupa_cota(self):
         modelo = self._modelo_dist({"modo": "fracao", "valores": [2, 1, 2]})
-        saida = renderizar_tela(modelo, largura=42, altura=24)
+        saida = renderizar_tela(modelo, _ESTILO_CURVA, largura=42, altura=24)
         corpo = _corpo_alturas(saida)
         # cota do primeiro filho (7) > altura natural do console (3).
         self._r(
@@ -3716,7 +3908,7 @@ class TestDistribuicaoVerticalH0025:
         )
         # H-0037: com 11 itens no lancador, NAVEGAR requer >= 10 linhas; a
         # fracao [2,1,2] sobre l_corpo=25 (altura=31) -> [10,5,10].
-        saida = renderizar_tela(modelo, largura=42, altura=31)
+        saida = renderizar_tela(modelo, _ESTILO_CURVA, largura=42, altura=31)
         corpo = _corpo_alturas(saida)
         # l_corpo_disponivel=25 -> [10,5,10] para ITENS/INFO/NAVEGAR.
         self._r(
@@ -3739,7 +3931,7 @@ class TestDistribuicaoVerticalH0025:
 
     def test_json_real_sem_altura_preserva_conteudo_natural(self):
         modelo = construir_modelo(carregar_tela(_BASE_PADRAO, "demo", _RAIZ_TELAS_DEMO))
-        saida = renderizar_tela(modelo, largura=42)
+        saida = renderizar_tela(modelo, _ESTILO_CURVA, largura=42)
         self._r(
             "JSON real: sem altura preserva _EXPECTED_ORQUESTRADOR (natural)",
             saida == _EXPECTED_ORQUESTRADOR,
@@ -3748,8 +3940,8 @@ class TestDistribuicaoVerticalH0025:
     # ----------------------------------------------------- redimensionamento
     def test_redimensionamento_recalcula_cotas(self):
         modelo = self._modelo_dist({"modo": "fracao", "valores": [2, 1, 2]})
-        saida_24 = renderizar_tela(modelo, largura=42, altura=24)
-        saida_30 = renderizar_tela(modelo, largura=42, altura=30)
+        saida_24 = renderizar_tela(modelo, _ESTILO_CURVA, largura=42, altura=24)
+        saida_30 = renderizar_tela(modelo, _ESTILO_CURVA, largura=42, altura=30)
         corpo_24 = _corpo_alturas(saida_24)
         corpo_30 = _corpo_alturas(saida_30)
         # altura=24 -> l_corpo=18 -> [7,4,7]; altura=30 -> l_corpo=24 -> [10,5,9]?
@@ -3802,7 +3994,7 @@ class TestDistribuicaoVerticalH0025:
             barra_de_menus={"chips": [{"id": "c1", "tecla": "k", "texto": "Ok"}]},
             _raw={},
         )
-        saida = renderizar_tela(modelo_h, largura=42)
+        saida = renderizar_tela(modelo_h, _ESTILO_CURVA, largura=42)
         self._r(
             "horizontal + distribuicao declarada: renderiza sem erro",
             isinstance(saida, str) and len(saida) > 0,
@@ -3970,7 +4162,7 @@ class TestDistribuicaoHorizontalH0026:
         modelo = self._modelo_dist_h(
             {"modo": "percentual", "valores": [50, 50]}
         )
-        saida = renderizar_tela(modelo, largura=42)
+        saida = renderizar_tela(modelo, _ESTILO_CURVA, largura=42)
         larguras = self._larguras_das_areas(saida, ["A", "B"])
         if larguras is None:
             self._r("T01: larguras detectadas", False, "linha de topo nao achada")
@@ -3986,7 +4178,7 @@ class TestDistribuicaoHorizontalH0026:
         modelo = self._modelo_dist_h(
             {"modo": "percentual", "valores": [60, 40]}
         )
-        saida = renderizar_tela(modelo, largura=42)
+        saida = renderizar_tela(modelo, _ESTILO_CURVA, largura=42)
         larguras = self._larguras_das_areas(saida, ["A", "B"])
         if larguras is None:
             self._r("T02: larguras detectadas", False, "linha de topo nao achada")
@@ -4000,7 +4192,7 @@ class TestDistribuicaoHorizontalH0026:
     # ------------------------------------------------------------- T03 fracao [1,1]
     def test_fracao_simetrico_1_1(self):
         modelo = self._modelo_dist_h({"modo": "fracao", "valores": [1, 1]})
-        saida = renderizar_tela(modelo, largura=42)
+        saida = renderizar_tela(modelo, _ESTILO_CURVA, largura=42)
         larguras = self._larguras_das_areas(saida, ["A", "B"])
         if larguras is None:
             self._r("T03: larguras detectadas", False, "linha de topo nao achada")
@@ -4013,7 +4205,7 @@ class TestDistribuicaoHorizontalH0026:
     # ------------------------------------------------------------- T04 fracao [2,1]
     def test_fracao_assimetrico_2_1(self):
         modelo = self._modelo_dist_h({"modo": "fracao", "valores": [2, 1]})
-        saida = renderizar_tela(modelo, largura=42)
+        saida = renderizar_tela(modelo, _ESTILO_CURVA, largura=42)
         larguras = self._larguras_das_areas(saida, ["A", "B"])
         if larguras is None:
             self._r("T04: larguras detectadas", False, "linha de topo nao achada")
@@ -4028,8 +4220,8 @@ class TestDistribuicaoHorizontalH0026:
     def test_fracao_equivalencia_por_escala(self):
         modelo_21 = self._modelo_dist_h({"modo": "fracao", "valores": [2, 1]})
         modelo_42 = self._modelo_dist_h({"modo": "fracao", "valores": [4, 2]})
-        saida_21 = renderizar_tela(modelo_21, largura=42)
-        saida_42 = renderizar_tela(modelo_42, largura=42)
+        saida_21 = renderizar_tela(modelo_21, _ESTILO_CURVA, largura=42)
+        saida_42 = renderizar_tela(modelo_42, _ESTILO_CURVA, largura=42)
         larguras_21 = self._larguras_das_areas(saida_21, ["A", "B"])
         larguras_42 = self._larguras_das_areas(saida_42, ["A", "B"])
         if larguras_21 is None or larguras_42 is None:
@@ -4050,7 +4242,7 @@ class TestDistribuicaoHorizontalH0026:
         modelo = self._modelo_dist_h(
             {"modo": "fracao", "valores": [1, 1, 1]}, n=3, titulos=["A", "B", "C"],
         )
-        saida = renderizar_tela(modelo, largura=100)
+        saida = renderizar_tela(modelo, _ESTILO_CURVA, largura=100)
         larguras = self._larguras_das_areas(saida, ["A", "B", "C"])
         if larguras is None:
             self._r("T06: larguras detectadas", False, "linha de topo nao achada")
@@ -4065,7 +4257,7 @@ class TestDistribuicaoHorizontalH0026:
         modelo = self._modelo_dist_h(
             {"modo": "fracao", "valores": [1, 1, 1]}, n=3, titulos=["A", "B", "C"],
         )
-        saida = renderizar_tela(modelo, largura=101)
+        saida = renderizar_tela(modelo, _ESTILO_CURVA, largura=101)
         larguras = self._larguras_das_areas(saida, ["A", "B", "C"])
         if larguras is None:
             self._r("T07: larguras detectadas", False, "linha de topo nao achada")
@@ -4088,7 +4280,7 @@ class TestDistribuicaoHorizontalH0026:
         ]
         for dist, largura, titulos in casos:
             modelo = self._modelo_dist_h(dist, n=len(titulos), titulos=titulos)
-            saida = renderizar_tela(modelo, largura=largura)
+            saida = renderizar_tela(modelo, _ESTILO_CURVA, largura=largura)
             larguras = self._larguras_das_areas(saida, titulos)
             if larguras is None:
                 self._r(
@@ -4107,7 +4299,7 @@ class TestDistribuicaoHorizontalH0026:
         modelo = self._modelo_dist_h(
             {"modo": "fracao", "valores": [1, 1, 1]}, n=3, titulos=["A", "B", "C"],
         )
-        saida = renderizar_tela(modelo, largura=101)
+        saida = renderizar_tela(modelo, _ESTILO_CURVA, largura=101)
         self._r("T09: '╮╭' presente no topo", "╮╭" in saida)
         self._r("T09: '╯╰' presente na base", "╯╰" in saida)
         self._r("T09: '││' presente em linhas internas", "││" in saida)
@@ -4119,7 +4311,7 @@ class TestDistribuicaoHorizontalH0026:
             {"modo": "fracao", "valores": [2, 1]},
         ]:
             modelo = self._modelo_dist_h(dist)
-            saida = renderizar_tela(modelo, largura=42)
+            saida = renderizar_tela(modelo, _ESTILO_CURVA, largura=42)
             linhas_nv = [ln for ln in saida.split("\n") if ln != ""]
             self._r(
                 "T10: todas as linhas com 42 chars ({0})".format(dist),
@@ -4137,7 +4329,7 @@ class TestDistribuicaoHorizontalH0026:
         # espacos ate a borda direita). Verifica que a area A (cota 28) preenche
         # sua linha de conteudo ate completar 28 colunas.
         modelo = self._modelo_dist_h({"modo": "fracao", "valores": [2, 1]})
-        saida = renderizar_tela(modelo, largura=42)
+        saida = renderizar_tela(modelo, _ESTILO_CURVA, largura=42)
         linhas = [ln for ln in saida.split("\n") if ln != ""]
         linha_console = next(
             (ln for ln in linhas if "(console)" in ln), None
@@ -4174,7 +4366,7 @@ class TestDistribuicaoHorizontalH0026:
         )
         erro_correto = False
         try:
-            renderizar_tela(modelo_sem, largura=42)
+            renderizar_tela(modelo_sem, _ESTILO_CURVA, largura=42)
         except RenderizadorErro as e:
             erro_correto = "DA-02" in str(e)
         self._r(
@@ -4189,7 +4381,7 @@ class TestDistribuicaoHorizontalH0026:
         )
         erro_correto3 = False
         try:
-            renderizar_tela(modelo_sem3, largura=100)
+            renderizar_tela(modelo_sem3, _ESTILO_CURVA, largura=100)
         except RenderizadorErro as e:
             erro_correto3 = "DA-02" in str(e)
         self._r(
@@ -4436,7 +4628,7 @@ class TestHierarquiaGruposH0027:
                 _funcional("dash_a", "dashboard", "PAINEL"),
             ]),
         ])
-        saida = renderizar_tela(modelo, largura=42)
+        saida = renderizar_tela(modelo, _ESTILO_CURVA, largura=42)
         self._r(
             "H-0027: grupo nivel 1 vertical com 2 funcionais produz saida nao vazia",
             bool(saida.strip()),
@@ -4460,7 +4652,7 @@ class TestHierarquiaGruposH0027:
                 _funcional("c2", "console", "DIREITA"),
             ], distribuicao={"modo": "igual"}),
         ])
-        saida = renderizar_tela(modelo, largura=42)
+        saida = renderizar_tela(modelo, _ESTILO_CURVA, largura=42)
         self._r(
             "H-0027: grupo horizontal: saida nao vazia",
             bool(saida.strip()),
@@ -4489,8 +4681,8 @@ class TestHierarquiaGruposH0027:
                 _funcional("c2", "console", "BB"),
             ]),
         ])
-        saida_none = renderizar_tela(modelo_none, largura=42)
-        saida_vert = renderizar_tela(modelo_vert, largura=42)
+        saida_none = renderizar_tela(modelo_none, _ESTILO_CURVA, largura=42)
+        saida_vert = renderizar_tela(modelo_vert, _ESTILO_CURVA, largura=42)
         self._r(
             "H-0027: grupo sem arranjo -> saida identica a arranjo 'vertical'",
             saida_none == saida_vert,
@@ -4507,7 +4699,7 @@ class TestHierarquiaGruposH0027:
                 ]),
             ]),
         ])
-        saida = renderizar_tela(modelo, largura=42)
+        saida = renderizar_tela(modelo, _ESTILO_CURVA, largura=42)
         self._r(
             "H-0027: 2 niveis verticais: saida contem 'PROFUNDO'",
             "PROFUNDO" in saida,
@@ -4529,7 +4721,7 @@ class TestHierarquiaGruposH0027:
                 ], distribuicao={"modo": "igual"}),
             ]),
         ])
-        saida = renderizar_tela(modelo, largura=42)
+        saida = renderizar_tela(modelo, _ESTILO_CURVA, largura=42)
         linhas = saida.split("\n")
         self._r(
             "H-0027: 2 niveis (vert+horiz): 'TOPO' presente na saida",
@@ -4552,7 +4744,7 @@ class TestHierarquiaGruposH0027:
                 ]),
             ]),
         ])
-        saida = renderizar_tela(modelo, largura=42)
+        saida = renderizar_tela(modelo, _ESTILO_CURVA, largura=42)
         self._r(
             "H-0027: 3 niveis de grupos: saida contem 'FOLHA' (funcional no nivel 3)",
             "FOLHA" in saida,
@@ -4568,8 +4760,8 @@ class TestHierarquiaGruposH0027:
             ], distribuicao={"modo": "igual"}),
         ])
         # Com altura declarada, distribuicao ganha efeito
-        saida_com_alt = renderizar_tela(modelo, largura=42, altura=20)
-        saida_sem_alt = renderizar_tela(modelo, largura=42)
+        saida_com_alt = renderizar_tela(modelo, _ESTILO_CURVA, largura=42, altura=20)
+        saida_sem_alt = renderizar_tela(modelo, _ESTILO_CURVA, largura=42)
         self._r(
             "H-0027: grupo com dist=igual e altura: saida nao vazia",
             bool(saida_com_alt.strip()),
@@ -4596,7 +4788,7 @@ class TestHierarquiaGruposH0027:
                 _funcional("c2", "console", "PEQQ"),
             ], distribuicao={"modo": "fracao", "valores": [2, 1]}),
         ])
-        saida = renderizar_tela(modelo, largura=42)
+        saida = renderizar_tela(modelo, _ESTILO_CURVA, largura=42)
         linhas = saida.split("\n")
         self._r(
             "H-0027: grupo horiz dist=fracao 2:1: saida nao vazia",
@@ -4618,7 +4810,7 @@ class TestHierarquiaGruposH0027:
             ], distribuicao={"modo": "igual"}),
             _funcional("base", "lancador"),
         ])
-        saida = renderizar_tela(modelo, largura=42)
+        saida = renderizar_tela(modelo, _ESTILO_CURVA, largura=42)
         self._r(
             "H-0027: mistura grupo+funcional: 'TOPO' presente",
             "TOPO" in saida,
@@ -4639,7 +4831,7 @@ class TestHierarquiaGruposH0027:
                 _funcional("d2", "dashboard", "PAINEL2"),
             ]),
         ])
-        saida = renderizar_tela(modelo, largura=42)
+        saida = renderizar_tela(modelo, _ESTILO_CURVA, largura=42)
         self._r(
             "H-0027: multiplos dashboards (D7): 'PAINEL1' presente",
             "PAINEL1" in saida,
@@ -4655,7 +4847,7 @@ class TestHierarquiaGruposH0027:
         try:
             tela_raw = carregar_tela(_BASE_PADRAO, "demo", _RAIZ_TELAS_DEMO)
             modelo = construir_modelo(tela_raw)
-            saida = renderizar_tela(modelo, largura=42)
+            saida = renderizar_tela(modelo, _ESTILO_CURVA, largura=42)
             self._r(
                 "H-0027 regressao: demo renderiza sem excecao",
                 True,
@@ -4678,7 +4870,7 @@ class TestHierarquiaGruposH0027:
         try:
             tela_raw = carregar_tela(_BASE_PADRAO, "grupo_minimo", _RAIZ_TELAS_DEMO)
             modelo = construir_modelo(tela_raw)
-            saida = renderizar_tela(modelo, largura=42)
+            saida = renderizar_tela(modelo, _ESTILO_CURVA, largura=42)
             self._r(
                 "H-0027 regressao: grupo_minimo renderiza sem excecao",
                 True,
@@ -4700,7 +4892,7 @@ class TestHierarquiaGruposH0027:
                 _funcional("c2", "console", "PEQUENO"),
             ], distribuicao={"modo": "percentual", "valores": [70, 30]}),
         ])
-        saida = renderizar_tela(modelo, largura=42, altura=22)
+        saida = renderizar_tela(modelo, _ESTILO_CURVA, largura=42, altura=22)
         self._r(
             "H-0027: dist percentual 70/30 vertical com altura: saida contem 'GRANDE'",
             "GRANDE" in saida,
@@ -4734,8 +4926,8 @@ class TestHierarquiaGruposH0027:
                 _funcional("c2", "console", "YY"),
             ]),
         ])
-        saida_sob = renderizar_tela(modelo_sob, largura=42)
-        saida_ver = renderizar_tela(modelo_ver, largura=42)
+        saida_sob = renderizar_tela(modelo_sob, _ESTILO_CURVA, largura=42)
+        saida_ver = renderizar_tela(modelo_ver, _ESTILO_CURVA, largura=42)
         self._r(
             "H-0027: grupo arranjo='sobreposto' -> saida identica a 'vertical'",
             saida_sob == saida_ver,
@@ -4756,8 +4948,8 @@ class TestHierarquiaGruposH0027:
                 _funcional("c2", "console", "BETA"),
             ], distribuicao={"modo": "igual"}),
         ])
-        saida_lal = renderizar_tela(modelo_lal, largura=42)
-        saida_hor = renderizar_tela(modelo_hor, largura=42)
+        saida_lal = renderizar_tela(modelo_lal, _ESTILO_CURVA, largura=42)
+        saida_hor = renderizar_tela(modelo_hor, _ESTILO_CURVA, largura=42)
         self._r(
             "H-0027: grupo arranjo='lado_a_lado' -> saida identica a 'horizontal'",
             saida_lal == saida_hor,
@@ -4771,7 +4963,7 @@ class TestHierarquiaGruposH0027:
             _grupo("g_vazio", "vertical", []),
         ])
         try:
-            saida = renderizar_tela(modelo, largura=42)
+            saida = renderizar_tela(modelo, _ESTILO_CURVA, largura=42)
             self._r(
                 "H-0027: grupo vazio nao lanca excecao",
                 True,
@@ -4794,7 +4986,7 @@ class TestHierarquiaGruposH0027:
                 _funcional("c2", "console", "BETA"),
             ]),
         ], corpo_distribuicao={"modo": "igual"})
-        saida = renderizar_tela(modelo, largura=42)
+        saida = renderizar_tela(modelo, _ESTILO_CURVA, largura=42)
         linhas = saida.split("\n")
         self._r(
             "H-0027 ACH-001a: corpo horiz com grupos: saida nao vazia",
@@ -4828,7 +5020,7 @@ class TestHierarquiaGruposH0027:
             ),
         )
         # Sem sobreposicao: saida deterministica
-        saida2 = renderizar_tela(modelo, largura=42)
+        saida2 = renderizar_tela(modelo, _ESTILO_CURVA, largura=42)
         self._r(
             "H-0027 ACH-001a: saida e deterministica (sem sobreposicao)",
             saida == saida2,
@@ -4850,7 +5042,7 @@ class TestHierarquiaGruposH0027:
                 _funcional("c2", "console", "BAIXO"),
             ]),
         ])
-        saida = renderizar_tela(modelo, largura=42)
+        saida = renderizar_tela(modelo, _ESTILO_CURVA, largura=42)
         linhas = saida.split("\n")
         self._r(
             "H-0027 ACH-001b: horiz→vert: saida nao vazia",
@@ -4918,7 +5110,7 @@ class TestHierarquiaGruposH0027:
                 _funcional("topo", "dashboard", "TOPO"),
             ], distribuicao={"modo": "igual"}),
         ])
-        saida = renderizar_tela(modelo, largura=80)
+        saida = renderizar_tela(modelo, _ESTILO_CURVA, largura=80)
         linhas = saida.split("\n")
         self._r(
             "H-0027 ACH-001c: 3 niveis alternados: saida nao vazia",
@@ -4957,7 +5149,7 @@ class TestHierarquiaGruposH0027:
             ),
         )
         # Ausencia de sobreposicao: saida deterministica
-        saida2 = renderizar_tela(modelo, largura=80)
+        saida2 = renderizar_tela(modelo, _ESTILO_CURVA, largura=80)
         self._r(
             "H-0027 ACH-001c: 3 niveis alternados: saida deterministica (sem sobreposicao)",
             saida == saida2,
@@ -5011,7 +5203,7 @@ class TestRenderizadorMatrizH0028:
 
     def _render_matriz(self, grupo, largura=80, altura=24):
         modelo = _modelo_matriz_render_h0028([grupo])
-        return renderizar_tela(modelo, largura=largura, altura=altura)
+        return renderizar_tela(modelo, _ESTILO_CURVA, largura=largura, altura=altura)
 
     def test_matriz_2x2_alinhamento_vertical_e_horizontal(self):
         grupo = _grupo_matriz_render_h0028()
@@ -5156,7 +5348,7 @@ class TestRenderizadorMatrizH0028:
             distribuicao={"modo": "igual"},
         )
         modelo = _modelo_matriz_render_h0028([livre])
-        saida = renderizar_tela(modelo, largura=80, altura=24)
+        saida = renderizar_tela(modelo, _ESTILO_CURVA, largura=80, altura=24)
         self._r(
             "H-0028 renderer: grupo livre contendo matriz renderiza matriz interna",
             "E1" in saida and "E4" in saida,
@@ -5259,7 +5451,7 @@ class TestCardinalidadeUnitariaH0029:
         kw = {"largura": self.LARGURA}
         if altura is not None:
             kw["altura"] = altura
-        return renderizar_tela(m, **kw)
+        return renderizar_tela(m, _ESTILO_CURVA, **kw)
 
     # -------------------------------------------------- M01: ausencia funcional
     def test_M01_ausencia_funcional_preserva_natural(self):
@@ -5726,7 +5918,7 @@ class TestCardinalidadeUnitariaH0029:
             "H-0029 integracao: grupo_minimo.json distribuicao is None (sem dist)",
             modelo.corpo.distribuicao is None,
         )
-        saida20 = renderizar_tela(modelo, largura=42, altura=20)
+        saida20 = renderizar_tela(modelo, _ESTILO_CURVA, largura=42, altura=20)
         self._r(
             "H-0029 integracao: grupo_minimo.json altura=20 -> 20 linhas",
             _h0029_linhas_totais(saida20) == 20,
@@ -5745,7 +5937,7 @@ class TestCardinalidadeUnitariaH0029:
             "H-0029 integracao: grupo_minimo.json sem fill externo (ADR-0024 DA-01)",
             len(fill_ext) == 0,
         )
-        saida_sem = renderizar_tela(modelo, largura=42)
+        saida_sem = renderizar_tela(modelo, _ESTILO_CURVA, largura=42)
         self._r(
             "H-0029 integracao: grupo_minimo.json sem altura produz saida nao vazia",
             bool(saida_sem.strip()),
@@ -5760,7 +5952,7 @@ class TestCardinalidadeUnitariaH0029:
                 "H-0029 preserv: {0} distribuicao is None".format(id_tela),
                 modelo.corpo.distribuicao is None,
             )
-            saida = renderizar_tela(modelo, largura=42, altura=20)
+            saida = renderizar_tela(modelo, _ESTILO_CURVA, largura=42, altura=20)
             self._r(
                 "H-0029 preserv: {0} altura=20 -> 20 linhas".format(id_tela),
                 _h0029_linhas_totais(saida) == 20,
@@ -6044,7 +6236,7 @@ class TestTelasPermanentesH0029:
             modelo = construir_modelo(carregar_tela(_BASE_PADRAO, id_tela, _RAIZ_TELAS_DEMO))
             for altura in self.ALTURAS:
                 saida = renderizar_tela(
-                    modelo, tipo_borda="curva",
+                    modelo, estilo=_ESTILO_CURVA,
                     largura=self.LARGURA, altura=altura,
                 )
                 linhas = saida.splitlines()
@@ -6080,7 +6272,7 @@ class TestTelasPermanentesH0029:
             modelo = construir_modelo(carregar_tela(_BASE_PADRAO, id_tela, _RAIZ_TELAS_DEMO))
             for altura in self.ALTURAS:
                 saida = renderizar_tela(
-                    modelo, tipo_borda="curva",
+                    modelo, estilo=_ESTILO_CURVA,
                     largura=self.LARGURA, altura=altura,
                 )
                 topo = _h0029_dashboard_topo(saida)
@@ -6131,7 +6323,7 @@ class TestTelasPermanentesH0029:
         modelo = construir_modelo(carregar_tela(_BASE_PADRAO, id_tela, _RAIZ_TELAS_DEMO))
         for altura in self.ALTURAS:
             saida = renderizar_tela(
-                modelo, tipo_borda="curva",
+                modelo, estilo=_ESTILO_CURVA,
                 largura=self.LARGURA, altura=altura,
             )
             linhas = saida.splitlines()
@@ -6185,7 +6377,7 @@ class TestTelasPermanentesH0029:
             for id_tela in _H0029_TELAS_DASHBOARD:
                 modelo = construir_modelo(carregar_tela(_BASE_PADRAO, id_tela, _RAIZ_TELAS_DEMO))
                 saidas[altura][id_tela] = renderizar_tela(
-                    modelo, tipo_borda="curva",
+                    modelo, estilo=_ESTILO_CURVA,
                     largura=self.LARGURA, altura=altura,
                 )
             igual = saidas[altura]["h0029_dashboard_igual"]
@@ -6238,7 +6430,7 @@ class TestTelasPermanentesH0029:
             for id_tela in _H0029_TELAS_GRUPO_DISTRIBUIDO:
                 modelo = construir_modelo(carregar_tela(_BASE_PADRAO, id_tela, _RAIZ_TELAS_DEMO))
                 saidas[altura][id_tela] = renderizar_tela(
-                    modelo, tipo_borda="curva",
+                    modelo, estilo=_ESTILO_CURVA,
                     largura=self.LARGURA, altura=altura,
                 )
             igual = saidas[altura]["h0029_grupo_igual"]
@@ -6286,10 +6478,10 @@ class TestTelasPermanentesH0029:
         for id_tela in _H0029_TELAS_TODAS:
             modelo = construir_modelo(carregar_tela(_BASE_PADRAO, id_tela, _RAIZ_TELAS_DEMO))
             s20 = renderizar_tela(
-                modelo, tipo_borda="curva", largura=self.LARGURA, altura=20
+                modelo, estilo=_ESTILO_CURVA, largura=self.LARGURA, altura=20
             )
             s30 = renderizar_tela(
-                modelo, tipo_borda="curva", largura=self.LARGURA, altura=30
+                modelo, estilo=_ESTILO_CURVA, largura=self.LARGURA, altura=30
             )
             barra20 = _h0029_barra_topo(s20)
             barra30 = _h0029_barra_topo(s30)
@@ -6318,7 +6510,7 @@ class TestTelasPermanentesH0029:
             modelo = construir_modelo(carregar_tela(_BASE_PADRAO, id_tela, _RAIZ_TELAS_DEMO))
             for altura in self.ALTURAS:
                 saida = renderizar_tela(
-                    modelo, tipo_borda="curva",
+                    modelo, estilo=_ESTILO_CURVA,
                     largura=self.LARGURA, altura=altura,
                 )
                 linhas = saida.splitlines()
@@ -6409,7 +6601,7 @@ class TestCatalogoH0030:
             altura = _ALTURA_MATRIZ_H0030 if eh_matriz else 24
             try:
                 saida = renderizar_tela(
-                    modelo, tipo_borda="curva", largura=80, altura=altura
+                    modelo, estilo=_ESTILO_CURVA, largura=80, altura=altura
                 )
                 ok = isinstance(saida, str) and saida != ""
             except Exception as exc:
@@ -6433,7 +6625,7 @@ class TestCatalogoH0030:
     # ---------------------------------------------- 14.3: conteudo deterministico
     def test_console_unico_conteudo(self):
         modelo = self._carregar("h0030_console_unico")
-        saida = renderizar_tela(modelo, tipo_borda="curva", largura=80, altura=24)
+        saida = renderizar_tela(modelo, estilo=_ESTILO_CURVA, largura=80, altura=24)
         self._r(
             "H-0030 render: console_unico exibe titulo 'CONSOLE'",
             "CONSOLE" in saida,
@@ -6449,7 +6641,7 @@ class TestCatalogoH0030:
 
     def test_dashboard_unico_conteudo(self):
         modelo = self._carregar("h0030_dashboard_unico")
-        saida = renderizar_tela(modelo, tipo_borda="curva", largura=80, altura=24)
+        saida = renderizar_tela(modelo, estilo=_ESTILO_CURVA, largura=80, altura=24)
         self._r(
             "H-0030 render: dashboard_unico exibe 'dashboard único'",
             "dashboard único" in saida,
@@ -6470,7 +6662,7 @@ class TestCatalogoH0030:
             largura = 80
             altura = _ALTURA_MATRIZ_H0030
             saida = renderizar_tela(
-                modelo, tipo_borda="curva", largura=largura, altura=altura
+                modelo, estilo=_ESTILO_CURVA, largura=largura, altura=altura
             )
             self._r(
                 "H-0030 geo: {0} render sem excecao (largura=80)".format(id_matriz),
@@ -6630,7 +6822,7 @@ class TestCatalogoH0030:
             largura = 80
             altura = _ALTURA_MATRIZ_H0030
             saida = renderizar_tela(
-                modelo, tipo_borda="curva", largura=largura, altura=altura
+                modelo, estilo=_ESTILO_CURVA, largura=largura, altura=altura
             )
             linhas = saida.splitlines()
             corpo = _linhas_corpo_renderizado(saida)
@@ -7054,7 +7246,7 @@ class TestCatalogoH0030:
             largura = 80
             altura = _ALTURA_MATRIZ_H0030
             saida = renderizar_tela(
-                modelo, tipo_borda="curva", largura=largura, altura=altura
+                modelo, estilo=_ESTILO_CURVA, largura=largura, altura=altura
             )
             corpo = _linhas_corpo_renderizado(saida)
 
@@ -7174,7 +7366,7 @@ class TestCatalogoH0030:
             modelo = self._carregar(id_matriz)
             try:
                 saida = renderizar_tela(
-                    modelo, tipo_borda="curva", largura=120,
+                    modelo, estilo=_ESTILO_CURVA, largura=120,
                     altura=_ALTURA_MATRIZ_H0030,
                 )
                 ok = isinstance(saida, str) and saida != ""
@@ -7218,7 +7410,7 @@ class TestCatalogoH0030:
         for id_perm in ("destino_minimo", "grupo_minimo", "demo"):
             modelo = self._carregar(id_perm)
             try:
-                saida = renderizar_tela(modelo, tipo_borda="curva", largura=42)
+                saida = renderizar_tela(modelo, estilo=_ESTILO_CURVA, largura=42)
                 ok = isinstance(saida, str) and saida != ""
             except Exception:
                 ok = False
@@ -7423,7 +7615,7 @@ class TestDistribuicaoResponsivaH0034:
 
         # T-03: cardinalidade zero -> 0 linhas de conteudo do lancador, sem erro.
         m_zero = _h0034_modelo_lancador([], largura=42)
-        s_zero = renderizar_tela(m_zero, largura=42)
+        s_zero = renderizar_tela(m_zero, _ESTILO_CURVA, largura=42)
         self._r(
             "H-0034 T-03: cardinalidade zero nao levanta erro",
             isinstance(s_zero, str) and "[d]" not in s_zero,
@@ -7435,7 +7627,7 @@ class TestDistribuicaoResponsivaH0034:
         m_um = _h0034_modelo_lancador(
             [{"id": "x", "chip": "X", "texto": "Unico"}], largura=16
         )
-        s_um = renderizar_tela(m_um, largura=16)
+        s_um = renderizar_tela(m_um, _ESTILO_CURVA, largura=16)
         # Conta quantas linhas dentro da caixa do lancador contem "[X]".
         linhas_x = [l for l in s_um.splitlines() if "[X]" in l]
         self._r(
@@ -7453,7 +7645,7 @@ class TestDistribuicaoResponsivaH0034:
         ]
         # Limite exato: area=23 -> content_w=20 -> fila cabe.
         m_2 = _h0034_modelo_lancador(itens_2, largura=23)
-        s_23 = renderizar_tela(m_2, largura=23)
+        s_23 = renderizar_tela(m_2, _ESTILO_CURVA, largura=23)
         # No limite exato, [A] e [B] estao na mesma linha (fila).
         linha_a = _h0034_row_of(s_23, "[A]")
         linha_b = _h0034_row_of(s_23, "[B]")
@@ -7466,7 +7658,7 @@ class TestDistribuicaoResponsivaH0034:
 
         # T-05: uma unidade abaixo do limite -> matriz (coluna unica, 2 linhas).
         m_2b = _h0034_modelo_lancador(itens_2, largura=22)
-        s_22 = renderizar_tela(m_2b, largura=22)
+        s_22 = renderizar_tela(m_2b, _ESTILO_CURVA, largura=22)
         linha_a = _h0034_row_of(s_22, "[A]")
         linha_b = _h0034_row_of(s_22, "[B]")
         self._r(
@@ -7486,21 +7678,21 @@ class TestDistribuicaoResponsivaH0034:
         ]
         # content_w=13 (area=16): coluna minima valida -> chips presentes.
         m_16 = _h0034_modelo_lancador(itens_cm, largura=16)
-        s_16 = renderizar_tela(m_16, largura=16)
+        s_16 = renderizar_tela(m_16, _ESTILO_CURVA, largura=16)
         self._r(
             "H-0034 T-14: content_w=coluna_minima (area=16) -> [A],[B] presentes",
             "[A]" in s_16 and "[B]" in s_16,
         )
         # content_w=12 (area=15): abaixo do minimo -> quadro minimo global.
         m_15 = _h0034_modelo_lancador(itens_cm, largura=15)
-        s_15 = renderizar_tela(m_15, largura=15)
+        s_15 = renderizar_tela(m_15, _ESTILO_CURVA, largura=15)
         self._r(
             "H-0034 T-14: content_w=coluna_minima-1 (area=15) -> quadro minimo "
             "(nenhum chip do lancador)",
             "[A]" not in s_15 and "[B]" not in s_15,
         )
         # T-15: recuperacao automatica apos quadro minimo.
-        s_rec = renderizar_tela(m_16, largura=16)
+        s_rec = renderizar_tela(m_16, _ESTILO_CURVA, largura=16)
         self._r(
             "H-0034 T-15: recuperacao automatica -> chips presentes novamente",
             "[A]" in s_rec and "[B]" in s_rec,
@@ -7522,7 +7714,7 @@ class TestDistribuicaoResponsivaH0034:
             {"id": "c", "chip": "C", "texto": "CCC"},
         ]
         m_3 = _h0034_modelo_lancador(itens_3, largura=23)  # area=23 -> cw=20
-        s_3 = renderizar_tela(m_3, largura=23)
+        s_3 = renderizar_tela(m_3, _ESTILO_CURVA, largura=23)
         la = _h0034_row_of(s_3, "[A]")
         lb = _h0034_row_of(s_3, "[B]")
         lc = _h0034_row_of(s_3, "[C]")
@@ -7541,7 +7733,7 @@ class TestDistribuicaoResponsivaH0034:
             for i in range(10)
         ]
         m_10 = _h0034_modelo_lancador(itens_10, largura=15)
-        s_10 = renderizar_tela(m_10, largura=15)
+        s_10 = renderizar_tela(m_10, _ESTILO_CURVA, largura=15)
         todos_presentes = all("[{0}]".format(i) in s_10 for i in range(10))
         self._r(
             "H-0034 T-08: 10 itens em coluna minima -> nenhum omitido "
@@ -7556,9 +7748,9 @@ class TestDistribuicaoResponsivaH0034:
             {"id": "b", "chip": "B", "texto": "Dos"},
         ]
         m_d = _h0034_modelo_lancador(itens_d, largura=23)
-        s_a = renderizar_tela(m_d, largura=23)
-        renderizar_tela(m_d, largura=30)
-        s_b = renderizar_tela(m_d, largura=23)
+        s_a = renderizar_tela(m_d, _ESTILO_CURVA, largura=23)
+        renderizar_tela(m_d, _ESTILO_CURVA, largura=30)
+        s_b = renderizar_tela(m_d, _ESTILO_CURVA, largura=23)
         self._r(
             "H-0034 T-09: determinismo (mesma largura + itens -> mesma saida)",
             s_a == s_b,
@@ -7586,7 +7778,7 @@ class TestDistribuicaoResponsivaH0034:
         ]
         # area=33 -> content_w=30.
         m_07 = _h0034_modelo_lancador(itens_07, largura=33)
-        s_07 = renderizar_tela(m_07, largura=33)
+        s_07 = renderizar_tela(m_07, _ESTILO_CURVA, largura=33)
 
         # [A] e [C] na mesma linha (row 0); [B] na linha abaixo.
         la = _h0034_row_of(s_07, "[A]")
@@ -7639,7 +7831,7 @@ class TestDistribuicaoResponsivaH0034:
         # T-10 (H-0037 atualizado): com 11 itens, fila_content_w_min=170, fila
         # exigiria area>=173. A area=110 entrega matriz 2 linhas, nao fila.
         # row0=[d,1,3,5,7,9]; row1=[g,2,4,6,8].
-        s110 = renderizar_tela(modelo, largura=110, altura=30)
+        s110 = renderizar_tela(modelo, _ESTILO_CURVA, largura=110, altura=30)
         rd = _h0034_row_of(s110, "[d]")
         rg = _h0034_row_of(s110, "[g]")
         self._r(
@@ -7682,7 +7874,7 @@ class TestDistribuicaoResponsivaH0034:
                   "[6]", "[7]", "[8]", "[9]"]
 
         # T-12: area=109 -> matriz ([d] e [g] linhas diferentes); 11 chips.
-        s109 = renderizar_tela(modelo, largura=109, altura=30)
+        s109 = renderizar_tela(modelo, _ESTILO_CURVA, largura=109, altura=30)
         rd = _h0034_row_of(s109, "[d]")
         rg = _h0034_row_of(s109, "[g]")
         self._r(
@@ -7696,7 +7888,7 @@ class TestDistribuicaoResponsivaH0034:
         # ordem coluna-a-coluna com 11 itens.
         # col0=[d,g,1] col1=[2,3,4] col2=[5,6,7] col3=[8,9]
         # row0: [d],[2],[5],[8]  row1: [g],[3],[6],[9]  row2: [1],[4],[7]
-        s80 = renderizar_tela(modelo, largura=80, altura=30)
+        s80 = renderizar_tela(modelo, _ESTILO_CURVA, largura=80, altura=30)
         rd = _h0034_row_of(s80, "[d]")
         rg = _h0034_row_of(s80, "[g]")
         r1 = _h0034_row_of(s80, "[1]")
@@ -7781,7 +7973,7 @@ class TestDistribuicaoResponsivaH0034:
         ok = True
         for larg in (22, 37, 53, 68, 80, 109, 110):
             try:
-                s = renderizar_tela(modelo, largura=larg, altura=45)
+                s = renderizar_tela(modelo, _ESTILO_CURVA, largura=larg, altura=45)
                 if not all(c in s for c in _CHIPS):
                     ok = False
             except RenderizadorErro:
@@ -7804,21 +7996,21 @@ class TestDistribuicaoResponsivaH0034:
         # Com 11 itens, max item_w=15 -> coluna_minima_content_w=19 -> area>=22.
         # area=22 -> content_w=19 = coluna_minima -> coluna unica valida.
         # 11 itens em coluna unica requerem mais altura: usar altura=45.
-        s22 = renderizar_tela(modelo, largura=22, altura=45)
+        s22 = renderizar_tela(modelo, _ESTILO_CURVA, largura=22, altura=45)
         self._r(
             "H-0034 suplementar: area=22 -> coluna minima valida (chips "
             "presentes) [nao isola gatilho interno]",
             all(c in s22 for c in _CHIPS),
         )
         # area=21 -> content_w=18 < coluna_minima(19) -> quadro minimo global.
-        s21 = renderizar_tela(modelo, largura=21, altura=45)
+        s21 = renderizar_tela(modelo, _ESTILO_CURVA, largura=21, altura=45)
         self._r(
             "H-0034 suplementar: area=21 -> quadro minimo global (sem chips) "
             "[nao isola gatilho interno]",
             all(c not in s21 for c in _CHIPS),
         )
         # Recuperacao suplementar: 21 -> 110 restaura a matriz (todos os chips).
-        s110 = renderizar_tela(modelo, largura=110, altura=30)
+        s110 = renderizar_tela(modelo, _ESTILO_CURVA, largura=110, altura=30)
         self._r(
             "H-0034 suplementar: recuperacao 21->110 restaura matriz "
             "(todos os 11 chips presentes)",
@@ -7849,7 +8041,7 @@ class TestDistribuicaoResponsivaH0034:
         # T-ISOL-02 (controle): terminal_w=80, area_lancador_w=21.
         # content_w_lancador = 21-3 = 18 = coluna_minima -> tela normal.
         m21 = _h0034_modelo_isolado(21, terminal_w=80)
-        s_isol_21 = renderizar_tela(m21, largura=80, altura=30)
+        s_isol_21 = renderizar_tela(m21, _ESTILO_CURVA, largura=80, altura=30)
         self._r(
             "H-0034 T-ISOL-02: terminal_w=80, area_lancador=21 -> tela normal "
             "(7 chips presentes)",
@@ -7860,7 +8052,7 @@ class TestDistribuicaoResponsivaH0034:
         # T-ISOL-01 (insuficiente): terminal_w=80 (idem), area_lancador_w=20.
         # content_w_lancador = 20-3 = 17 < coluna_minima(18) -> quadro minimo.
         m20 = _h0034_modelo_isolado(20, terminal_w=80)
-        s_isol_20 = renderizar_tela(m20, largura=80, altura=30)
+        s_isol_20 = renderizar_tela(m20, _ESTILO_CURVA, largura=80, altura=30)
         self._r(
             "H-0034 T-ISOL-01: terminal_w=80, area_lancador=20 -> quadro "
             "minimo global (nenhum chip do lancador)",
@@ -7869,9 +8061,9 @@ class TestDistribuicaoResponsivaH0034:
         # Causa comprovada: unica diferenca material entre T-ISOL-01 e
         # T-ISOL-02 e area_lancador_w (20 vs 21), com terminal_w=80 constante.
         # T-ISOL-03 (recuperacao deterministica): 21 -> 20 -> 21.
-        s_p1 = renderizar_tela(_h0034_modelo_isolado(21), largura=80, altura=30)
-        renderizar_tela(_h0034_modelo_isolado(20), largura=80, altura=30)
-        s_p3 = renderizar_tela(_h0034_modelo_isolado(21), largura=80, altura=30)
+        s_p1 = renderizar_tela(_h0034_modelo_isolado(21), _ESTILO_CURVA, largura=80, altura=30)
+        renderizar_tela(_h0034_modelo_isolado(20), _ESTILO_CURVA, largura=80, altura=30)
+        s_p3 = renderizar_tela(_h0034_modelo_isolado(21), _ESTILO_CURVA, largura=80, altura=30)
         self._r(
             "H-0034 T-ISOL-03: sequencia 21->20->21 deterministica "
             "(s_passo1 == s_passo3)",
@@ -7903,9 +8095,9 @@ class TestDistribuicaoResponsivaH0034:
         m_dir = _h0034_modelo_alinhamento(itens_f, "direita", largura=35)
         m_cen = _h0034_modelo_alinhamento(itens_f, "centro", largura=35)
 
-        s_esq = renderizar_tela(m_esq, largura=35)
-        s_dir = renderizar_tela(m_dir, largura=35)
-        s_cen = renderizar_tela(m_cen, largura=35)
+        s_esq = renderizar_tela(m_esq, _ESTILO_CURVA, largura=35)
+        s_dir = renderizar_tela(m_dir, _ESTILO_CURVA, largura=35)
+        s_cen = renderizar_tela(m_cen, _ESTILO_CURVA, largura=35)
 
         # Os tres alinhamentos devem produzir saidas distintas (excesso residual=3).
         self._r(
@@ -7993,9 +8185,9 @@ class TestDistribuicaoResponsivaH0034:
         m_m_dir = _h0034_modelo_alinhamento(itens_m, "direita", largura=43)
         m_m_cen = _h0034_modelo_alinhamento(itens_m, "centro", largura=43)
 
-        s_m_esq = renderizar_tela(m_m_esq, largura=43)
-        s_m_dir = renderizar_tela(m_m_dir, largura=43)
-        s_m_cen = renderizar_tela(m_m_cen, largura=43)
+        s_m_esq = renderizar_tela(m_m_esq, _ESTILO_CURVA, largura=43)
+        s_m_dir = renderizar_tela(m_m_dir, _ESTILO_CURVA, largura=43)
+        s_m_cen = renderizar_tela(m_m_cen, _ESTILO_CURVA, largura=43)
 
         # Saidas distintas.
         self._r(
@@ -8055,7 +8247,7 @@ class TestDistribuicaoResponsivaH0034:
 
         # Sem alinhamento declarado (None) -> comportamento identico a "esquerda".
         m_none = _h0034_modelo_alinhamento(itens_f, None, largura=35)
-        s_none = renderizar_tela(m_none, largura=35)
+        s_none = renderizar_tela(m_none, _ESTILO_CURVA, largura=35)
         self._r(
             "H-0034 ALTO-001: alinhamento None -> identico a esquerda",
             s_none == s_esq,
@@ -8066,14 +8258,14 @@ class TestDistribuicaoResponsivaH0034:
             itens_f, "invalido", largura=35
         )
         try:
-            renderizar_tela(m_inv, largura=35)
+            renderizar_tela(m_inv, _ESTILO_CURVA, largura=35)
             self._r("H-0034 ALTO-001: alinhamento invalido -> RenderizadorErro", False)
         except RenderizadorErro:
             self._r("H-0034 ALTO-001: alinhamento invalido -> RenderizadorErro", True)
 
         # Regressao demo: chips presentes e [d] na posicao esperada (esquerda).
         modelo_demo = self._modelo_demo()
-        s_demo_r = renderizar_tela(modelo_demo, largura=110, altura=30)
+        s_demo_r = renderizar_tela(modelo_demo, _ESTILO_CURVA, largura=110, altura=30)
         linha_d_r = s_demo_r.splitlines()[_h0034_row_of(s_demo_r, "[d]")]
         self._r(
             "H-0034 ALTO-001: regressao demo 110 -> [d] na pos 4 (esquerda, excesso=0)",
@@ -8109,7 +8301,7 @@ class TestDistribuicaoResponsivaH0034:
         )
         exc = _espera_excecao(
             "H-0034 ALTO-002: lancador sem parametros_tipo levanta RenderizadorErro",
-            lambda: renderizar_tela(modelo_sem_params),
+            lambda: renderizar_tela(modelo_sem_params, _ESTILO_CURVA),
             RenderizadorErro,
         )
         if exc is not None:
@@ -8179,7 +8371,7 @@ class TestDistribuicaoResponsivaH0034:
         # mc=3: "Uno" (3 chars) aceito
         _itens_uno = [{"id": "u", "chip": "U", "texto": "Uno", "tela_destino": "x"}]
         try:
-            renderizar_tela(_modelo_mc(_itens_uno, 3))
+            renderizar_tela(_modelo_mc(_itens_uno, 3), _ESTILO_CURVA)
             self._r("H-0034: mc=3 aceita texto de 3 chars ('Uno')", True)
         except Exception as exc:
             self._r("H-0034: mc=3 aceita texto de 3 chars ('Uno')", False, str(exc))
@@ -8188,7 +8380,7 @@ class TestDistribuicaoResponsivaH0034:
         _itens_quat = [{"id": "q", "chip": "Q", "texto": "Quat", "tela_destino": "x"}]
         exc_quat = _espera_excecao(
             "H-0034: mc=3 rejeita texto de 4 chars ('Quat')",
-            lambda: renderizar_tela(_modelo_mc(_itens_quat, 3)),
+            lambda: renderizar_tela(_modelo_mc(_itens_quat, 3), _ESTILO_CURVA),
             RenderizadorErro,
         )
         if exc_quat is not None:
@@ -8202,7 +8394,7 @@ class TestDistribuicaoResponsivaH0034:
         _itens_seis = [{"id": "s", "chip": "S", "texto": "Quatro", "tela_destino": "x"}]
         exc_seis = _espera_excecao(
             "H-0034: mc=3 rejeita texto de 6 chars ('Quatro')",
-            lambda: renderizar_tela(_modelo_mc(_itens_seis, 3)),
+            lambda: renderizar_tela(_modelo_mc(_itens_seis, 3), _ESTILO_CURVA),
             RenderizadorErro,
         )
         if exc_seis is not None:
@@ -8214,7 +8406,7 @@ class TestDistribuicaoResponsivaH0034:
 
         # mc=15: "Quatro" (6 chars) aceito
         try:
-            renderizar_tela(_modelo_mc(_itens_seis, 15))
+            renderizar_tela(_modelo_mc(_itens_seis, 15), _ESTILO_CURVA)
             self._r("H-0034: mc=15 aceita texto de 6 chars ('Quatro')", True)
         except Exception as exc:
             self._r("H-0034: mc=15 aceita texto de 6 chars ('Quatro')", False, str(exc))
@@ -8397,7 +8589,7 @@ class TestDistribuicaoResponsivaH0034:
         )
         _espera_excecao(
             "H-0034 EQUIV: content_w valido rejeita mesmo texto acima do max",
-            lambda: renderizar_tela(modelo_inv, largura=42),
+            lambda: renderizar_tela(modelo_inv, _ESTILO_CURVA, largura=42),
             RenderizadorErro,
         )
 
@@ -8483,7 +8675,7 @@ class TestOcupacaoIntegralCorpoH0033:
         kw = {"largura": largura or self.LARGURA}
         if altura is not None:
             kw["altura"] = altura
-        return renderizar_tela(m, **kw)
+        return renderizar_tela(m, _ESTILO_CURVA, **kw)
 
     # ----------------------------------------------------------------- DA-01
     def test_DA01_visual_direto_ocupa_area_integral(self):
@@ -8615,7 +8807,7 @@ class TestOcupacaoIntegralCorpoH0033:
         # l_fill = 0 -> sem DA-02.
         modelo_sd = _modelo_orquestrador_sem_distribuicao()
         n_natural = 21  # l_cab(3) + l_corpo(15) + l_barra(3) = 21 (H-0037: 11 itens)
-        saida = renderizar_tela(modelo_sd, largura=42, altura=n_natural)
+        saida = renderizar_tela(modelo_sd, _ESTILO_CURVA, largura=42, altura=n_natural)
         # renderizar_tela termina com '\n'; count('\n') == numero de linhas fisicas.
         self._r(
             "H-0033 DA-02: sem dist + l_fill==0 -> sem erro (altura natural)",
@@ -8670,7 +8862,7 @@ class TestOcupacaoIntegralCorpoH0033:
         )
         exc = None
         try:
-            renderizar_tela(modelo, largura=42, altura=self.ALTURA)
+            renderizar_tela(modelo, _ESTILO_CURVA, largura=42, altura=self.ALTURA)
         except RenderizadorErro as e:
             exc = e
         self._r(
@@ -8692,7 +8884,7 @@ class TestOcupacaoIntegralCorpoH0033:
             try:
                 raw = carregar_tela(_BASE_PADRAO, id_tela, _RAIZ_TELAS_DEMO)
                 modelo = construir_modelo(raw)
-                saida = renderizar_tela(modelo, largura=self.LARGURA)
+                saida = renderizar_tela(modelo, _ESTILO_CURVA, largura=self.LARGURA)
                 self._r(
                     "H-0033 INV: {0} renderiza em largura={1} sem erro".format(
                         id_tela, self.LARGURA
@@ -8714,7 +8906,7 @@ class TestOcupacaoIntegralCorpoH0033:
             try:
                 raw = carregar_tela(_BASE_PADRAO, id_tela, _RAIZ_TELAS_DEMO)
                 modelo = construir_modelo(raw)
-                saida = renderizar_tela(modelo, largura=self.LARGURA, altura=self.ALTURA)
+                saida = renderizar_tela(modelo, _ESTILO_CURVA, largura=self.LARGURA, altura=self.ALTURA)
                 linhas_total = _h0029_linhas_totais(saida)
                 fill_ext = [l for l in saida.splitlines() if l == " " * self.LARGURA]
                 self._r(
@@ -8739,8 +8931,7 @@ class TestOcupacaoIntegralCorpoH0033:
             try:
                 raw = carregar_tela(_BASE_PADRAO, id_tela, _RAIZ_TELAS_DEMO)
                 modelo = construir_modelo(raw)
-                saida = renderizar_tela(
-                    modelo, largura=self.LARGURA_B, altura=self.ALTURA_B
+                saida = renderizar_tela(modelo, _ESTILO_CURVA, largura=self.LARGURA_B, altura=self.ALTURA_B
                 )
                 linhas_total = _h0029_linhas_totais(saida)
                 fill_ext = [l for l in saida.splitlines() if l == " " * self.LARGURA_B]
@@ -8766,7 +8957,7 @@ class TestOcupacaoIntegralCorpoH0033:
         modelo = construir_modelo(
             carregar_tela(_BASE_PADRAO, "destino_minimo", _RAIZ_TELAS_DEMO)
         )
-        saida = renderizar_tela(modelo, largura=self.LARGURA, altura=self.ALTURA)
+        saida = renderizar_tela(modelo, _ESTILO_CURVA, largura=self.LARGURA, altura=self.ALTURA)
         corpo_alts = _corpo_alturas(saida)
         fill_ext = [l for l in saida.splitlines() if l == " " * self.LARGURA]
         self._r(
@@ -8780,7 +8971,7 @@ class TestOcupacaoIntegralCorpoH0033:
         modelo = construir_modelo(
             carregar_tela(_BASE_PADRAO, "grupo_minimo", _RAIZ_TELAS_DEMO)
         )
-        saida = renderizar_tela(modelo, largura=self.LARGURA, altura=self.ALTURA)
+        saida = renderizar_tela(modelo, _ESTILO_CURVA, largura=self.LARGURA, altura=self.ALTURA)
         corpo_alts = _corpo_alturas(saida)
         fill_ext = [l for l in saida.splitlines() if l == " " * self.LARGURA]
         self._r(
@@ -8804,7 +8995,7 @@ class TestOcupacaoIntegralCorpoH0033:
         kw = {"largura": largura or self.LARGURA}
         if altura is not None:
             kw["altura"] = altura
-        return renderizar_tela(m, **kw)
+        return renderizar_tela(m, _ESTILO_CURVA, **kw)
 
     # ----------------------------------------------------------------- H1
     def test_H1_horizontal_um_participante_sem_dist(self):
@@ -8971,8 +9162,18 @@ class TestHelperHorizontalH0033Patch2:
             return None
 
     def _borda(self):
-        from tela.renderizador import _BORDAS
-        return _BORDAS["curva"]
+        # H-0039: _BORDAS foi removido; o dict interno de borda derivado do
+        # EstiloResolvido usa as chaves consumidas pelas helpers (incluindo
+        # h_superior/h_inferior distintos).
+        return {
+            "tl": _ESTILO_CURVA.canto_superior_esquerdo,
+            "tr": _ESTILO_CURVA.canto_superior_direito,
+            "bl": _ESTILO_CURVA.canto_inferior_esquerdo,
+            "br": _ESTILO_CURVA.canto_inferior_direito,
+            "v": _ESTILO_CURVA.lateral,
+            "h_superior": _ESTILO_CURVA.traco_superior,
+            "h_inferior": _ESTILO_CURVA.traco_inferior,
+        }
 
     def _elem(self, tipo="console", titulo="A"):
         campos = {"titulo": titulo}
@@ -9104,7 +9305,7 @@ class TestHelperHorizontalH0033Patch2:
             largura=42,
         )
         try:
-            saida = renderizar_tela(modelo, largura=42)
+            saida = renderizar_tela(modelo, _ESTILO_CURVA, largura=42)
             linhas = [ln for ln in saida.split("\n") if ln]
             self._r(
                 "P8: horizontal dist=fracao -> saida valida, largura=42",
@@ -9123,7 +9324,7 @@ class TestHelperHorizontalH0033Patch2:
             largura=100,
         )
         try:
-            saida = renderizar_tela(modelo, largura=100)
+            saida = renderizar_tela(modelo, _ESTILO_CURVA, largura=100)
             linhas = [ln for ln in saida.split("\n") if ln]
             self._r(
                 "P9: horizontal dist=percentual -> saida valida, largura=100",
@@ -9152,7 +9353,7 @@ class TestHelperHorizontalH0033Patch2:
             _raw={},
         )
         try:
-            saida = renderizar_tela(modelo, largura=42, altura=20)
+            saida = renderizar_tela(modelo, _ESTILO_CURVA, largura=42, altura=20)
             self._r(
                 "P10: vertical dist=igual altura=20 -> 20 linhas",
                 saida.count("\n") == 20,
@@ -9200,8 +9401,18 @@ class TestCardinalidadeHorizontalH0033Patch3:
         _registrar(nome, passou, detalhe)
 
     def _borda(self):
-        from tela.renderizador import _BORDAS
-        return _BORDAS["curva"]
+        # H-0039: _BORDAS foi removido; o dict interno de borda derivado do
+        # EstiloResolvido usa as chaves consumidas pelas helpers (incluindo
+        # h_superior/h_inferior distintos).
+        return {
+            "tl": _ESTILO_CURVA.canto_superior_esquerdo,
+            "tr": _ESTILO_CURVA.canto_superior_direito,
+            "bl": _ESTILO_CURVA.canto_inferior_esquerdo,
+            "br": _ESTILO_CURVA.canto_inferior_direito,
+            "v": _ESTILO_CURVA.lateral,
+            "h_superior": _ESTILO_CURVA.traco_superior,
+            "h_inferior": _ESTILO_CURVA.traco_inferior,
+        }
 
     def _elem(self, titulo="A"):
         campos = {"titulo": titulo}
@@ -9420,8 +9631,18 @@ class TestCardinalidadeHorizontalH0033Patch4:
         _registrar(nome, passou, detalhe)
 
     def _borda(self):
-        from tela.renderizador import _BORDAS
-        return _BORDAS["curva"]
+        # H-0039: _BORDAS foi removido; o dict interno de borda derivado do
+        # EstiloResolvido usa as chaves consumidas pelas helpers (incluindo
+        # h_superior/h_inferior distintos).
+        return {
+            "tl": _ESTILO_CURVA.canto_superior_esquerdo,
+            "tr": _ESTILO_CURVA.canto_superior_direito,
+            "bl": _ESTILO_CURVA.canto_inferior_esquerdo,
+            "br": _ESTILO_CURVA.canto_inferior_direito,
+            "v": _ESTILO_CURVA.lateral,
+            "h_superior": _ESTILO_CURVA.traco_superior,
+            "h_inferior": _ESTILO_CURVA.traco_inferior,
+        }
 
     def _elem(self, titulo="A"):
         campos = {"titulo": titulo}
@@ -9845,7 +10066,7 @@ class TestDistribuicaoMatricialH0035:
         # Participante 0 "AA" em (0,0) x=0; participante 1 "BB" em (0,1) x=6.
         # Linha 0 do corpo: "AA" nas colunas 0-1 e "BB" a partir da coluna 6.
         m = self._modelo_dashboard(com_dm=True)
-        saida = renderizar_tela(m, largura=42, altura=14)
+        saida = renderizar_tela(m, _ESTILO_CURVA, largura=42, altura=14)
         linhas = saida.split("\n")
         # Localiza a caixa GRADE.
         idx = next(i for i, l in enumerate(linhas) if "GRADE" in l)
@@ -9867,7 +10088,7 @@ class TestDistribuicaoMatricialH0035:
     def test_dashboard_sem_preserva(self):
         # Sem o campo: comportamento anterior (uma linha por campo literal).
         m = self._modelo_dashboard(com_dm=False)
-        saida = renderizar_tela(m, largura=42, altura=14)
+        saida = renderizar_tela(m, _ESTILO_CURVA, largura=42, altura=14)
         # Cada valor aparece em sua propria linha (comportamento _linhas_dashboard).
         _registrar("H0035 dashboard sem campo preserva (AA e BB em linhas)",
                    "│ AA " in saida and "│ BB " in saida)
@@ -9875,7 +10096,7 @@ class TestDistribuicaoMatricialH0035:
     def test_ordem_preservada(self):
         # A grade nao reordena; participantes preservam a sequencia declarada.
         m = self._modelo_dashboard(com_dm=True)
-        saida = renderizar_tela(m, largura=42, altura=14)
+        saida = renderizar_tela(m, _ESTILO_CURVA, largura=42, altura=14)
         pos_aa = saida.find("AA")
         pos_bb = saida.find("BB")
         pos_cc = saida.find("CC")
@@ -9886,7 +10107,7 @@ class TestDistribuicaoMatricialH0035:
 
     def test_sem_perda_nem_duplicacao(self):
         m = self._modelo_dashboard(com_dm=True)
-        saida = renderizar_tela(m, largura=42, altura=14)
+        saida = renderizar_tela(m, _ESTILO_CURVA, largura=42, altura=14)
         _registrar("H0035 dashboard sem perda",
                    all(saida.count(v) == 1 for v in ("AA", "BB", "CC", "DD")))
 
@@ -9911,7 +10132,7 @@ class TestDistribuicaoMatricialH0035:
                            {"id": "e", "tipo": "acao", "tecla": "Esc",
                             "texto": "Sair"}]},
                        _raw={})
-        saida = renderizar_tela(m, largura=42, altura=12)
+        saida = renderizar_tela(m, _ESTILO_CURVA, largura=42, altura=12)
         # Com a grade, XX e YY aparecem lado a lado na mesma linha (1x2).
         for l in saida.split("\n"):
             if "XX" in l and "YY" in l:
@@ -9935,7 +10156,7 @@ class TestDistribuicaoMatricialH0035:
                            {"id": "e", "tipo": "acao", "tecla": "Esc",
                             "texto": "Sair"}]},
                        _raw={})
-        saida = renderizar_tela(m, largura=42)
+        saida = renderizar_tela(m, _ESTILO_CURVA, largura=42)
         _registrar("H0035 console sem campo preserva placeholder",
                    "(console)" in saida)
 
@@ -9977,7 +10198,7 @@ class TestDistribuicaoMatricialH0035:
     def test_lancador_com_precedencia(self):
         # Com o campo: grade 2x2 por_linha. [A] um e [B] do na primeira linha.
         m = self._modelo_lancador(com_dm=True)
-        saida = renderizar_tela(m, largura=42, altura=14)
+        saida = renderizar_tela(m, _ESTILO_CURVA, largura=42, altura=14)
         achou = False
         for l in saida.split("\n"):
             if "[A] um" in l and "[B] do" in l:
@@ -9989,7 +10210,7 @@ class TestDistribuicaoMatricialH0035:
         # Sem o campo: politica historica (ADR-0001/2/3). Todos os itens numa
         # unica fila (cabendo em 42 chars) — comportamento _linhas_lancador.
         m = self._modelo_lancador(com_dm=False)
-        saida = renderizar_tela(m, largura=42, altura=14)
+        saida = renderizar_tela(m, _ESTILO_CURVA, largura=42, altura=14)
         # Fila: todos os quatro itens na mesma linha.
         achou_fila = False
         for l in saida.split("\n"):
@@ -10023,7 +10244,7 @@ class TestDistribuicaoMatricialH0035:
                            {"id": "e", "tipo": "acao", "tecla": "Esc",
                             "texto": "Sair"}]},
                        _raw={})
-        saida = renderizar_tela(m, largura=42, altura=14)
+        saida = renderizar_tela(m, _ESTILO_CURVA, largura=42, altura=14)
         _registrar("H0035 fallback -> quadro minimo canonico",
                    "terminal pequeno demais" in saida and "GRADE" not in saida)
 
@@ -10041,7 +10262,7 @@ class TestDistribuicaoMatricialH0035:
             try:
                 raw = carregar_tela(_BASE_PADRAO, id_tela, _RAIZ_TELAS_DEMO)
                 modelo = construir_modelo(raw)
-                saida = renderizar_tela(modelo, largura=44, altura=16)
+                saida = renderizar_tela(modelo, _ESTILO_CURVA, largura=44, altura=16)
                 if saida.count("\n") != 16:
                     todas_ok = False
             except Exception as exc:  # pragma: no cover
@@ -10095,7 +10316,7 @@ class TestDistribuicaoMatricialH0035:
                                {"id": "e", "tipo": "acao", "tecla": "Esc",
                                 "texto": "Sair"}]},
                            _raw={})
-            saida = renderizar_tela(m, largura=42, altura=12)
+            saida = renderizar_tela(m, _ESTILO_CURVA, largura=42, altura=12)
             linhas = saida.split("\n")
             # 1: Formacao valida (grade renderizada).
             idx = next((i for i, l in enumerate(linhas) if "GRADE" in l), -1)
@@ -10274,14 +10495,14 @@ def teste_conteudo_externo_h0036_render():
                _linhas_console(console_sem, 60) == ["(console)"])
 
     # --- render integrado: placeholder ausente na saida completa ---
-    saida = renderizar_tela(m_h, largura=60, altura=24)
+    saida = renderizar_tela(m_h, _ESTILO_CURVA, largura=60, altura=24)
     _registrar("render integrado: identidade H-0036 na tela",
                "H-0036" in saida)
     _registrar("render integrado: placeholder ausente quando ha conteudo",
                "(console)" not in saida)
 
     # --- truncamento como calculo do renderizador (sem geometria no JSON) ---
-    saida_estreita = renderizar_tela(m_h, largura=24, altura=24)
+    saida_estreita = renderizar_tela(m_h, _ESTILO_CURVA, largura=24, altura=24)
     for linha in saida_estreita.split("\n"):
         if linha and len(linha) != 24:
             _registrar("truncamento: largura estreita respeitada", False,
@@ -10292,7 +10513,7 @@ def teste_conteudo_externo_h0036_render():
 
     # --- h0035 console com DM + conteudo externo: grade preservada ---
     m_dm = _modelo_com_conteudo("h0035_console_com", "h0035_console_com_conteudo")
-    saida_dm = renderizar_tela(m_dm, largura=60, altura=20)
+    saida_dm = renderizar_tela(m_dm, _ESTILO_CURVA, largura=60, altura=20)
     _registrar("h0035_console_com: participantes do externo em grade (P01..P12)",
                "P01 linha" in saida_dm and "P12 linha" in saida_dm
                and "(console)" not in saida_dm)
@@ -10348,7 +10569,7 @@ def teste_h0037_manual_001_marcador_truncamento():
     m1 = _modelo_com_conteudo(
         "h0037_console_nao_verboso", "h0037_dois_niveis_conteudo"
     )
-    saida_cabe = renderizar_tela(m1, tipo_borda="curva", largura=200, verboso=False)
+    saida_cabe = renderizar_tela(m1, estilo=_ESTILO_CURVA, largura=200, verboso=False)
     linhas_cabe = [l for l in saida_cabe.split("\n") if l]
     # Em largura generosa, nenhum item de conteudo deve terminar com '...'
     marcadas = [
@@ -10363,7 +10584,7 @@ def teste_h0037_manual_001_marcador_truncamento():
     )
 
     # --- RET-02: conteudo hierarquico excede em modo nao verboso ---
-    saida_nv = renderizar_tela(m1, tipo_borda="curva", largura=50, verboso=False)
+    saida_nv = renderizar_tela(m1, estilo=_ESTILO_CURVA, largura=50, verboso=False)
     linhas_nv = saida_nv.split("\n")
     # Linhas de conteudo truncado terminam com '...' imediatamente antes da
     # borda vertical direita ('...│') — o marcador faz parte do trecho visivel.
@@ -10391,7 +10612,7 @@ def teste_h0037_manual_001_marcador_truncamento():
     m4 = _modelo_com_conteudo(
         "h0037_console_tabela_alternavel", "h0037_tabela_conteudo"
     )
-    saida_tab_nv = renderizar_tela(m4, tipo_borda="curva", largura=50, verboso=False)
+    saida_tab_nv = renderizar_tela(m4, estilo=_ESTILO_CURVA, largura=50, verboso=False)
     linhas_tab = saida_tab_nv.split("\n")
     linhas_tab_trunc = [l for l in linhas_tab if l.endswith("...│")]
     _registrar(
@@ -10421,7 +10642,7 @@ def teste_h0037_manual_001_marcador_truncamento():
     )
 
     # --- RET-04: alternancia verboso/nao_verboso da tabela ---
-    saida_tab_v = renderizar_tela(m4, tipo_borda="curva", largura=50, verboso=True)
+    saida_tab_v = renderizar_tela(m4, estilo=_ESTILO_CURVA, largura=50, verboso=True)
     linhas_tab_v = saida_tab_v.split("\n")
     linhas_tab_v_trunc = [l for l in linhas_tab_v if l.endswith("...│")]
     # Em modo verboso o conteudo e quebrado em varias linhas, nao truncado.
@@ -10436,7 +10657,7 @@ def teste_h0037_manual_001_marcador_truncamento():
         saida_tab_v.count("\n") > saida_tab_nv.count("\n"),
     )
     # Retorno ao verboso restaura conteudo multilinha (idempotente).
-    saida_tab_v2 = renderizar_tela(m4, tipo_borda="curva", largura=50, verboso=True)
+    saida_tab_v2 = renderizar_tela(m4, estilo=_ESTILO_CURVA, largura=50, verboso=True)
     _registrar(
         "RET-04: retorno ao verboso restaura conteudo multilinha",
         saida_tab_v == saida_tab_v2,
@@ -10444,8 +10665,8 @@ def teste_h0037_manual_001_marcador_truncamento():
 
     # --- RET-05: redimensionamento automatizavel ---
     # Largura menor produz mais marcadores '...'; largura maior reduz.
-    saida_w40 = renderizar_tela(m1, tipo_borda="curva", largura=40, verboso=False)
-    saida_w60 = renderizar_tela(m1, tipo_borda="curva", largura=60, verboso=False)
+    saida_w40 = renderizar_tela(m1, estilo=_ESTILO_CURVA, largura=40, verboso=False)
+    saida_w60 = renderizar_tela(m1, estilo=_ESTILO_CURVA, largura=60, verboso=False)
     marc_w40 = saida_w40.count("...│")
     marc_w60 = saida_w60.count("...│")
     _registrar(
@@ -10459,7 +10680,7 @@ def teste_h0037_manual_001_marcador_truncamento():
     )
     # Ampliar bastante restaura conteudo integral (sem marcador): o maior item
     # do documento ~205 chars; largura 220 acomoda tudo sem truncamento.
-    saida_w220 = renderizar_tela(m1, tipo_borda="curva", largura=220, verboso=False)
+    saida_w220 = renderizar_tela(m1, estilo=_ESTILO_CURVA, largura=220, verboso=False)
     _registrar(
         "RET-05: largura generosa restaura conteudo sem marcador",
         saida_w220.count("...│") == 0,
@@ -10523,7 +10744,7 @@ def teste_h0037_manual_002_esc_primeiro():
     m3 = _modelo_com_conteudo(
         "h0037_console_alternavel_tres_niveis", "h0037_tres_niveis_conteudo"
     )
-    saida3 = renderizar_tela(m3, tipo_borda="curva", largura=80, verboso=False)
+    saida3 = renderizar_tela(m3, estilo=_ESTILO_CURVA, largura=80, verboso=False)
     barra3 = None
     linhas3 = saida3.split("\n")
     for i, l in enumerate(linhas3):
@@ -10544,7 +10765,7 @@ def teste_h0037_manual_002_esc_primeiro():
     m4 = _modelo_com_conteudo(
         "h0037_console_tabela_alternavel", "h0037_tabela_conteudo"
     )
-    saida4 = renderizar_tela(m4, tipo_borda="curva", largura=80, verboso=False)
+    saida4 = renderizar_tela(m4, estilo=_ESTILO_CURVA, largura=80, verboso=False)
     barra4 = None
     linhas4 = saida4.split("\n")
     for i, l in enumerate(linhas4):
@@ -10563,7 +10784,7 @@ def teste_h0037_manual_002_esc_primeiro():
     modelo_demo = construir_modelo(
         carregar_tela(None, "demo", _RAIZ_TELAS_DEMO)
     )
-    saida_demo = renderizar_tela(modelo_demo, tipo_borda="curva", largura=42)
+    saida_demo = renderizar_tela(modelo_demo, estilo=_ESTILO_CURVA, largura=42)
     linhas_demo = saida_demo.split("\n")
     barra_demo = None
     for i, l in enumerate(linhas_demo):
@@ -10683,7 +10904,7 @@ def teste_h0037_qapp7_verb_sem_corte_silencioso():
 
     # --- VERB-01: conteudo que cabe integralmente em modo verboso ---
     saida_larga = renderizar_tela(
-        modelo_dois, tipo_borda="curva", largura=220, verboso=True
+        modelo_dois, estilo=_ESTILO_CURVA, largura=220, verboso=True
     )
     marc_larga = saida_larga.count("...│")
     _registrar(
@@ -10702,7 +10923,7 @@ def teste_h0037_qapp7_verb_sem_corte_silencioso():
     # --- VERB-02: conteudo uma posicao maior -> quebra de linha sem corte ---
     # Largura suficiente para nao marcar, mas insuficiente para caber em 1 linha.
     saida_v30 = renderizar_tela(
-        modelo_dois, tipo_borda="curva", largura=30, verboso=True
+        modelo_dois, estilo=_ESTILO_CURVA, largura=30, verboso=True
     )
     _registrar(
         "VERB-02: modo verboso em largura reduzida sem marcador '...'",
@@ -10713,13 +10934,13 @@ def teste_h0037_qapp7_verb_sem_corte_silencioso():
         "VERB-02: modo verboso expande verticalmente (mais linhas que o nv)",
         saida_v30.count("\n")
         > renderizar_tela(
-            modelo_dois, tipo_borda="curva", largura=30, verboso=False
+            modelo_dois, estilo=_ESTILO_CURVA, largura=30, verboso=False
         ).count("\n"),
     )
 
     # --- VERB-03: conteudo longo com tokens distintos preservados ---
     saida_v30_tres = renderizar_tela(
-        modelo_tres, tipo_borda="curva", largura=30, verboso=True
+        modelo_tres, estilo=_ESTILO_CURVA, largura=30, verboso=True
     )
     texto_v30_tres = _texto_caixa_console(saida_v30_tres)
     # Token inicial, intermediario e final do item longo do tres niveis.
@@ -10814,7 +11035,7 @@ def teste_h0037_qapp7_verb_sem_corte_silencioso():
 
     # --- VERB-07: tres niveis sem misturar nem eliminar niveis ---
     saida_v50_tres = renderizar_tela(
-        modelo_tres, tipo_borda="curva", largura=50, verboso=True
+        modelo_tres, estilo=_ESTILO_CURVA, largura=50, verboso=True
     )
     texto_v50_tres = _texto_caixa_console(saida_v50_tres)
     _registrar(
@@ -10871,7 +11092,7 @@ def teste_h0037_qapp7_verb_sem_corte_silencioso():
     # Em largura generosa, o conteudo deve reaparecer integral (sem '...' e
     # sem substituir o texto original por versao previamente quebrada).
     saida_v220_tres = renderizar_tela(
-        modelo_tres, tipo_borda="curva", largura=220, verboso=True
+        modelo_tres, estilo=_ESTILO_CURVA, largura=220, verboso=True
     )
     _registrar(
         "VERB-09: ampliacao restaura conteudo integral sem marcador",
@@ -10890,7 +11111,7 @@ def teste_h0037_qapp7_verb_sem_corte_silencioso():
 
     # --- VERB-10: alternancia verboso/nao verboso/verboso ---
     saida_nv = renderizar_tela(
-        modelo_tres, tipo_borda="curva", largura=50, verboso=False
+        modelo_tres, estilo=_ESTILO_CURVA, largura=50, verboso=False
     )
     _registrar(
         "VERB-10: nao verboso mantem marcador '...'",
@@ -10898,14 +11119,14 @@ def teste_h0037_qapp7_verb_sem_corte_silencioso():
         "marcadores={0}".format(saida_nv.count("...│")),
     )
     saida_v10 = renderizar_tela(
-        modelo_tres, tipo_borda="curva", largura=50, verboso=True
+        modelo_tres, estilo=_ESTILO_CURVA, largura=50, verboso=True
     )
     _registrar(
         "VERB-10: verboso nao tem marcador '...'",
         saida_v10.count("...│") == 0,
     )
     saida_nv2 = renderizar_tela(
-        modelo_tres, tipo_borda="curva", largura=50, verboso=False
+        modelo_tres, estilo=_ESTILO_CURVA, largura=50, verboso=False
     )
     _registrar(
         "VERB-10: retorno ao nao verboso restaura marcador '...'",
@@ -10944,10 +11165,10 @@ def teste_h0037_qapp7_verb_sem_corte_silencioso():
         "h0037_console_tabela_alternavel", "h0037_tabela_conteudo"
     )
     saida_tab_v = renderizar_tela(
-        m_tab, tipo_borda="curva", largura=50, verboso=True
+        m_tab, estilo=_ESTILO_CURVA, largura=50, verboso=True
     )
     saida_tab_nv = renderizar_tela(
-        m_tab, tipo_borda="curva", largura=50, verboso=False
+        m_tab, estilo=_ESTILO_CURVA, largura=50, verboso=False
     )
     _registrar(
         "VERB-12: tabela verbosa sem marcador '...'",
@@ -10970,7 +11191,7 @@ def teste_h0037_qapp7_verb_sem_corte_silencioso():
         "h0036_console_conjuntos", "h0036_conjuntos_conteudo"
     )
     saida_conj_nv = renderizar_tela(
-        m_conj, tipo_borda="curva", largura=26, verboso=False
+        m_conj, estilo=_ESTILO_CURVA, largura=26, verboso=False
     )
     _registrar(
         "VERB-13: conjuntos nao verbosos usam marcador '...' quando excede",
@@ -10978,7 +11199,7 @@ def teste_h0037_qapp7_verb_sem_corte_silencioso():
         "marcadores={0}".format(saida_conj_nv.count("...│")),
     )
     saida_conj_v = renderizar_tela(
-        m_conj, tipo_borda="curva", largura=80, verboso=True
+        m_conj, estilo=_ESTILO_CURVA, largura=80, verboso=True
     )
     _registrar(
         "VERB-13: conjuntos verbosos sem marcador em largura ampla",

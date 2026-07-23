@@ -25,6 +25,7 @@ sys.dont_write_bytecode = True
 _BASE = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(_BASE))
 
+from tela.loader import carregar_estilo  # noqa: E402
 from tela.renderizador import (  # noqa: E402
     _linhas_barra,
     _DISTRIBUICAO_HORIZONTAL_RESPONSIVA_DEFAULT,
@@ -593,11 +594,12 @@ def _verificar_invariantes(cenario, linhas):
 # Execução de um cenário
 # ---------------------------------------------------------------------------
 
-def _executar_cenario(cenario):
+def _executar_cenario(cenario, estilo):
     """Executa um cenário e retorna dict com resultado."""
     try:
         linhas = _linhas_barra(
             {"chips": cenario["chips"], "distribuicao": cenario["distribuicao"]},
+            estilo,
             cenario["content_w"],
         )
         # Verificar invariantes
@@ -1046,10 +1048,13 @@ def main(argv=None):
     if limite is not None and limite > 0:
         cenarios = cenarios[:limite]
 
+    # H-0039 / ADR-0030: carrega o EstiloResolvido uma unica vez por execucao.
+    estilo = carregar_estilo()
+
     # Executar
     resultados = []
     for cenario in cenarios:
-        resultado = _executar_cenario(cenario)
+        resultado = _executar_cenario(cenario, estilo)
         resultados.append(resultado)
 
         if modo_saida == "detalhado":

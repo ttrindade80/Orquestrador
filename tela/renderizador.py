@@ -29,15 +29,17 @@ modelo/JSON:
   ADR-0014): tenta linha unica, depois multilinha (ate
   ``linhas.maximo``) e, se nao couber, levanta ``RenderizadorErro``
   (``erro_layout``) -- nunca omite/trunca/reordena chips. Cada chip na
-  saida usa o formato ``"[{tecla}] {texto}"`` e aparece exatamente uma
+  saida usa o formato ``"{ec}{tecla}{ed} {texto}"`` (delimitadores e
+  capitalizacao do ``EstiloResolvido``) e aparece exatamente uma
   vez, na ordem declarada em ``chips[]``. ``regra_existencia`` e
   ``regra_ativo`` nao sao avaliadas neste ciclo.
 
-O renderer continua recebendo os parametros opcionais ``tipo_borda``
-(``"curva"`` default ou ``"reta"``) e ``largura`` (quando ``None``,
-fallback ``TOTAL_WIDTH = 42``). Quando ``largura`` e fornecida, deriva
-``inner_w = largura - 2``, ``content_w = largura - 3`` e
-``label_max = largura - 4``.
+O renderer recebe o parametro obrigatorio ``estilo`` (``EstiloResolvido`` de
+``tela.loader``) e o opcional ``largura`` (quando ``None``,
+fallback ``TOTAL_WIDTH = 42``). Os caracteres de borda e os delimitadores/
+capitalizacao dos chips vêm do ``estilo`` (H-0039 / ADR-0030). Quando
+``largura`` e fornecida, deriva ``inner_w = largura - 2``,
+``content_w = largura - 3`` e ``label_max = largura - 4``.
 
 ESCOPO (H-0010A):
 - Apenas renderizacao visual declarativa a partir de ModeloTela.
@@ -150,18 +152,25 @@ _DISTRIBUICAO_HORIZONTAL_RESPONSIVA_DEFAULT = {
 _PREENCHIMENTOS_MULTILINHA_VALIDOS = ("coluna_a_coluna", "linha_a_linha")
 
 
-_BORDAS = {
-    "curva": {
-        "tl": "╭", "tr": "╮",
-        "bl": "╰", "br": "╯",
-        "v":  "│", "h":  "─",
-    },
-    "reta": {
-        "tl": "┌", "tr": "┐",
-        "bl": "└", "br": "┘",
-        "v":  "│", "h":  "─",
-    },
-}
+def _borda_de_estilo(estilo):
+    """Materializa o dict interno de borda a partir de ``EstiloResolvido``.
+
+    H-0039 / ADR-0030: os caracteres de borda deixam de ser hardcoded em
+    ``_BORDAS`` e passam a derivar do estilo global resolvido. O dict usa as
+    chaves internas consumidas pelas helpers de renderizacao (``tl``, ``tr``,
+    ``bl``, ``br``, ``v``, ``h_superior``, ``h_inferior``). Os tracos superior
+    e inferior sao distintos para suportar presets como ``"Linha"``, onde
+    ``traco_superior`` difere de ``traco_inferior``.
+    """
+    return {
+        "tl": estilo.canto_superior_esquerdo,
+        "tr": estilo.canto_superior_direito,
+        "bl": estilo.canto_inferior_esquerdo,
+        "br": estilo.canto_inferior_direito,
+        "v": estilo.lateral,
+        "h_superior": estilo.traco_superior,
+        "h_inferior": estilo.traco_inferior,
+    }
 
 
 def _linha_topo(label, borda, label_max):
@@ -173,7 +182,7 @@ def _linha_topo(label, borda, label_max):
     label_trunc = label[:label_max]
     dashes = label_max - len(label_trunc)
     return "{tl} {0} {1}{tr}".format(
-        label_trunc, borda["h"] * dashes, tl=borda["tl"], tr=borda["tr"]
+        label_trunc, borda["h_superior"] * dashes, tl=borda["tl"], tr=borda["tr"]
     )
 
 
@@ -183,7 +192,7 @@ def _linha_base(borda, inner_w):
     Comprimento total: inner_w + 2 == total_w.
     """
     return "{bl}{0}{br}".format(
-        borda["h"] * inner_w, bl=borda["bl"], br=borda["br"]
+        borda["h_inferior"] * inner_w, bl=borda["bl"], br=borda["br"]
     )
 
 
@@ -1137,11 +1146,31 @@ def _linhas_lancador(elemento, content_w=None):
     return [""] * margem_v_sup + linhas_linha + [""] * margem_v_inf
 
 
-def _texto_chip_barra(chip, vao=1):
-    """Monta o texto de um chip da barra no formato ``"[{tecla}]{padding}{texto}"``."""
+def _texto_chip_barra(chip, estilo, vao=1):
+    """Monta o texto de um chip da barra no formato ``"{ec}{tecla}{ed}{padding}{texto}"``.
+
+    H-0039 / ADR-0030 D5: os delimitadores e a capitalizacao do rotulo vêm do
+    ``EstiloResolvido`` (``caractere_esquerdo``, ``caractere_direito``,
+    ``caixa_alta``), nunca hardcoded. ``caixa_alta`` aplica-se apenas ao
+    rotulo (``texto``) -- a tecla permanece como declarada no JSON, para nao
+    quebrar identificadores como ``Esc``. ``cor_texto``/``cor_fundo`` são
+    lidos do estilo; enquanto nao houver traducao de nome semantico para
+    ANSI, o valor ``"padrão"`` preserva o comportamento vigente (sem cor
+    diferenciada, sem cor concreta nova).
+    """
     tecla = chip.get("tecla", "")
     texto = chip.get("texto", "")
-    return "[{0}]{1}{2}".format(tecla, " " * vao, texto)
+    cor_texto = estilo.cor_texto   # H-0039: "padrão" → sem ANSI nova
+    cor_fundo = estilo.cor_fundo   # H-0039: "padrão" → sem ANSI nova
+    if estilo.caixa_alta:
+        texto = texto.upper()
+    return "{ec}{tecla}{ed}{padding}{rotulo}".format(
+        ec=estilo.caractere_esquerdo,
+        ed=estilo.caractere_direito,
+        tecla=tecla,
+        rotulo=texto,
+        padding=" " * vao,
+    )
 
 
 def _normalizar_distribuicao(distribuicao):
@@ -1498,7 +1527,7 @@ def _garantir_esc_primeiro(chips):
     return [esc] + demais
 
 
-def _linhas_barra(barra_de_menus, content_w):
+def _linhas_barra(barra_de_menus, estilo, content_w):
     """Linhas de conteudo para a caixa da barra de menus (H-0016).
 
     Renderiza os chips da ``barra_de_menus`` em distribuição horizontal
@@ -1522,8 +1551,10 @@ def _linhas_barra(barra_de_menus, content_w):
        (``overflow.quando_nao_couber = "erro_layout"``) -- nunca omite,
        nunca trunca, nunca reordena chips além da regra contratual ``[Esc]``.
 
-    Cada chip é renderizado como ``"[{tecla}] {texto}"``. ``regra_existencia``
-    e ``regra_ativo`` não são avaliadas neste ciclo.
+    Cada chip é renderizado como ``"{ec}{tecla}{ed} {texto}"``, onde os
+    delimitadores e a capitalização do rótulo vêm do ``EstiloResolvido``
+    (H-0039 / ADR-0030 D5). ``regra_existencia`` e ``regra_ativo`` não são
+    avaliadas neste ciclo.
 
     ``content_w`` é a largura disponível para conteúdo dentro da caixa
     (``total_w - 3``). Retorna lista de strings, cada uma uma linha de
@@ -1555,7 +1586,7 @@ def _linhas_barra(barra_de_menus, content_w):
     vao_entre_chips = (esp.get("vao_entre_chips") or {}).get("minimo", 2)
     vao_entre_colunas = (esp.get("vao_entre_colunas") or {}).get("minimo", 2)
 
-    texto_chips = [_texto_chip_barra(c, vao=vao_ct) for c in chips]
+    texto_chips = [_texto_chip_barra(c, estilo, vao=vao_ct) for c in chips]
     prefixo = " " * margem
     largura_util = content_w - 2 * margem
 
@@ -2387,19 +2418,26 @@ def _quadro_minimo_global(total_w, altura):
 
 def renderizar_tela(
     modelo: ModeloTela,
-    tipo_borda: str = "curva",
+    estilo: "EstiloResolvido",
     largura: int | None = None,
     altura: int | None = None,
     verboso: bool = False,
 ) -> str:
     """Renderiza ModeloTela como string visual declarativa (H-0010A).
 
+    H-0039 / ADR-0030: os caracteres de borda e os delimitadores/capitalizacao
+    dos chips vêm do ``EstiloResolvido`` carregado de ``config/estilo.json``
+    via ``carregar_estilo``. O renderer nao abre ``config/estilo.json``,
+    nao resolve preset, nao mantém catálogo visual proprio e nao aplica
+    fallback -- consome exclusivamente o ``estilo`` recebido.
+
     Parametros:
         modelo: ModeloTela produzido por construir_modelo (H-0002) a
             partir do dict retornado por carregar_tela (H-0001).
-        tipo_borda: nome do conjunto de caracteres de borda a usar.
-            Valores aceitos: ``"curva"`` (default) e ``"reta"``. Outros
-            valores lancam RenderizadorErro (case-sensitive).
+        estilo: ``EstiloResolvido`` (tela.loader) carregado uma vez por
+            sessao. Fonte unica de borda (7 campos), chip (5 campos) e
+            indicadores materializados (6 campos). Argumento obrigatorio
+            -- nao ha default: o renderer nunca decide borda autonomamente.
         largura: largura total (em caracteres Python) de cada linha
             nao-vazia da saida. Quando ``None`` (default), usa o fallback
             deterministico ``TOTAL_WIDTH = 42``. Quando fornecida, deriva
@@ -2425,9 +2463,8 @@ def renderizar_tela(
         uma caixa de cabecalho derivada de ``modelo.cabecalho``, seguida
         de uma caixa por elemento de ``corpo.elementos[]`` (na ordem do
         JSON) e por fim uma caixa da ``barra_de_menus``. Os caracteres de
-        canto variam conforme ``tipo_borda``; o restante (bordas
-        vertical/horizontal e conteudo textual) e identico entre
-        conjuntos. Cada linha nao-vazia tem exatamente ``largura`` (ou 42
+        canto e os delimitadores/capitalizacao dos chips derivam do
+        ``estilo``. Cada linha nao-vazia tem exatamente ``largura`` (ou 42
         no fallback) chars Python; a string termina com ``"\\n"``. Quando
         ``altura`` e fornecida e suficiente, a saida tem exatamente
         ``altura`` linhas (``saida.count("\\n") == altura``).
@@ -2435,17 +2472,20 @@ def renderizar_tela(
     Lancamentos:
         RenderizadorErro quando:
             - o argumento ``modelo`` nao e um ModeloTela valido;
-            - o argumento ``tipo_borda`` nao e ``"curva"`` nem ``"reta"``;
             - algum item de lancador possui ``texto`` acima de 15
               caracteres (rejeitado sem truncamento);
             - ``altura`` e fornecida e e insuficiente para cabecalho +
               barra_de_menus (``L_cab + L_barra > altura``) ou para o
               conteudo do corpo (``L_corpo_conteudo > L_corpo_disponivel``).
+        TypeError quando ``estilo`` e omitido. Uma chamada legada que ainda
+            passe ``tipo_borda`` (argumento removido) tambem levanta
+            ``TypeError`` -- nao ha compatibilidade permanente.
 
     Efeitos colaterais:
         Nenhum. Nao altera o modelo, nao grava arquivo, nao consulta
-        JSON em disco, nao executa acao, nao ativa binding, nao
-        persiste tipo_borda entre chamadas, nao le o terminal.
+        JSON em disco, nao executa acao, nao ativa binding, nao le o
+        terminal. O ``estilo`` e consumido por leitura (duck typing) e
+        nunca modificado.
     """
     if not isinstance(modelo, ModeloTela):
         raise RenderizadorErro(
@@ -2454,12 +2494,12 @@ def renderizar_tela(
             )
         )
 
-    if tipo_borda not in _BORDAS:
-        raise RenderizadorErro(
-            "tipo_borda invalido: {0!r}; valores aceitos: curva, reta".format(
-                tipo_borda
-            )
-        )
+    # H-0039 / ADR-0030: a borda deixa de ser escolha do renderer e passa a
+    # ser dado de entrada. ``estilo`` e obrigatorio (sem default); se algum
+    # chamador legado passar ``tipo_borda=...``, o Python levanta TypeError
+    # porque este parametro nao existe mais -- estado final sem compatibilidade
+    # transitória permanente.
+    borda = _borda_de_estilo(estilo)
 
     # H-0034 / ADR-0023: o sinal de quadro mínimo global é redefinido a cada
     # chamada — o renderer é puro e nunca persiste o estado entre redesenhos
@@ -2473,7 +2513,6 @@ def renderizar_tela(
     inner_w = total_w - 2
     content_w = total_w - 3
     label_max = total_w - 4
-    borda = _BORDAS[tipo_borda]
 
     titulo = modelo.cabecalho.get("titulo", "(ausente)")
     descricao = modelo.cabecalho.get("descricao", "(ausente)")
@@ -2511,7 +2550,7 @@ def renderizar_tela(
     l_corpo_disponivel = None
     if altura is not None:
         if linhas_barra is None:
-            linhas_barra = _linhas_barra(modelo.barra_de_menus, content_w)
+            linhas_barra = _linhas_barra(modelo.barra_de_menus, estilo, content_w)
         l_cab = _contar_linhas(partes[0])
         l_barra = len(linhas_barra) + 2
         if l_cab + l_barra > altura:
@@ -2548,7 +2587,7 @@ def renderizar_tela(
     # disponivel para decidir linha unica vs multilinha vs erro_layout.
     # H-0020 (R-4): pular se já computada no modo horizontal com altura.
     if linhas_barra is None:
-        linhas_barra = _linhas_barra(modelo.barra_de_menus, content_w)
+        linhas_barra = _linhas_barra(modelo.barra_de_menus, estilo, content_w)
 
     # ADR-0024 (H-0033): verificacao pos-renderizacao de ocupacao integral.
     # Quando ``altura`` e fornecida e o arranjo e vertical sem distribuicao,

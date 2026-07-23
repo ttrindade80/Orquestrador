@@ -11,6 +11,7 @@
     ]
   },
   "borda": {
+    "preset_default": "Borda Curva",
     "presets": {
       "Borda Curva": {
         "canto_superior_esquerdo": "╭",
@@ -42,13 +43,14 @@
     }
   },
   "chip": {
+    "preset_default": "Colchete",
     "presets": {
       "Colchete": {
         "caractere_esquerdo": "[",
         "caractere_direito": "]",
         "cor_texto": "padrão",
         "cor_fundo": "padrão",
-        "caixa_alta": true
+        "caixa_alta": false
       },
       "Curva": {
         "caractere_esquerdo": "╭",
