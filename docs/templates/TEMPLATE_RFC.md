@@ -1,6 +1,6 @@
 ---
 name: RFC-NNNN-descricao
-description: "[preencher] Mudanca proposta em uma linha"
+description: "[preencher] Mudança proposta em uma linha"
 metadata:
   type: rfc
   status: pendente
@@ -12,38 +12,78 @@ rastreabilidade:
   issues_relacionadas: []
   bugs_relacionados: []
   handoffs_bloqueados: []
+  evidencias_relacionadas: []
 ---
 
-# RFC-NNNN — [Titulo curto]
+# RFC-NNNN — [Título curto]
 
-## Problema
+## 1. Status
 
-[Descrever a lacuna ou contradicao que nao pode ser resolvida localmente.]
+`pendente` | `em_analise` | `aceita` | `rejeitada` | `substituida`
 
-## Por que exige decisao
+RFC aceita não substitui ADR ou atualização contratual quando esses artefatos forem necessários.
 
-[Explicar por que implementar diretamente seria arriscado ou violaria contrato.]
+## 2. Problema
 
-## Proposta
+[Descreva a lacuna, contradição ou necessidade.]
 
-[Descrever a mudanca sugerida.]
+## 3. Evidência
 
-## Impacto documental
+[Registre somente fatos materiais, origens focais, comandos reproduzíveis e resultados necessários. Use `NAO_CONFIRMADO` quando a evidência for insuficiente.]
 
-| Artefato | Mudanca necessaria |
-|---|---|
-| `docs/contratos/contrato_modulo_exemplo.md` | [Regra a alterar ou criar] |
+Não copie dumps extensos. Nenhuma evidência material pode existir somente em `/tmp`.
 
-## Criterio de aceitacao da RFC
+Quando um arquivo separado for indispensável por formato, tamanho ou reutilização direta, grave-o em `docs/relatorios/` e registre:
 
-- [ ] Decisao aprovada ou rejeitada
-- [ ] ADR criada se necessario
-- [ ] Contratos afetados atualizados
-- [ ] Handoffs bloqueados revisados
-
-## Exemplo
-
-```text
-RFC: permitir novo estado intermediario no modulo exemplo.
-Motivo: o contrato atual nao cobre validacao pendente.
+```yaml
+evidencias_separadas:
+  - arquivo: docs/relatorios/<arquivo>
+    finalidade:
+    leitura_necessaria_para: []
 ```
+
+## 4. Por que exige decisão
+
+[Explique por que a mudança não pode ser tratada como correção local.]
+
+## 5. Proposta
+
+[Descreva a alternativa proposta sem apresentá-la como já aprovada.]
+
+## 6. Alternativas
+
+| Alternativa | Benefícios | Custos ou riscos |
+|---|---|---|
+| [Opção] | | |
+
+## 7. Impacto documental
+
+| Artefato | Mudança necessária |
+|---|---|
+| `[caminho relativo à raiz]` | [Regra a criar, alterar ou remover] |
+
+## 8. Impacto operacional previsto
+
+```yaml
+diretorios_previstos:
+arquivos_previstos:
+configuracoes_previstas:
+entradas_afetadas:
+saidas_afetadas:
+migracao_necessaria:
+```
+
+Previsão não comprova criação e não autoriza implementação.
+
+## 9. Decisão necessária do usuário
+
+[Formule a escolha objetiva que precisa ser feita.]
+
+## 10. Critério de encerramento da RFC
+
+- [ ] Decisão explícita registrada.
+- [ ] ADR criada, quando necessária.
+- [ ] Contratos atualizados, quando necessários.
+- [ ] Handoffs bloqueados revisados.
+- [ ] Evidências materiais persistidas de forma localizável.
+- [ ] Nenhuma implementação foi iniciada apenas com base nesta RFC.

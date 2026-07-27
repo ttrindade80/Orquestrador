@@ -1,47 +1,81 @@
 ---
 name: ADR-NNNN-descricao
-description: "[preencher] Decisao arquitetural em uma linha"
+description: "[preencher] Decisão arquitetural em uma linha"
 metadata:
   type: adr
   status: proposta
+  id: ADR-NNNN
   data: YYYY-MM-DD
   substitui: null
 rastreabilidade:
+  decisao_usuario: "[referência ou síntese validada]"
   rfc_origem: null
   issues_relacionadas: []
   contratos_afetados: []
   handoffs_bloqueados: []
 ---
 
-# ADR-NNNN — [Titulo curto]
+# ADR-NNNN — [Título curto]
 
-## Status
+## 1. Status
 
 `proposta` | `aceita` | `rejeitada` | `substituida`
 
-## Contexto
+## 2. Contexto
 
-[Qual problema exige decisao? Cite contratos, issues ou lacunas.]
+[Descreva o problema e as autoridades existentes. Não trate sugestão como decisão.]
 
-## Decisao
+## 3. Decisão explícita do usuário
 
-[Declarar a decisao de forma objetiva.]
+[Registre somente a decisão já tomada. Não escolha alternativa, arquitetura, schema, formato ou diretório não autorizado.]
 
-## Consequencias
+## 4. Decisão
 
-- [Consequencia positiva]
-- [Custo ou restricao introduzida]
-- [Contratos que precisam ser atualizados]
+[Formalize objetivamente a decisão e seus limites.]
 
-## Alternativas consideradas
+## 5. Consequências
+
+### Positivas
+
+- [Consequência]
+
+### Custos e restrições
+
+- [Custo, restrição ou risco]
+
+### Artefatos afetados
+
+| Artefato | Aplicação necessária |
+|---|---|
+| `[caminho relativo à raiz]` | [Alteração documental esperada] |
+
+## 6. Compatibilidade e transição
+
+[Explique compatibilidade, migração, substituição ou `não aplicável`.]
+
+## 7. Alternativas consideradas
 
 | Alternativa | Motivo para rejeitar ou adiar |
 |---|---|
-| [Opcao A] | [Motivo] |
+| [Opção] | [Motivo registrado] |
 
-## Exemplo
+## 8. Itens fora de escopo
 
-```text
-Decidimos que o modulo exemplo validara entrada antes de persistir estado.
-Contrato afetado: docs/contratos/contrato_modulo_exemplo.md
-```
+- [Item não decidido]
+- [Item que exige decisão futura]
+
+## 9. Critérios para aplicação
+
+- [ ] A decisão foi propagada somente aos documentos afetados.
+- [ ] Não restaram contradições normativas ativas.
+- [ ] Nenhuma implementação de código foi feita durante a aplicação documental.
+- [ ] Caminhos permanecem relativos à raiz do Orquestrador.
+- [ ] Diretórios previstos e criados foram distinguidos.
+- [ ] A execução de aplicação produziu relatório próprio em `docs/relatorios/`.
+- [ ] O relatório de aplicação não sobrescreveu relatório de execução anterior.
+- [ ] Evidência material necessária foi preservada no relatório ou em arquivo referenciado dentro de `docs/relatorios/`.
+- [ ] A aplicação foi submetida a QA independente.
+
+## 10. Bloqueios
+
+[Use `nenhum` ou descreva a decisão ainda ausente.]

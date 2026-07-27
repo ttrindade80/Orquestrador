@@ -207,10 +207,10 @@ futuras, handoffs, implementações, migrações e QAs.
 
 ```text
 docs/contratos/contrato_modulo_exemplo.md
-docs/handoff/para_implementacao/H-0001-criar-comando-exemplo.md
-docs/relatorios/implementacao/IMP-0001-criar-comando-exemplo.md
-docs/handoff/para_qa/QA-0001-revisar-comando-exemplo.md
-docs/relatorios/qa/REL-QA-0001-revisar-comando-exemplo.md
+docs/handoff/H-0001-criar-comando-exemplo.md
+docs/relatorios/IMP-0001-criar-comando-exemplo.md
+docs/handoff/QA-0001-revisar-comando-exemplo.md
+docs/relatorios/REL-QA-0001-revisar-comando-exemplo.md
 ```
 
 ## 13. Suíte de testes canônica (H-0038)
@@ -244,3 +244,32 @@ Regras:
 - Esta declaração prevalece, por hierarquia documental (seção 3), sobre
   qualquer handoff anterior que tratasse a execução direta dos scripts
   como gate canônico.
+
+## 14. Templates canônicos documentais e de relatórios (ADR-0032)
+
+Índice canônico:
+
+```text
+docs/templates/00_INDICE_TEMPLATES_DOCUMENTAIS_E_RELATORIOS.md
+```
+
+Regras:
+
+- todo novo artefato documental (ADR, BUG, handoff de implementação, handoff
+  de QA, RFC) e todo relatório ou evidência produzido por agente usa
+  exatamente um template canônico do índice acima;
+- o gerente resolve esse template único antes de gerar o prompt do agente;
+  adaptação autônoma por proximidade é proibida;
+- ausência de template aplicável, ou conflito material entre o template e
+  a regra vigente, bloqueia a execução antes da produção do artefato ou
+  relatório;
+- relatórios e evidências produzidos por agentes ficam em
+  `docs/relatorios/`; o relatório externo do gerente permanece fora desta
+  regra, regido pelo sistema externo do gerente;
+- nova execução gera novo relatório; relatório anterior não é sobrescrito,
+  salvo correção factual da própria execução;
+- relatórios e artefatos históricos não são reescritos para adequação ao
+  pacote canônico.
+
+A obrigatoriedade geral desta seção entra em vigor somente após aprovação
+de `QA_APLICACAO_ADR` da ADR-0032.

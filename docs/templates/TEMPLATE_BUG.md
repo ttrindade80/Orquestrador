@@ -13,37 +13,80 @@ rastreabilidade:
   relatorio_qa: null
   contrato_alvo: null
   issues_relacionadas: []
+  evidencias_relacionadas: []
 ---
 
-# BUG-NNNN — [Descricao curta]
+# BUG-NNNN — [Descrição curta]
 
-## Classificacao
+## 1. Classificação
 
-- `local`: corrigivel sem mudar contrato.
-- `arquitetural`: exige RFC, ADR ou mudanca de contrato.
+- `local`: corrigível sem mudar contrato, arquitetura, schema ou política.
+- `arquitetural`: exige decisão documental antes da correção.
+- `NAO_CONFIRMADO`: evidência insuficiente para classificar.
 
-## Sintoma
+## 2. Sintoma
 
-[O que acontece que nao deveria acontecer.]
+[O que acontece e em qual cenário.]
 
-## Esperado
+## 3. Comportamento esperado
 
-[O que o contrato ou handoff exige.]
+[Cite a autoridade que define o comportamento.]
 
-## Evidencia
+## 4. Evidência reproduzível
 
 ```text
-Comando/verificacao: [exemplo]
-Resultado observado: [exemplo]
-Resultado esperado: [exemplo]
+Raiz de execução: .
+Comando:
+Entrada ou fixture:
+Configuração:
+Resultado observado:
+Resultado esperado:
+Código de saída:
+Arquivos produzidos ou alterados:
+Origem focal da evidência:
 ```
 
-## Escopo permitido para correcao
+Código de saída zero não substitui a comparação semântica.
 
-- [Arquivos permitidos]
+Não copie dumps extensos. Preserve fatos, trechos materiais, hashes, comandos reproduzíveis e resultados necessários.
 
-## Criterio de fechamento
+Nenhuma evidência material pode existir somente em `/tmp`. Quando um arquivo separado for indispensável por formato, tamanho ou reutilização direta, grave-o em `docs/relatorios/` e registre:
 
-- [ ] Causa identificada
-- [ ] Correcao local ou RFC registrada
-- [ ] QA atualizado com evidencia
+```yaml
+evidencias_separadas:
+  - arquivo: docs/relatorios/<arquivo>
+    finalidade:
+    leitura_necessaria_para: []
+```
+
+## 5. Dados e artefatos
+
+```yaml
+entrada_real:
+fixture:
+temporarios_operacionais:
+saidas_geradas:
+origem_de_item_inesperado: NAO_CONFIRMADA | CONFIRMADA | nao_aplicavel
+```
+
+Temporário operacional não substitui a preservação da evidência material.
+
+## 6. Escopo permitido para correção
+
+### Arquivos e diretórios autorizados
+
+- `[caminho relativo à raiz]`
+
+### Arquivos e diretórios preservados
+
+- `[caminho relativo à raiz]`
+
+Diretório novo deve ser autorizado nominalmente.
+
+## 7. Critério de fechamento
+
+- [ ] Causa classificada com evidência.
+- [ ] Correção local executada ou fluxo documental iniciado.
+- [ ] Testes relevantes executados.
+- [ ] Cada execução material produziu seu próprio relatório em `docs/relatorios/`.
+- [ ] QA independente concluído.

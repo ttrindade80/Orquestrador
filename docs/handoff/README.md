@@ -37,6 +37,20 @@ Um handoff nao pode:
 | `QA-NNNN` | Revisao/QA | `TEMPLATE_HANDOFF_QA.md` |
 | `BUG-NNNN` | Correcao ou registro de bug | `TEMPLATE_BUG.md` |
 
+## Templates canônicos
+
+Índice canônico:
+
+```text
+docs/templates/00_INDICE_TEMPLATES_DOCUMENTAIS_E_RELATORIOS.md
+```
+
+O gerente resolve, antes do prompt, o template único aplicável a cada
+handoff e ao relatório correspondente — `TEMPLATE_RELATORIO_IMPL.md` para
+relatório de implementação, `TEMPLATE_RELATORIO_QA.md` para relatório de
+QA. Não é permitido escolher ou adaptar template por proximidade sem essa
+resolução prévia (ADR-0032).
+
 ## Estados
 
 | Estado | Uso |

@@ -18,7 +18,9 @@ Este indice registra as ADRs aceitas do projeto.
 
 ## Como criar ADR
 
-1. Copiar `docs/templates/TEMPLATE_ADR.md`.
+1. Uso obrigatorio de `docs/templates/TEMPLATE_ADR.md` como template canonico
+   (ADR-0032; indice canonico em
+   `docs/templates/00_INDICE_TEMPLATES_DOCUMENTAIS_E_RELATORIOS.md`).
 2. Nomear como `ADR-NNNN-descricao-curta.md`.
 3. Preencher contexto, decisao, consequencias e contratos afetados.
 4. Atualizar este indice.
@@ -59,6 +61,7 @@ Este indice registra as ADRs aceitas do projeto.
 | ADR-0029 | Nomenclatura modular e leitura seletiva — substitui o monólito `docs/NOMENCLATURA.md` por base terminológica modular em `docs/nomenclatura/` com 17 módulos (00–90); leitura seletiva por atividade; fachada permanente preservando `docs/NOMENCLATURA.md`; autoridade dos contratos sobre comportamento normativo; D-NOM-01 a D-NOM-16 fechadas; FASE_1 executada em 2026-07-20 (17 módulos PRE_FACHADA); FASE_2 executada em 2026-07-21 (fachada permanente criada, 17 módulos VIGENTES, 9 contratos com dependências declaradas, referências ativas migradas); QA pós-FASE_1: ADR_APPROVED_WITH_NOTES; QA pós-FASE_2 inicial: APLICACAO_ADR_FASE_2_REJECTED; PATCH_APLICACAO_ADR_FASE_2 aplicado; aguardando QA_POS_PATCH_APLICACAO_ADR_FASE_2 | aceita e aplicada | 2026-07-20/21 |
 | ADR-0030 | Carregamento global e materialização do estilo — `config/estilo.json` como autoridade global exclusiva de aparência compartilhada; catálogo + `preset_default` como padrão canônico para `borda` e `chip`; materialização integral de todas as seções (`borda` 7 campos, `chip` 5 campos, `indicadores` 6 campos); preset ativo inicial: `"Borda Curva"` (borda), `"Colchete"` com `caixa_alta: false` (chip), `"Seta"` (cursor), `"Círculo"` (inclusão); escolha global — per-tela proibida neste modelo; aplicação documental aprovada em 2026-07-22; Bloco 1 implementado pelo H-0039 (carregamento global e materialização em runtime, hardcodings de borda e chip do escopo removidos — `_BORDAS` e `tipo_borda` removidos do renderer, validação manual aprovada); Blocos 2 (navegação) e 3 (seleção múltipla) futuros | aceita | 2026-07-22 |
 | ADR-0031 | Navegação simples e seleção única em console de nível único — foco entre consoles focalizáveis por travessia hierárquica em profundidade (D3/D4); Tab/Shift+Tab circulares (D5); entrada sempre no item lógico `0` sem restauração (D6); ordem row-major dos itens (D7); navegação toroidal estrita por eixo com célula vazia excluída (D8/D9); preservação do item lógico em redistribuição e mudança de modo (D10); indicador exclusivo do console focado derivado do estilo global (D11/D12); seleção única como item sob cursor sem toggle (D13); `[⇆]` com pelo menos dois consoles focalizáveis e `[✥]` com console focado com mais de um item navegável (D14); setas restritas à página atual, paginação e demais capacidades deferidas (D15); aplicação documental aprovada com notas após patch; H-0040 aprovado; implementação aprovada; validação manual aprovada; consistência documental em correção antes do fechamento Git manual | aceita | 2026-07-25 |
+| ADR-0032 | Uso obrigatório de templates canônicos documentais e de relatórios — adota como pacote canônico o conjunto depositado em `docs/templates/`; obriga resolução prévia de exatamente um template pelo gerente para cada artefato ou relatório de agente; renomeia o índice para `docs/templates/00_INDICE_TEMPLATES_DOCUMENTAIS_E_RELATORIOS.md`; bloqueia produção na ausência ou conflito material de template; obrigatoriedade geral entra em vigor somente após `QA_APLICACAO_ADR` aprovado; sem retroatividade | aceita | 2026-07-26 |
 
 ## Exemplo de linha
 

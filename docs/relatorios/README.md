@@ -1,6 +1,6 @@
 ---
 name: relatorios-readme
-description: Regras neutras para relatorios de implementacao e QA
+description: Roteamento de relatorios e evidencias de agentes para o pacote canonico de templates (ADR-0032)
 metadata:
   type: referencia
   scope: scripts
@@ -14,28 +14,29 @@ Relatorio e evidencia. Ele descreve o que foi feito, o que foi verificado e o
 que ficou bloqueado. Relatorio nao altera contrato, nao aprova ADR e nao cria
 escopo novo.
 
-## Tipos
+## Template canonico obrigatorio
 
-| Prefixo | Funcao | Template |
-|---|---|---|
-| `IMP-NNNN` | Evidencia de implementacao | `TEMPLATE_RELATORIO_IMPL.md` |
-| `REL-QA-NNNN` | Evidencia de revisao/QA | `TEMPLATE_RELATORIO_QA.md` |
-| `REL-DOC-NNNN` | Evidencia de auditoria documental | `TEMPLATE_RELATORIO_QA.md` adaptado |
+O indice canonico de templates documentais e de relatorios/evidencias e:
 
-## Regras obrigatorias
-
-- Todo criterio de aceite do handoff deve ter uma linha de evidencia.
-- Toda regra contratual relevante deve ser marcada como OK, FALHA ou NAO VERIFICADA.
-- Falha contratual reprova o trabalho mesmo que testes passem.
-- Lacuna de contrato deve virar RFC ou issue, nao decisao local.
-- Comandos podem ser citados como exemplos de validacao, mas o relatorio deve
-  deixar claro quem executou e qual foi a saida observada.
-
-## Exemplo de evidencia
-
-```markdown
-| Criterio | Evidencia | Resultado |
-|---|---|---|
-| Entrada invalida gera erro documentado | Teste `test_entrada_invalida` passou | OK |
-| Nao altera arquivo de estado fora do escopo | Diff revisado sem alteracao em `estado.json` | OK |
+```text
+docs/templates/00_INDICE_TEMPLATES_DOCUMENTAIS_E_RELATORIOS.md
 ```
+
+O gerente resolve, antes de gerar o prompt do agente, o nome, o caminho e o
+template canonico unico aplicavel a cada relatorio ou evidencia. O agente
+nao escolhe nem adapta template por proximidade.
+
+Ausencia de template canonico aplicavel, ou conflito material entre o
+template resolvido e a regra vigente, bloqueia a execucao antes da producao
+do relatorio ou evidencia.
+
+## Regras gerais
+
+- todos os relatorios e evidencias produzidos por agentes ficam em
+  `docs/relatorios/`;
+- o relatorio externo do gerente permanece fora desta politica e continua
+  regido pelo sistema externo do gerente;
+- relatorios e artefatos historicos nao sao reescritos para adequacao a
+  templates novos;
+- nova execucao gera novo relatorio; relatorio anterior nao e sobrescrito,
+  salvo correcao factual da propria execucao por comando de terminal manual.

@@ -49,7 +49,12 @@ Antes de mover este padrao para outro projeto, verificar:
    `contrato_json_dashboard.md`, `contrato_json_console.md`)
 6. `docs/handoff/README.md`
 7. `docs/relatorios/README.md`
-8. Templates em `docs/templates/`, conforme a tarefa.
+8. `docs/templates/00_INDICE_TEMPLATES_DOCUMENTAIS_E_RELATORIOS.md` — indice
+   canonico que distingue os templates de artefatos documentais (ADR, BUG,
+   handoff de implementacao, handoff de QA, RFC) dos templates de relatorios
+   e evidencias de agentes. A resolucao do template unico aplicavel e
+   obrigatoria e anterior ao prompt do agente (ADR-0032); a leitura do
+   template individual em `docs/templates/` ocorre conforme a tarefa.
 
 ## Estrutura esperada
 
