@@ -1,3 +1,10 @@
+> **DOCUMENTO HISTÓRICO — SEM AUTORIDADE VIGENTE**
+>
+> Este arquivo foi preservado exclusivamente para rastreabilidade histórica.
+> Não deve orientar trabalho atual, ser carregado por padrão ou ser tratado
+> como fonte normativa. Sua leitura somente é permitida em pesquisa histórica
+> explicitamente autorizada.
+
 ---
 name: to_do-build-docs
 description: Lista de tarefas de construcao de documentacao (nao e backlog de implementacao)

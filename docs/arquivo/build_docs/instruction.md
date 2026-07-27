@@ -1,3 +1,10 @@
+> **DOCUMENTO HISTÓRICO — SEM AUTORIDADE VIGENTE**
+>
+> Este arquivo foi preservado exclusivamente para rastreabilidade histórica.
+> Não deve orientar trabalho atual, ser carregado por padrão ou ser tratado
+> como fonte normativa. Sua leitura somente é permitida em pesquisa histórica
+> explicitamente autorizada.
+
 ---
 name: instruction-build-docs
 description: Como conduzir sessoes interativas de construcao de documentacao e como extrair fatos do sistema antigo via Codex

@@ -1,3 +1,10 @@
+> **DOCUMENTO HISTÓRICO — SEM AUTORIDADE VIGENTE**
+>
+> Este arquivo foi preservado exclusivamente para rastreabilidade histórica.
+> Não deve orientar trabalho atual, ser carregado por padrão ou ser tratado
+> como fonte normativa. Sua leitura somente é permitida em pesquisa histórica
+> explicitamente autorizada.
+
 ---
 name: prompts-build-docs
 description: Prompts operacionais para as sessoes de construcao de documentacao no Claude Code

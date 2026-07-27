@@ -78,7 +78,11 @@ docs/
   INDICE.md
   NOMENCLATURA.md
   backlog.md
+  HISTORICO.md
   issues.md
+  arquivo/               # documentos historicos, sem autoridade normativa vigente
+    README.md
+    build_docs/
   contratos/
     contrato_processo_desenvolvimento.md
     contrato_estilo.md
@@ -130,6 +134,9 @@ Fica na raiz do Orquestrador, irmã de `docs/`, nunca dentro de `docs/`.
 
 | Artefato | Funcao | Regra |
 |---|---|---|
+| Backlog (`docs/backlog.md`) | Planejamento e trabalho ativo | Contém somente itens nos estados `planejado`, `bloqueado`, `em_andamento` ou `pronto_para_handoff`; item encerrado é removido e registrado em `docs/HISTORICO.md` (ADR-0033) |
+| Histórico (`docs/HISTORICO.md`) | Registro compacto de itens encerrados | Não é autoridade nem evidência detalhada; agrupa Concluídos, Cancelados, Substituídos e Incompatíveis (ADR-0033) |
+| Arquivo (`docs/arquivo/`) | Área de documentos históricos preservados integralmente | Sem autoridade normativa vigente; não orienta trabalho atual; não é carregada por padrão; leitura restrita a pesquisa histórica autorizada (ADR-0033) |
 | Nomenclatura modular (`docs/nomenclatura/`) | Base terminológica modular — 17 módulos proprietários por domínio | Leitura seletiva por contrato; `docs/NOMENCLATURA.md` é fachada de navegação; definições vivem nos módulos proprietários (ADR-0029) |
 | Config (`config/*.json`) | Valores concretos que o renderer lê | Modelo em migração pela ADR-0008 e organizado pela ADR-0021/ADR-0022: `config/estilo.json` permanece biblioteca global de estilo; telas do produto real ficam em `config/telas/<id>.json`; `config/telas/orquestrador.json` fica reservado à tela inicial real com `id: "orquestrador"`; telas demonstrativas ficam na futura raiz `config/telas/demo/<id>.json`; parâmetros gerais futuros ficam em `config/layouts/` e `config/elementos/`. |
 | Contrato | Define comportamento esperado | Deve ser aprovado antes da implementacao |

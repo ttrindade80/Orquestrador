@@ -10,8 +10,12 @@ metadata:
 
 ## Regra
 
-Este arquivo deve conter somente itens planejados ainda nao iniciados. Ele nao
-e contrato, nao e autorizacao de implementacao e nao substitui handoff.
+Este arquivo deve conter somente trabalho ativo, nos estados `planejado`,
+`bloqueado`, `em_andamento` ou `pronto_para_handoff`. Item encerrado
+(concluido, cancelado, substituido ou incompativel) nao permanece neste
+arquivo — no mesmo fechamento documental em que for encerrado, e removido
+daqui e registrado em `docs/HISTORICO.md`. Este arquivo nao e contrato, nao
+e autorizacao de implementacao e nao substitui handoff.
 
 Ao copiar este padrao para um projeto novo, manter apenas exemplos ou limpar
 esta lista.
@@ -22,50 +26,15 @@ esta lista.
 ### ITEM-NNNN — [Titulo curto]
 **Tipo:** contrato | implementacao | qa | documentacao | infraestrutura
 **Prioridade:** alta | media | baixa
-**Status:** planejado | bloqueado | pronto_para_handoff
+**Status:** planejado | bloqueado | em_andamento | pronto_para_handoff
 **Descricao:** [O que precisa existir]
 **Pre-requisitos:** [Contratos, ADRs ou decisoes necessarias]
 **Proxima acao:** [A menor acao documental verificavel]
 ```
 
-## Exemplos
-
-### ITEM-0000 — Criar contrato do modulo exemplo
-**Tipo:** contrato
-**Prioridade:** media
-**Status:** planejado
-**Descricao:** Especificar entradas, saidas, estados e erros do `modulo_exemplo`.
-**Pre-requisitos:** Nenhum.
-**Proxima acao:** Escrever `docs/contratos/contrato_modulo_exemplo.md` a partir do template acordado.
-
-### ITEM-0001 — Preparar handoff de implementacao exemplo
-**Tipo:** implementacao
-**Prioridade:** baixa
-**Status:** bloqueado
-**Descricao:** Gerar handoff para implementar comportamento ja contratado.
-**Pre-requisitos:** Contrato do modulo aprovado.
-**Proxima acao:** Criar `H-0001-descricao-curta.md`.
-
 ## Itens planejados
 
 > A ordem dos itens deste backlog nao representa prioridade nem sequencia de execucao. Cada item somente podera avancar pelo fluxo documental aplicavel.
-
-### ITEM-0002 — Navegacao simples e selecao unica em console
-**Tipo:** implementacao
-**Prioridade:** media
-**Status:** implementado; aguardando fechamento Git
-**Descricao:** Implementar foco entre consoles focalizaveis, navegacao simples entre itens de nivel unico e selecao unica do item atual. Estado factual do ciclo: implementacao e validacao manual concluidas; aguarda QA pos-patch da consistencia documental e, apos aprovacao, fechamento Git manual. (Descricao factual do item; a taxonomia global do backlog permanece `planejado | bloqueado | pronto_para_handoff`.)
-**Pre-requisitos:** ADR-0031 aceita; aplicacao documental aprovada com notas apos patch.
-**ADR:** ADR-0031 (aceita)
-**Aplicacao_documental:** CONCLUIDA
-**QA_da_aplicacao:** APROVADA_COM_NOTAS_POS_PATCH
-**Handoff:** H-0040 (criado: true; aprovado: true)
-**Implementacao:** CONCLUIDA
-**QA_da_implementacao:** I1_IMPLEMENTATION_APPROVED
-**Validacao_manual:** MANUAL_VALIDATION_APPROVED
-**Consistencia_documental:** PATCH_EM_QA_APOS_ESTA_CORRECAO
-**Commit:** NAO_EXECUTADO
-**Proxima acao:** QA pós-patch da consistência documental do ciclo ADR-0031/H-0040; após aprovação, fechamento Git manual.
 
 ### ITEM-0003 — Paginacao interativa do console
 **Tipo:** implementacao
@@ -81,7 +50,7 @@ esta lista.
 **Status:** planejado
 **Descricao:** Definir e implementar o registro controlado de acoes declarativas associadas aos itens do console.
 **Pre-requisitos:** Fechamento documental do catalogo, parametros permitidos, validacao e despacho das acoes.
-**Proxima acao:** Realizar levantamento focal de `DOC-B009` e criar ADR especializada.
+**Proxima acao:** Realizar levantamento focal do catalogo ou registro vigente de acoes antes da ADR especializada.
 
 ### ITEM-0005 — Abertura e retorno entre telas por acao
 **Tipo:** implementacao
@@ -162,3 +131,27 @@ esta lista.
 **Descricao:** Definir e implementar o comportamento do cabecalho quando a largura disponivel for insuficiente.
 **Pre-requisitos:** Decisao do usuario sobre quebra, truncamento, reticencias, fallback e relacao com `max_caracteres`.
 **Proxima acao:** Apresentar alternativas visuais e obter decisao focal do usuario.
+
+### ITEM-0015 — Aplicar ADR-0008 aos contratos de cabeçalho e estilo
+**Tipo:** documentacao
+**Prioridade:** media
+**Status:** bloqueado
+**Descricao:** Verificar e materializar a aplicação documental remanescente da ADR-0008 nos contratos de cabeçalho e estilo.
+**Pre-requisitos:** Levantamento focal das alterações ainda ausentes e delimitação da aplicação necessária.
+**Proxima acao:** Verificar os contratos vigentes e definir o ciclo documental aplicável.
+
+### ITEM-0016 — Reconciliar o comportamento de tx no console
+**Tipo:** documentacao
+**Prioridade:** media
+**Status:** bloqueado
+**Descricao:** Reconciliar a contradição documental vigente sobre o comportamento de `tx` no console.
+**Pre-requisitos:** Levantamento focal da nomenclatura, contrato e ADRs que tratam truncamento e apresentação textual.
+**Proxima acao:** Identificar a contradição exata e obter decisão documental própria.
+
+### ITEM-0017 — Avaliar a necessidade de popup_execucao
+**Tipo:** documentacao
+**Prioridade:** media
+**Status:** bloqueado
+**Descricao:** Determinar se `popup_execucao` ainda representa uma necessidade do sistema.
+**Pre-requisitos:** Caso real de uso ou decisão explícita sobre sua necessidade.
+**Proxima acao:** Apresentar a questão ao usuário em ciclo focal de especificação.
