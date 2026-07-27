@@ -1,0 +1,64 @@
+{
+  "schema": "tela.v1",
+  "id": "h0040_nav_degenere_uma_linha",
+  "metadados": {
+    "descricao": "H-0040: console com tres itens ocupados na mesma linha. Setas verticais nao movem; setas horizontais mantem toroide na mesma linha.",
+    "origem": "ADR-0031 D8/D9"
+  },
+  "cabecalho": {
+    "titulo": "Uma Linha",
+    "descricao": "Console degenerado com tres itens em uma linha."
+  },
+  "corpo": {
+    "arranjo": "vertical",
+    "elementos": [
+      {
+        "id": "console_linha",
+        "tipo": "console",
+        "titulo": "Linha Unica",
+        "origem_dados": null,
+        "itens": [
+          {"id": "l1", "texto": "L1", "navegavel": true},
+          {"id": "l2", "texto": "L2", "navegavel": true},
+          {"id": "l3", "texto": "L3", "navegavel": true}
+        ],
+        "politica_composicao": {"alinhamento": "esquerda", "overflow_normal": "truncar_com_reticencias"},
+        "politica_navegacao": {"navegavel": true},
+        "politica_selecao": "unica",
+        "politica_paginacao": "sem",
+        "politica_exibicao": {"modo_inicial": "normal", "verboso": false},
+        "distribuicao_matricial": {
+          "formacao": {"politica": "matriz_fixa", "linhas": {"fixo": 1}, "colunas": {"fixo": 3}},
+          "ordem": "por_linha",
+          "dimensionamento": {"colunas": {"politica": "uniforme"}, "linhas": {"politica": "uniforme"}},
+          "espacamento": {"margem_esquerda": {"minimo": 1}, "margem_direita": {"minimo": 1}, "margem_superior": {"minimo": 0}, "margem_inferior": {"minimo": 0}, "vao_horizontal": {"minimo": 1}, "vao_vertical": {"minimo": 0}},
+          "distribuicao_horizontal": {"politica": "inicio"},
+          "distribuicao_vertical": {"politica": "inicio"},
+          "ordem_expansao": {"horizontal": "uniforme_margens_e_vaos", "vertical": "uniforme_margens_e_vaos"},
+          "politica_resto": {"horizontal": "ao_ultimo", "vertical": "ao_ultimo"},
+          "alinhamento_interno": {"horizontal": "inicio", "vertical": "topo"}
+        }
+      }
+    ]
+  },
+  "barra_de_menus": {
+    "distribuicao": {
+      "modo": "horizontal_responsiva",
+      "ordem": {"politica": "declaracao", "ancoras": {}},
+      "tentativa_inicial": "linha_unica",
+      "quebra": "multilinha_quando_nao_couber",
+      "preenchimento_multilinha": "coluna_a_coluna",
+      "preenchimentos_multilinha_suportados": ["coluna_a_coluna", "linha_a_linha"],
+      "linhas": {"minimo": 1, "maximo": 2, "preferir_menor_numero": true},
+      "alinhamento_linhas": "esquerda",
+      "espacamentos": {"margem_horizontal": {"minimo": 1, "maximo": null}, "vao_chip_texto": {"minimo": 1, "maximo": 3}, "vao_entre_chips": {"minimo": 2, "maximo": 6}, "vao_entre_colunas": {"minimo": 2, "maximo": 8}, "vao_vertical_entre_linhas": {"minimo": 0, "maximo": 0}},
+      "colunas": {"largura": "por_maior_item_da_coluna", "subcolunas": {"chip": {"alinhamento": "esquerda"}, "texto": {"alinhamento": "esquerda"}}},
+      "overflow": {"quando_nao_couber": "erro_layout", "nao_omitir_chips": true, "nao_truncar_texto": true, "nao_reordenar": true}
+    },
+    "chips": [
+      {"id": "chip_esc", "tipo": "acao", "tecla": "Esc", "texto": "Sair", "regra_existencia": "sempre", "regra_ativo": "sempre", "forma_exibicao": "visivel_ativo"},
+      {"id": "chip_alternar", "tipo": "alternancia", "tecla": "⇆", "texto": "Alternar", "regra_existencia": "tela_com_pelo_menos_dois_consoles_focalizaveis", "regra_ativo": "sempre", "forma_exibicao": "visivel_ativo"},
+      {"id": "chip_navegar", "tipo": "navegacao", "tecla": "✥", "texto": "Navegar", "regra_existencia": "console_focado_com_mais_de_um_item_navegavel", "regra_ativo": "sempre", "forma_exibicao": "visivel_ativo"}
+    ]
+  }
+}

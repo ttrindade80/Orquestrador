@@ -121,6 +121,7 @@ Ao encontrar `modo não verboso`, não reescrever como `modo normal`.
 - ADR-0028: apresentações multinível; D23; política de modo por tela.
 - ADR-0026: dado externo que alimenta as apresentações (parcial — dado em si no módulo 42).
 - ADR-0027: carregamento conjunto que precede as apresentações (parcial — carregamento no módulo 43).
+- ADR-0031: D10 (mudança de modo preserva item lógico); linhas de continuação não recebem indicador; navegação multinível fora de escopo.
 
 ## 8. Aliases ou termos descontinuados relacionados
 
@@ -142,6 +143,21 @@ A reconciliação entre `hierarquia_indentada` e `hierarquia` está deferida
 (ADR-0028). Nenhum dos dois nomes venceu definitivamente a disputa. Os campos
 do schema não devem ser renomeados com base neste termo concorrente.
 
+## 8B. Fronteiras com a navegação simples (ADR-0031)
+
+As notas abaixo delimitam o escopo deste módulo em relação à ADR-0031.
+Autoridade comportamental completa em `contrato_console.md` §§21–22.
+
+- **Mudança de modo preserva o item lógico (D10)**: ao alternar entre modo
+  verboso e modo não verboso (tecla `V`), o cursor permanece no mesmo item
+  lógico; somente as linhas físicas são recalculadas.
+- **Linhas de continuação não recebem indicador de cursor**: em modo verboso,
+  somente a primeira linha física do item sob cursor recebe o símbolo indicador;
+  as linhas de continuação do mesmo item não recebem marcador de posição de cursor.
+- **Navegação multinível está fora da ADR-0031**: a ADR-0031 cobre somente a
+  navegação simples entre itens de nível único já expandidos. Colapsamento,
+  expansão e travessia entre níveis pertencem ao ITEM-0007.
+
 ## 9. Conteúdo que não pertence a este módulo
 
 - O envelope de dados externo em si → módulo `42`.
@@ -149,6 +165,7 @@ do schema não devem ser renomeados com base neste termo concorrente.
 - Schema do JSON do console (campos de configuração) → `contrato_json_console.md`.
 - Regras comportamentais completas de apresentação → `contrato_console.md`.
 - Reconciliação da divergência `modo normal` × `modo não verboso` → aguarda nova ADR.
+- Navegação simples e seleção única → `contrato_console.md` §22 e módulo `32`.
 
 ## 10. Proveniência da migração
 
@@ -164,6 +181,7 @@ adrs_relacionadas:
   - ADR-0026
   - ADR-0027
   - ADR-0028
+  - ADR-0031
 tratamento:
   - PRESERVADO
   - SEPARADO_DE_REGRA_COMPORTAMENTAL

@@ -188,7 +188,7 @@ DOC-B006):
 canonico    — chip padronizado com semântica contratual (ex.: [Esc], [⏎], [?])
 especifico  — chip adicional declarado pela classe de tela
 filtro      — chip que aciona filtro declarativo
-alternancia — chip que alterna entre estados ou elementos (ex.: [⇆])
+alternancia — chip que alterna estados ou foco entre consoles focalizáveis (ex.: [⇆])
 acao        — chip que aciona ação registrada
 navegacao   — chip que aciona navegação entre telas
 ```
@@ -263,8 +263,8 @@ configuração da tela declara a capacidade correspondente no `tela.json`.
 | `[<][>]` | Páginas | instância de `console` declara `paginacao: com` | Inativo quando há apenas 1 página no momento |
 | `[-][+]` | Colunas | instância de `console` declara `colunas_ajustavel: com` | `[-]` inativo em `n_col` mínimo; `[+]` inativo em `n_col` máximo pela largura atual |
 | `[#]` | Grupos | instância de `console` declara `filtro_de_grupo: com` | Chip de filtro declarativo — ver seção 13 |
-| `[⇆]` | Alternar | tela declara múltiplos elementos de corpo | Move foco entre elementos de corpo — não confundir com `[✥]` (ver nota abaixo) |
-| `[✥]` | Navegar | tela possui ao menos um `console` navegável — ver seção 11 | Ativo quando corpo em foco é `console` navegável; inativo via `cor_inativo` caso contrário |
+| `[⇆]` | Alternar | tela possui pelo menos dois consoles focalizáveis (ADR-0031 D14) | Move foco entre consoles focalizáveis — não confundir com `[✥]` (ver nota abaixo e seção 20) |
+| `[✥]` | Navegar | console focado possui mais de um item navegável (ADR-0031 D14) — ver seção 11 e seção 20 | Ausente quando não há console focado, quando o console tem zero itens ou um único item navegável |
 | `[␣]` | Selecionar | instância de `console` declara seleção múltipla — ver seção 12 | Toggle por item selecionável |
 | `[V]` | Verboso | instância de `console` permite modo verboso — ver seção 14 | Alterna modo verboso da instância |
 | específicos | (por classe) | declarado pela classe de tela no `tela.json` | Posicionados entre `[⏎]` e `[V]`/`[?]` — ver seção 16 |
@@ -277,10 +277,11 @@ no `tela.json`.
 exibe o rótulo de "Colunas"; o valor atual de `n_col` não aparece dentro do
 chip. Essa ausência é decisão de design, não omissão.
 
-**Distinção `[⇆]` vs `[✥]`**: `[⇆]` muda o foco de interação entre
-elementos de corpo diferentes (nível da tela); `[✥]` move o cursor dentro
-do elemento de corpo que está em foco no momento (nível do elemento).
-Não são intercambiáveis.
+**Distinção `[⇆]` vs `[✥]`**: `[⇆]` muda o foco de interação entre consoles
+focalizáveis (nível da tela); `[✥]` move o cursor entre itens do console
+focado (nível do console). Grupos estruturais, `dashboard`, `lancador`,
+console não navegável e console navegável sem itens navegáveis não contam para
+`[⇆]`. Não são intercambiáveis.
 
 ---
 
@@ -337,10 +338,11 @@ alvo válido sob o cursor ou quando o item em foco não tem ação declarada.
 
 ---
 
-## 11. `[✥]` — navegação restrita a `console` navegável
+## 11. `[✥]` — navegação restrita ao console focado
 
-`[✥]` existe estruturalmente somente quando a tela possui ao menos um elemento
-de corpo do tipo `console` navegável.
+`[✥]` aparece somente quando existe console focado e esse console possui mais
+de um item navegável. O chip fica ausente quando a navegação pelas setas não
+pode produzir movimento.
 
 **`[✥]` não navega `lancador`**: o `lancador` possui navegação própria por
 itens via `tela_destino`, não é corpo navegável pelo cursor controlado pelas
@@ -350,22 +352,35 @@ setas do teclado (ADR-0005). O renderer da `barra_de_menus` não considera
 **`[✥]` não navega `dashboard`**: o `dashboard` é saída passiva não
 interativa. Não expõe cursor navegável.
 
-**Navegação ocorre por item, não por linha física**: quando `[✥]` está ativo,
+**Navegação ocorre por item, não por linha física**: quando `[✥]` está presente,
 as setas do teclado movem o cursor pelo `console` por unidade de item
 navegável — não linha a linha do terminal.
 
-A condição de existência e de ativação de `[✥]` considera somente `console`
-navegável:
+A condição de presença de `[✥]` é dinâmica e considera o console focado:
 
-| Situação | Estado de `[✥]` |
+| Situação | Presença de `[✥]` |
 |---|---|
-| Tela não possui `console` navegável | `[✥]` não existe |
-| Tela possui `console` navegável e o corpo em foco é esse `console` | `[✥]` ativo |
-| Tela possui `console` navegável mas o corpo em foco não é `console` navegável | `[✥]` existe, mas inativo via `cor_inativo` |
+| Não existe console focado | `[✥]` ausente |
+| Console focado não possui itens navegáveis | `[✥]` ausente |
+| Console focado possui exatamente um item navegável | `[✥]` ausente |
+| Console focado possui mais de um item navegável | `[✥]` presente |
 
-O chip não aparece nem desaparece por foco, dataset corrente ou conteúdo
-renderizado — sua existência é estática, derivada da declaração no `tela.json`.
-O estado ativo/inativo é dinâmico.
+```yaml
+chip_setas:
+  aparece_quando:
+    - existe_console_focado
+    - console_focado_possui_mais_de_um_item_navegavel
+
+  nao_aparece_quando:
+    - nao_existe_console_focado
+    - console_focado_nao_possui_itens_navegaveis
+    - console_focado_possui_exatamente_um_item_navegavel
+
+  estado_inativo_sem_movimento: nao_utilizado
+```
+
+Para `[✥]`, não se usa estado inativo sem movimento: ou o chip está presente
+porque as setas podem mover o cursor entre itens, ou está ausente.
 
 ---
 
@@ -712,12 +727,13 @@ nem de ativação de `[✥]` (ADR-0005).
 - [ ] `[-][+]` só existe quando a instância de `console` declara
       `colunas_ajustavel: com`; `[-]` inativo em `n_col` mínimo; `[+]`
       inativo em `n_col` máximo pela largura atual.
-- [ ] `[⇆]` só existe quando a tela declara múltiplos elementos de corpo;
-      move foco entre elementos, não cursor dentro do elemento.
-- [ ] `[✥]` só existe quando a tela declara ao menos um `console` navegável;
-      `lancador` e `dashboard` não contam; ativo quando o corpo em foco é
-      `console` navegável, inativo via `cor_inativo` caso contrário; não
-      aparece/desaparece por foco, dataset ou conteúdo corrente.
+- [ ] `[⇆]` só existe quando a tela possui pelo menos dois consoles
+      focalizáveis (ADR-0031 D14); consoles sem itens navegáveis não contam;
+      move foco entre consoles, não cursor dentro do console.
+- [ ] `[✥]` aparece somente quando o console focado possui mais de um item
+      navegável (ADR-0031 D14); ausente quando não há console focado, quando
+      o console tem zero itens navegáveis ou quando tem exatamente um item
+      navegável; `lancador` e `dashboard` não entram na condição.
 - [ ] `[␣]` só existe quando a instância de `console` declara seleção múltipla;
       atua somente sobre itens que declararem `selecionavel: true`.
 - [ ] `[V]` só existe quando a instância de `console` declara que permite modo

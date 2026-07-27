@@ -111,6 +111,23 @@ def _split_excesso_lancador(excesso, alinhamento):
 # ``renderizar_tela`` e nunca persiste entre chamadas (R-14).
 _quadro_minimo_lancador_ativo = False
 
+# H-0040 / ADR-0031: contexto de navegação de runtime repassado por
+# ``renderizar_tela`` aos helpers de console e barra_de_menus. Os dados são
+# EXCLUSIVAMENTE de runtime (foco_console, cursores, lista_foco, largura,
+# símbolos do estilo); nunca persistem em JSON. O renderer é puro: o contexto
+# é redefinido no início de cada ``renderizar_tela`` e nunca persiste entre
+# chamadas (R-14), seguindo o mesmo padrão de ``_quadro_minimo_lancador_ativo``.
+# ``None`` em todos os campos preserva o comportamento pré-H-0040 (sem
+# indicador, sem chips dinâmicos).
+_navegacao_atual = {
+    "lista_foco": None,        # lista de ElementoCorpo focalizaveis
+    "foco_console": None,      # indice do console focado na lista_foco
+    "cursores": {},            # dict id-do-console -> item logico corrente
+    "largura": None,           # largura vigente para a grade de navegacao
+    "simbolo": None,           # estilo.selecionado_simbolo
+    "off": None,               # estilo.selecionado_off
+}
+
 # Defaults normativos do alias transitório ``distribuicao = "horizontal"`` e
 # de ``distribuicao`` ausente/None (H-0016 / ADR-0014). Replica o objeto
 # canônico de referência, exceto por ``ancoras`` vazio (apenas o objeto
@@ -324,6 +341,233 @@ def _distribuir_larguras(largura_disponivel, pesos):
     for k in range(faltam):
         cotas[restos[k]] += 1
     return cotas
+
+
+# ---------------------------------------------------------------------------
+# H-0040 / ADR-0031: indicador de cursor de navegação (D11/D12)
+# ---------------------------------------------------------------------------
+
+
+def _console_focalizavel_de_contexto(elemento):
+    """True quando ``elemento`` esta na lista de foco do contexto vigente.
+
+    A coluna do indicador (D12) e reservada para consoles FOCALIZAVEIS (D2):
+    consoles na lista de foco. Consoles nao focalizaveis (placeholder, sem
+    itens navegaveis, nao navegaveis) NAO reservam a coluna e permanecem
+    inalterados, preservando a compatibilidade retroativa. Quando o contexto
+    de navegacao nao esta ativo (lista_foco ausente), nenhum console e
+    considerado focalizavel (comportamento pre-H-0040).
+    """
+    lista = _navegacao_atual.get("lista_foco")
+    if not lista:
+        return False
+    return any(e is elemento for e in lista)
+
+
+def _console_focado_de_contexto(elemento):
+    """True quando ``elemento`` e o console focalizado do contexto vigente.
+
+    D11: somente o console focado exibe o indicador. Consoles nao focados
+    nao exibem o símbolo em nenhum item (PN-0008). Quando o contexto de
+    navegacao nao esta ativo (lista_foco/foco_console ausentes), nenhum
+    console e considerado focado (comportamento pre-H-0040).
+    """
+    lista = _navegacao_atual.get("lista_foco")
+    foco = _navegacao_atual.get("foco_console")
+    if not lista or foco is None:
+        return False
+    if foco < 0 or foco >= len(lista):
+        return False
+    return lista[foco] is elemento
+
+
+def _aplicar_indicador_linhas(linhas, elemento, content_w, largura_grade):
+    """Prefixa a coluna do indicador em cada linha de console (D12).
+
+    D12: cada item recebe uma coluna indicadora estável antes do conteúdo. A
+    primeira linha física do item corrente (no console focado) recebe
+    ``estilo.selecionado_simbolo``; todas as demais linhas (continuações do item
+    corrente e todos os demais itens) recebem ``estilo.selecionado_off``. A
+    coluna é estável: não desloca o conteúdo quando o cursor muda de item.
+
+    A reserva da coluna do indicador participa do cálculo de largura útil
+    disponível para o conteúdo do item (D12), coerente com
+    ``tela.navegacao.grade_de_itens`` (que aplica o MESMO desconto para consoles
+    focalizaveis), garantindo equivalência (AT-0021/PN-0016).
+
+    Quando o contexto de navegacao nao esta ativo ou o console nao e
+    focalizavel, retorna as linhas inalteradas (compatibilidade retroativa).
+    """
+    simbolo = _navegacao_atual.get("simbolo")
+    off = _navegacao_atual.get("off")
+    if simbolo is None or off is None:
+        return linhas
+    if not _console_focalizavel_de_contexto(elemento):
+        return linhas
+    if not _console_focado_de_contexto(elemento):
+        # Consoles focalizaveis mas nao focados: reservam a coluna (estável)
+        # sem marca visual. PN-0008: nenhum símbolo em console nao focado.
+        off2 = off + " "
+        return [
+            (off2 + ln)[:content_w] if content_w is not None else off2 + ln
+            for ln in linhas
+        ]
+    # Console focado: marcar a primeira linha física do item corrente.
+    item_corrente = _item_corrente_de_contexto(elemento)
+    linhas_primeiras = _linhas_fisicas_por_item(elemento, largura_grade)
+    resultado = []
+    for idx, ln in enumerate(linhas):
+        eh_primeira_do_corrente = (
+            item_corrente is not None
+            and idx in linhas_primeiras
+            and linhas_primeiras[idx] == item_corrente
+        )
+        marcador = simbolo if eh_primeira_do_corrente else off
+        novo = marcador + " " + ln
+        if content_w is not None:
+            novo = novo[:content_w]
+        resultado.append(novo)
+    return resultado
+
+
+def _largura_indicador_do_elemento(elemento):
+    """Largura da coluna do indicador reservada para ``elemento``.
+
+    Retorna ``LARGURA_INDICADOR_COLUNA`` (símbolo + 1 espaco) quando o elemento
+    e um console focalizavel no contexto vigente; ``0`` caso contrario. Essa
+    reserva e a MESMA aplicada por ``tela.navegacao.grade_de_itens`` (AT-0021).
+    """
+    if elemento.tipo != "console":
+        return 0
+    if not _console_focalizavel_de_contexto(elemento):
+        return 0
+    from tela.navegacao import LARGURA_INDICADOR_COLUNA
+    return LARGURA_INDICADOR_COLUNA
+
+
+def largura_util_itens_console(total_w, elemento, focalizavel=None):
+    """Largura útil REAL disponível para os itens de um console (QAI40-002).
+
+    Autoridade ÚNICA de geometria: o renderer determina a largura útil dos itens
+    a partir da largura total e do desconto estrutural próprio, reservando em
+    seguida a coluna do indicador quando o console é focalizável. ``grade_de_itens``
+    (navegação) e a composição visual (renderer) consomem exatamente este valor.
+
+    Sequência inequívoca:
+
+    ```
+    largura total do console
+    → desconto estrutural do renderer (content_w = total_w - DESCONTO_ESTRUTURAL)
+    → reserva da coluna indicadora, quando aplicável
+    → largura útil entregue a calcular_distribuicao
+    ```
+
+    A navegação NÃO conhece o desconto estrutural do renderer: ela recebe
+    ``content_w`` (largura interna já calculada pelo renderer) e aplica somente
+    a reserva do indicador, evitando acoplamento invertido ao layout do renderer.
+
+    ``focalizavel`` opcional permite resolver a condição de focalização fora do
+    contexto de runtime (em testes/sem ``lista_foco``). Quando ``None``, usa o
+    contexto vigente (``_console_focalizavel_de_contexto``).
+    """
+    if total_w is None:
+        return None
+    content_w = total_w - DESCONTO_ESTRUTURAL_CONSOLE
+    if content_w < 0:
+        content_w = 0
+    eh_foc = (
+        focalizavel if focalizavel is not None
+        else _console_focalizavel_de_contexto(elemento)
+    )
+    if eh_foc and getattr(elemento, "tipo", None) == "console":
+        from tela.navegacao import LARGURA_INDICADOR_COLUNA
+        content_w = max(0, content_w - LARGURA_INDICADOR_COLUNA)
+    return content_w
+
+
+# Desconto estrutural do renderer para um console de largura plena: 1 caractere
+# de borda esquerda + 1 espaço interno + 1 caractere de borda direita, de modo
+# que ``content_w = total_w - DESCONTO_ESTRUTURAL_CONSOLE`` (H-0010A). É a única
+# autoridade do desconto estrutural: a navegação NÃO o conhece diretamente.
+DESCONTO_ESTRUTURAL_CONSOLE = 3
+
+
+def _item_corrente_de_contexto(elemento):
+    """Retorna o id do item navegavel corrente do ``elemento`` (console focado).
+
+    Lê ``_navegacao_atual["cursores"][elemento.id]`` e resolve qual item
+    navegavel da ordem declarada corresponde ao item logico armazenado. Quando
+    ausente, retorna ``None`` (sem cursor materializado).
+    """
+    cursores = _navegacao_atual.get("cursores") or {}
+    idx = cursores.get(elemento.id)
+    if idx is None:
+        return None
+    navegaveis = _itens_navegaveis_do_elemento(elemento)
+    if not navegaveis or idx < 0 or idx >= len(navegaveis):
+        return None
+    return navegaveis[idx].get("id")
+
+
+def _itens_navegaveis_do_elemento(elemento):
+    """Lista de itens navegaveis do elemento na ordem declarada (NC-002)."""
+    itens = elemento._campos_inertes.get("itens", []) or []
+    return [i for i in itens if isinstance(i, dict) and i.get("navegavel")]
+
+
+def _linhas_fisicas_por_item(elemento, largura_grade):
+    """Mapeia índice de linha física -> id do item dono daquela linha.
+
+    O mapeamento depende do caminho de renderização:
+
+    - ``distribuicao_matricial`` declarada: a grade é row-major e cada item
+      ocupa exatamente uma linha física no canvas (altura 1). A linha física
+      ``k`` (0-based, na ordem dos participantes) pertence ao item lógico
+      ``k``. (As células vazias geram linhas em branco, mapeadas para ``None``.)
+    - sem ``distribuicao_matricial``: cada item gera uma ou mais linhas físicas
+      (modo verboso pode quebrar). Aqui contamos apenas a primeira linha física
+      de cada item.
+
+    Retorna dict {indice_da_linha_fisica: id_do_item_dono_da_primeira_linha}.
+    """
+    dm = getattr(elemento, "distribuicao_matricial", None)
+    if dm is not None:
+        grade = _grade_de_itens_para_indicador(elemento, largura_grade)
+        mapeamento = {}
+        linha_fisica = 0
+        for r in range(len(grade)):
+            for c in range(len(grade[r])):
+                item = grade[r][c]
+                if item is not None:
+                    mapeamento[linha_fisica] = item.get("id")
+                linha_fisica += 1
+        return mapeamento
+    # Sem distribuicao_matricial: cada item navegavel contribui com ao menos
+    # uma linha física; mapeamos somente a primeira. (Caminho legado raro para
+    # console navegavel sem grade -- mantido para robustez.)
+    navegaveis = _itens_navegaveis_do_elemento(elemento)
+    mapeamento = {}
+    linha_fisica = 0
+    for item in navegaveis:
+        mapeamento[linha_fisica] = item.get("id")
+        linha_fisica += 1
+    return mapeamento
+
+
+def _grade_de_itens_para_indicador(elemento, largura_grade):
+    """Grade row-major de itens navegaveis (mesma da navegacao) para indicador.
+
+    Importa ``tela.navegacao.grade_de_itens`` (modulo novo autorizado) para
+    garantir MESMO_RESULTADO_DA_EXIBICAO_ATUAL (AT-0021/PN-0016). A grade aqui
+    e a usada para localizar a primeira linha física do item corrente.
+
+    QAI40-002: repassa o desconto estrutural EXPLICITO do renderer para que a
+    grade de navegação coincida com a geometria visualmente renderizada.
+    """
+    from tela.navegacao import grade_de_itens
+    return grade_de_itens(
+        elemento, largura_grade, desconto_estrutural=DESCONTO_ESTRUTURAL_CONSOLE
+    )
 
 
 def _linhas_console(elemento, content_w=None, verboso=False):
@@ -1568,6 +1812,34 @@ def _linhas_barra(barra_de_menus, estilo, content_w):
     if not chips:
         return []
 
+    # H-0040 / ADR-0031 D14: regras dinamicas de existencia dos chips de
+    # navegacao ``[⇆]`` (alternancia de foco) e ``[✥]`` (navegacao por setas).
+    # A regra_existencia e campo ja contratado (NC-004; mudanca_de_schema: false).
+    # ``[⇆]`` aparece somente quando a tela tem >= 2 consoles focalizaveis;
+    # ``[✥]`` aparece somente quando o console focado tem > 1 item navegavel.
+    # Nao existe estado inativo para ``[✥]``: ou esta presente, ou ausente
+    # (regra_existencia exclusiva).
+    lista = _navegacao_atual.get("lista_foco")
+    if lista is not None:
+        tem_alternar = len(lista) >= 2
+        foco = _navegacao_atual.get("foco_console")
+        tem_navegar = False
+        if lista and foco is not None and 0 <= foco < len(lista):
+            tem_navegar = len(_itens_navegaveis_do_elemento(lista[foco])) > 1
+        filtrados = []
+        for chip in chips:
+            regra = chip.get("regra_existencia")
+            if regra == "tela_com_pelo_menos_dois_consoles_focalizaveis":
+                if tem_alternar:
+                    filtrados.append(chip)
+                continue
+            if regra == "console_focado_com_mais_de_um_item_navegavel":
+                if tem_navegar:
+                    filtrados.append(chip)
+                continue
+            filtrados.append(chip)
+        chips = filtrados
+
     distribuicao = _normalizar_distribuicao(
         barra_de_menus.get("distribuicao")
     )
@@ -1732,7 +2004,83 @@ def _renderizar_participante_na_celula(
             canvas[py][cx] = ch
 
 
-def _linhas_distribuicao_matricial(elemento, content_w, altura_alvo):
+def _renderizar_participante_com_indicador(
+    canvas, texto_integral, cel_x, cel_y, cel_w, cel_h,
+    canvas_h, area_w, alinh_h, alinh_v, ind_w, eh_corrente, quebrar,
+):
+    """Escreve o conteúdo do item reservando a coluna do indicador (QAI40-001).
+
+    O indicador é inserido DENTRO da célula antes da composição horizontal do
+    texto do item:
+
+    - a primeira coluna da célula (``ind_w`` caracteres: símbolo + separador)
+      recebe ``selecionado_simbolo`` quando este é o item corrente no console
+      focado, ou ``selecionado_off`` caso contrário;
+    - o texto do item começa em ``cel_x + ind_w`` (largura útil de texto =
+      ``cel_w - ind_w``);
+    - quando ``quebrar`` (modo verboso efetivo), o texto é quebrado em múltiplas
+      linhas físicas pela largura útil de texto (QAI40-003). O indicador aparece
+      somente na primeira linha física; as linhas de continuação recebem
+      ``selecionado_off``.
+
+    Apenas a primeira linha física do item corrente recebe o símbolo; nenhuma
+    linha vazia recebe o indicador (D11/D12). A coluna indicadora é estável.
+    """
+    simbolo = _navegacao_atual.get("simbolo")
+    off = _navegacao_atual.get("off")
+    if simbolo is None or off is None:
+        # Sem estilo de indicador: comporta-se como participante simples.
+        _renderizar_participante_na_celula(
+            canvas, texto_integral, cel_x, cel_y, cel_w, cel_h,
+            canvas_h, area_w, alinh_h, alinh_v,
+        )
+        return
+
+    # Largura útil de texto dentro da célula (após o indicador).
+    texto_w = max(0, cel_w - ind_w)
+    cel_x_fim = cel_x + cel_w
+
+    # Fragmentos do texto: uma linha (modo não verboso) ou quebra pela largura
+    # útil de texto (modo verboso). No modo não verboso, o texto que excede é
+    # simplesmente truncado pela fronteira da célula (comportamento histórico).
+    if quebrar and texto_w > 0:
+        fragmentos = _quebrar_texto(texto_integral, texto_w)
+    else:
+        fragmentos = [texto_integral]
+
+    # Alinhamento vertical: quantas linhas o item ocupa e o deslocamento dy.
+    n_frags = len(fragmentos)
+    dy_align = alinhar_na_celula(texto_w, n_frags, cel_w, cel_h, alinh_h, alinh_v)[1]
+
+    for frag_idx, frag in enumerate(fragmentos):
+        py = cel_y + dy_align + frag_idx
+        # Continuações e texto permanecem dentro da célula: nunca invadem a
+        # célula seguinte (patch pos-validação manual H-0040 / VM-07).
+        if not (0 <= py < canvas_h) or py >= cel_y + cel_h:
+            continue
+        # Coluna indicadora: símbolo na primeira linha física do item corrente;
+        # selecionado_off nas demais linhas (continuações) e demais itens.
+        marcador = simbolo if (eh_corrente and frag_idx == 0) else off
+        # Escreve o marcador + separador na coluna indicadora da célula.
+        for k in range(ind_w):
+            cx = cel_x + k
+            if 0 <= cx < area_w and cx < cel_x_fim:
+                canvas[py][cx] = marcador if k == 0 else off
+        # Texto do item a partir de cel_x + ind_w.
+        for k, ch in enumerate(frag):
+            cx = cel_x + ind_w + k
+            if cx < cel_x_fim and 0 <= cx < area_w:
+                canvas[py][cx] = ch
+
+
+def _altura_quebra_item(texto, largura_texto):
+    """Número de linhas físicas reais de ``texto`` na largura dada (modo verboso)."""
+    if largura_texto <= 0:
+        return 1
+    return max(1, len(_quebrar_texto(texto, largura_texto)))
+
+
+def _linhas_distribuicao_matricial(elemento, content_w, altura_alvo, verboso=False):
     """Renderiza os participantes de um elemento em grade (motor centralizado).
 
     H-0035 / ADR-0025: usa ``calcular_distribuicao`` para organizar os
@@ -1745,8 +2093,21 @@ def _linhas_distribuicao_matricial(elemento, content_w, altura_alvo):
     minimo canonico global (mecanismo ADR-0017/ADR-0023) e devolve ``[]`` — o
     ``renderizar_tela`` substitui integralmente a tela pelo quadro minimo.
 
-    Determinismo: a saida depende apenas do elemento, ``content_w`` e
-    ``altura_alvo``. Sem estado residual, sem efeito parcial antes de erro.
+    QAI40-001 (indicador matricial): para consoles focalizaveis, cada item
+    navegavel reserva a coluna do indicador DENTRO de sua celula antes da
+    composicao horizontal — itens lado a lado possuem colunas indicadoras
+    independentes. Somente a primeira linha física do item corrente (no console
+    focado) recebe ``selecionado_simbolo``; demais células recebem
+    ``selecionado_off``. Nenhuma linha vazia recebe o indicador (D11/D12).
+
+    QAI40-003 (modo verboso): quando ``verboso`` e o elemento e um console com
+    itens (sem conteudo externo multinivel), o texto longo de cada item e
+    quebrado em multiplas linhas físicas pela largura util da celula
+    (contrato_console.md §6 / ADR-0028), produzindo continuação física real.
+
+    Determinismo: a saida depende apenas do elemento, ``content_w``,
+    ``altura_alvo`` e ``verboso``. Sem estado residual, sem efeito parcial
+    antes de erro.
     """
     config = elemento.distribuicao_matricial
     participantes = _participantes_distribuicao_matricial(elemento)
@@ -1764,21 +2125,76 @@ def _linhas_distribuicao_matricial(elemento, content_w, altura_alvo):
     if n == 0:
         return []
 
-    # Requisito minimo interno de cada participante: largura = comprimento do
-    # texto; altura = 1 linha. DEC-APP-0025-01: quando minimo_fixo e excedido,
-    # o participante recebe a area calculada e trata seu conteudo internamente;
-    # o distribuidor externo NAO cresce a coluna/linha por essa exigencia.
-    min_ws = [len(p) for p in participantes]
-    min_hs = [1 for _ in participantes]
+    # QAI40-001: consoles focalizaveis reservam a coluna do indicador DENTRO de
+    # cada celula. O requisito mínimo de largura de cada item cresce pelo
+    # indicador, de modo que a coluna geométrica acomode símbolo + texto.
+    eh_console_com_indicador = (
+        elemento.tipo == "console"
+        and _console_focalizavel_de_contexto(elemento)
+    )
+    ind_w = _largura_indicador_do_elemento(elemento) if eh_console_com_indicador else 0
+
+    # QAI40-003: em modo verboso, console com itens (sem conteudo externo) pode
+    # quebrar o texto em multiplas linhas; o requisito mínimo de altura passa a
+    # ser calculado pela quebra efetiva (nao fixo em 1).
+    quebrar = (
+        verboso and elemento.tipo == "console"
+        and getattr(elemento, "conteudo_externo", None) is None
+        and area_w is not None
+    )
+
+    # Largura util interna de cada item (texto): largura da celula menos o
+    # indicador. Como a largura da celula ainda nao foi calculada, estimamos o
+    # minimo de texto e somamos o indicador para o motor alocar espaco.
+    #
+    # QAI40-003: em modo verboso, o texto longo NAO exige a largura integral —
+    # ele e quebrado em multiplas linhas. O minimo de largura de cada item e
+    # entao uma fracao do texto (limite razoavel para permitir a quebra),
+    # evitando fallback geometrico quando o item e longo. Em modo nao verboso,
+    # o minimo e o comprimento integral (truncado pela fronteira da celula).
+    min_ws = []
+    for p in participantes:
+        if quebrar:
+            # Limite razoavel: permite quebra em poucas linhas, sem exigir a
+            # largura integral. Usamos um teto conservador (metade da area util
+            # de texto, no minimo 10) para que itens longos quebrem em vez de
+            # forcar fallback.
+            texto_min = max(10, min(len(p), max(10, (area_w - ind_w) // 2)))
+        else:
+            texto_min = len(p)
+        min_ws.append(texto_min + ind_w)
+
+    if quebrar:
+        # Altura mínima = quebra REAL por palavra. Para a estimativa inicial,
+        # usa a largura util pessimista da CELULA (area - margens min - indicador),
+        # nao a metade usada em min_ws: subestimar a largura infla a altura e
+        # provoca fallback indevido (e, no caminho antigo, sobreposicao).
+        esp = config.get("espacamento", {})
+        marg_e = int((esp.get("margem_esquerda") or {}).get("minimo", 0) or 0)
+        marg_d = int((esp.get("margem_direita") or {}).get("minimo", 0) or 0)
+        largura_texto_est = max(1, area_w - ind_w - marg_e - marg_d)
+        min_hs = [
+            _altura_quebra_item(p, largura_texto_est) for p in participantes
+        ]
+    else:
+        min_hs = [1 for _ in participantes]
 
     # Altura util para o motor. Quando altura_alvo e None (composicao orientada
     # pelo conteudo), estimamos uma area suficiente para a formacao caber, de
     # modo que a caixa cresca naturalmente. Usamos um limite generoso baseado
     # no numero de participantes; o motor selecionara a formacao preferida.
     if area_h is None:
-        # Estimativa: cada participante em sua propria linha caberia; deixamos
-        # o motor decidir com area vertical folgada.
-        area_h_calc = max(1, n) + 8
+        # Estimativa de area vertical suficiente para a formação caber. Com
+        # dimensionamento ``uniforme`` de linhas, todas as linhas recebem a
+        # altura do maior min_h — a estimativa deve refletir isso (n_linhas
+        # potenciais * max(min_hs)) para não forçar fallback indevido.
+        dim_lin_pol = config["dimensionamento"]["linhas"]["politica"]
+        if dim_lin_pol == "uniforme" and min_hs:
+            # Estimativa pessimista de número de linhas (cada item em sua linha).
+            n_linhas_est = max(1, n)
+            area_h_calc = n_linhas_est * max(min_hs) + 8
+        else:
+            area_h_calc = max(1, sum(min_hs)) + 8
     else:
         area_h_calc = area_h
 
@@ -1790,6 +2206,54 @@ def _linhas_distribuicao_matricial(elemento, content_w, altura_alvo):
         min_ws=min_ws,
         min_hs=min_hs,
     )
+
+    # Patch pos-validacao VM-07: apos a primeira distribuicao, as larguras
+    # reais das celulas sao conhecidas. Recalcula min_hs pela quebra efetiva
+    # nessas larguras e redistribui se alguma celula ficou baixa demais —
+    # evitando sobreposicao entre itens multilinha e o item seguinte.
+    if quebrar and not resultado["fallback"] and resultado["celulas"]:
+        min_hs_reais = list(min_hs)
+        precisa_redistribuir = False
+        for celula in resultado["celulas"]:
+            pidx = celula["participante"]
+            largura_texto_real = max(1, celula["largura"] - ind_w)
+            h_real = _altura_quebra_item(participantes[pidx], largura_texto_real)
+            if h_real > min_hs_reais[pidx]:
+                min_hs_reais[pidx] = h_real
+            if h_real > celula["altura"]:
+                precisa_redistribuir = True
+        if precisa_redistribuir or min_hs_reais != min_hs:
+            if area_h is None:
+                dim_lin_pol = config["dimensionamento"]["linhas"]["politica"]
+                if dim_lin_pol == "uniforme" and min_hs_reais:
+                    area_h_calc = max(1, n) * max(min_hs_reais) + 8
+                else:
+                    area_h_calc = max(1, sum(min_hs_reais)) + 8
+            resultado = calcular_distribuicao(
+                area_w=area_w,
+                area_h=area_h_calc,
+                n_participantes=n,
+                config=config,
+                min_ws=min_ws,
+                min_hs=min_hs_reais,
+            )
+            # Se ainda houver celula menor que a quebra real, nao aceitar
+            # renderizacao com sobreposicao: fallback para quadro minimo.
+            if not resultado["fallback"]:
+                for celula in resultado["celulas"]:
+                    pidx = celula["participante"]
+                    largura_texto_real = max(1, celula["largura"] - ind_w)
+                    h_real = _altura_quebra_item(
+                        participantes[pidx], largura_texto_real
+                    )
+                    if h_real > celula["altura"]:
+                        resultado = {
+                            "fallback": True,
+                            "grade": None,
+                            "formacao": None,
+                            "celulas": [],
+                        }
+                        break
 
     if resultado["fallback"]:
         global _quadro_minimo_lancador_ativo
@@ -1817,21 +2281,62 @@ def _linhas_distribuicao_matricial(elemento, content_w, altura_alvo):
     alinh_h = alinh["horizontal"]
     alinh_v = alinh["vertical"]
 
+    # QAI40-001: resolve o item corrente (id) do console focado para marcar
+    # exatamente a celula/primeira linha física do item corrente.
+    item_corrente_id = (
+        _item_corrente_de_contexto(elemento)
+        if eh_console_com_indicador and _console_focado_de_contexto(elemento)
+        else None
+    )
+    # Mapeia participante -> id do item navegavel (na ordem declarada) para
+    # identificar qual celula corresponde ao item corrente.
+    nav_ids = None
+    if eh_console_com_indicador:
+        nav_ids = [it.get("id") for it in _itens_navegaveis_do_elemento(elemento)]
+
     for celula in resultado["celulas"]:
-        # DEC-APP-0025-01: a camada matricial entrega o conteudo integral ao
-        # participante; a fronteira interna decide a visibilidade fisica.
-        _renderizar_participante_na_celula(
-            canvas=canvas,
-            texto_integral=participantes[celula["participante"]],
-            cel_x=celula["x"],
-            cel_y=celula["y"],
-            cel_w=celula["largura"],
-            cel_h=celula["altura"],
-            canvas_h=canvas_h,
-            area_w=area_w,
-            alinh_h=alinh_h,
-            alinh_v=alinh_v,
-        )
+        participante_idx = celula["participante"]
+        # QAI40-001: o indicador e inserido DENTRO da celula, antes do texto.
+        # Para consoles focalizaveis, deslocamos o texto por ind_w e colocamos
+        # o marcador na primeira coluna da celula (apenas na primeira linha
+        # física do item corrente; demais recebem selecionado_off).
+        if ind_w > 0:
+            _renderizar_participante_com_indicador(
+                canvas=canvas,
+                texto_integral=participantes[participante_idx],
+                cel_x=celula["x"],
+                cel_y=celula["y"],
+                cel_w=celula["largura"],
+                cel_h=celula["altura"],
+                canvas_h=canvas_h,
+                area_w=area_w,
+                alinh_h=alinh_h,
+                alinh_v=alinh_v,
+                ind_w=ind_w,
+                eh_corrente=(
+                    nav_ids is not None
+                    and participante_idx < len(nav_ids)
+                    and nav_ids[participante_idx] == item_corrente_id
+                    and item_corrente_id is not None
+                ),
+                quebrar=quebrar,
+            )
+        else:
+            # DEC-APP-0025-01: a camada matricial entrega o conteudo integral ao
+            # participante; a fronteira interna decide a visibilidade fisica.
+            _renderizar_participante_na_celula(
+                canvas=canvas,
+                texto_integral=participantes[participante_idx],
+                cel_x=celula["x"],
+                cel_y=celula["y"],
+                cel_w=celula["largura"],
+                cel_h=celula["altura"],
+                canvas_h=canvas_h,
+                area_w=area_w,
+                alinh_h=alinh_h,
+                alinh_v=alinh_v,
+            )
+
 
     return ["".join(linha) for linha in canvas]
 
@@ -1856,9 +2361,9 @@ def _caixa_de_elemento(
     """
     # H-0035 / ADR-0025: quando o elemento funcional declara distribuicao_
     # matricial, ela organiza os participantes imediatos em grade. Para console
-    # substitui as politicas geometricas antigas (DEC-APP-0025-03); para
-    # lancador tem precedencia sobre ADR-0001/0002/0003 (DEC-APP-0025-02); para
-    # dashboard organiza os campos. Ausencia preserva o comportamento anterior.
+    # substitui as politicas geometricas antigas (DEC-APP-0025-03); para lancador
+    # tem precedencia sobre ADR-0001/0002/0003 (DEC-APP-0025-02); para dashboard
+    # organiza os campos. Ausencia preserva o comportamento anterior.
     dm = getattr(elemento, "distribuicao_matricial", None)
     if dm is not None and elemento.tipo in ("console", "dashboard", "lancador"):
         rotulo_padrao = {
@@ -1867,7 +2372,18 @@ def _caixa_de_elemento(
             "lancador": "LANCADOR",
         }[elemento.tipo]
         titulo_el = elemento._campos_inertes.get("titulo", rotulo_padrao)
-        linhas = _linhas_distribuicao_matricial(elemento, content_w, altura_alvo)
+        # QAI40-001/QAI40-002: no caminho matricial, o indicador é reservado
+        # DENTRO de cada célula (uma coluna indicadora por item, lado a lado),
+        # de modo que content_w_itens == content_w (a reserva por célula é
+        # tratada internamente por _linhas_distribuicao_matricial). A largura
+        # útil final dos itens coincide com a consumida pela navegação, que
+        # aplica o mesmo desconto estrutural explícito (AT-0021/PN-0016).
+        content_w_itens = content_w
+        linhas = _linhas_distribuicao_matricial(
+            elemento, content_w_itens, altura_alvo, verboso=verboso,
+        )
+        # QAI40-001: o indicador matricial já é aplicado dentro das células;
+        # _aplicar_indicador_linhas permanece apenas para o caminho sem grade.
         return _caixa(
             titulo_el.upper(), linhas,
             borda, inner_w, content_w, label_max, altura_alvo,
@@ -1875,8 +2391,16 @@ def _caixa_de_elemento(
 
     if elemento.tipo == "console":
         titulo_el = elemento._campos_inertes.get("titulo", "CONSOLE")
+        # QAI40-002: largura útil dos itens pela autoridade única do renderer.
+        total_w = content_w + DESCONTO_ESTRUTURAL_CONSOLE if content_w is not None else None
+        content_w_itens = largura_util_itens_console(total_w, elemento)
+        linhas_console = _linhas_console(elemento, content_w_itens, verboso)
+        # H-0040: indicador de cursor de navegacao no console sem grade.
+        linhas_console = _aplicar_indicador_linhas(
+            linhas_console, elemento, content_w, content_w_itens
+        )
         return _caixa(
-            titulo_el.upper(), _linhas_console(elemento, content_w, verboso),
+            titulo_el.upper(), linhas_console,
             borda, inner_w, content_w, label_max, altura_alvo,
         )
     if elemento.tipo == "dashboard":
@@ -2422,6 +2946,10 @@ def renderizar_tela(
     largura: int | None = None,
     altura: int | None = None,
     verboso: bool = False,
+    foco_console=None,
+    cursores=None,
+    lista_foco=None,
+    largura_navegacao=None,
 ) -> str:
     """Renderiza ModeloTela como string visual declarativa (H-0010A).
 
@@ -2508,6 +3036,22 @@ def renderizar_tela(
     # substituída pelo quadro mínimo canônico (ADR-0017).
     global _quadro_minimo_lancador_ativo
     _quadro_minimo_lancador_ativo = False
+
+    # H-0040 / ADR-0031: o contexto de navegacao de runtime é redefinido a cada
+    # chamada (R-14) e populado com os parametros opcionais recebidos. Quando
+    # ``lista_foco``/``foco_console``/``cursores`` sao omitidos, o contexto fica
+    # inativo e o renderer preserva integralmente o comportamento pre-H-0040
+    # (sem indicador de cursor, sem chips dinamicos). Os dados sao
+    # EXCLUSIVAMENTE de runtime (NC-005): nunca persistem em JSON. Os símbolos
+    # do indicador derivam do estilo global materializado (D12/ADR-0030).
+    _navegacao_atual["lista_foco"] = lista_foco
+    _navegacao_atual["foco_console"] = foco_console
+    _navegacao_atual["cursores"] = cursores or {}
+    _navegacao_atual["largura"] = (
+        largura_navegacao if largura_navegacao is not None else largura
+    )
+    _navegacao_atual["simbolo"] = getattr(estilo, "selecionado_simbolo", None)
+    _navegacao_atual["off"] = getattr(estilo, "selecionado_off", None)
 
     total_w = TOTAL_WIDTH if largura is None else largura
     inner_w = total_w - 2

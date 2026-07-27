@@ -80,8 +80,8 @@ ou símbolo acionável — ou informativo — exibido na região da tela.
 | `[<][>]` | Páginas | classe declara `paginacao: com` |
 | `[-][+]` | Colunas | classe declara `colunas_ajustavel: com` (tipo `console`) |
 | `[#]` | Grupos | classe declara filtro por grupo |
-| `[⇆]` | Alternar | `quantidade_corpos: multiplos` |
-| `[✥]` | Navegar | tela possui ao menos um corpo tipo `console` navegável |
+| `[⇆]` | Alternar | tela possui pelo menos dois consoles focalizáveis (ADR-0031 D14) |
+| `[✥]` | Navegar | console focado possui mais de um item navegável (ADR-0031 D14); existência dinâmica — ausente quando a condição não é satisfeita |
 | `[␣]` | Selecionar | classe declara formação de seleção |
 | `[⏎]` | Todos / Executar / Visualizar | declarativa por tela |
 | específicos | (por classe) | chips próprios da classe |
@@ -90,12 +90,17 @@ ou símbolo acionável — ou informativo — exibido na região da tela.
 
 ### 4.4 Estado ativo e inativo
 
-- **Existência** = propriedade estática declarada pela classe.
+- **Existência** = propriedade estática declarada pela classe (para a maioria dos chips).
 - **Ativo/inativo** = estado dinâmico recalculado a cada render; indicado por
   `cor_inativo` (definida no módulo `10`).
 
 O chip continua ocupando sua posição/ordem quando inativo — não desaparece,
 só muda de cor e para de reagir ao acionamento.
+
+**Exceção para `[✥]` (ADR-0031 D14)**: `[✥]` possui **existência dinâmica** —
+aparece somente quando o console focado possui mais de um item navegável; está
+**ausente** (não inativo) quando a condição não é satisfeita. Não assume estado
+inativo: ou está presente e ativo, ou está ausente. Ver `contrato_chip.md` §8.
 
 ### 4.5 Rótulo dinâmico — `[⏎]` e `[Esc]`
 
@@ -146,7 +151,7 @@ unicamente.
 | `barra_de_menus` × `lancador` | Barra: região fixa inferior da tela; lancador: elemento do corpo para navegação |
 | chip canônico × chip específico | Canônico: ordem fixa do sistema; específico: próprio da classe de tela |
 | existência × ativo/inativo | Existência: estática, declarada; ativo/inativo: dinâmico, recalculado |
-| `[⇆]` × `[✥]` | `[⇆]` muda foco entre corpos; `[✥]` move cursor dentro do corpo em foco |
+| `[⇆]` × `[✥]` | `[⇆]` muda o foco entre consoles focalizáveis; `[✥]` move o cursor entre itens do console focado |
 | `barra_de_menus.distribuicao = "horizontal"` × `corpo.arranjo = "horizontal"` | São termos diferentes em regiões diferentes — não colapsam |
 
 ## 6. Relação com contratos
@@ -160,6 +165,7 @@ unicamente.
 - ADR-0014: distribuição horizontal responsiva; regra de alteração por termo específico.
 - ADR-0022: barra mínima real (`Esc`, `?`, acesso a estilos).
 - ADR-0028: chip `[V] Verboso`; relação com política de modo.
+- ADR-0031: condições de existência de `[⇆]` (≥2 consoles focalizáveis) e `[✥]` (console focado com >1 item navegável); existência dinâmica de `[✥]`.
 
 ## 8. Aliases ou termos descontinuados relacionados
 
@@ -179,7 +185,7 @@ unicamente.
 origem_no_monolito:
   secao: "§5 (linhas 532-682)"
   intervalo_ou_bloco: "NOM-LEV-011"
-origem_normativa: ADR-0012, ADR-0014, ADR-0022, ADR-0028
+origem_normativa: ADR-0012, ADR-0014, ADR-0022, ADR-0028, ADR-0031
 contratos_relacionados:
   - contrato_barra_de_menus.md
   - contrato_chip.md
@@ -188,6 +194,7 @@ adrs_relacionadas:
   - ADR-0014
   - ADR-0022
   - ADR-0028
+  - ADR-0031
 tratamento:
   - PRESERVADO
   - SEPARADO_DE_REGRA_COMPORTAMENTAL

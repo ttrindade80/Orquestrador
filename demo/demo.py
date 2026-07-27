@@ -122,7 +122,12 @@ from tela.loader import (
     carregar_estilo,
 )
 from tela.modelo import construir_modelo, ModeloTela
-from tela.renderizador import renderizar_tela, RenderizadorErro
+from tela.renderizador import (
+    renderizar_tela,
+    RenderizadorErro,
+    DESCONTO_ESTRUTURAL_CONSOLE,
+)
+from tela import navegacao
 
 LARGURA_MINIMA_TELA = 10
 ALTURA_MINIMA_TELA = 6
@@ -165,12 +170,20 @@ def criar_estado_inicial():
     H-0039 / ADR-0030: o estado nao carrega mais ``tipo_borda`` -- a borda
     vem de ``config/estilo.json`` via ``carregar_estilo`` e o ``EstiloResolvido``
     e injetado em ``estado`` pelo ``main`` (uma vez por sessao).
+
+    H-0040 / ADR-0031: campos de runtime de navegacao -- ``foco_console``
+    (indice do console focado na lista de foco, ou ``None``) e ``cursores``
+    (dict id-do-console -> item logico corrente). Sao EXCLUSIVAMENTE runtime:
+    nao persistem em JSON, nao alteram schema (NC-005). ``foco_console=None``
+    significa "sem foco estabelecido ainda"; Tab/Shift+Tab o estabelecem.
     """
     return {
         "saindo": False,
         "tela_atual": "demo",
         "pilha_telas": [],
         "modo_verboso": False,
+        "foco_console": None,
+        "cursores": {},
     }
 
 
@@ -206,7 +219,15 @@ def _verboso_efetivo(estado, modelo):
     - somente_nao_verboso: sempre False (nao afetado pelo toggle).
     - alternavel: estado.get("modo_verboso", False).
     - Sem politica (legado): False.
+
+    QAI40-003: um override explicito (``modo_verboso_forcado``) injetado por um
+    ponto de entrada derivado (ex.: ``--verboso`` da demo de navegacao) tem
+    precedencia sobre a politica do modelo, alcancando o runtime e o renderer
+    reais. O override nao cria politica nova no JSON nem torna a tecla ``V``
+    disponivel onde nao era contratada.
     """
+    if estado.get("modo_verboso_forcado") is True:
+        return True
     if modelo is None:
         return False
     try:
@@ -231,12 +252,22 @@ def processar_comando(estado, comando, modelo=None):
 
     Nao modifica o dict ``estado`` recebido como argumento. Retorna
     sempre um novo dict independente com as chaves ``"saindo"``,
-    ``"tela_atual"``, ``"pilha_telas"`` e ``"modo_verboso"``.
+    ``"tela_atual"``, ``"pilha_telas"``, ``"modo_verboso"``,
+    ``"foco_console"`` e ``"cursores"``.
 
     H-0039 / ADR-0030: o comando ``"b"`` (alternancia de borda) foi removido
     -- a borda agora vem de ``config/estilo.json`` via ``carregar_estilo`` e
-    nao e alternavel em runtime por este via. O estado nao carrega mais
+    nao e alternavel em runtime por esta via. O estado nao carrega mais
     ``tipo_borda``.
+
+    H-0040 / ADR-0031: navegacao de console de nivel unico. Tab/Shift+Tab
+    alternam o console focado circularmente (D5) e entram sempre no item
+    logico 0 (D6). As setas movem o cursor por eixo com toroide na mesma
+    linha/coluna (D8), respeitando celulas vazias (D8) e degenerados (D9).
+    Espaco nao altera selecao (D13/PN-0017). Enter NAO recebe nova funcao
+    neste handoff: nenhum dispatcher de acao, nenhuma nova resposta
+    demonstrativa (PN-0013); o comportamento preexistente (preservar estado)
+    e mantido.
 
     Comportamento (case-sensitive):
 
@@ -245,6 +276,14 @@ def processar_comando(estado, comando, modelo=None):
         ser o ultimo elemento removido da pilha; ``saindo`` permanece
         ``False``.
       - Se ``pilha_telas`` vazia: define ``saindo = True`` (sai).
+    - Tab (``"\\t"``): avanca o foco circularmente; entra no item 0.
+    - Shift+Tab (``"\\x1b[Z"`` ou ``"\\x1b\\t"``): recua o foco circularmente;
+      entra no item 0 (NC-001 -- ambas as sequencias reconhecidas).
+    - Setas ``"\\x1b[A/C/B/D"`` (cima/direita/baixo/esquerda): movem o cursor
+      no console focado por toroide na mesma coluna/linha.
+    - Espaco (``" "``): nao altera selecao (PN-0017).
+    - ``"V"``/``"v"``: alterna verbosidade em telas alterhaveis (preserva item
+      logico -- D10/PN-0011).
     - Qualquer outro comando (incluindo string vazia): se ``modelo`` for
       diferente de ``None``, percorre ``modelo.corpo.elementos[]`` em
       busca de elemento do tipo ``"lancador"``; para cada item em
@@ -257,18 +296,50 @@ def processar_comando(estado, comando, modelo=None):
         O terceiro argumento ``modelo`` e opcional (default ``None``)
         para preservar o comportamento anterior quando omitido. Estados
         sem ``tela_atual`` ou ``pilha_telas`` sao tratados com defaults
-        (``"demo"`` e ``[]``).
+        (``"demo"`` e ``[]``). Estados legados sem ``foco_console``/
+        ``cursores`` sao tratados com defaults (``None``/``{}``) -- o
+        runtime novo e retrocompativel com estados criados por
+        ``criar_estado_inicial`` antes do H-0040.
     """
+    # H-0040: estado de navegacao de runtime. ``foco_console``/``cursores``
+    # sao preservados entre comandos. Defaults defensivos aceitam estados
+    # legados criados antes do H-0040 (sem essas chaves).
     novo = {
         "saindo": estado["saindo"],
         "tela_atual": estado.get("tela_atual", "demo"),
         "pilha_telas": list(estado.get("pilha_telas", [])),
         "modo_verboso": estado.get("modo_verboso", False),
+        "foco_console": estado.get("foco_console"),
+        "cursores": dict(estado.get("cursores", {})),
     }
+    # QAI40-003 / patch pos-validacao manual: ``modo_verboso_forcado`` e
+    # override de runtime (ex.: ``--verboso``) e deve permanecer no estado
+    # durante toda a sessao. Nao persiste em JSON; ausente em chamadas sem
+    # override (comportamento anterior preservado).
+    if estado.get("modo_verboso_forcado") is True:
+        novo["modo_verboso_forcado"] = True
     # H-0039: o EstiloResolvido e imutavel e sessão-scopo; preservado entre
     # comandos para que renderizar_estado continue consumindo o mesmo objeto.
     if "estilo" in estado:
         novo["estilo"] = estado["estilo"]
+    # H-0040 / patch VM-11: geometria corrente do terminal usada pela navegacao
+    # para consumir a MESMA geometria do renderer (calcular_distribuicao).
+    # ``largura``, ``altura``, ``altura_interna`` e ``desconto_estrutural`` sao
+    # transitivos como o estilo; nunca persistem em JSON. Ausentes em estados
+    # legados (defaults tratados pelas funcoes de navegacao).
+    #
+    # VM-11: ``desconto_estrutural`` DEVE ser preservado entre comandos. Se for
+    # descartado, a primeira seta apos redimensionamento recalcula a grade com
+    # area util diferente da do renderer e pode reutilizar a formacao anterior
+    # (ex.: 2x3 vs 3x2 na fronteira de largura).
+    if "largura" in estado:
+        novo["largura"] = estado["largura"]
+    if "altura" in estado:
+        novo["altura"] = estado["altura"]
+    if "altura_interna" in estado:
+        novo["altura_interna"] = estado["altura_interna"]
+    if "desconto_estrutural" in estado:
+        novo["desconto_estrutural"] = estado["desconto_estrutural"]
 
     if comando == "s" or comando == "\x1b":
         if novo["pilha_telas"]:
@@ -276,6 +347,42 @@ def processar_comando(estado, comando, modelo=None):
             novo["pilha_telas"] = novo["pilha_telas"][:-1]
         else:
             novo["saindo"] = True
+        return novo
+
+    # H-0040 / ADR-0031: navegacao de console de nivel unico. As teclas de
+    # navegacao sao tratadas ANTES do dispatch de lancador (chip por comando)
+    # porque nao colidem com chips de lancador existentes (Esc/Sair, lancador
+    # por chip). Tab/Shift+Tab alternam foco; setas movem cursor por eixo;
+    # espaco nao altera selecao (D13). O estado de navegacao e exclusivamente
+    # runtime (NC-005).
+    if modelo is not None and (
+        navegacao.e_tab(comando)
+        or navegacao.e_shift_tab(comando)
+        or comando in ("\x1b[A", "\x1b[B", "\x1b[C", "\x1b[D", " ")
+    ):
+        nav_estado = dict(novo)
+        nav_estado["modelo"] = modelo
+        if navegacao.e_tab(comando):
+            nav_estado = navegacao.avancar_foco(nav_estado)
+        elif navegacao.e_shift_tab(comando):
+            nav_estado = navegacao.recuar_foco(nav_estado)
+        elif comando in ("\x1b[A", "\x1b[B", "\x1b[C", "\x1b[D"):
+            console = navegacao.console_focado(nav_estado)
+            if console is not None:
+                if comando == "\x1b[C":
+                    nav_estado = navegacao.mover_direita(nav_estado, console)
+                elif comando == "\x1b[D":
+                    nav_estado = navegacao.mover_esquerda(nav_estado, console)
+                elif comando == "\x1b[B":
+                    nav_estado = navegacao.mover_baixo(nav_estado, console)
+                elif comando == "\x1b[A":
+                    nav_estado = navegacao.mover_cima(nav_estado, console)
+        elif comando == " ":
+            # D13/PN-0017: espaco nao cria nem alterna selecao.
+            nav_estado = navegacao.processar_espaco(nav_estado)
+        # O modelo nao e estado de runtime; e removido antes de devolver.
+        novo["foco_console"] = nav_estado.get("foco_console")
+        novo["cursores"] = dict(nav_estado.get("cursores", {}))
         return novo
 
     # H-0037: tecla V (maiuscula) ou v (minuscula) alterna verbosidade
@@ -321,10 +428,22 @@ def renderizar_estado(estado, modelo, largura=None, altura=None):
     H-0039 / ADR-0030: o ``EstiloResolvido`` e lido de ``estado["estilo"]``
     (carregado uma vez em ``main``); a borda nao e mais alternavel nem
     carregada por ``tipo_borda``.
+
+    H-0040 / ADR-0031: repassa parametros opcionais de navegacao ao renderer:
+    ``foco_console`` (indice do console focado), ``cursores`` (dict id->item
+    logico) e ``lista_foco`` (lista de consoles focalizaveis). Esses dados
+    sao de runtime e derivados do modelo corrente; o renderer os consume para
+    materializar o indicador de cursor no console focado e aplicar as regras
+    dinamicas de existencia dos chips ``[⇆]``/``[✥]`` (D11/D12/D14).
     """
+    lista_foco = navegacao.lista_foco(modelo) if modelo is not None else []
     return renderizar_tela(
         modelo, estado["estilo"], largura=largura, altura=altura,
         verboso=_verboso_efetivo(estado, modelo),
+        foco_console=estado.get("foco_console"),
+        cursores=estado.get("cursores", {}),
+        lista_foco=lista_foco,
+        largura_navegacao=largura,
     )
 
 
@@ -650,7 +769,7 @@ def _tela_inicial_de_argv(argv):
     return "demo"
 
 
-def main(argv=None):
+def main(argv=None, estado_inicial=None):
     """Entrada principal da aplicacao demonstravel.
 
     Em TTY interativo (stdin e stdout sao TTY), ativa alternate screen,
@@ -670,6 +789,12 @@ def main(argv=None):
     if argv is None:
         argv = sys.argv
     estado = criar_estado_inicial()
+    # H-0040: permite que um ponto de entrada derivado (demo_navegacao) injete
+    # um estado pre-populado (ex.: foco no primeiro console ao iniciar), sem
+    # reescrever o loop TUI. Quando ``estado_inicial`` e None, o comportamento
+    # historico e preservado integralmente.
+    if estado_inicial is not None:
+        estado = dict(estado_inicial)
     # H-0039 / ADR-0030: carrega o estilo global uma unica vez por sessao a
     # partir de config/estilo.json. O EstiloResolvido e imutavel e repassado
     # ao renderer via estado["estilo"]; nao e recarregado por comando/render.
@@ -679,11 +804,25 @@ def main(argv=None):
     if tela_inicial != estado["tela_atual"]:
         estado = dict(estado, tela_atual=tela_inicial)
     modelo = _carregar_modelo_por_id(estado["tela_atual"])
-    estado = dict(estado, modo_verboso=_modo_verboso_de_modelo(modelo))
+    # Override ``--verboso`` (modo_verboso_forcado) tem precedencia sobre a
+    # politica do modelo ao iniciar a sessao; sem override, restaura o modo
+    # inicial da politica (comportamento anterior).
+    if estado.get("modo_verboso_forcado") is True:
+        estado = dict(estado, modo_verboso=True)
+    else:
+        estado = dict(estado, modo_verboso=_modo_verboso_de_modelo(modelo))
 
     if sys.stdin.isatty() and sys.stdout.isatty():
         fd = sys.stdin.fileno()
         largura, altura = _obter_dimensoes_iniciais(fd)
+        # H-0040: largura no estado para a navegacao consumir a mesma geometria
+        # do renderer desde o primeiro quadro.
+        estado = dict(
+            estado,
+            largura=largura,
+            altura=altura,
+            desconto_estrutural=DESCONTO_ESTRUTURAL_CONSOLE,
+        )
         resize_pendente = [False]
         r_wakeup = None
         w_wakeup = None
@@ -721,6 +860,17 @@ def main(argv=None):
                         )
                         if nova_l != largura or nova_a != altura:
                             largura, altura = nova_l, nova_a
+                            # D10 / patch VM-11: redimensionamento preserva o
+                            # item logico e atualiza largura/altura/desconto no
+                            # estado ANTES de qualquer seta, para a navegacao
+                            # recalcular formacao, vizinhos e toroide na
+                            # geometria vigente (mesma do renderer).
+                            estado = dict(
+                                estado,
+                                largura=largura,
+                                altura=altura,
+                                desconto_estrutural=DESCONTO_ESTRUTURAL_CONSOLE,
+                            )
                             _apresentar_quadro(
                                 _resolver_conteudo(estado, modelo, largura, altura),
                                 largura,
@@ -730,17 +880,35 @@ def main(argv=None):
                     ch = _ler_tecla_sessao(fd=fd)
                     tela_antes = estado["tela_atual"]
                     verboso_antes = estado.get("modo_verboso", False)
+                    foco_antes = estado.get("foco_console")
+                    cursores_antes = dict(estado.get("cursores", {}))
+                    estado = dict(
+                        estado,
+                        largura=largura,
+                        altura=altura,
+                        desconto_estrutural=DESCONTO_ESTRUTURAL_CONSOLE,
+                    )
                     estado = processar_comando(estado, ch, modelo)
                     if estado["saindo"]:
                         break
                     if estado["tela_atual"] != tela_antes:
                         modelo = _carregar_modelo_por_id(estado["tela_atual"])
-                        estado = dict(
-                            estado,
-                            modo_verboso=_modo_verboso_de_modelo(modelo),
-                        )
+                        if estado.get("modo_verboso_forcado") is True:
+                            estado = dict(estado, modo_verboso=True)
+                        else:
+                            estado = dict(
+                                estado,
+                                modo_verboso=_modo_verboso_de_modelo(modelo),
+                            )
                     verboso_mudou = estado.get("modo_verboso", False) != verboso_antes
-                    if estado["tela_atual"] != tela_antes or verboso_mudou:
+                    foco_mudou = estado.get("foco_console") != foco_antes
+                    cursores_mudou = estado.get("cursores", {}) != cursores_antes
+                    if (
+                        estado["tela_atual"] != tela_antes
+                        or verboso_mudou
+                        or foco_mudou
+                        or cursores_mudou
+                    ):
                         _apresentar_quadro(
                             _resolver_conteudo(estado, modelo, largura, altura),
                             largura,
@@ -766,23 +934,52 @@ def main(argv=None):
         tamanho_terminal = shutil.get_terminal_size(fallback=(80, 24))
         largura = tamanho_terminal.columns
         altura = tamanho_terminal.lines
-        print(renderizar_estado(estado, modelo, largura, altura=altura), end="")
+        estado = dict(
+            estado,
+            largura=largura,
+            altura=altura,
+            desconto_estrutural=DESCONTO_ESTRUTURAL_CONSOLE,
+        )
+        # Mesmo tratamento do caminho TTY: quadro minimo quando a geometria
+        # nao cabe (RenderizadorErro), em vez de traceback no smoke non-TTY.
+        print(_resolver_conteudo(estado, modelo, largura, altura), end="")
         for linha in sys.stdin:
             comando = linha.strip()
             tela_antes = estado["tela_atual"]
             verboso_antes = estado.get("modo_verboso", False)
+            foco_antes = estado.get("foco_console")
+            cursores_antes = dict(estado.get("cursores", {}))
+            # Patch VM-11: reafirma geometria corrente antes de cada comando
+            # (mesma autoridade do caminho TTY), para a primeira seta usar a
+            # formacao atual mesmo apos mudancas de dimensao.
+            estado = dict(
+                estado,
+                largura=largura,
+                altura=altura,
+                desconto_estrutural=DESCONTO_ESTRUTURAL_CONSOLE,
+            )
             estado = processar_comando(estado, comando, modelo)
             if estado["saindo"]:
                 break
             if estado["tela_atual"] != tela_antes:
                 modelo = _carregar_modelo_por_id(estado["tela_atual"])
-                estado = dict(
-                    estado,
-                    modo_verboso=_modo_verboso_de_modelo(modelo),
-                )
+                if estado.get("modo_verboso_forcado") is True:
+                    estado = dict(estado, modo_verboso=True)
+                else:
+                    estado = dict(
+                        estado,
+                        modo_verboso=_modo_verboso_de_modelo(modelo),
+                    )
             verboso_mudou = estado.get("modo_verboso", False) != verboso_antes
-            if estado["tela_atual"] != tela_antes or verboso_mudou:
-                print(renderizar_estado(estado, modelo, largura, altura=altura), end="")
+            foco_mudou = estado.get("foco_console") != foco_antes
+            cursores_mudou = estado.get("cursores", {}) != cursores_antes
+            if (
+                estado["tela_atual"] != tela_antes
+                or verboso_mudou
+                or foco_mudou
+                or cursores_mudou
+            ):
+                print(_resolver_conteudo(estado, modelo, largura, altura), end="")
     return 0
 
 

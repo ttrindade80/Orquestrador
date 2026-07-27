@@ -18,6 +18,7 @@ metadata:
       - docs/adr/ADR-0025-distribuicao-matricial-configuravel-nivel-unico-conteudo-elementos.md
       - docs/adr/ADR-0026-fornecimento-externo-dados-console-json-multinivel.md
       - docs/adr/ADR-0027-carregamento-conjunto-tela-conteudo-externo-ponto-entrada.md
+      - docs/adr/ADR-0031-navegacao-simples-e-selecao-unica-em-console-de-nivel-unico.md
     reaproveitado_de_legado: false
   dependencias_nomenclatura:
     dependencias_obrigatorias:
@@ -63,8 +64,11 @@ Propriedades fundamentais:
   ou estrutura interna fixa;
 - `console` pode conter **itens heterogêneos** — itens de tipos diferentes
   coexistem na mesma instância;
-- `console` é navegável por `[✥]` (setas do teclado) quando a instância
-  declara navegação habilitada e há ao menos um item com `navegavel: true`;
+- `console` é **focalizável** (ADR-0031 D2) quando a instância declara
+  `politica_navegacao.navegavel: true` e há ao menos um item com
+  `navegavel: true`; a navegação por setas e a aparência de `[✥]` dependem
+  adicionalmente das condições de foco e quantidade de itens (ADR-0031 D14 —
+  ver `contrato_console.md` §22);
 - `console` **não é `lancador`** — `lancador` aciona navegação para outras
   telas; `console` é container de dados ou saída;
 - `console` **não é `dashboard`** — `dashboard` é passivo; `console` é

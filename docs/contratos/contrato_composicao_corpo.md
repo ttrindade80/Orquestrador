@@ -32,6 +32,7 @@ metadata:
       - docs/adr/ADR-0022-ponto-entrada-tela-inicial-orquestrador.md
       - docs/adr/ADR-0023-largura-minima-funcional-lancador.md
       - docs/adr/ADR-0025-distribuicao-matricial-configuravel-nivel-unico-conteudo-elementos.md
+      - docs/adr/ADR-0031-navegacao-simples-e-selecao-unica-em-console-de-nivel-unico.md
     reaproveitado_de_legado: false
   dependencias_nomenclatura:
     dependencias_obrigatorias:
@@ -1420,11 +1421,14 @@ nunca ajustar silenciosamente nem tentar renderizar como `livre`.
 `barra_de_menus` fica fora do corpo. Chips não decidem composição do corpo.
 
 - Chips podem refletir capacidades declaradas na tela ou na instância de `console`.
-- `[✥]` é restrito a elemento `console` navegável. Quando há mais de um elemento
-  de corpo, `[✥]` fica inativo se o elemento em foco não for `console` navegável.
+- `[✥]` é restrito a elemento `console` focalizável. Aparece somente quando o
+  console atualmente em foco possui mais de um item navegável; ausente nos
+  demais casos (ADR-0031 D14). Ver `contrato_console.md` §22.8.
 - `[␣]` só existe quando a instância de `console` declara formação de seleção múltipla.
 - `[⏎]` fica ativo/inativo conforme o item em foco possui ou não ação válida.
-- `[⇆]` alterna o foco de interação entre elementos de corpo quando há múltiplos.
+- `[⇆]` alterna o foco entre consoles focalizáveis quando a tela possui pelo
+  menos dois; não aparece quando há menos de dois consoles focalizáveis
+  (ADR-0031 D14). Ver `contrato_console.md` §22.8.
 
 As regras completas da `barra_de_menus` pertencem a `contrato_barra_de_menus.md`.
 Este contrato não altera `contrato_barra_de_menus.md`.

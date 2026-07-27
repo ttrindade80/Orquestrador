@@ -249,8 +249,10 @@ Regras:
   declaradas para o chip na `barra_de_menus`;
 - o comportamento de wrap toroidal (fechamento de bordas) é governado pela
   `politica_navegacao` da instância;
-- quando há múltiplos elementos de corpo, `[⇆]` alterna o foco entre eles e
-  `[✥]` navega dentro do elemento em foco.
+- `[⇆]` alterna o foco entre consoles quando há pelo menos dois consoles
+  focalizáveis na tela (ver §22.1 e §22.2); `[✥]` navega dentro do console
+  em foco quando este possui mais de um item navegável (ver §22.4 e §22.8);
+- consoles não focados não recebem cursor nem exibem indicador do item corrente.
 
 ---
 
@@ -401,7 +403,8 @@ decisão.
 
 | Chip (notação documental) | Dependência do `console` |
 |---|---|
-| `[✥]` | Existe quando a tela possui ao menos um `console` navegável; ativo quando o `console` navegável está em foco |
+| `[⇆]` | Aparece quando a tela possui pelo menos dois consoles focalizáveis (ADR-0031 D14; ver §22.8) |
+| `[✥]` | Aparece quando o console focado possui mais de um item navegável; ausente quando não há console focado ou quando o console tem zero ou um item navegável (ADR-0031 D14; ver §22.8) |
 | `[␣]` | Existe quando a instância de `console` declara seleção múltipla |
 | `[⏎]` | Ativo quando o item em foco tem `acao_enter` válida; inativo caso contrário |
 | `[V]` | Existe quando a instância de `console` declara que permite modo verboso |
@@ -425,8 +428,11 @@ O `console` não cria, não ordena e não distribui chips.
   `tela_destino` — não é navegável por `[✥]`;
 - regras de navegação do `console` (cursor, wrap, páginas) **não contaminam**
   `lancador` nem `dashboard`;
-- quando há múltiplos elementos de corpo, `[⇆]` alterna o foco entre eles —
-  o `console` só é navegável por `[✥]` quando está em foco.
+- quando há pelo menos dois consoles focalizáveis, `[⇆]` alterna o foco entre
+  esses consoles; `dashboard`, `lancador`, grupos estruturais, consoles não
+  navegáveis e consoles navegáveis sem itens navegáveis não entram nessa lista;
+- o `console` só é navegável por `[✥]` quando é o console focado e possui mais
+  de um item navegável.
 
 ---
 
@@ -852,3 +858,245 @@ nenhum default implícito é permitido.
 
 Quatro cenários mínimos de demonstração estão definidos em `contrato_json_console.md`
 §13.13.10, cobrindo as três políticas de modo.
+
+---
+
+## 22. Navegação, foco e seleção única (ADR-0031)
+
+A ADR-0031 (2026-07-25) formaliza as regras operacionais de foco entre consoles
+navegáveis de nível único, cursor sobre item lógico, navegação toroidal por eixo,
+indicador visual e chips condicionais. Esta seção propaga essas regras para o
+contrato do `console`.
+
+### 22.1 Elegibilidade do console
+
+Um `console` é **focalizável** quando satisfaz ambas as condições:
+
+1. Declara navegação habilitada por meio do campo `politica_navegacao` da instância (§3 e §7).
+2. Possui ao menos um item com `navegavel: true` (§4).
+
+```yaml
+console_focalizavel:
+  requisitos:
+    - declara_navegacao_habilitada_via_politica_navegacao
+    - possui_ao_menos_um_item_com_navegavel_true
+
+console_sem_declaracao_de_navegacao:
+  entra_na_lista_de_foco: false
+  recebe_cursor: false
+
+console_navegavel_sem_itens_com_navegavel_true:
+  entra_na_lista_de_foco: false
+  recebe_cursor: false
+  exibe_indicador: false
+
+dashboard:
+  entra_na_lista_de_foco: false
+
+lancador:
+  entra_na_lista_de_foco: false
+```
+
+O mecanismo declarativo é `politica_navegacao` (no console) e o campo `navegavel`
+(no item). Esta regra não inventa campo ou schema novo — usa os mecanismos
+declarativos já presentes em §3, §4 e §7.
+
+### 22.2 Lista de foco e foco entre consoles
+
+A lista de foco da tela contém somente consoles focalizáveis (§22.1). Grupos
+estruturais não recebem foco. A lista é produzida por travessia hierárquica em
+profundidade da árvore de grupos e elementos do corpo.
+
+```yaml
+grupos_estruturais:
+  recebem_foco: false
+
+travessia:
+  estrategia: PROFUNDIDADE_PRIMEIRO
+  resultado: LISTA_LINEAR_ORDENADA
+
+ordem_entre_irmaos:
+  horizontal: ESQUERDA_PARA_DIREITA
+  vertical: CIMA_PARA_BAIXO
+  matriz:
+    dentro_da_linha: ESQUERDA_PARA_DIREITA
+    entre_linhas: CIMA_PARA_BAIXO
+```
+
+Tab percorre a lista no sentido direto (circular). Shift+Tab percorre a mesma
+lista no sentido inverso (circular). Ambos são circulares: o último elemento
+avança para o primeiro; o primeiro recua para o último.
+
+### 22.3 Entrada em console
+
+Toda entrada em console focalizável — seja na primeira entrada, por Tab, por
+Shift+Tab, ou por retorno posterior ao mesmo console pela lista de foco —
+posiciona o cursor no item lógico `0`.
+
+```yaml
+cursor_destino: ITEM_LOGICO_0
+restaurar_cursor_anterior_do_console: false
+```
+
+Não existe memória de cursor por console. O retorno ao mesmo console reinicia
+sempre no item `0`. Esta regra aplica-se à **entrada** no console; redistribuição
+ou mudança de modo do console já focado não reinicia o cursor (ver §22.5).
+
+### 22.4 Navegação interna por item lógico
+
+O cursor navega por item lógico, não por linha física. A ordem lógica dos itens
+segue a distribuição declarada:
+
+```yaml
+linha: ESQUERDA_PARA_DIREITA
+coluna: CIMA_PARA_BAIXO
+matriz: ROW_MAJOR
+```
+
+As setas navegam somente entre itens ocupados da página e da exibição atuais:
+
+```yaml
+esquerda_direita:
+  dominio: MESMA_LINHA
+  muda_de_linha: false
+  topologia: TOROIDAL
+
+cima_baixo:
+  dominio: MESMA_COLUNA
+  muda_de_coluna: false
+  topologia: TOROIDAL
+
+celulas_sem_item:
+  recebem_cursor: false
+  participam_do_toroide: false
+```
+
+**Casos degenerados e matriz incompleta:**
+
+```yaml
+um_item:
+  quatro_setas: SEM_MOVIMENTO
+
+uma_linha:
+  esquerda_direita: TOROIDAL
+  cima_baixo: SEM_MOVIMENTO
+
+uma_coluna:
+  cima_baixo: TOROIDAL
+  esquerda_direita: SEM_MOVIMENTO
+```
+
+Em matriz incompleta, células vazias não participam do toróide e não recebem
+cursor. Não há compensação para outra linha ou coluna quando a seta atinge borda
+sem item. Setas não mudam de página — cada página é toróide fechado.
+
+### 22.5 Redistribuição e mudança de modo
+
+Enquanto o console permanece focado, redistribuição ou mudança de modo preserva
+o item lógico corrente e recalcula os demais atributos visuais:
+
+```yaml
+preservar:
+  - mesmo_item_logico
+
+recalcular:
+  - posicao_visual
+  - linha_atual
+  - coluna_atual
+  - vizinhos_horizontais
+  - vizinhos_verticais
+  - distribuicao_fisica
+```
+
+A mudança entre modo verboso e não verboso segue a mesma regra. Redistribuição
+ou mudança de modo não reinicia o cursor no item `0`.
+
+### 22.6 Indicador do item corrente
+
+Somente o console com foco exibe o indicador do item corrente. Consoles não
+focados não mostram o indicador. Console navegável reserva a coluna do indicador.
+
+```yaml
+item_corrente:
+  primeira_linha_fisica: INDICADOR_SELECIONADO
+  linhas_de_continuacao: ESPACO
+
+demais_itens:
+  primeira_linha_fisica: ESPACO
+  linhas_de_continuacao: ESPACO
+```
+
+O indicador:
+
+- Marca o início lógico do item — aparece somente na primeira linha física do
+  item corrente.
+- Não é repetido nas linhas de continuação do mesmo item.
+- Tem largura reservada estável — a coluna não se desloca ao mudar o cursor de
+  item.
+- Deve ser obtido do campo `selecionado_simbolo` do objeto de estilo global
+  materializado (ADR-0030 D6 e D8). O renderer não recebe autorização para
+  hardcodar `→`.
+
+Não se adiciona caractere extra ao título do console para indicar foco. O
+indicador visual é exclusivo da coluna `ec` do item corrente dentro do console
+focado.
+
+### 22.7 Seleção única
+
+Neste ciclo, seleção única significa o único item sob o cursor:
+
+```yaml
+item_corrente:
+  quantidade: UM
+  identidade: ITEM_SOB_CURSOR
+  persistencia_como_conjunto: false
+  toggle_por_espaco: false
+  indicador_de_inclusao: false
+```
+
+`[␣]` e os indicadores de inclusão (`tg` com `●`/`○`) pertencem ao ciclo de
+seleção múltipla (ITEM-0006). A execução de ação por `[⏎]` não integra o escopo
+desta regra — contratos vigentes podem continuar registrando essa capacidade
+futura.
+
+### 22.8 Chips condicionais (ADR-0031 D14)
+
+```yaml
+chip_alternancia:
+  identificador_canonico: "[⇆]"
+  aparece_quando: PELO_MENOS_DOIS_CONSOLES_FOCALIZAVEIS
+  nao_aparece_com:
+    - zero_consoles_focalizaveis
+    - um_console_focalizavel
+
+chip_setas:
+  identificador_canonico: "[✥]"
+  aparece_quando: CONSOLE_FOCADO_COM_MAIS_DE_UM_ITEM_NAVEGAVEL
+  nao_aparece_com:
+    - console_sem_itens_navegaveis
+    - console_com_um_unico_item_navegavel
+    - ausencia_de_console_focado
+```
+
+A condição considera consoles **focalizáveis** (§22.1), não apenas consoles
+declarados navegáveis sem itens. Não se inventa chip novo neste ciclo.
+
+### 22.9 Fronteiras deste contrato aplicado
+
+Permanecem fora deste contrato aplicado (ADR-0031 D15):
+
+- Paginação interativa por `<` e `>` (ITEM-0003).
+- Catálogo e dispatcher de ações (ITEM-0004 / DOC-B009).
+- Abertura e retorno entre telas (ITEM-0005).
+- Seleção múltipla (ITEM-0006).
+- Navegação multinível e expansão/recolhimento (ITEM-0007).
+
+As regras históricas sobre essas capacidades permanecem quando já existirem
+neste contrato — classificadas como futuras ou fora deste ciclo.
+
+### 22.10 Remissões
+
+- `docs/adr/ADR-0031-navegacao-simples-e-selecao-unica-em-console-de-nivel-unico.md` — decisões D1–D15;
+- `docs/nomenclatura/32_CONSOLE.md` — terminologia canônica;
+- `docs/nomenclatura/31_BARRA_DE_MENUS_E_CHIPS.md` — condições dos chips;
+- `docs/contratos/contrato_barra_de_menus.md` — regras da barra e dos chips.

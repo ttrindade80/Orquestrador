@@ -17,6 +17,7 @@ metadata:
       - docs/adr/ADR-0005-lancador-nao-e-corpo-navegavel.md
       - docs/adr/ADR-0008-modelo-configuracao-por-tela.md
       - docs/adr/ADR-0022-ponto-entrada-tela-inicial-orquestrador.md
+      - docs/adr/ADR-0031-navegacao-simples-e-selecao-unica-em-console-de-nivel-unico.md
     reaproveitado_de_legado: false
   dependencias_nomenclatura:
     dependencias_obrigatorias:
@@ -153,7 +154,7 @@ Mapeamento conceitual:
 |---|---|
 | `acao` | Executa ação declarada e registrada no whitelist de ações. O chip aponta para a ação; a lógica pertence ao registro. |
 | `filtro` | Altera o filtro ativo da instância de `console`. Atua sobre o conjunto exibido, antes da paginação. Referencia filtro declarado no `tela.json`. |
-| `alternancia` | Liga ou desliga estado de exibição, como modo verboso (`[V]`) ou alternância entre elementos de corpo (`[⇆]`). |
+| `alternancia` | Liga ou desliga estado de exibição, como modo verboso (`[V]`), ou alterna foco entre consoles focalizáveis (`[⇆]`). |
 | `navegacao` | Representa navegação ou cursor quando aplicável — ex.: `[✥]` como dica de navegação por setas, ou `[<][>]` como paginação. Não executa lógica arbitrária. |
 | `informativo` | Exibe estado ou dica sem ação direta, se explicitamente permitido pela declaração da instância. |
 | `especifico` | Chip próprio de uma tela ou processo, com ação declarada e registrada. Declarado pela classe de tela; posicionado na faixa canônica de específicos (entre `[⏎]` e `[V]`/`[?]`). |
@@ -202,7 +203,7 @@ da instância e do estilo ativo.
 [<][>]   — Páginas (paginação de console)
 [-][+]   — Colunas (ajuste de colunas de console)
 [#]      — Grupos (filtro de grupo)
-[⇆]      — Alternar (foco entre elementos de corpo)
+[⇆]      — Alternar (foco entre consoles focalizáveis)
 [✥]      — Navegar (cursor de console por setas do teclado)
 [␣]      — Selecionar (toggle de seleção múltipla)
 [⏎]      — Ação do item em foco (Todos / Executar / Visualizar)
@@ -224,20 +225,22 @@ render — e não muda enquanto a tela está aberta.
 Exemplos de valores conceituais:
 
 ```text
-sempre                           — chip sempre existe nessa instância
-console_com_paginacao            — existe se a instância de console declara paginacao: com
-console_com_colunas_ajustavel    — existe se a instância de console declara colunas_ajustavel: com
-console_com_filtro_de_grupo      — existe se a instância de console declara filtro_de_grupo: com
-console_com_selecao_multipla     — existe se a instância de console declara seleção múltipla
-console_com_modo_verboso         — existe se a instância de console permite modo verboso
-tela_com_multiplos_corpos        — existe se a tela declara múltiplos elementos de corpo
-tela_com_console_navegavel       — existe se a tela possui ao menos um console navegável
-acao_especifica_declarada        — existe se a classe de tela declara esta ação específica
-filtro_declarado                 — existe se a tela declara o filtro referenciado
+sempre                                              — chip sempre existe nessa instância
+console_com_paginacao                               — existe se a instância de console declara paginacao: com
+console_com_colunas_ajustavel                       — existe se a instância de console declara colunas_ajustavel: com
+console_com_filtro_de_grupo                         — existe se a instância de console declara filtro_de_grupo: com
+console_com_selecao_multipla                        — existe se a instância de console declara seleção múltipla
+console_com_modo_verboso                            — existe se a instância de console permite modo verboso
+tela_com_pelo_menos_dois_consoles_focalizaveis      — existe se a tela possui pelo menos dois consoles focalizáveis (ADR-0031 D14; substitui tela_com_multiplos_corpos)
+console_focado_com_mais_de_um_item_navegavel        — aparece quando o console focado possui mais de um item navegável (ADR-0031 D14; substitui tela_com_console_navegavel; existência dinâmica — ver nota)
+acao_especifica_declarada                           — existe se a classe de tela declara esta ação específica
+filtro_declarado                                    — existe se a tela declara o filtro referenciado
 ```
 
-A existência é **estática** para a tela carregada. Decisões futuras que tornem
-a existência dinâmica exigem ADR.
+A existência é **estática** para a tela carregada na maioria dos chips. Exceção
+documentada: `[✥]` (ADR-0031 D14) possui existência **dinâmica** — aparece e
+desaparece conforme o console em foco; não assume estado inativo: está ausente
+ou presente. Outras exceções de existência dinâmica exigem ADR.
 
 Chip cuja `regra_existencia` não é satisfeita para a instância concreta não
 ocupa espaço na `barra_de_menus`. Os chips existentes mantêm a ordem relativa
@@ -268,12 +271,16 @@ Exemplos de regras de ativo/inativo:
 | `[+]` (mais colunas) | `n_col` está no máximo que a largura atual comporta |
 | `[⏎]` | Item em foco não tem ação válida declarada ou não há alvo válido |
 | `[␣]` | Item em foco não é selecionável |
-| `[✥]` | O corpo em foco não é `console` navegável (mas a tela tem ao menos um) |
 | filtro | Não há valores aplicáveis no conjunto atual |
 | específico | Pré-condição declarada pela classe não está satisfeita |
 
 Estado inativo é sempre derivado do estado da execução — nunca hardcoded pelo
 renderer.
+
+**Nota sobre `[✥]` (ADR-0031 D14)**: `[✥]` **não possui estado inativo**. Ele
+aparece somente quando o console em foco possui mais de um item navegável; está
+**ausente** (não inativo) nos demais casos. Sua existência é dinâmica, em
+contraste com o modelo estático geral desta seção.
 
 ---
 
@@ -374,8 +381,10 @@ lógica de seleção de chips nem fallback próprio.
 
 Chips podem refletir capacidades declaradas por uma instância de `console`:
 
-- `[✥]` depende de `console` navegável — sua `regra_existencia` exige ao
-  menos um `console` navegável na tela;
+- `[✥]` depende de `console` focalizável com mais de um item navegável em foco
+  — aparece dinamicamente quando o console focado possui mais de um item
+  navegável; ausente nos demais casos (ADR-0031 D14; ver §8 nota e §22.8 de
+  `contrato_console.md`);
 - `[␣]` depende de `console` com seleção múltipla declarada;
 - `[⏎]` depende da ação declarada pelo item em foco no `console` atual;
 - `[<][>]`, `[-][+]` dependem das capacidades declaradas pela instância de

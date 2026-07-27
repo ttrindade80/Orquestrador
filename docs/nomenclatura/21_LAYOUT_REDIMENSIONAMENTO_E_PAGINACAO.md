@@ -96,6 +96,21 @@ de posição na tela.
 - `quadro mínimo de terminal pequeno` não encerra a sessão; recuperação é automática.
 - `ncurses`, `curses`, `textual` e `rich` permanecem proibidos para esta capacidade.
 
+### 4.6 Fronteiras de navegação simples (ADR-0031)
+
+As regras abaixo delimitam o escopo da ADR-0031 em relação ao redimensionamento
+e à paginação. Autoridade comportamental completa em `contrato_console.md` §22.
+
+- **Redimensionamento preserva o item lógico (D10)**: quando o terminal é
+  redimensionado, o cursor permanece no mesmo item lógico; somente as linhas
+  físicas são recalculadas pela nova geometria.
+- **Setas não mudam de página (D15)**: as setas do teclado navegam apenas dentro
+  da página atual do console; cruzar a borda toroidal não avança nem recua a
+  paginação.
+- **Paginação interativa pertence ao ITEM-0003**: toda a capacidade de paginação
+  interativa do console (chips `[<][>]`, avanço de página por ação) é escopo do
+  ITEM-0003 e está fora da ADR-0031.
+
 ## 5. Distinções obrigatórias
 
 | Termo | Significado | Não confundir com |
@@ -123,6 +138,8 @@ de posição na tela.
   de área do `lancador` — grandezas específicas do `lancador` pertencem ao módulo `33`.
 - ADR-0025: aciona o mesmo `quadro mínimo de terminal pequeno` por impossibilidade
   geométrica da distribuição matricial.
+- ADR-0031: D10 (redimensionamento preserva item lógico); D15 (setas restritas à
+  página atual; paginação interativa deferida ao ITEM-0003).
 
 ## 8. Aliases ou termos descontinuados relacionados
 
@@ -152,6 +169,7 @@ adrs_relacionadas:
   - ADR-0017
   - ADR-0023
   - ADR-0025
+  - ADR-0031
 tratamento:
   - PRESERVADO
   - SEPARADO_DE_REGRA_COMPORTAMENTAL

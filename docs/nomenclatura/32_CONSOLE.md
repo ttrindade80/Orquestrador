@@ -47,6 +47,13 @@ Não redefinir `grupo` como nó estrutural; esse sentido pertence ao módulo `40
 - `[✥]` (enquanto dica visual de navegação)
 - wrap toroidal
 - paginação é independente da navegação
+- console focalizável / console focado (ADR-0031)
+- item lógico / item corrente (ADR-0031)
+- lista de foco / ordem de foco (ADR-0031)
+- travessia em profundidade (ADR-0031)
+- navegação toroidal por eixo (ADR-0031)
+- linha física / coluna indicadora (ADR-0031)
+- seleção única (ADR-0031)
 
 ## 4. Definições
 
@@ -80,8 +87,11 @@ corpo tipo `console`. `lancador` não é corpo navegável por `[✥]`. `dashboar
 não é corpo navegável por `[✥]` (ADR-0005).
 
 **Wrap toroidal**: a grade fecha nos dois eixos, cada um independente.
-Célula vazia forma seu próprio toróide menor. O cursor nunca entra em célula
-vazia.
+Célula vazia não recebe cursor e não participa do toróide. Se uma linha ou
+coluna não possui outro item ocupado no eixo do movimento, a seta correspondente
+resulta em `SEM_MOVIMENTO`. Não existe compensação para outra coluna, salto
+diagonal, busca pelo item geometricamente mais próximo nem toróide composto por
+células vazias.
 
 **Paginação é independente da navegação**: o cursor nunca troca de página
 sozinho ao cruzar a borda do toróide. Cada página é seu próprio toróide
@@ -107,6 +117,34 @@ navegável sem seleção é o **conteúdo visual de `tg`** que muda — não a e
 **Sobreposição `ec` × `tg`**: os dois espaços coexistem em posições distintas
 e adjacentes, não se sobrepõem entre si.
 
+### 4.5 Terminologia de navegação de nível único (ADR-0031)
+
+Os termos abaixo foram introduzidos pela ADR-0031. Autoridade comportamental
+completa em `contrato_console.md` §22.
+
+| Termo | Definição |
+|---|---|
+| **console focalizável** | Console que declara `politica_navegacao.navegavel: true` E possui ao menos um item com `navegavel: true` (D2). |
+| **console focado** | O console focalizável que está atualmente em foco na sessão — o destino das setas do teclado (D2). |
+| **item lógico** | Unidade de navegação por cursor — o item sob cursor, indexado pela sua posição na lista de itens navegáveis; independente das linhas físicas que ocupa na tela. |
+| **item corrente** | Sinônimo de item lógico no contexto da posição do cursor. |
+| **seleção única** | O item atualmente sob cursor é o "selecionado" sem toggle; mudar o cursor muda a seleção automaticamente (D13). |
+| **lista de foco** | Sequência linear de consoles focalizáveis construída por travessia em profundidade da árvore de corpo (D3). |
+| **ordem de foco** | Posição de um console na lista de foco; Tab avança em ordem crescente, Shift+Tab recua, circularmente (D5). |
+| **travessia em profundidade** | Algoritmo que percorre a árvore de composição do corpo para construir a lista de foco: grupos são não-focalizáveis; irmãos em ordem da declaração JSON (esquerda→direita, cima→baixo em matrizes) (D3/D4). |
+| **navegação toroidal por eixo** | Modelo de navegação em que cada eixo (horizontal, vertical) é um toróide independente; célula vazia é excluída do toróide; não há compensação entre eixos (D8/D9). |
+| **linha física** | Linha do terminal ocupada por parte de um item ou por marcador de continuação; o cursor se move por item lógico, não por linha física. |
+| **coluna indicadora** | Primeira linha física do console focado que recebe o símbolo indicador de foco derivado do `config/estilo.json` (D11/D12). |
+
+**Distinções adicionais obrigatórias (ADR-0031):**
+
+| Par | Distinção normativa |
+|---|---|
+| foco × cursor | Foco: qual console está ativo na sessão (Tab/Shift+Tab); cursor: qual item está selecionado dentro do console focado (setas). |
+| item corrente × item incluído | Item corrente: item sob cursor (seleção única); item incluído: item marcado na seleção múltipla (`[␣]`) — mecanismos independentes; seleção múltipla está fora de ADR-0031. |
+| console focalizável × console não navegável | Não navegável: não declara `politica_navegacao.navegavel: true`; não entra na lista de foco. Console com `navegavel: true` mas zero itens navegáveis também não entra na lista de foco (D2). |
+| item lógico × linha física | Item lógico é a unidade de navegação; linha física é o espaço visual. Redistribuição ou mudança de modo preserva o item lógico e recalcula as linhas físicas (D10). |
+
 ## 5. Distinções obrigatórias
 
 | Par | Distinção normativa |
@@ -114,7 +152,7 @@ e adjacentes, não se sobrepõem entre si.
 | `grupo` (sentido do dado) × `grupo` (nó estrutural) | Grupo como origem/categoria do dado pertence ao domínio do console; grupo como nó estrutural do corpo pertence ao módulo `40` — requerem contexto para desambiguação |
 | seleção × lote | Seleção: conjunto nomeado persistente; lote: calculado por processo específico no momento de execução |
 | cursor × seleção | Cursor aponta um item; seleção é conjunto de itens marcados — são mecanismos independentes |
-| `[✥]` (console) × `[⇆]` (barra) | `[✥]` move cursor dentro do corpo em foco; `[⇆]` move foco entre corpos |
+| `[✥]` (console) × `[⇆]` (barra) | `[✥]` move cursor dentro do console focado; `[⇆]` move foco entre consoles focalizáveis (ADR-0031 D14) |
 
 ## 6. Relação com contratos
 
@@ -126,6 +164,7 @@ e adjacentes, não se sobrepõem entre si.
 - ADR-0005: escopo de `[✥]` restrito a console.
 - ADR-0006: renomeação `dado` para `console`.
 - ADR-0026, ADR-0027, ADR-0028: dados externos e modos de apresentação do console.
+- ADR-0031: navegação simples e seleção única; terminologia de console focalizável/focado, item lógico, lista de foco, travessia em profundidade, navegação toroidal por eixo, coluna indicadora, seleção única.
 
 ## 8. Aliases ou termos descontinuados relacionados
 
@@ -157,6 +196,7 @@ adrs_relacionadas:
   - ADR-0026
   - ADR-0027
   - ADR-0028
+  - ADR-0031
 tratamento:
   - PRESERVADO
   - SEPARADO_DE_REGRA_COMPORTAMENTAL
