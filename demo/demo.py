@@ -129,6 +129,7 @@ from tela.renderizador import (
 )
 from tela import navegacao
 from tela import selecao
+from tela import resultado_execucao as resultado_execucao_mod
 
 LARGURA_MINIMA_TELA = 10
 ALTURA_MINIMA_TELA = 6
@@ -155,6 +156,22 @@ _CATALOGO_CONTEUDO_EXTERNO = {
     "h0037_console_alternavel_tres_niveis": "h0037_tres_niveis_conteudo",
     "h0037_console_tabela_alternavel": "h0037_tabela_conteudo",
 }
+
+# H-0043 / ADR-0036: cenarios da tela padrao de resultado. Todos resolvem para
+# a mesma tela estrutural ``resultado_execucao``; o valor e o nome-base da
+# fixture de documento de runtime em ``demo/fixtures/``. A associacao nao
+# vive no JSON estrutural e nao usa ``_CATALOGO_CONTEUDO_EXTERNO``.
+_CATALOGO_CENARIOS_RESULTADO_EXECUCAO = {
+    "h0043_resultado_sucesso": "h0043_resultado_sucesso",
+    "h0043_resultado_parcial": "h0043_resultado_parcial",
+    "h0043_resultado_falha_semantica": "h0043_resultado_falha_semantica",
+    "h0043_envelope_falha_operacional": "h0043_envelope_falha_operacional",
+    "h0043_envelope_resultado_invalido": "h0043_envelope_resultado_invalido",
+    "h0043_envelope_interrupcao": "h0043_envelope_interrupcao",
+}
+
+_ID_TELA_RESULTADO_EXECUCAO = "resultado_execucao"
+_DIR_FIXTURES_DEMO = os.path.join("demo", "fixtures")
 
 
 def criar_estado_inicial():
@@ -540,7 +557,25 @@ def _carregar_modelo_por_id(id_tela):
     estrutural. Cenarios sem conteudo externo preservam o comportamento
     historico (placeholder). Cada chamada reconstroi o modelo do zero, sem
     estado residual entre trocas de cenario (sem heranca, sem vazamento).
+
+    H-0043: identificadores ``h0043_*`` resolvem para a tela estrutural
+    ``resultado_execucao`` e para a fixture de runtime homonima, via
+    ``tela.resultado_execucao`` (loader → classificacao → modelo composto).
     """
+    if id_tela in _CATALOGO_CENARIOS_RESULTADO_EXECUCAO:
+        fixture = _CATALOGO_CENARIOS_RESULTADO_EXECUCAO[id_tela]
+        caminho_runtime = os.path.join(
+            _DIR_FIXTURES_DEMO, fixture + ".json"
+        )
+        sessao = resultado_execucao_mod.carregar_sessao_resultado(
+            None,
+            id_tela,
+            caminho_runtime,
+            raiz_telas=_RAIZ_TELAS_DEMO,
+            id_tela=_ID_TELA_RESULTADO_EXECUCAO,
+        )
+        return sessao.modelo
+
     tela_raw = carregar_tela(None, id_tela, _RAIZ_TELAS_DEMO)
     id_conteudo = id_conteudo_externo_de(id_tela)
     conteudo_externo = None

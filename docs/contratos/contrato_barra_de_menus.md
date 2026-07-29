@@ -16,6 +16,7 @@ metadata:
       - docs/adr/ADR-0014-barra-horizontal-termos-especificos.md
       - docs/adr/ADR-0022-ponto-entrada-tela-inicial-orquestrador.md
       - docs/adr/ADR-0034-selecao-multipla-e-fluxo-focal-de-processamento.md
+      - docs/adr/ADR-0036-carregamento-e-apresentacao-da-tela-padrao-de-resultado.md
     reaproveitado_de_legado: false
   dependencias_nomenclatura:
     dependencias_obrigatorias:
@@ -890,9 +891,32 @@ Não existe, neste ciclo, chip de alternância entre execução real e
 `dry-run` na `barra_de_menus`. A escolha entre os dois cenários é
 declarativa (`contrato_json_console.md` §14).
 
-### 23.4 Remissões
+### 23.4 Instância concreta da tela de resultado (ADR-0036)
+
+A ADR-0036 (2026-07-29) fecha a instância concreta da `barra_de_menus` da
+tela padrão de resultado `resultado_execucao` (`contrato_tela_json.md` §34.7):
+
+```yaml
+barra_de_menus:
+  distribuicao: horizontal
+  chips:
+    - id: esc
+      tecla: Esc
+      texto: Voltar
+      acao: voltar
+```
+
+Nenhum outro chip é declarado nessa instância — nem `[⏎]`, `[✥]`, `[⇆]`,
+`[␣]` nem `[V]`. A declaração do chip `Esc`/`Voltar` é estruturalmente
+válida desde o Handoff 3; a execução funcional do retorno, a suspensão da
+tela de origem e a restauração pertencem exclusivamente ao Handoff 4
+(ADR-0036 D-H3-19, que substitui pontualmente, quanto a essa tela, a
+divisão original de D-SEL-21 da ADR-0034).
+
+### 23.5 Remissões
 
 - `docs/adr/ADR-0034-selecao-multipla-e-fluxo-focal-de-processamento.md`;
+- `docs/adr/ADR-0036-carregamento-e-apresentacao-da-tela-padrao-de-resultado.md`;
 - `docs/contratos/contrato_console.md` — seção 23: seleção múltipla e fluxo focal;
 - `docs/contratos/contrato_json_console.md` — seção 14: protocolo provisório e resultado estruturado;
 - `docs/nomenclatura/31_BARRA_DE_MENUS_E_CHIPS.md` — terminologia de chip e rótulo dinâmico.

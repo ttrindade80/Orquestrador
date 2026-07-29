@@ -3544,3 +3544,63 @@ def test_h0041_associacao_participante_id(modelo_h0041):
         "item_01", "item_02", "item_03", "item_05", "item_06", "item_07"
     ]
     assert console.id == "console_selecao"
+
+
+# ---------------------------------------------------------------------------
+# H-0043 / ADR-0036 — cenarios da tela padrao de resultado
+# ---------------------------------------------------------------------------
+
+_H0043_CENARIOS = (
+    "h0043_resultado_sucesso",
+    "h0043_resultado_parcial",
+    "h0043_resultado_falha_semantica",
+    "h0043_envelope_falha_operacional",
+    "h0043_envelope_resultado_invalido",
+    "h0043_envelope_interrupcao",
+)
+
+_H0043_QUADROS = {
+    "h0043_resultado_sucesso": "h0043_quadro_sucesso_80x24.txt",
+    "h0043_resultado_parcial": "h0043_quadro_parcial_80x24.txt",
+    "h0043_resultado_falha_semantica": "h0043_quadro_falha_semantica_80x24.txt",
+    "h0043_envelope_falha_operacional": "h0043_quadro_falha_operacional_80x24.txt",
+    "h0043_envelope_resultado_invalido": "h0043_quadro_resultado_invalido_80x24.txt",
+    "h0043_envelope_interrupcao": "h0043_quadro_interrupcao_80x24.txt",
+}
+
+
+@pytest.mark.parametrize("cenario", _H0043_CENARIOS)
+def test_h0043_cenario_acessivel_por_demo(cenario):
+    from pathlib import Path as _Path
+    import demo.demo as _demo_mod
+    modelo = _demo_mod._carregar_modelo_por_id(cenario)
+    assert modelo.id == "resultado_execucao"
+    assert _demo_mod._tela_inicial_de_argv(["demo.py", cenario]) == cenario
+    assert cenario in _demo_mod._CATALOGO_CENARIOS_RESULTADO_EXECUCAO
+    assert _demo_mod.id_conteudo_externo_de(cenario) is None
+    estado = criar_estado_inicial()
+    estado = dict(
+        estado,
+        estilo=_ESTILO,
+        tela_atual=cenario,
+        modo_verboso=True,
+    )
+    saida = renderizar_estado(estado, modelo, largura=80, altura=24)
+    esperado = (
+        _Path(__file__).resolve().parent
+        / "fixtures"
+        / _H0043_QUADROS[cenario]
+    ).read_text(encoding="utf-8")
+    assert saida == esperado
+    assert "[Esc] Voltar" in saida
+    assert "[V]" not in saida
+
+
+def test_h0043_esc_encerra_sem_pilha():
+    import demo.demo as _demo_mod
+    modelo = _demo_mod._carregar_modelo_por_id("h0043_resultado_sucesso")
+    estado = criar_estado_inicial()
+    estado = dict(estado, estilo=_ESTILO, tela_atual="h0043_resultado_sucesso")
+    novo = processar_comando(estado, "\x1b", modelo)
+    assert novo["saindo"] is True
+    assert novo["pilha_telas"] == []

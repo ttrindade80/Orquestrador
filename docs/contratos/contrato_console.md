@@ -21,6 +21,7 @@ metadata:
       - docs/adr/ADR-0027-carregamento-conjunto-tela-conteudo-externo-ponto-entrada.md
       - docs/adr/ADR-0034-selecao-multipla-e-fluxo-focal-de-processamento.md
       - docs/adr/ADR-0035-protocolo-focal-execucao-sintetica-reversivel.md
+      - docs/adr/ADR-0036-carregamento-e-apresentacao-da-tela-padrao-de-resultado.md
     reaproveitado_de_legado: false
   dependencias_nomenclatura:
     dependencias_obrigatorias:
@@ -1232,12 +1233,36 @@ handoff_2_fronteira_comportamental:
 Permanecem fora deste contrato aplicado e fora do Handoff 2: registry
 genérico de ações, dispatcher genérico, catálogo genérico de ações,
 comandos arbitrários declarados no JSON e ativação da interface
-(`Enter`/`Executar`) — responsabilidades do `ITEM-0004` ou dos Handoffs 3
-e 4. Schema completo do documento de resultado, CLI provisória, diretório
+(`Enter`/`Executar`) — responsabilidades do `ITEM-0004` ou do Handoff 4.
+Schema completo do documento de resultado, CLI provisória, diretório
 temporário e controles sintéticos pertencem a `contrato_json_console.md`
 seção 14.
 
-### 23.7 Fronteiras deste contrato aplicado (ADR-0034 D-SEL-26)
+A ADR-0036 (2026-07-29) especializa, para a tela padrão de resultado, a
+fronteira comportamental do Handoff 3 sobre essa mesma entrada, sem
+substituir a ADR-0034 nem a ADR-0035:
+
+```yaml
+handoff_3_fronteira_comportamental:
+  carrega: tela_json_e_documento_runtime_uma_vez_cada
+  valida_antes_da_construcao: true
+  constroi_modelo_composto_em_memoria: true
+  redesenho_ou_SIGWINCH: nao_rele_arquivos
+  escolhe:
+    documento_de_resultado_quando: codigo_saida_0_e_documento_valido
+    envelope_de_erro_quando:
+      - codigo_saida_nao_zero
+      - resultado_ausente
+      - resultado_malformado
+      - resultado_semanticamente_invalido
+  abre_tela_de_resultado: false
+  executa_retorno: false
+```
+
+A abertura da tela de resultado e a execução do retorno pertencem
+exclusivamente ao Handoff 4 (ADR-0036 D-H3-19) — ver §23.7.
+
+### 23.7 Fronteiras deste contrato aplicado (ADR-0034 D-SEL-26; supersessão parcial ADR-0036 D-H3-19)
 
 Permanecem fora deste contrato aplicado: registry e dispatcher genéricos de
 ações (`ITEM-0004`); pilha genérica de telas (`ITEM-0005`); paginação
@@ -1245,10 +1270,20 @@ interativa (`ITEM-0003`); seleção compartilhada entre consoles compatíveis;
 chip de alternância entre `dry-run` e execução real; colapso e expansão
 multinível (`ITEM-0007`).
 
+A ADR-0036 substitui pontualmente, quanto à tela de resultado, a divisão
+original de D-SEL-21: a ativação do chip `Executar`, a abertura da tela de
+resultado, a suspensão da tela de origem, o retorno e a restauração
+pertencem exclusivamente ao Handoff 4. O Handoff 3 permanece limitado ao
+carregamento, à validação, à construção do modelo, à escolha entre
+documento e envelope de erro, e à materialização/apresentação do conteúdo
+(§23.6). Todas as demais decisões de D-SEL-21 e da ADR-0034 permanecem
+vigentes.
+
 ### 23.8 Remissões
 
 - `docs/adr/ADR-0034-selecao-multipla-e-fluxo-focal-de-processamento.md` — decisões D-SEL-01 a D-SEL-26;
 - `docs/adr/ADR-0035-protocolo-focal-execucao-sintetica-reversivel.md` — especialização do Handoff 2 (H2-ESP-01 a H2-ESP-18);
+- `docs/adr/ADR-0036-carregamento-e-apresentacao-da-tela-padrao-de-resultado.md` — especialização do Handoff 3 e supersessão parcial da divisão H3/H4 (D-H3-19);
 - `docs/contratos/contrato_json_console.md` — seção 14: protocolo provisório, resultado estruturado e envelope de erro;
 - `docs/contratos/contrato_barra_de_menus.md` — seção 23: rótulos dinâmicos `Todos`/`Executar` e chip `Espaço`;
 - `docs/contratos/contrato_tela_json.md` — seção 34: perfil `resultado_execucao`;

@@ -4483,6 +4483,54 @@ def test_h0041_p04_cor_inativo_tipo_invalido_erro(tmp_path):
         carregar_estilo(tmp_path)
 
 
+
+def test_h0043_carregar_tela_resultado_execucao():
+    """H-0043: loader aceita perfil resultado_execucao e console D23 puro."""
+    tela = carregar_tela(None, "resultado_execucao", "config/telas/demo")
+    assert tela["perfil"] == "resultado_execucao"
+    assert len(tela["corpo"]["elementos"]) == 1
+    console = tela["corpo"]["elementos"][0]
+    assert console["id"] == "console_resultado"
+    assert console["formato"]["excesso"]["politica_modo"] == "somente_verboso"
+    assert tela["corpo"]["distribuicao"] is None
+    assert len(tela["barra_de_menus"]["chips"]) == 1
+    assert tela["barra_de_menus"]["chips"][0]["tecla"] == "Esc"
+
+
+def test_h0043_perfil_desconhecido_rejeitado(tmp_path):
+    dados = {
+        "schema": "tela.v1",
+        "id": "perfil_desconhecido_h43",
+        "perfil": "outro",
+        "cabecalho": {"titulo": "X", "descricao": "Y"},
+        "corpo": {
+            "arranjo": "vertical",
+            "elementos": [
+                {
+                    "id": "c",
+                    "tipo": "console",
+                    "titulo": "C",
+                    "formato": {
+                        "excesso": {"politica_modo": "somente_verboso"}
+                    },
+                }
+            ],
+        },
+        "barra_de_menus": {
+            "chips": [{"id": "esc", "tecla": "Esc", "texto": "Voltar"}]
+        },
+    }
+    raiz = tmp_path / "config" / "telas" / "demo"
+    raiz.mkdir(parents=True)
+    (raiz / "perfil_desconhecido_h43.json").write_text(
+        json.dumps(dados), encoding="utf-8"
+    )
+    with pytest.raises(TelaEstruturaInvalida) as exc:
+        carregar_tela(str(tmp_path), "perfil_desconhecido_h43", "config/telas/demo")
+    assert "perfil desconhecido" in str(exc.value)
+
+
+
 def main():
     print("Diagnostico H-0001 - loader/validador de tela.json")
     print("Base padrao: {0}".format(_BASE_PADRAO))

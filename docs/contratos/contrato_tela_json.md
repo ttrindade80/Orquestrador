@@ -17,6 +17,7 @@ metadata:
       - docs/adr/ADR-0027-carregamento-conjunto-tela-conteudo-externo-ponto-entrada.md
       - docs/adr/ADR-0031-navegacao-simples-e-selecao-unica-em-console-de-nivel-unico.md
       - docs/adr/ADR-0034-selecao-multipla-e-fluxo-focal-de-processamento.md
+      - docs/adr/ADR-0036-carregamento-e-apresentacao-da-tela-padrao-de-resultado.md
     reaproveitado_de_legado: false
   dependencias_nomenclatura:
     dependencias_obrigatorias:
@@ -1592,3 +1593,87 @@ D-SEL-26).
 - `docs/contratos/contrato_json_console.md` — seção 14: protocolo provisório, resultado estruturado e envelope de erro;
 - `docs/contratos/contrato_console.md` — seção 23: seleção múltipla e operação focal;
 - `docs/nomenclatura/02_ARTEFATOS_CONFIGURACAO_E_RUNTIME.md` — `perfil` como configuração concreta.
+
+### 34.7 Identidade concreta e ciclo de carregamento do Handoff 3 (ADR-0036)
+
+A ADR-0036 (2026-07-29) especializa o Handoff 3 do `ITEM-0006` com a
+identidade estrutural concreta da tela `resultado_execucao` e o ciclo de
+carregamento e construção do modelo composto em memória.
+
+```yaml
+id: resultado_execucao
+arquivo_previsto: config/telas/demo/resultado_execucao.json
+natureza: tela_estatica_reutilizavel
+cabecalho:
+  titulo: Resultado da execução
+  descricao: Resultado estruturado da operação realizada.
+console_unico:
+  id: console_resultado
+  titulo: Resultado
+  navegavel: false
+  politica_selecao: nenhuma
+corpo:
+  arranjo: vertical
+  distribuicao: ausente
+  elementos:
+    - console_resultado
+estado_estrutural_inicial:
+  origem_dados: null
+  itens: []
+```
+
+Nenhum `dashboard`, `lancador`, `grupo` ou segundo console participa da
+composição. A associação do documento de conteúdo ocorre externamente, em
+runtime, sem novo campo de caminho e sem novo tipo de binding no JSON
+estrutural (D-H3-05) — preservando integralmente a fronteira já fechada
+pelas seções 31 e 32.
+
+Ciclo de carregamento (D-H3-09):
+
+```yaml
+inicio_do_cenario:
+  carregar_tela_json: uma_vez
+  validar_schema_e_perfil: antes_da_construcao
+  carregar_documento_runtime: uma_vez
+  validar_documento: antes_da_construcao
+  construir_modelo_composto_em_memoria: true
+
+redesenho_ou_SIGWINCH:
+  reler_arquivos: false
+  reutilizar_modelo_em_memoria: true
+  recalcular_representacao_fisica: true
+```
+
+O redesenho e o `SIGWINCH` nunca relêem `tela.json` nem o documento runtime;
+reutilizam o modelo composto já construído e recalculam apenas a
+representação física, preservando a política de redimensionamento reativo
+já fixada na seção 24.
+
+### 34.8 Supersessão parcial da divisão de Handoffs 3 e 4 (ADR-0036 D-H3-19)
+
+A ADR-0036 substitui pontualmente, quanto à tela `resultado_execucao`, a
+divisão de responsabilidades entre Handoff 3 e Handoff 4 originalmente
+fixada pela ADR-0034 (D-SEL-21) e reproduzida em `contrato_json_console.md`
+§14.11:
+
+```yaml
+Handoff_3:
+  - carregar_tela_estatica_de_resultado
+  - validar_schema_perfil_e_documento_runtime
+  - construir_modelo_composto_em_memoria
+  - escolher_documento_de_resultado_ou_envelope_de_erro
+  - materializar_e_apresentar_o_conteudo
+  - produzir_fixtures_quadros_e_evidencias_80x24
+
+Handoff_4:
+  - ativar_chip_Executar
+  - abrir_a_tela_de_resultado
+  - suspender_a_tela_de_origem
+  - executar_o_retorno
+  - restaurar_a_tela_de_origem
+```
+
+A supersessão é somente sobre essa divisão; todas as demais decisões de
+D-SEL-21 e da ADR-0034 permanecem vigentes. O Handoff 3 não abre a tela de
+resultado nem executa o retorno; essas capacidades pertencem exclusivamente
+ao Handoff 4.

@@ -21,6 +21,7 @@ metadata:
       - docs/adr/ADR-0031-navegacao-simples-e-selecao-unica-em-console-de-nivel-unico.md
       - docs/adr/ADR-0034-selecao-multipla-e-fluxo-focal-de-processamento.md
       - docs/adr/ADR-0035-protocolo-focal-execucao-sintetica-reversivel.md
+      - docs/adr/ADR-0036-carregamento-e-apresentacao-da-tela-padrao-de-resultado.md
     reaproveitado_de_legado: false
   dependencias_nomenclatura:
     dependencias_obrigatorias:
@@ -1445,6 +1446,26 @@ permanece reservado a falha operacional, interrupção ou impossibilidade de
 concluir o protocolo. Código não zero produz classificação externa de falha
 mesmo quando existe JSON válido.
 
+### 14.5.1 Documento válido com status semântico `falha` e código zero (D-H3-10)
+
+```yaml
+codigo_saida: 0
+documento_resultado:
+  sintaticamente_valido: true
+  semanticamente_valido: true
+status_semantico: falha
+apresentacao: documento_original
+convertido_em_envelope_de_erro: false
+```
+
+Um documento de resultado semanticamente válido cujo estado semântico
+interno (§14.5) é `falha`, produzido com código de saída `0`, continua
+sendo apresentado diretamente como documento de resultado — na mesma
+condição já vigente para `sucesso` e `parcial`. Ele não é convertido em
+envelope de erro (§14.6). A classificação de processo (código `0` e
+documento válido) e o estado semântico interno do documento permanecem
+distinções independentes, já fixadas por D-SEL-14 e H2-ESP-10/H2-ESP-11.
+
 ### 14.6 Envelope de erro multinível (D-SEL-15)
 
 ```yaml
@@ -1473,6 +1494,114 @@ resultado inválido.
 Este envelope permanece inalterado pela ADR-0035. Os cenários sintéticos
 de falha (§14.10) serão consumidos posteriormente pela formação desse
 envelope no Handoff 3.
+
+### 14.6.1 Status e diagnósticos canônicos (D-H3-11, D-H3-12)
+
+```yaml
+status: falha
+```
+
+O valor de `status` é único para todos os envelopes, independentemente da
+causa. A causa específica é registrada em `diagnostico` e `codigo_saida`.
+
+Diagnósticos canônicos, produzidos pelo Orquestrador de forma canônica e
+determinística:
+
+```yaml
+codigo_nao_zero: A execução terminou com código de saída não zero.
+resultado_ausente: A execução não produziu o documento de resultado.
+resultado_malformado: O documento de resultado não contém JSON válido.
+resultado_semanticamente_invalido: O documento de resultado não atende ao schema esperado.
+interrupcao: A execução foi interrompida.
+```
+
+`stdout` e `stderr` permanecem em campos próprios (§14.6.4). Não substituem
+o diagnóstico, não são concatenados a ele e não alteram sua classificação.
+
+### 14.6.2 Interrupção como regra do envelope (D-H3-11; H2-ESP-18)
+
+```yaml
+interrupcao:
+  codigo_saida: 130
+  status: falha
+  diagnostico: A execução foi interrompida.
+  apresentacao: envelope_de_erro
+```
+
+O código `130` produz sempre envelope de erro com este diagnóstico — regra
+do envelope, e não apenas efeito observável do controle sintético
+`__interrupcao__` (§14.10). O documento com `status: interrompido`
+eventualmente gravado pelo executor antes da interrupção (§14.10; H2-ESP-18)
+segue a regra geral de preservação do §14.6.5: seu texto bruto é preservado
+em `resultado_json`. Esta subseção não altera o executor sintético entregue
+por `H-0042`.
+
+### 14.6.3 Campos obrigatórios, ordem e não omissão (D-H3-15a)
+
+```yaml
+campos_obrigatorios_em_ordem_fixa:
+  - status
+  - diagnostico
+  - codigo_saida
+  - stdout
+  - stderr
+  - resultado_json
+```
+
+Os seis campos acima são sempre obrigatórios; nenhum campo pode ser
+omitido; nenhum campo adicional pode ser inserido entre eles; a ordem é
+normativa; o renderer não reordena os campos.
+
+### 14.6.4 Canais `stdout` e `stderr` no envelope (D-H3-14)
+
+```yaml
+stdout:
+  campo_obrigatorio: true
+  ausente_ou_vazio:
+    exibicao: indisponível
+
+stderr:
+  campo_obrigatorio: true
+  ausente_ou_vazio:
+    exibicao: indisponível
+```
+
+Valores não vazios são preservados em seus próprios campos, sem alteração.
+
+### 14.6.5 Campo `resultado_json` (D-H3-15)
+
+```yaml
+resultado_json:
+  campo_obrigatorio: true
+
+  sem_conteudo:
+    valor: null
+    exibicao: indisponível
+
+  com_conteudo:
+    tipo: string
+    valor: texto_bruto_exato
+```
+
+A regra aplica-se tanto a texto que represente JSON válido quanto a texto
+malformado. Devem ser preservados espaços, quebras de linha, ordem das
+chaves e indentação originais; é permitido somente o escape necessário
+para transportar o texto como string JSON. É proibido corrigir, normalizar,
+reserializar ou inferir conteúdo — conforme já fixado no corpo desta
+seção 14.6.
+
+### 14.6.6 Apresentação visual do envelope (D-H3-13)
+
+```yaml
+envelope_de_erro:
+  estilo_especial: false
+  cor_alerta: nao_utilizada
+  moldura_especial: false
+```
+
+A falha é comunicada somente pelos campos `status`, `diagnostico` e
+`codigo_saida`. Esta subseção não define cor concreta, não altera
+`config/estilo.json` e não cria comportamento especial no renderer.
 
 ### 14.7 Dry-run, execução real e restauração (D-SEL-19; H2-ESP-03 a H2-ESP-05)
 
@@ -1621,13 +1750,32 @@ Protocolo definitivo de binding, script e processamento; aplicação da
 minuta genérica de binding; registry, dispatcher e catálogo genérico de
 ações (`ITEM-0004`); paginação interativa da tela de resultado
 (`ITEM-0003`); correção automática de JSON inválido; comandos arbitrários
-declarados no JSON; ativação de `Enter`/`Executar` na interface; tela de
-resultado, abertura e retorno (Handoff 3); integração completa (Handoff 4).
+declarados no JSON; ativação de `Enter`/`Executar` na interface;
+carregamento, validação, construção do modelo composto, escolha entre
+documento de resultado e envelope de erro, e materialização/apresentação do
+conteúdo da tela de resultado — especificados pela ADR-0036 (Handoff 3);
+abertura da tela de resultado, suspensão da tela de origem, retorno e
+restauração (Handoff 4).
+
+A divisão acima reflete a supersessão parcial e pontual promovida pela
+ADR-0036 (D-H3-19) sobre a divisão de responsabilidades entre Handoff 3 e
+Handoff 4 originalmente fixada pela ADR-0034 (D-SEL-21) e originalmente
+reproduzida nesta seção — que atribuía também a abertura da tela e o
+retorno ao Handoff 3. Todas as demais decisões da ADR-0034 permanecem
+vigentes.
+
+O Handoff 3 foi entregue pelo `H-0043`: carregamento e validação da tela,
+recebimento separado do documento de runtime, escolha entre documento e
+envelope, construção do modelo composto e apresentação foram concluídos e
+validados. O Handoff 4 permanece não criado e não implementado, abrangendo
+a ativação do chip `Executar`, a abertura da tela de resultado, a suspensão
+da tela de origem, o retorno e a restauração.
 
 ### 14.12 Remissões
 
 - `docs/adr/ADR-0034-selecao-multipla-e-fluxo-focal-de-processamento.md` — decisões D-SEL-11 a D-SEL-20;
 - `docs/adr/ADR-0035-protocolo-focal-execucao-sintetica-reversivel.md` — H2-ESP-01 a H2-ESP-18;
+- `docs/adr/ADR-0036-carregamento-e-apresentacao-da-tela-padrao-de-resultado.md` — especialização do Handoff 3 e supersessão parcial da divisão H3/H4 (D-H3-19);
 - `docs/contratos/contrato_console.md` — seção 23: seleção múltipla e operação focal;
 - `docs/contratos/contrato_tela_json.md` — seção 34: perfil `resultado_execucao` e validação antecipada;
 - `docs/contratos/contrato_barra_de_menus.md` — seção 23: rótulos dinâmicos e chip `Espaço`;

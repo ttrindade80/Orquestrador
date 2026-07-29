@@ -1,0 +1,35 @@
+{
+  "schema": "tela.v1",
+  "id": "resultado_execucao",
+  "perfil": "resultado_execucao",
+  "cabecalho": {
+    "titulo": "Resultado da execução",
+    "descricao": "Resultado estruturado da operação realizada."
+  },
+  "corpo": {
+    "arranjo": "vertical",
+    "elementos": [
+      {
+        "id": "console_resultado",
+        "tipo": "console",
+        "titulo": "Resultado",
+        "formato": {
+          "excesso": {
+            "politica_modo": "somente_verboso"
+          }
+        }
+      }
+    ]
+  },
+  "barra_de_menus": {
+    "distribuicao": "horizontal",
+    "chips": [
+      {
+        "id": "esc",
+        "tecla": "Esc",
+        "texto": "Voltar",
+        "acao": "voltar"
+      }
+    ]
+  }
+}

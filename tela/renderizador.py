@@ -1041,6 +1041,22 @@ def _linhas_apresentacao_tabela(conteudo, content_w, verboso=False):
     return linhas
 
 
+_VALOR_CAMPO_AUSENTE_TEXTO = "indisponível"
+
+
+def _texto_valor_campo(valor_bruto):
+    """Texto visivel do ``valor`` de um campo ``nome_valor`` (H0043-P01).
+
+    ``None`` representa ausencia semantica de conteudo (ex.: resultado_json
+    sem documento) e e exibido como texto fixo; qualquer outro valor
+    (incluindo falsy nao-None, como ``0``, ``False`` ou string vazia) segue a
+    formatacao padrao, sem tratamento especial.
+    """
+    if valor_bruto is None:
+        return _VALOR_CAMPO_AUSENTE_TEXTO
+    return "{0}".format(valor_bruto)
+
+
 def _linhas_apresentacao_conjuntos(conteudo, content_w=None, verboso=False):
     """Apresentacao ``conjuntos_campos``: conjuntos com pares nome-valor.
 
@@ -1048,6 +1064,9 @@ def _linhas_apresentacao_conjuntos(conteudo, content_w=None, verboso=False):
     ``nome_valor`` sao exibidos como ``"nome<sep> valor"`` com os nomes
     justificados por conjunto (``formato.campos.justificar_nomes`` /
     ``escopo_justificacao``). O separador vem de ``formato.campos.separador``.
+    ``valor is None`` (ausencia semantica de conteudo) e exibido como
+    "indisponível" (H0043-P01 / QA-IMPL-H0043-001); demais valores falsy
+    (``0``, ``False``, ``""``) permanecem sem tratamento especial.
     """
     niveis = {n.id: n for n in conteudo.niveis}
     campos_cfg = conteudo.formato.get("campos", {}) if isinstance(conteudo.formato, dict) else {}
@@ -1075,7 +1094,7 @@ def _linhas_apresentacao_conjuntos(conteudo, content_w=None, verboso=False):
                 campo_nome = nivel.conteudo.get("nome")
                 campo_valor = nivel.conteudo.get("valor")
                 nome = "{0}".format(no.campos.get(campo_nome, ""))
-                valor = "{0}".format(no.campos.get(campo_valor, ""))
+                valor = _texto_valor_campo(no.campos.get(campo_valor, ""))
                 nome_fmt = nome.ljust(largura_local) if justificar else nome
                 prefixo_linha = "{0}{1}{2} ".format(recuo, nome_fmt, separador)
                 if verboso and content_w is not None:
