@@ -33,6 +33,7 @@ metadata:
       - docs/adr/ADR-0023-largura-minima-funcional-lancador.md
       - docs/adr/ADR-0025-distribuicao-matricial-configuravel-nivel-unico-conteudo-elementos.md
       - docs/adr/ADR-0031-navegacao-simples-e-selecao-unica-em-console-de-nivel-unico.md
+      - docs/adr/ADR-0034-selecao-multipla-e-fluxo-focal-de-processamento.md
     reaproveitado_de_legado: false
   dependencias_nomenclatura:
     dependencias_obrigatorias:
@@ -144,6 +145,29 @@ Chips específicos ficam fora do corpo, na `barra_de_menus`, declarados pela
 classe de tela. O renderer de composição de corpo não decide chips específicos.
 
 A regra de `[✥]` continua restrita a `console`.
+
+### 3.1.1 Tela de resultado como composição (ADR-0034)
+
+A tela padrão de resultado do `ITEM-0006` (`contrato_tela_json.md` §34) não é
+tipo de elemento novo. É composição de um único elemento funcional já
+existente:
+
+```yaml
+corpo_da_tela_de_resultado:
+  elementos: 1
+  tipo_do_elemento: console
+  console_navegavel: false
+  politica_selecao: nenhuma
+  outros_elementos_funcionais: proibidos
+```
+
+O único `console` da tela de resultado é passivo (não navegável, sem
+seleção) e ocupa integralmente a área do corpo, conforme DA-01 (§5.7,
+cardinalidade unitária). Nenhum `grupo`, `dashboard` ou `lancador` adicional
+é introduzido pela tela de resultado. O binding que abre a tela de resultado
+e o fluxo de retorno à origem que a abriu (origem suspensa, sem pilha
+genérica) permanecem fechados por `contrato_console.md` §23 e pela ADR-0034;
+este contrato registra apenas a natureza composicional da tela.
 
 ### 3.2 Tela inicial real `orquestrador` (ADR-0022)
 

@@ -63,10 +63,42 @@ esta lista.
 ### ITEM-0006 — Selecao multipla no console
 **Tipo:** implementacao
 **Prioridade:** media
-**Status:** planejado
-**Descricao:** Implementar inclusao e retirada de multiplos itens e execucao de operacoes sobre o conjunto selecionado.
-**Pre-requisitos:** Navegacao simples e selecao unica concluidas; acoes declarativas formalizadas quando necessarias.
-**Proxima acao:** Criar ciclo documental proprio para selecao multipla.
+**Status:** em_andamento
+**Descricao:** Implementar selecao multipla e fluxo focal de processamento conforme ADR-0034: estado da selecao por conjunto de IDs estaveis, protocolo provisorio de execucao com resultado estruturado, tela padrao de resultado reutilizavel e fluxo focal de abertura/retorno, decompostos em quatro handoffs sequenciais (H1-H4).
+**Pre-requisitos:** ADR-0034 aceita e aplicada; Handoff 1 (H-0041) implementado, QA tecnico aprovado e validacao manual TTY aprovada; navegacao simples e selecao unica concluidas (ADR-0031).
+**Proxima acao:** Criar o Handoff 2 da ADR-0034, restrito ao protocolo focal do binding e execucao: dry-run, execucao real reversivel, resultado estruturado e restauracao protegida; Enter/Executar permanece inativo na interface.
+
+### ITEM-0018 — Selecionar todos apenas na pagina atual
+**Tipo:** implementacao
+**Prioridade:** media
+**Status:** bloqueado
+**Descricao:** Permitir limitar a selecao em massa (`Todos`) aos itens selecionaveis da pagina corrente do console, em vez do conjunto filtrado completo em todas as paginas.
+**Pre-requisitos:** Registrado como item bloqueado pela ADR-0034 (D-SEL-24); depende da implementacao do ITEM-0006 e da paginacao interativa do ITEM-0003.
+**Proxima acao:** Realizar levantamento focal e decisao arquitetural propria quando o ITEM-0003 e o ITEM-0006 estiverem concluidos.
+
+### ITEM-0019 — Selecao compartilhada entre consoles compativeis
+**Tipo:** implementacao
+**Prioridade:** media
+**Status:** bloqueado
+**Descricao:** Permitir um conjunto de selecao comum entre consoles que exibam dados compativeis.
+**Pre-requisitos:** Registrado como item bloqueado pela ADR-0034 (D-SEL-24); depende da implementacao do ITEM-0006.
+**Proxima acao:** Realizar levantamento focal e decisao arquitetural propria.
+
+### ITEM-0020 — Chip de escolha entre execucao real e dry-run
+**Tipo:** implementacao
+**Prioridade:** media
+**Status:** bloqueado
+**Descricao:** Permitir escolher na interface o modo (execucao real ou dry-run) da operacao vinculada ao lote selecionado.
+**Pre-requisitos:** Registrado como item bloqueado pela ADR-0034 (D-SEL-24); depende da implementacao do ITEM-0006.
+**Proxima acao:** Realizar levantamento focal e decisao arquitetural propria.
+
+### ITEM-0021 — Modos de visualizacao das telas de resultado
+**Tipo:** implementacao
+**Prioridade:** media
+**Status:** bloqueado
+**Descricao:** Permitir telas de resultado somente verbosas, somente nao verbosas ou alternaveis, alem da politica `somente_verboso` fixada pela ADR-0034.
+**Pre-requisitos:** Registrado como item bloqueado pela ADR-0034 (D-SEL-24); depende da implementacao do ITEM-0006.
+**Proxima acao:** Realizar levantamento focal e decisao arquitetural propria.
 
 ### ITEM-0007 — Conteudo multinivel colapsavel no console
 **Tipo:** implementacao

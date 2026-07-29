@@ -261,6 +261,10 @@ def grade_de_itens(elemento, largura, altura_interna=None, desconto_estrutural=0
     # QAI40-001: o requisito minimo de cada item inclui a coluna indicadora
     # quando o console e focalizavel (uma coluna por item, lado a lado).
     ind_w = LARGURA_INDICADOR_COLUNA if console_e_focalizavel(elemento) else 0
+    # H-0041 / ADR-0034 D-SEL-09: quando o console declara selecao multipla,
+    # cada item reserva tambem a coluna ``tg`` (inclusao), adjacente a ``ec``.
+    # A soma preserva a paridade geometrica com o renderer (AT-0021/PN-0016).
+    ind_w += LARGURA_INDICADOR_INCLUSAO if _console_declarou_selecao_multipla(elemento) else 0
     min_ws = [len(item.get("texto", item.get("valor", ""))) + ind_w for item in navegaveis]
     min_hs = [1 for _ in navegaveis]
 
@@ -290,6 +294,30 @@ def grade_de_itens(elemento, largura, altura_interna=None, desconto_estrutural=0
 # util disponivel para o conteudo do item (ADR-0031 D12). Renderer e navegacao
 # aplicam o MESMO desconto para que as geometrias coincidam (AT-0021/PN-0016).
 LARGURA_INDICADOR_COLUNA = 2
+
+# H-0041 / ADR-0034 D-SEL-09: largura reservada para a coluna do indicador de
+# inclusao (``tg``), paralela e adjacente a coluna ``ec`` (simbolo + 1 espaco
+# separador). Mesmo principio de ``LARGURA_INDICADOR_COLUNA``: a reserva entra
+# no ``min_w`` de cada item quando o console declara ``politica_selecao:
+# "multipla"``, preservando a paridade geometrica com a coluna renderizada
+# (AT-0021/PN-0016). O loader ja aceita ``"multipla"`` em
+# ``_POLITICA_SELECAO_VALIDOS`` (campo declarado, nao validado por aqui).
+LARGURA_INDICADOR_INCLUSAO = 2
+
+
+def _console_declarou_selecao_multipla(elemento):
+    """True quando ``elemento`` declara ``politica_selecao == "multipla"``.
+
+    H-0041 / ADR-0034: a coluna ``tg`` e reservada para consoles que declaram
+    selecao multipla, independentemente de haver itens selecionaveis. A leitura
+    e direta de ``_campos_inertes["politica_selecao"]`` (transporte inerte do
+    modelo); nenhum default e inventado e nenhum campo novo e exigido do JSON.
+    Consoles sem a chave (legado) retornam ``False`` (preserva H-0040).
+    """
+    if getattr(elemento, "tipo", None) != "console":
+        return False
+    politica = elemento._campos_inertes.get("politica_selecao")
+    return politica == "multipla"
 
 
 def _posicao_do_item_logico(grade, item_logico):

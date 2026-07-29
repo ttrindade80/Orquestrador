@@ -2429,7 +2429,7 @@ def carregar_conteudo_externo(caminho_base, id_conteudo, raiz_telas=None):
 # ``config/estilo.json`` passa a ser a autoridade global exclusiva de
 # aparencia (ADR-0030 D1). ``carregar_estilo`` le o arquivo UMA vez por
 # inicializacao, valida toda a estrutura (V-01 a V-29), resolve os presets
-# ativos e devolve um ``EstiloResolvido`` imutavel com 18 campos planos.
+# ativos e devolve um ``EstiloResolvido`` imutavel com 19 campos planos.
 # Nao ha fallback silencioso: configuracao parcialmente resolvida nunca
 # produz ``EstiloResolvido``. O renderer e demais consumidores recebem o
 # objeto ja resolvido -- nao releem ``config/estilo.json`` a cada render.
@@ -2441,7 +2441,8 @@ class EstiloResolvido:
     """Representacao de runtime do estilo global resolvido (H-0039 D6.2).
 
     ``frozen=True`` impede alteracao acidental em runtime (contrato_estilo.md
-    R-4). Os 18 campos cobrem borda (7), chip (5) e indicadores (6). Nenhum
+    R-4). Os 19 campos cobrem borda (7), chip (5), indicadores (6) e
+    ``cor_inativo`` (1; contrato_estilo.md secao 3.5 / H-0041 P04). Nenhum
     campo pode ser omitido -- a configuracao parcialmente resolvida nao pode
     produzir instancia de ``EstiloResolvido``.
     """
@@ -2467,6 +2468,10 @@ class EstiloResolvido:
     selecionado_off: str
     incluido_on: str
     incluido_off: str
+    # Estados dinamicos de cor -- 1 campo materializado (secao 3.5 / H-0041 P04).
+    # Default somente para construtores manuais de teste; ``carregar_estilo``
+    # exige o campo no JSON (sem fallback silencioso).
+    cor_inativo: str = "padrão"
 
 
 def carregar_estilo(caminho_base=None):
@@ -2533,6 +2538,7 @@ def carregar_estilo(caminho_base=None):
     chip = _resolver_chip(chip_cfg)
     concluido_on, concluido_off, selecionado_simbolo, selecionado_off, \
         incluido_on, incluido_off = _resolver_indicadores(indicadores_cfg)
+    cor_inativo = _resolver_cor_inativo(dados)
 
     # V-29: so se chega aqui com todos os campos materializados; a construcao
     # abaixo falharia com TypeError se algum campo estivesse ausente, mas as
@@ -2556,7 +2562,30 @@ def carregar_estilo(caminho_base=None):
         selecionado_off=selecionado_off,
         incluido_on=incluido_on,
         incluido_off=incluido_off,
+        cor_inativo=cor_inativo,
     )
+
+
+def _resolver_cor_inativo(dados):
+    """Le e valida ``cor_inativo`` (contrato_estilo.md secao 3.5 / H-0041 P04).
+
+    Segue o mesmo mecanismo de tipo das demais cores semanticas (V-26:
+    deve ser texto). Ausencia ou tipo invalido levantam ``EstiloErro`` --
+    sem fallback silencioso. O valor permanece como nome semantico; a
+    traducao para sequencia de terminal e responsabilidade do renderer (R-7).
+    """
+    if "cor_inativo" not in dados:
+        raise EstiloErro(
+            "Campo obrigatorio ausente em config/estilo.json: 'cor_inativo'"
+        )
+    cor_inativo = dados["cor_inativo"]
+    if not isinstance(cor_inativo, str):  # V-26
+        raise EstiloErro(
+            "cor_inativo deve ser texto; encontrado: {0}".format(
+                type(cor_inativo).__name__
+            )
+        )
+    return cor_inativo
 
 
 def _exigir_secao(cfg, secao, caminho_logico):

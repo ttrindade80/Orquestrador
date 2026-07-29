@@ -19,6 +19,7 @@ metadata:
       - docs/adr/ADR-0022-ponto-entrada-tela-inicial-orquestrador.md
       - docs/adr/ADR-0026-fornecimento-externo-dados-console-json-multinivel.md
       - docs/adr/ADR-0027-carregamento-conjunto-tela-conteudo-externo-ponto-entrada.md
+      - docs/adr/ADR-0034-selecao-multipla-e-fluxo-focal-de-processamento.md
     reaproveitado_de_legado: false
   dependencias_nomenclatura:
     dependencias_obrigatorias:
@@ -283,6 +284,9 @@ Regras complementares:
 - `[esc]` limpa a seleção ativa quando há seleção (ver `contrato_barra_de_menus.md`
   seção 9);
 - seleção persiste entre páginas quando o `console` pagina.
+
+A identidade, a persistência, a reconciliação e o consumo operacional da
+seleção múltipla são fechados pela ADR-0034 — ver seção 23.
 
 ---
 
@@ -1100,3 +1104,129 @@ neste contrato — classificadas como futuras ou fora deste ciclo.
 - `docs/nomenclatura/32_CONSOLE.md` — terminologia canônica;
 - `docs/nomenclatura/31_BARRA_DE_MENUS_E_CHIPS.md` — condições dos chips;
 - `docs/contratos/contrato_barra_de_menus.md` — regras da barra e dos chips.
+
+---
+
+## 23. Seleção múltipla e fluxo focal de processamento (ADR-0034)
+
+A ADR-0034 (2026-07-28) fecha a identidade, a persistência, a reconciliação e
+o consumo operacional da seleção múltipla, referida como `politica_selecao:
+multipla` em §8. Esta seção propaga essas decisões para o contrato do
+`console`.
+
+### 23.1 Identidade e persistência da seleção (D-SEL-01)
+
+```yaml
+selecao_multipla:
+  natureza: conjunto_de_ids_estaveis
+  escopo: estado_de_runtime_da_sessao
+  persistencia_no_json: false
+  independencia: por_console
+  persiste_entre_paginas: true
+  persiste_quando_filtro_apenas_oculta: true
+  persiste_entre_sessoes: false
+  descartada_ao_sair_ou_recarregar: true
+  natureza_de_todos: snapshot_de_ids_no_momento_do_acionamento
+```
+
+`Todos` (D-SEL-06) não incorpora automaticamente itens criados após o
+acionamento — é um snapshot, não uma consulta dinâmica.
+
+### 23.2 Invariantes de seleção (D-SEL-02)
+
+- todo item selecionável é navegável; item não navegável não pode ser
+  selecionável;
+- a seleção ativa contém somente IDs existentes, navegáveis e
+  selecionáveis no momento da verificação;
+- `ec` (cursor) e `tg` (inclusão na seleção) permanecem estados distintos —
+  `ec` nunca representa inclusão; `tg` nunca representa posição do cursor;
+- posição visual, página, filtro e ordem de marcação não definem identidade
+  nem ordem de execução do conjunto selecionado.
+
+### 23.3 Ordem e reconciliação da entrada da operação (D-SEL-03, D-SEL-04)
+
+A entrada da operação consumidora (§23.6) é uma lista sem duplicatas,
+ordenada pela ordem lógica estável do `console`.
+
+```yaml
+reconciliacao:
+  quando: antes_da_execucao_e_apos_atualizacao_dos_dados
+  remove:
+    - ids_inexistentes
+    - itens_que_deixaram_de_ser_selecionaveis
+  preserva: ordem_logica_do_console
+  executa: somente_ids_validos_restantes
+
+reconciliacao_vazia_apos_enter:
+  havia_selecao_antes: true
+  torna_se_vazia: true
+  efeito:
+    executar: false
+    aplicar_todos_no_mesmo_acionamento: false
+    selecao_resultante: vazia
+  proximo_enter_sem_selecao: assume_funcao_todos
+```
+
+### 23.4 Teclas `Espaço`, `Enter` e `Esc` (D-SEL-05 a D-SEL-08)
+
+| Tecla | Efeito |
+|---|---|
+| `Espaço` | Alterna a inclusão do item em foco na seleção; não move o cursor; sem efeito em item não selecionável |
+| `Enter` sem seleção | Assume o rótulo `Todos` (§4.5 de `docs/nomenclatura/31_BARRA_DE_MENUS_E_CHIPS.md`); seleciona todos os itens selecionáveis do conjunto filtrado, em todas as páginas; produz snapshot de IDs (§23.1); com zero itens selecionáveis, o chip permanece visível e inativo |
+| `Enter` com seleção | Assume o rótulo `Executar`; executa a operação consumidora declarada pelo binding (§23.6); no Handoff 1, permanece inativo por ausência de operação externa |
+| `Esc` com seleção ativa | Limpa a seleção; permanece na tela; só volta ao comportamento de navegação depois de limpar |
+| `Esc` sem seleção, tela raiz | Sai |
+| `Esc` sem seleção, demais telas | Volta |
+
+### 23.5 Indicadores e chip `Espaço` (D-SEL-09, D-SEL-10)
+
+- `ec` aparece somente no item sob cursor;
+- `tg` mostra o símbolo do estilo global para selecionável incluído
+  (`●`) ou não incluído (`○`); `tg` fica vazio em item não selecionável;
+- o chip `Espaço` existe quando a instância declara `politica_selecao:
+  multipla`; fica ativo quando o item atual é selecionável e inativo quando
+  não é.
+
+O universo de `Todos` é composto pelos itens selecionáveis do conjunto
+filtrado, incluindo todas as páginas. Alterar o filtro altera visibilidade,
+mas não remove IDs já selecionados nem limita posteriormente a execução de
+uma seleção já formada. A prova de persistência entre páginas e a paginação
+interativa do console permanecem no `ITEM-0003`.
+
+### 23.6 Operação consumidora e fronteira com ações genéricas (D-SEL-11)
+
+A operação sobre o conjunto selecionado pertence ao binding ou à origem de
+dados consumida pelo `console` — nunca ao renderer, à instância genérica do
+`console` como regra global, nem à tela inteira.
+
+```yaml
+entrada_da_operacao:
+  tipo: lista_ordenada_de_ids_reconciliados
+  ids_duplicados: proibidos
+  lista_vazia: proibida
+  objetos_completos: nao_transportados
+```
+
+Permanecem fora deste contrato aplicado: registry genérico de ações,
+dispatcher genérico, catálogo genérico de ações e comandos arbitrários
+declarados no JSON — responsabilidades do `ITEM-0004`. O protocolo
+provisório de invocação da operação (entrada/execução, resultado
+estruturado, classificação de sucesso/falha e envelope de erro) é fechado
+em `contrato_json_console.md` seção 14.
+
+### 23.7 Fronteiras deste contrato aplicado (ADR-0034 D-SEL-26)
+
+Permanecem fora deste contrato aplicado: registry e dispatcher genéricos de
+ações (`ITEM-0004`); pilha genérica de telas (`ITEM-0005`); paginação
+interativa (`ITEM-0003`); seleção compartilhada entre consoles compatíveis;
+chip de alternância entre `dry-run` e execução real; colapso e expansão
+multinível (`ITEM-0007`).
+
+### 23.8 Remissões
+
+- `docs/adr/ADR-0034-selecao-multipla-e-fluxo-focal-de-processamento.md` — decisões D-SEL-01 a D-SEL-26;
+- `docs/contratos/contrato_json_console.md` — seção 14: protocolo provisório, resultado estruturado e envelope de erro;
+- `docs/contratos/contrato_barra_de_menus.md` — seção 23: rótulos dinâmicos `Todos`/`Executar` e chip `Espaço`;
+- `docs/contratos/contrato_tela_json.md` — seção 34: perfil `resultado_execucao`;
+- `docs/contratos/contrato_composicao_corpo.md` — tela de resultado como composição;
+- `docs/nomenclatura/32_CONSOLE.md` — terminologia de seleção múltipla e reconciliação.

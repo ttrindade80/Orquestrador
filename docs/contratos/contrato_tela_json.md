@@ -16,6 +16,7 @@ metadata:
       - docs/adr/ADR-0026-fornecimento-externo-dados-console-json-multinivel.md
       - docs/adr/ADR-0027-carregamento-conjunto-tela-conteudo-externo-ponto-entrada.md
       - docs/adr/ADR-0031-navegacao-simples-e-selecao-unica-em-console-de-nivel-unico.md
+      - docs/adr/ADR-0034-selecao-multipla-e-fluxo-focal-de-processamento.md
     reaproveitado_de_legado: false
   dependencias_nomenclatura:
     dependencias_obrigatorias:
@@ -1496,3 +1497,98 @@ no `tela.json`:
 O documento JSON externo de conteúdo não contém `politica_modo` nem `modo_inicial`.
 A separação entre JSON estrutural (política) e documento externo (conteúdo
 semântico) é mantida integralmente.
+
+---
+
+## 34. Campo raiz `perfil` e tela padrão de resultado (ADR-0034)
+
+A ADR-0034 (2026-07-28) introduz um novo campo raiz opcional, compatível com
+`tela.v1`, para identificar a tela padrão e reutilizável de resultado do
+`ITEM-0006`.
+
+### 34.1 Campo raiz `perfil`
+
+```yaml
+campo: perfil
+localizacao: raiz_do_tela.json
+obrigatoriedade_no_schema_geral: opcional
+compatibilidade: aditiva_com_tela.v1
+valor_reconhecido: resultado_execucao
+valor_desconhecido: CONFIGURACAO_INVALIDA
+```
+
+Telas existentes sem o campo `perfil` continuam válidas sob os contratos
+vigentes — a ausência do campo não é migrada nem reinterpretada.
+
+### 34.2 Estrutura obrigatória do perfil `resultado_execucao`
+
+Quando `perfil: resultado_execucao` é declarado, a tela deve respeitar:
+
+```yaml
+consoles: 1
+outros_elementos_funcionais: proibidos
+console_navegavel: false
+politica_selecao: nenhuma
+politica_modo: somente_verboso
+origem_do_conteudo: runtime
+chips_permitidos:
+  - Esc_voltar
+abrir_outra_tela: proibido
+iniciar_nova_execucao: proibido
+chip_V: ausente
+```
+
+Apresentações aceitas para o console único da tela: `tabela`, `hierarquia`,
+`conjuntos_campos` (schema semântico da seção 12). A tela de resultado é um
+`tela.json` estático e preconstruído — não é criada dinamicamente em
+runtime, e é reutilizável por múltiplas telas e scripts.
+
+### 34.3 Binding da operação focal e da tela de resultado
+
+O binding que declara a operação focal do `ITEM-0006` (`contrato_console.md`
+§23.6) deve declarar explicitamente:
+
+- a operação focal invocada;
+- o `id` da tela de resultado (`tela_resultado_id`) que apresentará o
+  resultado dessa operação.
+
+É proibido: inferir o `id` da tela de resultado; criar tela de resultado
+dinamicamente em runtime; declarar comando arbitrário no binding; permitir
+que o renderer escolha a operação a executar.
+
+### 34.4 Validação antecipada (D-SEL-17)
+
+No carregamento da configuração, antes de qualquer operação ser iniciada, o
+Orquestrador valida:
+
+- existência do `tela_resultado_id` declarado pelo binding;
+- validade do `schema` da tela de resultado;
+- resolução das referências envolvidas;
+- presença do perfil `resultado_execucao`;
+- compatibilidade estrutural da tela referenciada com a estrutura obrigatória
+  da seção 34.2.
+
+```yaml
+destino_ausente_ou_invalido:
+  classificacao: CONFIGURACAO_INVALIDA
+  disponibilizar_tela_de_execucao: false
+  iniciar_operacao: false
+```
+
+O renderer não infere o `id` da tela de resultado e não cria tela substituta
+quando o destino é inválido.
+
+### 34.5 Fora de escopo
+
+Paginação da tela de resultado, modos não verboso ou alternável no perfil
+`resultado_execucao`, chip de alternância `dry-run`/execução real e colapso
+de conteúdo multinível permanecem fora do escopo desta seção (D-SEL-24,
+D-SEL-26).
+
+### 34.6 Remissões
+
+- `docs/adr/ADR-0034-selecao-multipla-e-fluxo-focal-de-processamento.md`;
+- `docs/contratos/contrato_composicao_corpo.md` — tela de resultado como composição de um único console passivo;
+- `docs/contratos/contrato_json_console.md` — seção 14: protocolo provisório, resultado estruturado e envelope de erro;
+- `docs/contratos/contrato_console.md` — seção 23: seleção múltipla e operação focal;
+- `docs/nomenclatura/02_ARTEFATOS_CONFIGURACAO_E_RUNTIME.md` — `perfil` como configuração concreta.

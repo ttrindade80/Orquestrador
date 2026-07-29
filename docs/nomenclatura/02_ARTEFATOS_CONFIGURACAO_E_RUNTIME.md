@@ -62,6 +62,7 @@ Estados transitórios de migração não são apresentados como termos vigentes.
 - ponto de entrada real (`orquestrador.py`)
 - tela inicial real (`config/telas/orquestrador.json`)
 - identidade real (`orquestrador`)
+- `perfil` (campo raiz opcional do `tela.json`, ADR-0034)
 
 ## 4. Definições
 
@@ -109,6 +110,22 @@ Cursor atual, página atual, filtro ativo, modo verboso, seleção atual e item
 focado são estado de execução, não configuração. O JSON pode declarar defaults
 iniciais; o estado vivo pertence à execução.
 
+A seleção múltipla do console (`ITEM-0006`, ADR-0034) é caso concreto de
+estado de runtime: o conjunto de IDs estáveis selecionado nunca é persistido
+no `tela.json` — apenas a política (`politica_selecao: multipla`) é
+configuração concreta. Autoridade terminológica de seleção múltipla:
+`docs/nomenclatura/32_CONSOLE.md`.
+
+### 4.6 `perfil` como configuração concreta (ADR-0034)
+
+`perfil` é um campo raiz opcional do `tela.json`, aditivo e compatível com
+`tela.v1`. Declara a classe funcional da tela quando ela não é uma tela de
+composição livre — por exemplo, `perfil: resultado_execucao` identifica a
+tela padrão e reutilizável de resultado do `ITEM-0006`. `perfil` é
+configuração concreta declarada antes da execução; não confundir com o
+estado de visualização ou de seleção vivos durante a sessão (§4.5). Autoridade
+comportamental completa: `contrato_tela_json.md` seção 34.
+
 ## 5. Distinções obrigatórias
 
 | Par | Distinção normativa |
@@ -130,6 +147,7 @@ iniciais; o estado vivo pertence à execução.
 - ADR-0009: caminho, nomenclatura e formato dos JSONs de tela.
 - ADR-0021: separação demo/produto real/motor; política de caminhos.
 - ADR-0022: ponto de entrada real; tela inicial real; identidade `orquestrador`.
+- ADR-0034: campo raiz `perfil`; seleção múltipla como estado de runtime.
 
 ## 8. Aliases ou termos descontinuados relacionados
 

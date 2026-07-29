@@ -89,6 +89,14 @@ Termo canônico: `carregamento conjunto`. Não é `carregamento simultâneo` nem
 A **vinculação declarativa** é o ato de declarar essa origem no JSON, antes de
 o carregamento ocorrer em runtime.
 
+### 4.5 Carregamento do documento de resultado de execução (ADR-0034)
+
+A ADR-0034 fecha o carregamento do documento de resultado de execução
+(`docs/nomenclatura/42_DADOS_EXTERNOS_MULTINIVEL.md` §4.5) na tela padrão de
+resultado do `ITEM-0006`. O carregamento desse documento segue as regras
+comportamentais fixadas em `contrato_json_console.md` §14.4, sem que essa
+sequência operacional constitua vocabulário canônico próprio deste módulo.
+
 ## 5. Distinções obrigatórias
 
 | Par | Distinção normativa |
@@ -98,17 +106,21 @@ o carregamento ocorrer em runtime.
 | `momento de carga` × `momento de apresentação` | Carga: quando o envelope é vinculado; apresentação: como o conteúdo vinculado é exibido — são temporalidades distintas |
 | `carregamento conjunto` × `apresentações multinível` | Carregamento conjunto (ADR-0027): associação de múltiplos envelopes; apresentações multinível (ADR-0028): como esses dados são exibidos nos modos verboso/não verboso — módulo `44` |
 | `vínculo` × `composição do corpo` | Vínculo: relação entre envelope e instância de console; composição do corpo: estrutura de grupos e elementos na tela (módulo `20`, `40`) |
+| `carregamento` (genérico, envelope de conteúdo) × `carregamento do documento de resultado de execução` (ADR-0034) | Carregamento genérico: vincula envelope de conteúdo a console em operação; carregamento do documento de resultado: segue as regras comportamentais fixadas em `contrato_json_console.md` §14.4 para a tela de resultado do `ITEM-0006` |
 
 ## 6. Relação com contratos
 
 - `contrato_console.md`: autoridade do comportamento normativo do console
   que recebe o carregamento.
-- `contrato_json_console.md`: schema dos campos de carregamento no JSON do console.
+- `contrato_json_console.md`: schema dos campos de carregamento no JSON do
+  console; seção 14 fecha o carregamento do documento de resultado de execução.
 
 ## 7. Relação com ADRs
 
 - ADR-0027: carregamento conjunto; vinculação declarativa; momento de carga.
 - ADR-0026: dado externo que é carregado (parcial — o dado em si está no módulo 42).
+- ADR-0034: carregamento do documento de resultado de execução, com regras
+  comportamentais fixadas em `contrato_json_console.md` §14.4.
 
 ## 8. Aliases ou termos descontinuados relacionados
 

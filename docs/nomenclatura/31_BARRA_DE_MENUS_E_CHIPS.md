@@ -166,6 +166,7 @@ unicamente.
 - ADR-0022: barra mínima real (`Esc`, `?`, acesso a estilos).
 - ADR-0028: chip `[V] Verboso`; relação com política de modo.
 - ADR-0031: condições de existência de `[⇆]` (≥2 consoles focalizáveis) e `[✥]` (console focado com >1 item navegável); existência dinâmica de `[✥]`.
+- ADR-0034: fecha, para `politica_selecao: multipla` (`ITEM-0006`), a condição de existência do chip `[␣]` e do rótulo dinâmico `Todos`/`Executar` de `[⏎]` já genéricos neste módulo (§4.3, §4.5); na tela padrão de resultado, `[Esc]` é o único chip declarado, com rótulo fixo `Voltar` (sem seleção ativa nessa tela).
 
 ## 8. Aliases ou termos descontinuados relacionados
 

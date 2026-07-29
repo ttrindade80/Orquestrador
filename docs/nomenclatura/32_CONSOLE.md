@@ -54,6 +54,11 @@ Não redefinir `grupo` como nó estrutural; esse sentido pertence ao módulo `40
 - navegação toroidal por eixo (ADR-0031)
 - linha física / coluna indicadora (ADR-0031)
 - seleção única (ADR-0031)
+- seleção múltipla (ADR-0034)
+- conjunto de IDs estáveis (ADR-0034)
+- reconciliação (ADR-0034)
+- item selecionável (ADR-0034)
+- lote reconciliado (ADR-0034)
 
 ## 4. Definições
 
@@ -145,6 +150,27 @@ completa em `contrato_console.md` §22.
 | console focalizável × console não navegável | Não navegável: não declara `politica_navegacao.navegavel: true`; não entra na lista de foco. Console com `navegavel: true` mas zero itens navegáveis também não entra na lista de foco (D2). |
 | item lógico × linha física | Item lógico é a unidade de navegação; linha física é o espaço visual. Redistribuição ou mudança de modo preserva o item lógico e recalcula as linhas físicas (D10). |
 
+### 4.6 Terminologia de seleção múltipla (ADR-0034)
+
+Os termos abaixo foram introduzidos pela ADR-0034. Autoridade comportamental
+completa em `contrato_console.md` §23.
+
+| Termo | Definição |
+|---|---|
+| **seleção múltipla** | Política de seleção (`politica_selecao: multipla`) em que o conjunto de itens marcados é um estado de runtime independente por console, persistente entre páginas, descartado ao sair ou recarregar a tela (D-SEL-01). Distinta de **seleção única** (ADR-0031), em que o único item marcado é sempre o item sob cursor. |
+| **conjunto de IDs estáveis** | Forma de armazenamento da seleção múltipla — um snapshot de identificadores de item, não uma consulta dinâmica; não incorpora automaticamente itens criados após um acionamento de `Todos` (D-SEL-01). |
+| **item selecionável** | Item com `selecionavel: true` que pode participar do toggle de `[␣]`; todo item selecionável é necessariamente navegável (D-SEL-02). Distinto de **item selecionado**/**item corrente** (módulo `32`, seleção única), que designa o item sob cursor. |
+| **reconciliação** | Operação que remove da seleção os IDs inexistentes e os itens que deixaram de ser selecionáveis, executada antes da execução da operação consumidora e após atualização dos dados, preservando a ordem lógica do console (D-SEL-03, D-SEL-04). |
+| **lote reconciliado** | Lista sem duplicatas, ordenada pela ordem lógica estável do console, resultante da reconciliação — entrada da operação consumidora focal (D-SEL-03, D-SEL-11). |
+
+**Distinções adicionais obrigatórias (ADR-0034):**
+
+| Par | Distinção normativa |
+|---|---|
+| seleção única (ADR-0031) × seleção múltipla (ADR-0034) | Seleção única: item sob cursor, sem toggle, sem persistência como conjunto; seleção múltipla: conjunto de IDs estáveis, com toggle por `[␣]`, persistente entre páginas. |
+| seleção (módulo `32`, conjunto nomeado geral) × seleção múltipla (ADR-0034) | Seleção múltipla é a materialização concreta do conceito geral de "seleção" (§4.2) para o `ITEM-0006`, com identidade por conjunto de IDs estáveis e reconciliação fechadas pela ADR-0034. |
+| lote (§4.2, unidade de execução) × lote reconciliado (ADR-0034) | Lote (§4.2) é o conceito geral de unidade de execução calculada a partir de uma seleção; lote reconciliado é a forma concreta desse lote no `ITEM-0006`, após reconciliação. |
+
 ## 5. Distinções obrigatórias
 
 | Par | Distinção normativa |
@@ -165,6 +191,7 @@ completa em `contrato_console.md` §22.
 - ADR-0006: renomeação `dado` para `console`.
 - ADR-0026, ADR-0027, ADR-0028: dados externos e modos de apresentação do console.
 - ADR-0031: navegação simples e seleção única; terminologia de console focalizável/focado, item lógico, lista de foco, travessia em profundidade, navegação toroidal por eixo, coluna indicadora, seleção única.
+- ADR-0034: seleção múltipla e fluxo focal de processamento; terminologia de seleção múltipla, conjunto de IDs estáveis, reconciliação, item selecionável e lote reconciliado.
 
 ## 8. Aliases ou termos descontinuados relacionados
 

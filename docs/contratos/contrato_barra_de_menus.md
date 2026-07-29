@@ -15,6 +15,7 @@ metadata:
       - docs/adr/ADR-0012-barra-de-menus-declarativa-por-tela.md
       - docs/adr/ADR-0014-barra-horizontal-termos-especificos.md
       - docs/adr/ADR-0022-ponto-entrada-tela-inicial-orquestrador.md
+      - docs/adr/ADR-0034-selecao-multipla-e-fluxo-focal-de-processamento.md
     reaproveitado_de_legado: false
   dependencias_nomenclatura:
     dependencias_obrigatorias:
@@ -854,3 +855,44 @@ independentemente de o estado corrente da sessão ser verboso ou não verboso.
 
 Telas de modo único não necessitam do chip. O renderer não deve exibir o chip por
 inferência em telas cuja política não seja `"alternavel"`.
+
+---
+
+## 23. Rótulos dinâmicos `Todos`/`Executar` e chip `Espaço` da seleção múltipla (ADR-0034)
+
+A ADR-0034 (2026-07-28) fecha a semântica operacional do chip `[␣]` e do
+rótulo dinâmico de `[⏎]` para instâncias de `console` com
+`politica_selecao: multipla` (`ITEM-0006`). Esta seção propaga essas
+decisões; a semântica comportamental completa da seleção pertence a
+`contrato_console.md` seção 23.
+
+### 23.1 Chip `Espaço` (D-SEL-05, D-SEL-09)
+
+- existe quando a instância de `console` em foco declara `politica_selecao:
+  multipla`;
+- ativo quando o item sob cursor é selecionável; inativo quando não é;
+- alterna a inclusão do item em foco sem mover o cursor.
+
+### 23.2 Rótulo dinâmico de `[⏎]` — `Todos` e `Executar` (D-SEL-06, D-SEL-07)
+
+| Estado da seleção | Rótulo | Efeito |
+|---|---|---|
+| Vazia | `Todos` | Seleciona todos os itens selecionáveis do conjunto filtrado, em todas as páginas; permanece visível e inativo quando não há item selecionável |
+| Não vazia | `Executar` | Executa a operação consumidora focal do binding (`contrato_console.md` §23.6); no Handoff 1, permanece inativo por ausência de operação externa |
+
+Este rótulo dinâmico já estava previsto de forma genérica na seção 4.5 de
+`docs/nomenclatura/31_BARRA_DE_MENUS_E_CHIPS.md`; a ADR-0034 fecha sua
+condição de disparo e sua fronteira com a operação focal do `ITEM-0006`.
+
+### 23.3 Fronteira com o chip de alternância `dry-run`/execução real
+
+Não existe, neste ciclo, chip de alternância entre execução real e
+`dry-run` na `barra_de_menus`. A escolha entre os dois cenários é
+declarativa (`contrato_json_console.md` §14).
+
+### 23.4 Remissões
+
+- `docs/adr/ADR-0034-selecao-multipla-e-fluxo-focal-de-processamento.md`;
+- `docs/contratos/contrato_console.md` — seção 23: seleção múltipla e fluxo focal;
+- `docs/contratos/contrato_json_console.md` — seção 14: protocolo provisório e resultado estruturado;
+- `docs/nomenclatura/31_BARRA_DE_MENUS_E_CHIPS.md` — terminologia de chip e rótulo dinâmico.

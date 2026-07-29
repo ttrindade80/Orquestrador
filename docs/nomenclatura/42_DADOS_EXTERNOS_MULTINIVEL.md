@@ -56,6 +56,8 @@ assume co-propriedade nem redefine o artefato.
 - hierarquia de dados
 - dado homogêneo por nível
 - dado heterogêneo entre níveis
+- documento de resultado de execução (ADR-0034)
+- envelope de erro multinível (ADR-0034)
 
 ## 4. Definições
 
@@ -98,6 +100,24 @@ Cada nível pode ter campos semânticos distintos.
 | `dado homogêneo por nível` | Todas as entradas de um mesmo nível compartilham o mesmo schema |
 | `dado heterogêneo entre níveis` | Entradas de níveis distintos podem ter schemas diferentes |
 
+### 4.5 Documento de resultado de execução (ADR-0034)
+
+A ADR-0034 introduz um subtipo específico de dado externo: o documento
+produzido pelo Orquestrador para apresentar o resultado (ou o erro) de uma
+operação focal invocada sobre um lote reconciliado (`ITEM-0006`).
+Autoridade comportamental completa em `contrato_json_console.md` §14.
+
+| Termo | Definição |
+|---|---|
+| `documento de resultado de execução` | Documento JSON externo, distinto do `JSON externo de conteúdo` genérico (§4.1), que transporta o resultado estruturado ou o envelope de erro de uma operação focal executada sobre o lote reconciliado |
+| `envelope de erro multinível` | Forma do documento de resultado quando o processo falha ou produz resultado ausente/inválido — reutiliza o `tipo: "multinivel"` e a apresentação `conjuntos_campos` já definidos por este módulo, com a lista fixa de campos `status`, `diagnostico`, `codigo_saida`, `stdout`, `stderr`, `resultado_json` |
+
+O documento de resultado de execução não redefine o schema semântico
+multinível geral (§4.4); ele é um uso concreto desse schema para um
+propósito específico (apresentar resultado/erro de execução), com campos
+fixos próprios em vez do vocabulário livre de níveis do conteúdo do
+console.
+
 ## 5. Distinções obrigatórias
 
 | Par | Distinção normativa |
@@ -108,18 +128,23 @@ Cada nível pode ter campos semânticos distintos.
 | `nível` (dado) × `nível de grupo` (composição) | Nível do dado: camada hierárquica do envelope; nível de grupo: profundidade de aninhamento dos nós estruturais (módulo `40`) |
 | `dado externo` (módulo 42) × `carregamento` (módulo 43) | Dado externo: o que existe no envelope; carregamento: como esse envelope é associado ao console e ao momento de carga |
 | `schema semântico` × `schema de configuração` | Schema semântico: descreve campos de dado por nível; schema de configuração: descreve campos da tela, do console ou do contrato |
+| `JSON externo de conteúdo` (genérico) × `documento de resultado de execução` (ADR-0034) | Conteúdo genérico: dados de domínio apresentados pelo console em operação; documento de resultado: resultado ou erro estruturado de uma operação focal executada sobre um lote reconciliado — campos fixos, não vocabulário livre de níveis |
 
 ## 6. Relação com contratos
 
 - `contrato_console.md`: autoridade do comportamento normativo do console que
   recebe dados externos.
 - `contrato_json_console.md`: schema dos campos do console; o envelope declarativo
-  é fornecido externamente e não coincide com o schema do contrato.
+  é fornecido externamente e não coincide com o schema do contrato; seção 14
+  fecha o documento de resultado de execução e o envelope de erro multinível.
 
 ## 7. Relação com ADRs
 
 - ADR-0026: fornecimento externo de dados ao console; envelope declarativo;
   schema semântico multinível.
+- ADR-0034: documento de resultado de execução; envelope de erro multinível;
+  obrigação de preservação literal do texto inválido fixada em
+  `contrato_json_console.md` §14.6.
 
 ## 8. Aliases ou termos descontinuados relacionados
 

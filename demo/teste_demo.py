@@ -3240,3 +3240,307 @@ def teste_catalogo_conteudo_externo_h0036():
 
 if __name__ == "__main__":
     sys.exit(main())
+
+
+# ---------------------------------------------------------------------------
+# H-0041 / ADR-0034: integracao do dispatch de Espaco/Enter/Esc em console com
+# selecao multipla (D-SEL-04/D-SEL-05/D-SEL-07/D-SEL-08). Testes pytest com a
+# fixture D-SEL-22 (oito itens).
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture(name="modelo_h0041")
+def _fixture_modelo_h0041():
+    return _carregar_modelo_por_id("h0041_selecao_multipla_oito_itens")
+
+
+def _estado_inicial_h0041(modelo_h0041):
+    """Estado com foco no console e cursor em item_01 (selecao vazia)."""
+    from tela import navegacao
+    estado = criar_estado_inicial()
+    lista = navegacao.lista_foco(modelo_h0041)
+    estado["foco_console"] = 0
+    estado["cursores"] = {lista[0].id: 0}
+    return estado, lista[0]
+
+
+def test_h0041_espaco_marca_item_selecionavel(modelo_h0041):
+    estado, console = _estado_inicial_h0041(modelo_h0041)
+    novo = processar_comando(estado, " ", modelo_h0041)
+    assert novo["selecoes"][console.id] == ["item_01"]
+
+
+def test_h0041_espaco_nao_move_cursor(modelo_h0041):
+    # D-SEL-01: Espaco nao altera cursores.
+    estado, console = _estado_inicial_h0041(modelo_h0041)
+    novo = processar_comando(estado, " ", modelo_h0041)
+    assert novo["cursores"][console.id] == 0
+
+
+def test_h0041_espaco_sem_efeito_em_nao_selecionavel(modelo_h0041):
+    estado, console = _estado_inicial_h0041(modelo_h0041)
+    # Move cursor para item_02 (nao selecionavel).
+    estado = processar_comando(estado, "\x1b[B", modelo_h0041)
+    novo = processar_comando(estado, " ", modelo_h0041)
+    assert novo["selecoes"].get(console.id, []) == []
+
+
+def test_h0041_enter_sem_selecao_aplica_todos(modelo_h0041):
+    # CA-03: Enter=Todos produz item_01,03,05,07.
+    estado, console = _estado_inicial_h0041(modelo_h0041)
+    novo = processar_comando(estado, "\r", modelo_h0041)
+    assert novo["selecoes"][console.id] == [
+        "item_01", "item_03", "item_05", "item_07"
+    ]
+
+
+def test_h0041_enter_com_selecao_inativo(modelo_h0041):
+    # D-SEL-07 / QA-H0041-002: Enter com selecao nao altera o estado
+    # (Executar inativo; nenhuma operacao externa).
+    estado, console = _estado_inicial_h0041(modelo_h0041)
+    estado = processar_comando(estado, " ", modelo_h0041)  # marca item_01
+    assert estado["selecoes"][console.id] == ["item_01"]
+    novo = processar_comando(estado, "\r", modelo_h0041)
+    # Enter_em_Executar: selecao_inalterada; operacao_externa=nenhuma.
+    assert novo["selecoes"][console.id] == ["item_01"]
+    assert "resultado" not in novo
+    assert "executado" not in novo
+    assert "saida_comando" not in novo
+
+
+def test_h0041_fixture_chip_enter_regra_ativo_selecao_vazia(modelo_h0041):
+    # QA-H0041-002 (P02): a fixture declara regra_ativo distinta de "sempre"
+    # para o chip Enter (estado logico independente do rotulo).
+    chips = (modelo_h0041.barra_de_menus or {}).get("chips") or []
+    chip_enter = next(c for c in chips if c.get("id") == "chip_enter")
+    assert chip_enter.get("regra_ativo") == "selecao_vazia"
+    assert chip_enter.get("regra_ativo") != "sempre"
+
+
+def test_h0041_esc_limpa_selecao_sem_sair(modelo_h0041):
+    # CA-06/D-SEL-08: primeiro Esc limpa e permanece (nao sai).
+    estado, console = _estado_inicial_h0041(modelo_h0041)
+    estado = processar_comando(estado, " ", modelo_h0041)  # marca item_01
+    novo = processar_comando(estado, "\x1b", modelo_h0041)
+    assert novo["selecoes"].get(console.id, []) == []
+    assert novo["saindo"] is False
+
+
+def test_h0041_esc_sem_selecao_comporta_sair(modelo_h0041):
+    # D-SEL-08: sem selecao, Esc preserva o comportamento vigente (Sair).
+    estado, _console = _estado_inicial_h0041(modelo_h0041)
+    novo = processar_comando(estado, "\x1b", modelo_h0041)
+    assert novo["saindo"] is True
+
+
+def test_h0041_nenhuma_operacao_externa(modelo_h0041):
+    # CA-11: nenhuma operacao externa e invocada por Espaco/Enter/Esc.
+    # Prova indireta: nenhum campo de execucao/resultado aparece no estado.
+    estado, _console = _estado_inicial_h0041(modelo_h0041)
+    novo = processar_comando(estado, "\r", modelo_h0041)
+    assert "resultado" not in novo
+    assert "executado" not in novo
+    assert "saida_comando" not in novo
+
+
+# QA-H0041-001 (patch P01): Enter consulta o estado ja reconciliado; uma
+# selecao originalmente nao vazia, mas composta apenas por IDs invalidos,
+# tornava-se vazia e disparava ``Todos`` no mesmo acionamento. O acionamento
+# deve SOMENTE reconciliar (deixar a selecao vazia); ``Todos`` so pode ser
+# aplicado quando a selecao JA ESTAVA originalmente vazia antes do acionamento.
+# ---------------------------------------------------------------------------
+
+
+def test_h0041_enter_reconcilia_residuo_sem_disparar_todos(modelo_h0041):
+    # Cenario: selecao originalmente nao vazia, composta apenas por um ID
+    # invalido. Enter deve somente reconciliar (selecao -> []) e NAO aplicar
+    # ``Todos`` no mesmo acionamento (QA-H0041-001).
+    estado, console = _estado_inicial_h0041(modelo_h0041)
+    # Injeta selecao residual com ID inexistente (estado de runtime).
+    estado = dict(estado, selecoes={console.id: ["item_inexistente"]})
+    novo = processar_comando(estado, "\r", modelo_h0041)
+    # Resultado exigido: selecao vazia, Todos nao aplicado.
+    assert novo["selecoes"].get(console.id, []) == []
+    # Todos marcaria os quatro selecionaveis (item_01/03/05/07). Como nao foi
+    # aplicado, nenhum deles aparece na selecao final.
+    assert "item_01" not in novo["selecoes"].get(console.id, [])
+
+
+def test_h0041_enter_apos_residuo_segundo_enter_aplica_todos(modelo_h0041):
+    # Continuacao: apos o Enter reconciliador (selecao agora vazia), um SEGUNDO
+    # Enter, iniciado com selecao vazia, aplica ``Todos`` (QA-H0041-001).
+    estado, console = _estado_inicial_h0041(modelo_h0041)
+    estado = dict(estado, selecoes={console.id: ["item_inexistente"]})
+    estado = processar_comando(estado, "\r", modelo_h0041)  # reconcilia -> []
+    novo = processar_comando(estado, "\r", modelo_h0041)  # segundo Enter: Todos
+    assert novo["selecoes"][console.id] == [
+        "item_01", "item_03", "item_05", "item_07"
+    ]
+
+
+def test_h0041_enter_residuo_nenhuma_operacao_externa(modelo_h0041):
+    # QA-H0041-001: o Enter reconciliador nao cria operacao externa.
+    estado, console = _estado_inicial_h0041(modelo_h0041)
+    estado = dict(estado, selecoes={console.id: ["item_inexistente"]})
+    novo = processar_comando(estado, "\r", modelo_h0041)
+    assert "resultado" not in novo
+    assert "executado" not in novo
+    assert "saida_comando" not in novo
+
+
+# H0041-MANUAL-001/002/003 (patch P03): testes de integracao que percorrem a
+# MESMA sequencia da validacao manual TTY, conectando o estado logico do
+# dispatch (``processar_comando``) a apresentacao real (``renderizar_estado``).
+# Validam que o estado dos chips se materializa na barra apos cada tecla e que
+# o contexto de renderizacao nunca reutiliza estado anterior a uma alteracao
+# de selecao. ``renderizar_estado`` le ``estado["selecoes"]``/``cursores`` em
+# cada chamada; cada quadro e portanto sincrono com o estado vigente.
+# ---------------------------------------------------------------------------
+def _estado_render_h0041(modelo, console):
+    """Estado H-0041 com estilo + geometria, pronto para ``renderizar_estado``."""
+    from tela.loader import carregar_estilo
+    from tela.renderizador import DESCONTO_ESTRUTURAL_CONSOLE
+    estilo = carregar_estilo()
+    estado, _ = _estado_inicial_h0041(modelo)
+    estado = dict(
+        estado, estilo=estilo, largura=80, altura=24,
+        desconto_estrutural=DESCONTO_ESTRUTURAL_CONSOLE,
+    )
+    return estado
+
+
+def _chips_do_estado(estado, modelo):
+    """Renderiza e devolve o dict ``estado_ativo_chips`` (estado logico)."""
+    from tela import renderizador as _rend
+    renderizar_estado(estado, modelo, largura=80, altura=24)
+    return dict(_rend._navegacao_atual.get("estado_ativo_chips") or {})
+
+
+def test_h0041_manual_001_espaco_inativo_apos_mover_para_nao_selecionavel(modelo_h0041):
+    # H0041-MANUAL-001: iniciar em item_01, marcar item_01, mover para item_02.
+    # Apos o movimento, o chip Espaco deve estar INATIVO (item_02 nao
+    # selecionavel); Enter permanece INATIVO (Executar, selecao nao vazia).
+    estado, console = _estado_inicial_h0041(modelo_h0041)
+    estado = _estado_render_h0041(modelo_h0041, console)
+    estado = processar_comando(estado, " ", modelo_h0041)   # marca item_01
+    estado = processar_comando(estado, "\x1b[B", modelo_h0041)  # -> item_02
+    chips = _chips_do_estado(estado, modelo_h0041)
+    assert chips["chip_espaco"] is False
+    assert chips["chip_enter"] is False
+
+
+def test_h0041_manual_001_espaco_ativo_em_selecionavel(modelo_h0041):
+    # Continuacao: mover para item_03 (selecionavel) reativa o chip Espaco.
+    estado, console = _estado_inicial_h0041(modelo_h0041)
+    estado = _estado_render_h0041(modelo_h0041, console)
+    estado = processar_comando(estado, " ", modelo_h0041)   # marca item_01
+    estado = processar_comando(estado, "\x1b[B", modelo_h0041)  # item_02
+    estado = processar_comando(estado, "\x1b[B", modelo_h0041)  # item_03
+    chips = _chips_do_estado(estado, modelo_h0041)
+    assert chips["chip_espaco"] is True
+    assert chips["chip_enter"] is False
+
+
+def test_h0041_manual_002_enter_inativo_se_materializa_na_barra(modelo_h0041):
+    # H0041-MANUAL-002 / P04: apos marcar item_01, o estado logico INATIVO do
+    # chip Enter se materializa na barra com rotulo ``Executar`` e cor_inativo
+    # (nao caixa baixa).
+    from tela import renderizador as _rend
+    estado, console = _estado_inicial_h0041(modelo_h0041)
+    estado = _estado_render_h0041(modelo_h0041, console)
+    estado = processar_comando(estado, " ", modelo_h0041)   # marca item_01
+    saida = renderizar_estado(estado, modelo_h0041, largura=80, altura=24)
+    chips = _rend._navegacao_atual["estado_ativo_chips"]
+    assert chips["chip_enter"] is False
+    assert "Executar" in saida
+    assert "executar" not in saida
+    codigo = _rend._codigo_ansi_de_cor(estado["estilo"].cor_inativo)
+    assert codigo in saida
+    assert _rend._ANSI_RESET_FG in saida
+
+
+def test_h0041_manual_003_todos_e_redraw_sincronos(modelo_h0041):
+    # H0041-MANUAL-003: Enter iniciado com selecao vazia aplica Todos; uma
+    # unica renderizacao apresenta conjuntamente os 4 tg incluidos e o chip
+    # Enter como Executar INATIVO. O contexto dos chips nao pode ser calculado
+    # antes da alteracao da selecao e reutilizado depois dela.
+    from tela import renderizador as _rend
+    estado, console = _estado_inicial_h0041(modelo_h0041)
+    estado = _estado_render_h0041(modelo_h0041, console)
+    estado = processar_comando(estado, "\r", modelo_h0041)  # Todos -> 4 itens
+    assert estado["selecoes"][console.id] == [
+        "item_01", "item_03", "item_05", "item_07"
+    ]
+    saida = renderizar_estado(estado, modelo_h0041, largura=80, altura=24)
+    chips = _rend._navegacao_atual["estado_ativo_chips"]
+    # tg incluidos (4 marcadores ●) no mesmo quadro.
+    assert saida.count("●") == 4
+    # chip Enter = Executar INATIVO no mesmo quadro.
+    assert chips["chip_enter"] is False
+    assert "Executar" in saida
+    assert "executar" not in saida
+    codigo = _rend._codigo_ansi_de_cor(estado["estilo"].cor_inativo)
+    assert codigo in saida
+
+
+def test_h0041_esc_limpa_e_reativa_todos(modelo_h0041):
+    # Apos Esc limpar a selecao, o chip Enter volta a Todos ATIVO e os tg
+    # voltam a nao-incluidos (○). Prova que a sincronizacao funciona em ambos
+    # os sentidos (marcar/desmarcar) e que nao ha residuo de estado inativo.
+    from tela import renderizador as _rend
+    estado, console = _estado_inicial_h0041(modelo_h0041)
+    estado = _estado_render_h0041(modelo_h0041, console)
+    estado = processar_comando(estado, "\r", modelo_h0041)  # Todos
+    estado = processar_comando(estado, "\x1b", modelo_h0041)  # Esc limpa
+    assert estado["selecoes"].get(console.id, []) == []
+    saida = renderizar_estado(estado, modelo_h0041, largura=80, altura=24)
+    chips = _rend._navegacao_atual["estado_ativo_chips"]
+    assert chips["chip_enter"] is True
+    assert "Todos" in saida
+    assert saida.count("●") == 0
+
+
+def test_h0041_manual_consoles_sem_selecao_multipla_nao_regridem(modelo):
+    # Preservacao de consoles sem selecao multipla: o dispatch e a renderizacao
+    # nao afetam consoles que nao declaram selecao multipla (H-0040). Usa a
+    # fixture ``modelo`` (tela demo raiz, sem selecao multipla).
+    from tela import renderizador as _rend
+    from tela import navegacao
+    estilo = _ESTILO
+    estado = criar_estado_inicial()
+    estado = dict(estado, estilo=estilo)
+    saida = renderizar_estado(estado, modelo, largura=80, altura=24)
+    chips = _rend._navegacao_atual.get("estado_ativo_chips") or {}
+    assert "chip_espaco" not in chips
+    assert "chip_enter" not in chips
+    assert "marcar" not in saida
+    assert "executar" not in saida
+
+
+def test_h0041_p04_enter_lf_seleciona_todos(modelo_h0041):
+    # H0041-MANUAL-R02-001: sob cbreak+ICRNL o TTY entrega ``\\n`` (LF), nao
+    # ``\\r``. O dispatch deve tratar ambos como Enter/Todos.
+    estado, console = _estado_inicial_h0041(modelo_h0041)
+    novo = processar_comando(estado, "\n", modelo_h0041)
+    assert novo["selecoes"][console.id] == [
+        "item_01", "item_03", "item_05", "item_07"
+    ]
+
+
+def test_h0041_p04_enter_lf_em_executar_sem_efeito(modelo_h0041):
+    estado, console = _estado_inicial_h0041(modelo_h0041)
+    estado = processar_comando(estado, " ", modelo_h0041)
+    novo = processar_comando(estado, "\n", modelo_h0041)
+    assert novo["selecoes"][console.id] == ["item_01"]
+    assert "resultado" not in novo
+
+
+def test_h0041_associacao_participante_id(modelo_h0041):
+    # Associacao estavel participante → ID na fixture D-SEL-22.
+    from tela import navegacao
+    estado, console = _estado_inicial_h0041(modelo_h0041)
+    ids = [i["id"] for i in navegacao.itens_navegaveis(console)]
+    assert ids == [
+        "item_01", "item_02", "item_03", "item_05", "item_06", "item_07"
+    ]
+    assert console.id == "console_selecao"

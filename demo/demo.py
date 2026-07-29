@@ -128,6 +128,7 @@ from tela.renderizador import (
     DESCONTO_ESTRUTURAL_CONSOLE,
 )
 from tela import navegacao
+from tela import selecao
 
 LARGURA_MINIMA_TELA = 10
 ALTURA_MINIMA_TELA = 6
@@ -176,6 +177,10 @@ def criar_estado_inicial():
     (dict id-do-console -> item logico corrente). Sao EXCLUSIVAMENTE runtime:
     nao persistem em JSON, nao alteram schema (NC-005). ``foco_console=None``
     significa "sem foco estabelecido ainda"; Tab/Shift+Tab o estabelecem.
+
+    H-0041 / ADR-0034: campo de runtime de selecao multipla -- ``selecoes``
+    (dict id-do-console -> lista de IDs marcados). EXCLUSIVAMENTE runtime,
+    independente do cursor (D-SEL-01). Inicialmente vazio por console.
     """
     return {
         "saindo": False,
@@ -184,6 +189,7 @@ def criar_estado_inicial():
         "modo_verboso": False,
         "foco_console": None,
         "cursores": {},
+        "selecoes": {},
     }
 
 
@@ -311,6 +317,9 @@ def processar_comando(estado, comando, modelo=None):
         "modo_verboso": estado.get("modo_verboso", False),
         "foco_console": estado.get("foco_console"),
         "cursores": dict(estado.get("cursores", {})),
+        # H-0041: selecao multipla por console (runtime). Preservada entre
+        # comandos; nunca persiste em JSON (NC-005/D-SEL-01).
+        "selecoes": dict(estado.get("selecoes", {})),
     }
     # QAI40-003 / patch pos-validacao manual: ``modo_verboso_forcado`` e
     # override de runtime (ex.: ``--verboso``) e deve permanecer no estado
@@ -342,6 +351,20 @@ def processar_comando(estado, comando, modelo=None):
         novo["desconto_estrutural"] = estado["desconto_estrutural"]
 
     if comando == "s" or comando == "\x1b":
+        # H-0041 / ADR-0034 D-SEL-08: quando o console focado declara selecao
+        # multipla e ha selecao ativa, o primeiro Esc LIMPA a selecao e
+        # PERMANECE na tela (nao sai/volta). Somente quando a selecao esta
+        # vazia o comportamento vigente de H-0040 (Sair/Voltar) e preservado.
+        # A decisao depende do estado reconciliado do console focado.
+        if modelo is not None and comando == "\x1b":
+            console_foco = navegacao.console_focado(
+                dict(novo, modelo=modelo)
+            )
+            if (console_foco is not None
+                    and navegacao._console_declarou_selecao_multipla(console_foco)
+                    and not selecao.esta_vazia(novo, console_foco)):
+                novo = selecao.limpar(novo, console_foco)
+                return novo
         if novo["pilha_telas"]:
             novo["tela_atual"] = novo["pilha_telas"][-1]
             novo["pilha_telas"] = novo["pilha_telas"][:-1]
@@ -352,13 +375,15 @@ def processar_comando(estado, comando, modelo=None):
     # H-0040 / ADR-0031: navegacao de console de nivel unico. As teclas de
     # navegacao sao tratadas ANTES do dispatch de lancador (chip por comando)
     # porque nao colidem com chips de lancador existentes (Esc/Sair, lancador
-    # por chip). Tab/Shift+Tab alternam foco; setas movem cursor por eixo;
-    # espaco nao altera selecao (D13). O estado de navegacao e exclusivamente
-    # runtime (NC-005).
+    # por chip). Tab/Shift+Tab alternam foco; setas movem cursor por eixo.
+    # H-0041 / ADR-0034: Espaco/Enter delegam a ``tela/selecao.py`` quando o
+    # console focado declara selecao multipla (toggle/Todos); caso contrario,
+    # preservam o comportamento de H-0040 (Espaço no-op; Enter sem acao,
+    # PN-0013). O estado de navegacao e selecao e exclusivamente runtime (NC-005).
     if modelo is not None and (
         navegacao.e_tab(comando)
         or navegacao.e_shift_tab(comando)
-        or comando in ("\x1b[A", "\x1b[B", "\x1b[C", "\x1b[D", " ")
+        or comando in ("\x1b[A", "\x1b[B", "\x1b[C", "\x1b[D", " ", "\r", "\n")
     ):
         nav_estado = dict(novo)
         nav_estado["modelo"] = modelo
@@ -377,12 +402,58 @@ def processar_comando(estado, comando, modelo=None):
                     nav_estado = navegacao.mover_baixo(nav_estado, console)
                 elif comando == "\x1b[A":
                     nav_estado = navegacao.mover_cima(nav_estado, console)
-        elif comando == " ":
-            # D13/PN-0017: espaco nao cria nem alterna selecao.
-            nav_estado = navegacao.processar_espaco(nav_estado)
+        else:
+            # H-0041: Espaco/Enter no console focado. Quando o console declara
+            # selecao multipla, delega ao modulo de selecao (D-SEL-05/D-SEL-04).
+            # Caso contrario, preserva H-0040 (Espaço no-op; Enter sem acao).
+            #
+            # H0041-MANUAL-R02-001 (P04): em TTY real com ``tty.setcbreak``,
+            # ICRNL permanece ativo e traduz Enter (``\\r``) para ``\\n`` antes
+            # da leitura. O caminho direto ``processar_comando(..., "\\r")``
+            # funcionava; o loop TTY recebia ``\\n`` e descartava a tecla.
+            # Ambos os bytes sao Enter.
+            console = navegacao.console_focado(nav_estado)
+            if (console is not None
+                    and navegacao._console_declarou_selecao_multipla(console)):
+                if comando == " ":
+                    item = navegacao.item_selecionado(console, nav_estado)
+                    if isinstance(item, dict):
+                        nav_estado = selecao.alternar(
+                            nav_estado, console, item.get("id")
+                        )
+                elif comando in ("\r", "\n"):
+                    # D-SEL-04/D-SEL-07/D-SEL-21: Enter com selecao vazia age
+                    # como Todos; com selecao, Enter e INATIVO (nenhuma execucao
+                    # neste handoff).
+                    #
+                    # QA-H0041-001 (patch P01): a decisao entre ``Todos`` e
+                    # nao-executar considera o estado EXISTENTE no INICIO do
+                    # acionamento, ANTES de descartar IDs residuais. Uma selecao
+                    # originalmente NAO vazia, mas composta apenas por IDs
+                    # invalidos, torna-se vazia apos reconciliacao; nesse caso o
+                    # acionamento SOMENTE reconcilia (deixa a selecao vazia) e
+                    # NAO aplica ``Todos`` no mesmo acionamento. ``selecionar_
+                    # todos`` so e aplicada quando a selecao JA ESTAVA
+                    # originalmente vazia (antes de qualquer reconciliacao).
+                    # IDs invalidos nunca sao preservados (D-SEL-03).
+                    # ``selecao_originalmente_vazia`` lê a lista bruta (sem
+                    # reconciliar); ``esta_vazia`` lê a lista reconciliada.
+                    selecao_originalmente_vazia = (
+                        len(selecao._selecao_do_console(nav_estado, console)) == 0
+                    )
+                    if not selecao_originalmente_vazia:
+                        # Selecao com residuo: reconcilia (descarta IDs
+                        # invalidos) sem aplicar Todos nem executar.
+                        nav_estado = selecao.reconciliar(nav_estado, console)
+                    elif selecao.esta_vazia(nav_estado, console):
+                        nav_estado = selecao.selecionar_todos(nav_estado, console)
+            elif comando == " ":
+                # D13/PN-0017: espaco nao cria nem alterna selecao (legado).
+                nav_estado = navegacao.processar_espaco(nav_estado)
         # O modelo nao e estado de runtime; e removido antes de devolver.
         novo["foco_console"] = nav_estado.get("foco_console")
         novo["cursores"] = dict(nav_estado.get("cursores", {}))
+        novo["selecoes"] = dict(nav_estado.get("selecoes", {}))
         return novo
 
     # H-0037: tecla V (maiuscula) ou v (minuscula) alterna verbosidade
@@ -444,6 +515,7 @@ def renderizar_estado(estado, modelo, largura=None, altura=None):
         cursores=estado.get("cursores", {}),
         lista_foco=lista_foco,
         largura_navegacao=largura,
+        selecoes=estado.get("selecoes", {}),
     )
 
 
@@ -882,6 +954,7 @@ def main(argv=None, estado_inicial=None):
                     verboso_antes = estado.get("modo_verboso", False)
                     foco_antes = estado.get("foco_console")
                     cursores_antes = dict(estado.get("cursores", {}))
+                    selecoes_antes = dict(estado.get("selecoes", {}))
                     estado = dict(
                         estado,
                         largura=largura,
@@ -903,11 +976,13 @@ def main(argv=None, estado_inicial=None):
                     verboso_mudou = estado.get("modo_verboso", False) != verboso_antes
                     foco_mudou = estado.get("foco_console") != foco_antes
                     cursores_mudou = estado.get("cursores", {}) != cursores_antes
+                    selecoes_mudou = estado.get("selecoes", {}) != selecoes_antes
                     if (
                         estado["tela_atual"] != tela_antes
                         or verboso_mudou
                         or foco_mudou
                         or cursores_mudou
+                        or selecoes_mudou
                     ):
                         _apresentar_quadro(
                             _resolver_conteudo(estado, modelo, largura, altura),
@@ -949,6 +1024,7 @@ def main(argv=None, estado_inicial=None):
             verboso_antes = estado.get("modo_verboso", False)
             foco_antes = estado.get("foco_console")
             cursores_antes = dict(estado.get("cursores", {}))
+            selecoes_antes = dict(estado.get("selecoes", {}))
             # Patch VM-11: reafirma geometria corrente antes de cada comando
             # (mesma autoridade do caminho TTY), para a primeira seta usar a
             # formacao atual mesmo apos mudancas de dimensao.
@@ -973,11 +1049,13 @@ def main(argv=None, estado_inicial=None):
             verboso_mudou = estado.get("modo_verboso", False) != verboso_antes
             foco_mudou = estado.get("foco_console") != foco_antes
             cursores_mudou = estado.get("cursores", {}) != cursores_antes
+            selecoes_mudou = estado.get("selecoes", {}) != selecoes_antes
             if (
                 estado["tela_atual"] != tela_antes
                 or verboso_mudou
                 or foco_mudou
                 or cursores_mudou
+                or selecoes_mudou
             ):
                 print(_resolver_conteudo(estado, modelo, largura, altura), end="")
     return 0

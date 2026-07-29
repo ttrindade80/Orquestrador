@@ -19,6 +19,7 @@ metadata:
       - docs/adr/ADR-0026-fornecimento-externo-dados-console-json-multinivel.md
       - docs/adr/ADR-0027-carregamento-conjunto-tela-conteudo-externo-ponto-entrada.md
       - docs/adr/ADR-0031-navegacao-simples-e-selecao-unica-em-console-de-nivel-unico.md
+      - docs/adr/ADR-0034-selecao-multipla-e-fluxo-focal-de-processamento.md
     reaproveitado_de_legado: false
   dependencias_nomenclatura:
     dependencias_obrigatorias:
@@ -1274,3 +1275,155 @@ coluna é estável entre páginas. Linhas de continuação do segundo nível ali
 à mesma coluna inicial. A medição usa o escopo `conteúdo completo` (§27 da
 ADR-0028) restrito ao conteúdo lógico do cenário; não estabelece largura fixa
 global para outras telas ou outros cenários.
+
+---
+
+## 14. Protocolo provisório de execução focal e envelope de resultado (ADR-0034)
+
+A ADR-0034 (2026-07-28) fecha, para os testes focais do `ITEM-0006`, o
+protocolo provisório de entrada e execução da operação consumidora do lote
+selecionado (`contrato_console.md` §23.6), o resultado estruturado do
+processo externo, sua classificação e o envelope de erro multinível.
+
+### 14.1 Escopo e provisoriedade (D-SEL-12)
+
+Este protocolo é provisório e mínimo. Contratos futuros de binding, script e
+processamento podem redefinir nomes de campo, formato de CLI e mecanismo de
+transporte sem reabrir o núcleo de seleção múltipla (`contrato_console.md`
+§23.1 a §23.5). Não introduz registry, dispatcher ou catálogo genérico de
+ações — permanecem no `ITEM-0004`.
+
+### 14.2 Arquivo de entrada
+
+```yaml
+arquivo_de_entrada:
+  meio: arquivo_JSON_temporario
+  schema: selecao_execucao.v1
+  campos_obrigatorios:
+    - schema
+    - ids
+```
+
+`ids` transporta a lista ordenada de IDs reconciliados (`contrato_console.md`
+§23.6) — sem duplicatas, sem objetos completos.
+
+### 14.3 Invocação por CLI
+
+```yaml
+CLI:
+  entrada: --entrada <arquivo-selecao.json>
+  resultado: --resultado <arquivo-resultado.json>
+  execucao_real:
+    padrao: true
+    flag_adicional: ausente
+  dry_run:
+    opcional: true
+    flag: --dry-run
+```
+
+Não existe, neste ciclo, chip de alternância entre execução real e
+`dry-run` na interface (`contrato_barra_de_menus.md` §23.3); a escolha entre
+os dois cenários é declarativa.
+
+### 14.4 Canais do processo e arquivo de resultado (D-SEL-13)
+
+- o Orquestrador cria previamente o arquivo JSON temporário de resultado e
+  fornece explicitamente seu caminho ao script;
+- `stdout` e `stderr` são canais textuais separados; `stdout` nunca é
+  interpretado como o documento JSON de resultado;
+- o arquivo de resultado é validado uma única vez, na entrada da tela de
+  resultado, e convertido para modelo em memória;
+- redesenho e `SIGWINCH` recalculam somente a representação física — não
+  relêem o arquivo;
+- o arquivo temporário é removido ao voltar por `Esc` e em encerramento
+  anormal.
+
+### 14.5 Classificação de sucesso e falha (D-SEL-14)
+
+```yaml
+sucesso: codigo_saida_0_E_json_de_resultado_valido
+
+stderr_com_codigo_0:
+  altera_classificacao: false
+  incorporado_automaticamente_ao_resultado: false
+
+codigo_nao_zero:
+  classificacao: falha
+  json_valido_presente: preservado_no_envelope_de_erro
+  apresentavel_como_sucesso: false
+
+resultado_ausente_malformado_ou_semanticamente_invalido:
+  entregue_diretamente_ao_renderer: false
+  gera: envelope_de_erro_valido_produzido_pelo_orquestrador
+  abre: mesma_tela_padrao_de_resultado
+```
+
+### 14.6 Envelope de erro multinível (D-SEL-15)
+
+```yaml
+envelope_de_erro:
+  tipo: multinivel
+  apresentacao: conjuntos_campos
+  campos_em_ordem_fixa:
+    - status
+    - diagnostico
+    - codigo_saida
+    - stdout
+    - stderr
+    - resultado_json
+```
+
+Quando `resultado_json` está indisponível, recebe `null` e é visualizado
+como `indisponível`.
+
+Quando existe texto inválido produzido pelo script, `resultado_json`
+preserva exatamente espaços, quebras de linha, ordem de chaves e indentação
+originais — é permitido somente o escape necessário para transportar esse
+texto como string JSON. É proibido corrigir o JSON, normalizar ou
+reserializar o texto, inferir intenção do produtor, ou reinterpretar
+resultado inválido.
+
+### 14.7 Dry-run, execução real e restauração (D-SEL-19)
+
+```yaml
+dry_run:
+  altera_dados: false
+  limpa_selecao: false
+  preserva_selecao_para_execucao_real_posterior: true
+
+execucao_real_reversivel:
+  altera: fixture_controlada
+  restaura_automaticamente_ao_encerrar: true
+  restaura_em_erro_ou_KeyboardInterrupt: true
+  deixa_fixture_contaminada: nunca
+
+interrupcao:
+  produz_resultado_estruturado: true
+  devolve_controle_ao_TUI: true
+  limpa_selecao_em_execucao_real: true
+```
+
+### 14.8 Fixtures e dimensão lógica de referência (D-SEL-20)
+
+Todas as fixtures de resultado devem caber integralmente na dimensão lógica
+automatizada de referência `80x24`, usando a área útil real do console na
+tela completa. Fixture que exceda a área é inválida e deve falhar no teste —
+não truncar, não omitir conteúdo, não criar fallback temporário. A
+paginação da tela de resultado não é implementada neste ciclo
+(`ITEM-0003`).
+
+### 14.9 Fora de escopo
+
+Protocolo definitivo de binding, script e processamento; registry,
+dispatcher e catálogo genérico de ações (`ITEM-0004`); paginação interativa
+da tela de resultado (`ITEM-0003`); correção automática de JSON inválido;
+comandos arbitrários declarados no JSON.
+
+### 14.10 Remissões
+
+- `docs/adr/ADR-0034-selecao-multipla-e-fluxo-focal-de-processamento.md` — decisões D-SEL-11 a D-SEL-20;
+- `docs/contratos/contrato_console.md` — seção 23: seleção múltipla e operação focal;
+- `docs/contratos/contrato_tela_json.md` — seção 34: perfil `resultado_execucao` e validação antecipada;
+- `docs/contratos/contrato_barra_de_menus.md` — seção 23: rótulos dinâmicos e chip `Espaço`;
+- `docs/nomenclatura/42_DADOS_EXTERNOS_MULTINIVEL.md` — terminologia de envelope multinível;
+- `docs/nomenclatura/43_CARREGAMENTO_E_ASSOCIACAO_DE_CONTEUDO.md` — terminologia de carregamento do temporário.

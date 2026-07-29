@@ -32,7 +32,8 @@ modelo/JSON:
   saida usa o formato ``"{ec}{tecla}{ed} {texto}"`` (delimitadores e
   capitalizacao do ``EstiloResolvido``) e aparece exatamente uma
   vez, na ordem declarada em ``chips[]``. ``regra_existencia`` e
-  ``regra_ativo`` nao sao avaliadas neste ciclo.
+  ``regra_ativo`` sao avaliadas para chips dinamicos de navegacao e
+  selecao multipla (H-0040/H-0041).
 
 O renderer recebe o parametro obrigatorio ``estilo`` (``EstiloResolvido`` de
 ``tela.loader``) e o opcional ``largura`` (quando ``None``,
@@ -56,7 +57,7 @@ ESCOPO (H-0010A):
 - Nao executa acao, nao ativa binding, nao navega por tela_destino,
   nao aplica filtro, nao altera estado, nao grava arquivo.
 - Nao calcula largura de terminal, nao paginar, nao selecionar.
-- Nao avalia regra_existencia nem regra_ativo.
+- Avalia regra_existencia e regra_ativo dos chips dinamicos (H-0040/H-0041).
 - Nao decide Sair/Voltar por id de tela -- o texto do chipEsc vem do JSON.
 
 A largura total e parametrizavel desde o H-0009: ``renderizar_tela`` aceita
@@ -126,6 +127,18 @@ _navegacao_atual = {
     "largura": None,           # largura vigente para a grade de navegacao
     "simbolo": None,           # estilo.selecionado_simbolo
     "off": None,               # estilo.selecionado_off
+    # H-0041 / ADR-0034: estado de selecao multipla (runtime, por console) e
+    # simbolos do indicador de inclusao (``tg``), paralelos aos de cursor
+    # (``ec``). ``selecoes`` mapeia id-do-console -> lista de IDs marcados.
+    # ``inc_on``/``inc_off`` derivam de ``estilo.incluido_on/off`` (ja
+    # resolvidos pelo loader). ``None`` preserva o comportamento pre-H-0041.
+    "selecoes": {},            # dict id-do-console -> [ids marcados]
+    "inc_on": None,            # estilo.incluido_on
+    "inc_off": None,           # estilo.incluido_off
+    # QA-H0041-002 (P02): estado logico ATIVO/INATIVO por chip, derivado da
+    # avaliacao de ``regra_ativo`` (independente do rotulo apresentado).
+    # Preenchido em ``_linhas_barra``; consultavel por testes apos render.
+    "estado_ativo_chips": {},  # dict id-do-chip -> bool (True=ATIVO)
 }
 
 # Defaults normativos do alias transitório ``distribuicao = "horizontal"`` e
@@ -381,6 +394,71 @@ def _console_focado_de_contexto(elemento):
     return lista[foco] is elemento
 
 
+def _console_declarou_selecao_multipla(elemento):
+    """True quando ``elemento`` declara ``politica_selecao == "multipla"``.
+
+    H-0041 / ADR-0034: a coluna ``tg`` e os chips ``Espaco``/``Enter`` (Todos/
+    Executar) aplicam-se a consoles que declaram selecao multipla. Leitura
+    direta de ``_campos_inertes["politica_selecao"]`` (transporte inerte do
+    modelo). Consoles sem a chave (legado) retornam ``False`` (preserva H-0040).
+    """
+    if getattr(elemento, "tipo", None) != "console":
+        return False
+    return elemento._campos_inertes.get("politica_selecao") == "multipla"
+
+
+def _selecao_do_console_de_contexto(elemento):
+    """Retorna o conjunto de IDs selecionados de ``elemento`` (reconciliado).
+
+    H-0041 / ADR-0034 D-SEL-03: remove IDs inexistentes e itens que deixaram de
+    ser selecionaveis, devolvendo o conjunto observado. Quando o contexto de
+    selecao nao esta ativo (``selecoes`` ausente) ou o console nao esta no
+    mapa, retorna conjunto vazio (preserva H-0040).
+    """
+    selecoes = _navegacao_atual.get("selecoes") or {}
+    marcados = selecoes.get(elemento.id, ())
+    if not marcados:
+        return set()
+    # Reconciliacao: somente IDs de itens selecionaveis permanecem.
+    validos = set(_ids_selecionaveis_do_elemento(elemento))
+    return set(marcados) & validos
+
+
+def _ids_selecionaveis_do_elemento(elemento):
+    """Lista de IDs selecionaveis do console na ordem declarada (D-SEL-02).
+
+    Selecionavel requer ``navegavel`` E ``selecionavel`` verdadeiros. A ordem e
+    a mesma de ``_itens_navegaveis_do_elemento`` (a ordem logica do console).
+    """
+    itens = elemento._campos_inertes.get("itens", []) or []
+    return [
+        item.get("id")
+        for item in itens
+        if isinstance(item, dict)
+        and item.get("navegavel")
+        and item.get("selecionavel")
+        and item.get("id") is not None
+    ]
+
+
+def _participante_eh_selecionavel(elemento, participante_idx):
+    """True quando o participante de indice ``participante_idx`` e selecionavel.
+
+    H-0041 / ADR-0034: resolve a selecionabilidade a partir do indice do
+    participante na ordem declarada de itens. Itens nao dict e itens sem
+    ``selecionavel`` verdadeiro retornam ``False`` (recebem ``tg`` vazio).
+    """
+    itens = elemento._campos_inertes.get("itens", []) or []
+    if participante_idx < 0 or participante_idx >= len(itens):
+        return False
+    item = itens[participante_idx]
+    return (
+        isinstance(item, dict)
+        and bool(item.get("navegavel"))
+        and bool(item.get("selecionavel"))
+    )
+
+
 def _aplicar_indicador_linhas(linhas, elemento, content_w, largura_grade):
     """Prefixa a coluna do indicador em cada linha de console (D12).
 
@@ -431,18 +509,30 @@ def _aplicar_indicador_linhas(linhas, elemento, content_w, largura_grade):
 
 
 def _largura_indicador_do_elemento(elemento):
-    """Largura da coluna do indicador reservada para ``elemento``.
+    """Largura total das colunas indicadoras reservadas para ``elemento``.
 
-    Retorna ``LARGURA_INDICADOR_COLUNA`` (símbolo + 1 espaco) quando o elemento
-    e um console focalizavel no contexto vigente; ``0`` caso contrario. Essa
-    reserva e a MESMA aplicada por ``tela.navegacao.grade_de_itens`` (AT-0021).
+    H-0040 / ADR-0031 D12: retorna ``LARGURA_INDICADOR_COLUNA`` (símbolo + 1
+    espaco) quando o elemento e um console focalizavel no contexto vigente;
+    ``0`` caso contrario.
+
+    H-0041 / ADR-0034 D-SEL-09: quando o console declara selecao multipla,
+    soma ``LARGURA_INDICADOR_INCLUSAO`` (coluna ``tg``, adjacente a ``ec``).
+    Essa reserva e a MESMA aplicada por ``tela.navegacao.grade_de_itens``
+    (AT-0021/PN-0016): renderer e navegacao aplicam o MESMO desconto para que
+    as geometrias coincidam.
     """
     if elemento.tipo != "console":
         return 0
     if not _console_focalizavel_de_contexto(elemento):
         return 0
-    from tela.navegacao import LARGURA_INDICADOR_COLUNA
-    return LARGURA_INDICADOR_COLUNA
+    from tela.navegacao import (
+        LARGURA_INDICADOR_COLUNA,
+        LARGURA_INDICADOR_INCLUSAO,
+    )
+    total = LARGURA_INDICADOR_COLUNA
+    if _console_declarou_selecao_multipla(elemento):
+        total += LARGURA_INDICADOR_INCLUSAO
+    return total
 
 
 def largura_util_itens_console(total_w, elemento, focalizavel=None):
@@ -1390,7 +1480,102 @@ def _linhas_lancador(elemento, content_w=None):
     return [""] * margem_v_sup + linhas_linha + [""] * margem_v_inf
 
 
-def _texto_chip_barra(chip, estilo, vao=1):
+def _avaliar_regra_ativo(
+    regra, *, selecao_vazia=None, item_focalizado_selecionavel=None
+):
+    """Avalia ``regra_ativo`` do chip e devolve o estado logico ATIVO.
+
+    QA-H0041-002 (P02): o estado ATIVO/INATIVO e propriedade distinta do
+    rotulo. Esta funcao consome a regra declarada no JSON; nao infere
+    inatividade a partir do texto (``Todos``/``Executar``).
+
+    Valores reconhecidos (convencao paralela a ``regra_existencia``):
+
+    - ``None`` / ``"sempre"``: sempre ATIVO (comportamento pre-existente);
+    - ``"selecao_vazia"``: ATIVO somente quando a selecao reconciliada do
+      console focado esta vazia (chip Enter=Todos); INATIVO com selecao
+      (chip Enter=Executar, D-SEL-07/D-SEL-21).
+    - ``"item_focalizado_selecionavel"``: ATIVO somente quando o item sob
+      cursor no console focado e selecionavel (chip Espaco=Marcar,
+      D-SEL-05/D-SEL-09); INATIVO quando o item sob cursor nao e
+      selecionavel. H0041-MANUAL-001: o comando ``Espaco`` corretamente
+      ignora itens nao selecionaveis, mas a barra deve apresentar a
+      indisponibilidade — nao basta o comando nao produzir efeito.
+
+    Sem contexto de selecao (``selecao_vazia is None``) ou sem item
+    focalizado (``item_focalizado_selecionavel is None``), regras
+    dependentes nao forcam inativo — preserva consoles/barras sem selecao
+    multipla. Regras desconhecidas nao restringem (ATIVO), para nao inventar
+    politica nova.
+    """
+    if regra is None or regra == "sempre":
+        return True
+    if regra == "selecao_vazia":
+        if selecao_vazia is None:
+            return True
+        return bool(selecao_vazia)
+    if regra == "item_focalizado_selecionavel":
+        if item_focalizado_selecionavel is None:
+            return True
+        return bool(item_focalizado_selecionavel)
+    return True
+
+
+# Traducao de nomes semanticos de cor para SGR ANSI (contrato_estilo.md R-7).
+# Unico mecanismo canônico de paleta no renderer; consumidores leem o nome
+# de ``EstiloResolvido`` e nao embutem literais de cor por estado.
+_ANSI_POR_NOME_SEMANTICO = {
+    "padrão": "",
+    "cinza": "\x1b[90m",
+    "azul": "\x1b[34m",
+    "amarelo": "\x1b[33m",
+    "verde": "\x1b[32m",
+}
+_ANSI_RESET_FG = "\x1b[39m"
+
+
+def _codigo_ansi_de_cor(nome_semantico):
+    """Devolve a sequencia SGR para ``nome_semantico``, ou ``\"\"`` se neutro.
+
+    Nomes ausentes da paleta nao inventam cor (string vazia) — o renderer
+    nao hardcoda ANSI ad-hoc fora desta tabela.
+    """
+    if not isinstance(nome_semantico, str):
+        return ""
+    return _ANSI_POR_NOME_SEMANTICO.get(nome_semantico, "")
+
+
+def _largura_sem_ansi(texto):
+    """Largura visual de ``texto`` ignorando sequencias SGR ``CSI ... m``."""
+    if not texto:
+        return 0
+    n = 0
+    i = 0
+    comprimento = len(texto)
+    while i < comprimento:
+        ch = texto[i]
+        if ch == "\x1b" and i + 1 < comprimento and texto[i + 1] == "[":
+            i += 2
+            while i < comprimento:
+                fim = texto[i]
+                i += 1
+                if "A" <= fim <= "Z" or "a" <= fim <= "z":
+                    break
+            continue
+        n += 1
+        i += 1
+    return n
+
+
+def _ljust_sem_ansi(texto, largura):
+    """Equivalente a ``str.ljust`` contando apenas caracteres visiveis."""
+    pad = largura - _largura_sem_ansi(texto)
+    if pad <= 0:
+        return texto
+    return texto + (" " * pad)
+
+
+def _texto_chip_barra(chip, estilo, vao=1, inativo=False):
     """Monta o texto de um chip da barra no formato ``"{ec}{tecla}{ed}{padding}{texto}"``.
 
     H-0039 / ADR-0030 D5: os delimitadores e a capitalizacao do rotulo vêm do
@@ -1401,6 +1586,16 @@ def _texto_chip_barra(chip, estilo, vao=1):
     lidos do estilo; enquanto nao houver traducao de nome semantico para
     ANSI, o valor ``"padrão"`` preserva o comportamento vigente (sem cor
     diferenciada, sem cor concreta nova).
+
+    H-0041 P04: quando ``inativo=True``, o chip recebe ``estilo.cor_inativo``
+    (nome semantico resolvido pelo loader a partir de ``config/estilo.json``),
+    traduzido pela paleta canônica do renderer (R-7). A capitalizacao normal
+    do rotulo e preservada — caixa baixa como indicacao de inatividade e
+    proibida. A sequencia de cor e delimitada e seguida de restauracao do
+    foreground (``_ANSI_RESET_FG``), sem vazar para chips posteriores.
+    O estado logico continua vindo de ``regra_ativo`` / ``estado_ativo_chips``,
+    nunca inferido pelo rotulo. Consoles sem selecao multipla preservam o
+    comportamento anterior (``inativo`` default ``False``).
     """
     tecla = chip.get("tecla", "")
     texto = chip.get("texto", "")
@@ -1408,13 +1603,22 @@ def _texto_chip_barra(chip, estilo, vao=1):
     cor_fundo = estilo.cor_fundo   # H-0039: "padrão" → sem ANSI nova
     if estilo.caixa_alta:
         texto = texto.upper()
-    return "{ec}{tecla}{ed}{padding}{rotulo}".format(
+    base = "{ec}{tecla}{ed}{padding}{rotulo}".format(
         ec=estilo.caractere_esquerdo,
         ed=estilo.caractere_direito,
         tecla=tecla,
         rotulo=texto,
         padding=" " * vao,
     )
+    # Referencia material a cor_texto/cor_fundo (H-0039); sem efeito enquanto
+    # o valor semantico for ``"padrão"``.
+    _ = (cor_texto, cor_fundo)
+    if not inativo:
+        return base
+    codigo = _codigo_ansi_de_cor(estilo.cor_inativo)
+    if not codigo:
+        return base
+    return "{0}{1}{2}".format(codigo, base, _ANSI_RESET_FG)
 
 
 def _normalizar_distribuicao(distribuicao):
@@ -1710,14 +1914,14 @@ def _montar_coluna_a_coluna(texto_chips, n_linhas, vao_entre_colunas):
     colunas = [[] for _ in range(n_colunas)]
     for idx, txt in enumerate(texto_chips):
         colunas[idx // n_linhas].append(txt)
-    larguras = [max(len(s) for s in col) for col in colunas]
+    larguras = [max(_largura_sem_ansi(s) for s in col) for col in colunas]
     sep = " " * vao_entre_colunas
     linhas = []
     for r in range(n_linhas):
         partes = []
         for c in range(n_colunas):
             if r < len(colunas[c]):
-                partes.append(colunas[c][r].ljust(larguras[c]))
+                partes.append(_ljust_sem_ansi(colunas[c][r], larguras[c]))
         linhas.append(sep.join(partes).rstrip())
     return linhas
 
@@ -1797,8 +2001,12 @@ def _linhas_barra(barra_de_menus, estilo, content_w):
 
     Cada chip é renderizado como ``"{ec}{tecla}{ed} {texto}"``, onde os
     delimitadores e a capitalização do rótulo vêm do ``EstiloResolvido``
-    (H-0039 / ADR-0030 D5). ``regra_existencia`` e ``regra_ativo`` não são
-    avaliadas neste ciclo.
+    (H-0039 / ADR-0030 D5). ``regra_existencia`` é avaliada para os chips
+    dinâmicos de navegação (H-0040) e seleção múltipla (H-0041); o rótulo
+    dinâmico ``Todos``/``Executar`` do chip ``[Enter]`` é materializado quando
+    a forma de exibição ``rotulo_dinamico_selecao`` está declarada (H-0041).
+    ``regra_ativo`` é avaliada por chip (QA-H0041-002 / P02): o estado lógico
+    ATIVO/INATIVO é independente do rótulo apresentado.
 
     ``content_w`` é a largura disponível para conteúdo dentro da caixa
     (``total_w - 3``). Retorna lista de strings, cada uma uma linha de
@@ -1820,12 +2028,52 @@ def _linhas_barra(barra_de_menus, estilo, content_w):
     # Nao existe estado inativo para ``[✥]``: ou esta presente, ou ausente
     # (regra_existencia exclusiva).
     lista = _navegacao_atual.get("lista_foco")
+    # H-0041: ``rotulo_enter`` e definido apenas quando o contexto de navegacao
+    # esta ativo e o console focado declara selecao multipla; ``None`` caso
+    # contrario (preserva o comportamento pre-H-0041 para a barra de menus).
+    rotulo_enter = None
+    # QA-H0041-002 (P02): contexto para ``regra_ativo`` (independente do rotulo).
+    # ``None`` = sem contexto de selecao multipla (nao forca inativo).
+    selecao_vazia = None
+    # H0041-MANUAL-001 (P03): selecionabilidade do item sob cursor no console
+    # focado (contexto para ``regra_ativo: item_focalizado_selecionavel`` do
+    # chip Espaco). ``None`` = sem console focado/selecao multipla (nao forca
+    # inativo). Reaproveita ``tela.selecao.chip_espaco_ativo``, que resolve o
+    # item corrente via ``tela.navegacao`` sem acoplamento por import direto.
+    item_focalizado_selecionavel = None
     if lista is not None:
         tem_alternar = len(lista) >= 2
         foco = _navegacao_atual.get("foco_console")
         tem_navegar = False
+        console_foco = None
         if lista and foco is not None and 0 <= foco < len(lista):
-            tem_navegar = len(_itens_navegaveis_do_elemento(lista[foco])) > 1
+            console_foco = lista[foco]
+            tem_navegar = len(_itens_navegaveis_do_elemento(console_foco)) > 1
+        # H-0041 / ADR-0034 D-SEL-09: regras dinamicas dos chips ``[Espaço]``
+        # e ``[Enter]``. ``[Espaço]`` existe quando o console focado declara
+        # selecao multipla (``regra_existencia: console_focado_com_selecao_multipla``).
+        # ``[Enter]`` existe com a mesma condicao; seu rotulo e dinamico:
+        # ``Todos`` quando a selecao esta vazia, ``Executar`` quando ha
+        # selecao. O estado logico ATIVO/INATIVO vem de ``regra_ativo``
+        # (ex.: ``selecao_vazia``), nao do texto do rotulo.
+        tem_selecao_multipla = (
+            console_foco is not None
+            and _console_declarou_selecao_multipla(console_foco)
+        )
+        if tem_selecao_multipla and console_foco is not None:
+            from tela import selecao as _sel_mod
+            from tela import navegacao as _nav_mod
+            estado_sel = {
+                "selecoes": _navegacao_atual.get("selecoes") or {},
+                "cursores": _navegacao_atual.get("cursores") or {},
+            }
+            rotulo_enter = _sel_mod.rotulo_enter(estado_sel, console_foco)
+            selecao_vazia = _sel_mod.esta_vazia(estado_sel, console_foco)
+            # H0041-MANUAL-001: o chip Espaco deve refletir a selecionabilidade
+            # do item sob cursor (D-SEL-09), recalculada a cada movimento.
+            item_focalizado_selecionavel = _sel_mod.chip_espaco_ativo(
+                console_foco, estado_sel, _nav_mod
+            )
         filtrados = []
         for chip in chips:
             regra = chip.get("regra_existencia")
@@ -1837,8 +2085,44 @@ def _linhas_barra(barra_de_menus, estilo, content_w):
                 if tem_navegar:
                     filtrados.append(chip)
                 continue
+            if regra == "console_focado_com_selecao_multipla":
+                if tem_selecao_multipla:
+                    filtrados.append(chip)
+                continue
             filtrados.append(chip)
         chips = filtrados
+
+    # H-0041: materializa o rotulo dinamico ``Todos``/``Executar`` do chip
+    # ``[Enter]``. ``forma_exibicao: "rotulo_dinamico_selecao"`` ja e campo
+    # contratado (presente em fixtures H-0029/H-0030 para rotulos dinamicos de
+    # dashboard); o renderer apenas decide o valor quando a regra de existencia
+    # manteve o chip. O rotulo e independente do estado logico ATIVO/INATIVO.
+    if rotulo_enter is not None:
+        chips = [
+            (dict(c, texto=rotulo_enter)
+             if c.get("forma_exibicao") == "rotulo_dinamico_selecao"
+             else c)
+            for c in chips
+        ]
+
+    # QA-H0041-002 (P02): avalia ``regra_ativo`` por chip. O estado logico e
+    # materializado em ``_navegacao_atual["estado_ativo_chips"]`` para consulta
+    # pelos testes; a representacao visual inativa (cor_inativo) e apenas
+    # consequencia desse estado — nunca deriva de ``rotulo_enter == "Executar"``.
+    # H0041-MANUAL-001 (P03): ``item_focalizado_selecionavel`` e repassado para
+    # que ``regra_ativo: item_focalizado_selecionavel`` (chip Espaco) reflita a
+    # selecionabilidade do item sob cursor, recalculada a cada movimento.
+    estado_ativo_chips = {}
+    for c in chips:
+        chip_id = c.get("id")
+        ativo = _avaliar_regra_ativo(
+            c.get("regra_ativo"),
+            selecao_vazia=selecao_vazia,
+            item_focalizado_selecionavel=item_focalizado_selecionavel,
+        )
+        if chip_id is not None:
+            estado_ativo_chips[chip_id] = ativo
+    _navegacao_atual["estado_ativo_chips"] = estado_ativo_chips
 
     distribuicao = _normalizar_distribuicao(
         barra_de_menus.get("distribuicao")
@@ -1858,7 +2142,14 @@ def _linhas_barra(barra_de_menus, estilo, content_w):
     vao_entre_chips = (esp.get("vao_entre_chips") or {}).get("minimo", 2)
     vao_entre_colunas = (esp.get("vao_entre_colunas") or {}).get("minimo", 2)
 
-    texto_chips = [_texto_chip_barra(c, estilo, vao=vao_ct) for c in chips]
+    texto_chips = [
+        _texto_chip_barra(
+            c, estilo, vao=vao_ct,
+            # Estado visual inativo = consequencia de regra_ativo == False.
+            inativo=not estado_ativo_chips.get(c.get("id"), True),
+        )
+        for c in chips
+    ]
     prefixo = " " * margem
     largura_util = content_w - 2 * margem
 
@@ -1869,7 +2160,11 @@ def _linhas_barra(barra_de_menus, estilo, content_w):
 
     sep_chips = " " * vao_entre_chips
     linha_unica = sep_chips.join(texto_chips)
-    if minimo <= 1 and largura_util >= 0 and len(linha_unica) <= largura_util:
+    if (
+        minimo <= 1
+        and largura_util >= 0
+        and _largura_sem_ansi(linha_unica) <= largura_util
+    ):
         return [prefixo + linha_unica]
 
     inicio_multilinha = max(2, minimo)
@@ -1882,7 +2177,11 @@ def _linhas_barra(barra_de_menus, estilo, content_w):
             linhas = _montar_linha_a_linha(
                 texto_chips, n_linhas, vao_entre_chips
             )
-        if linhas and largura_util >= 0 and max(len(l) for l in linhas) <= largura_util:
+        if (
+            linhas
+            and largura_util >= 0
+            and max(_largura_sem_ansi(l) for l in linhas) <= largura_util
+        ):
             return [prefixo + l for l in linhas]
 
     raise RenderizadorErro(
@@ -2007,24 +2306,31 @@ def _renderizar_participante_na_celula(
 def _renderizar_participante_com_indicador(
     canvas, texto_integral, cel_x, cel_y, cel_w, cel_h,
     canvas_h, area_w, alinh_h, alinh_v, ind_w, eh_corrente, quebrar,
+    ec_w=0, tg_w=0, tg_marcador=None,
 ):
-    """Escreve o conteúdo do item reservando a coluna do indicador (QAI40-001).
+    """Escreve o conteúdo do item reservando as colunas indicadoras (QAI40-001/H-0041).
 
-    O indicador é inserido DENTRO da célula antes da composição horizontal do
-    texto do item:
+    Os indicadores são inseridos DENTRO da célula antes da composição horizontal
+    do texto do item:
 
-    - a primeira coluna da célula (``ind_w`` caracteres: símbolo + separador)
-      recebe ``selecionado_simbolo`` quando este é o item corrente no console
-      focado, ou ``selecionado_off`` caso contrário;
+    - coluna ``ec`` (cursor, D12): ``ec_w`` caracteres (símbolo + separador);
+      recebe ``selecionado_simbolo`` na primeira linha física do item corrente
+      no console focado, ou ``selecionado_off`` caso contrário;
+    - coluna ``tg`` (inclusão, D-SEL-09): ``tg_w`` caracteres adjacentes a
+      ``ec`` (apenas quando o console declara seleção multipla); recebe
+      ``tg_marcador`` (``incluido_on``/``incluido_off``) na primeira linha
+      física do item — ``None`` deixa a coluna em branco (item não
+      selecionável ou console sem seleção multipla);
     - o texto do item começa em ``cel_x + ind_w`` (largura útil de texto =
-      ``cel_w - ind_w``);
+      ``cel_w - ind_w``), onde ``ind_w = ec_w + tg_w``;
     - quando ``quebrar`` (modo verboso efetivo), o texto é quebrado em múltiplas
-      linhas físicas pela largura útil de texto (QAI40-003). O indicador aparece
-      somente na primeira linha física; as linhas de continuação recebem
-      ``selecionado_off``.
+      linhas físicas pela largura útil de texto (QAI40-003). Os indicadores
+      aparecem somente na primeira linha física; as linhas de continuação
+      recebem ``selecionado_off`` (ec) e espaço (tg).
 
     Apenas a primeira linha física do item corrente recebe o símbolo; nenhuma
-    linha vazia recebe o indicador (D11/D12). A coluna indicadora é estável.
+    linha vazia recebe o indicador (D11/D12). As colunas indicadoras são
+    estáveis (não deslocam o conteúdo entre mudanças de cursor/seleção).
     """
     simbolo = _navegacao_atual.get("simbolo")
     off = _navegacao_atual.get("off")
@@ -2036,7 +2342,7 @@ def _renderizar_participante_com_indicador(
         )
         return
 
-    # Largura útil de texto dentro da célula (após o indicador).
+    # Largura útil de texto dentro da célula (após os indicadores).
     texto_w = max(0, cel_w - ind_w)
     cel_x_fim = cel_x + cel_w
 
@@ -2058,14 +2364,22 @@ def _renderizar_participante_com_indicador(
         # célula seguinte (patch pos-validação manual H-0040 / VM-07).
         if not (0 <= py < canvas_h) or py >= cel_y + cel_h:
             continue
-        # Coluna indicadora: símbolo na primeira linha física do item corrente;
+        # Coluna ``ec``: símbolo na primeira linha física do item corrente;
         # selecionado_off nas demais linhas (continuações) e demais itens.
-        marcador = simbolo if (eh_corrente and frag_idx == 0) else off
-        # Escreve o marcador + separador na coluna indicadora da célula.
-        for k in range(ind_w):
+        ec_marcador = simbolo if (eh_corrente and frag_idx == 0) else off
+        for k in range(ec_w):
             cx = cel_x + k
             if 0 <= cx < area_w and cx < cel_x_fim:
-                canvas[py][cx] = marcador if k == 0 else off
+                canvas[py][cx] = ec_marcador if k == 0 else off
+        # Coluna ``tg`` (inclusão, D-SEL-09): símbolo apenas na primeira linha
+        # física do item; continuação e itens não selecionáveis ficam vazios
+        # (espaço). ``tg_simbolo`` None -> coluna em branco (sem símbolo de
+        # inclusão); caso contrário, símbolo na 1a coluna + espaço separador.
+        tg_simbolo = tg_marcador if (frag_idx == 0 and tg_marcador is not None) else None
+        for k in range(tg_w):
+            cx = cel_x + ec_w + k
+            if 0 <= cx < area_w and cx < cel_x_fim:
+                canvas[py][cx] = (tg_simbolo if k == 0 else " ") if tg_simbolo is not None else " "
         # Texto do item a partir de cel_x + ind_w.
         for k, ch in enumerate(frag):
             cx = cel_x + ind_w + k
@@ -2288,14 +2602,49 @@ def _linhas_distribuicao_matricial(elemento, content_w, altura_alvo, verboso=Fal
         if eh_console_com_indicador and _console_focado_de_contexto(elemento)
         else None
     )
-    # Mapeia participante -> id do item navegavel (na ordem declarada) para
-    # identificar qual celula corresponde ao item corrente.
+    # H-0041: o mapeamento participante -> id alinha-se com a ordem declarada de
+    # TODOS os itens (``_participantes_distribuicao_matricial`` inclui itens
+    # não navegáveis visivelmente). ``nav_ids`` lista o id de cada participante;
+    # itens não navegáveis (sem ``navegavel``) ficam como ``None`` e nunca
+    # recebem cursor (D8) — preserva o comportamento de consoles sem itens
+    # mistos (todos navegáveis) e corrige o alinhamento quando há não navegáveis.
     nav_ids = None
     if eh_console_com_indicador:
-        nav_ids = [it.get("id") for it in _itens_navegaveis_do_elemento(elemento)]
+        itens = elemento._campos_inertes.get("itens", []) or []
+        nav_ids = [
+            (it.get("id") if isinstance(it, dict) and it.get("navegavel") else None)
+            for it in itens
+        ]
+
+    # H-0041 / ADR-0034: símbolos e larguras das colunas ``ec`` (cursor) e ``tg``
+    # (inclusão). ``tg`` só aparece quando o console declara seleção multipla.
+    inc_on = _navegacao_atual.get("inc_on")
+    inc_off = _navegacao_atual.get("inc_off")
+    tem_tg = (
+        eh_console_com_indicador
+        and _console_declarou_selecao_multipla(elemento)
+        and inc_on is not None
+        and inc_off is not None
+    )
+    selecao_corrente = (
+        _selecao_do_console_de_contexto(elemento) if tem_tg else set()
+    )
+    from tela.navegacao import (
+        LARGURA_INDICADOR_COLUNA as _EC_W,
+        LARGURA_INDICADOR_INCLUSAO as _TG_W,
+    )
+    tg_w = _TG_W if tem_tg else 0
 
     for celula in resultado["celulas"]:
         participante_idx = celula["participante"]
+        # H-0041: resolve o marcador de inclusão (``tg``) por participante.
+        # ``None`` -> item não selecionável ou console sem seleção multipla:
+        # a coluna ``tg`` fica em branco (sem símbolo de inclusão, D-SEL-09).
+        tg_marcador = None
+        if tem_tg and participante_idx < len(nav_ids):
+            pid = nav_ids[participante_idx]
+            if pid is not None and _participante_eh_selecionavel(elemento, participante_idx):
+                tg_marcador = inc_on if pid in selecao_corrente else inc_off
         # QAI40-001: o indicador e inserido DENTRO da celula, antes do texto.
         # Para consoles focalizaveis, deslocamos o texto por ind_w e colocamos
         # o marcador na primeira coluna da celula (apenas na primeira linha
@@ -2320,6 +2669,9 @@ def _linhas_distribuicao_matricial(elemento, content_w, altura_alvo, verboso=Fal
                     and item_corrente_id is not None
                 ),
                 quebrar=quebrar,
+                ec_w=_EC_W,
+                tg_w=tg_w,
+                tg_marcador=tg_marcador,
             )
         else:
             # DEC-APP-0025-01: a camada matricial entrega o conteudo integral ao
@@ -2950,6 +3302,7 @@ def renderizar_tela(
     cursores=None,
     lista_foco=None,
     largura_navegacao=None,
+    selecoes=None,
 ) -> str:
     """Renderiza ModeloTela como string visual declarativa (H-0010A).
 
@@ -3052,6 +3405,15 @@ def renderizar_tela(
     )
     _navegacao_atual["simbolo"] = getattr(estilo, "selecionado_simbolo", None)
     _navegacao_atual["off"] = getattr(estilo, "selecionado_off", None)
+    # H-0041 / ADR-0034: estado de selecao multipla (runtime, por console) e
+    # simbolos do indicador de inclusao (``tg``). ``selecoes`` ausente preserva
+    # o comportamento pre-H-0041 (sem coluna tg). Os simbolos derivam do
+    # estilo global materializado (``incluido_on/off``), ja resolvidos pelo
+    # loader a partir de ``config/estilo.json`` (sem novo campo de estilo).
+    _navegacao_atual["selecoes"] = selecoes or {}
+    _navegacao_atual["inc_on"] = getattr(estilo, "incluido_on", None)
+    _navegacao_atual["inc_off"] = getattr(estilo, "incluido_off", None)
+    _navegacao_atual["estado_ativo_chips"] = {}
 
     total_w = TOTAL_WIDTH if largura is None else largura
     inner_w = total_w - 2

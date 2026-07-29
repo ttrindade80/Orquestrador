@@ -25,6 +25,8 @@ import sys
 import tempfile
 from pathlib import Path
 
+import pytest
+
 
 _BASE_PADRAO = Path(__file__).resolve().parent.parent
 
@@ -4158,14 +4160,16 @@ _ESTILO_VALIDO = {
             "presets": {"Círculo": {"on": "●", "off": "○"}},
         },
     },
+    "cor_inativo": "cinza",
 }
 
 
 def teste_carregar_estilo():
     """Testa carregar_estilo / EstiloResolvido / EstiloErro (H-0039).
 
-    Positivos: carregamento valido, materializacao dos 18 campos, presets
-    ativos resolvidos, literais "padrão", caixa_alta false, regra len==1.
+    Positivos: carregamento valido, materializacao dos 19 campos, presets
+    ativos resolvidos, literais "padrão", caixa_alta false, regra len==1,
+    cor_inativo semantico (H-0041 P04).
     Negativos: V-01 a V-29 (arquivo ausente, JSON invalido, secoes ausentes,
     preset_default ausente, catalogos vazios, preset inexistente sem fallback,
     campos obrigatorios ausentes, tipos invalidos, len!=1, string vazia) e
@@ -4191,10 +4195,11 @@ def teste_carregar_estilo():
         "concluido_on", "concluido_off",
         "selecionado_simbolo", "selecionado_off",
         "incluido_on", "incluido_off",
+        "cor_inativo",
     )
     nenhuma_ausente = all(getattr(estilo, c, None) is not None for c in campos_esperados)
     _registrar(
-        "EstiloResolvido materializa os 18 campos (nenhum ausente/None)",
+        "EstiloResolvido materializa os 19 campos (nenhum ausente/None)",
         nenhuma_ausente,
     )
 
@@ -4225,6 +4230,10 @@ def teste_carregar_estilo():
     _registrar(
         "cor_fundo == 'padrão' (literal preservado)",
         estilo.cor_fundo == "padrão",
+    )
+    _registrar(
+        "cor_inativo == 'cinza' (H-0041 P04; config/estilo.json)",
+        estilo.cor_inativo == "cinza",
     )
     _registrar(
         "selecionado_simbolo == '→' (preset 'Seta' ativo)",
@@ -4381,6 +4390,15 @@ def teste_carregar_estilo():
             "V-26 cor_texto nao e string (tipo invalido)",
             _mutar(["chip", "presets", "Colchete", "cor_texto"], 5),
         )
+        # H-0041 P04: cor_inativo ausente / tipo invalido (mesmo mecanismo V-26).
+        _espera(
+            "H-0041 P04 cor_inativo ausente -> EstiloErro (sem fallback)",
+            _mutar(["cor_inativo"], _VAZIO),
+        )
+        _espera(
+            "H-0041 P04 cor_inativo nao e string (tipo invalido)",
+            _mutar(["cor_inativo"], 7),
+        )
         # V-27: comprimento diferente de 1 (R-6).
         _espera(
             "V-27 caractere com len != 1 (R-6)",
@@ -4415,6 +4433,54 @@ def teste_carregar_estilo():
             shutil.rmtree(tmp_base)
         except OSError:
             pass
+
+
+# H-0041 P04: cobertura pytest explicita de ``cor_inativo`` (alem do
+# diagnostico ``_registrar`` em ``teste_carregar_estilo``).
+# ---------------------------------------------------------------------------
+def test_h0041_p04_cor_inativo_em_estilo_json():
+    # config/estilo.json materializa cor_inativo=cinza.
+    caminho = _BASE_PADRAO / "config" / "estilo.json"
+    dados = json.loads(caminho.read_text(encoding="utf-8"))
+    assert "cor_inativo" in dados
+    assert dados["cor_inativo"] == "cinza"
+
+
+def test_h0041_p04_loader_transporta_cor_inativo():
+    # Loader le o campo e EstiloResolvido preserva o nome semantico.
+    estilo = carregar_estilo(_BASE_PADRAO)
+    assert estilo.cor_inativo == "cinza"
+    # Demais campos de cor nao regridem.
+    assert estilo.cor_texto == "padrão"
+    assert estilo.cor_fundo == "padrão"
+
+
+def test_h0041_p04_cor_inativo_ausente_erro(tmp_path):
+    # Ausencia segue politica vigente: EstiloErro, sem fallback silencioso.
+    import copy
+    dados = copy.deepcopy(_ESTILO_VALIDO)
+    del dados["cor_inativo"]
+    cfg = tmp_path / "config"
+    cfg.mkdir()
+    (cfg / "estilo.json").write_text(
+        json.dumps(dados, ensure_ascii=False), encoding="utf-8"
+    )
+    with pytest.raises(EstiloErro):
+        carregar_estilo(tmp_path)
+
+
+def test_h0041_p04_cor_inativo_tipo_invalido_erro(tmp_path):
+    # Tipo invalido segue V-26 (mesmo mecanismo das demais cores).
+    import copy
+    dados = copy.deepcopy(_ESTILO_VALIDO)
+    dados["cor_inativo"] = 99
+    cfg = tmp_path / "config"
+    cfg.mkdir()
+    (cfg / "estilo.json").write_text(
+        json.dumps(dados, ensure_ascii=False), encoding="utf-8"
+    )
+    with pytest.raises(EstiloErro):
+        carregar_estilo(tmp_path)
 
 
 def main():
