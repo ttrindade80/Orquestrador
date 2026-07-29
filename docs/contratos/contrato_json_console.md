@@ -20,6 +20,7 @@ metadata:
       - docs/adr/ADR-0027-carregamento-conjunto-tela-conteudo-externo-ponto-entrada.md
       - docs/adr/ADR-0031-navegacao-simples-e-selecao-unica-em-console-de-nivel-unico.md
       - docs/adr/ADR-0034-selecao-multipla-e-fluxo-focal-de-processamento.md
+      - docs/adr/ADR-0035-protocolo-focal-execucao-sintetica-reversivel.md
     reaproveitado_de_legado: false
   dependencias_nomenclatura:
     dependencias_obrigatorias:
@@ -1278,14 +1279,20 @@ global para outras telas ou outros cenários.
 
 ---
 
-## 14. Protocolo provisório de execução focal e envelope de resultado (ADR-0034)
+## 14. Protocolo provisório de execução focal e envelope de resultado (ADR-0034; especialização ADR-0035)
 
 A ADR-0034 (2026-07-28) fecha, para os testes focais do `ITEM-0006`, o
 protocolo provisório de entrada e execução da operação consumidora do lote
 selecionado (`contrato_console.md` §23.6), o resultado estruturado do
 processo externo, sua classificação e o envelope de erro multinível.
 
-### 14.1 Escopo e provisoriedade (D-SEL-12)
+A ADR-0035 (2026-07-29) especializa o Handoff 2 desse protocolo — executor
+sintético, cópia de trabalho, documento de sucesso, validação da entrada,
+ciclo de vida temporário e controles sintéticos — sem substituir a
+ADR-0034, sem alterar D-SEL-01 a D-SEL-10 e sem instituir binding
+definitivo entre Orquestrador e Pipeline.
+
+### 14.1 Escopo e provisoriedade (D-SEL-12; H2-ESP-01, H2-ESP-02)
 
 Este protocolo é provisório e mínimo. Contratos futuros de binding, script e
 processamento podem redefinir nomes de campo, formato de CLI e mecanismo de
@@ -1293,7 +1300,17 @@ transporte sem reabrir o núcleo de seleção múltipla (`contrato_console.md`
 §23.1 a §23.5). Não introduz registry, dispatcher ou catálogo genérico de
 ações — permanecem no `ITEM-0004`.
 
-### 14.2 Arquivo de entrada
+No Handoff 2 a execução é sintética e demonstrativa:
+
+```yaml
+binding_real: nao_implementado
+integracao_com_pipeline: nao_implementada
+fronteira_simulada: comando → execução → resultado
+consulta_sintetica_de_itens: ausente
+entrada: lista_ordenada_de_ids_reconciliados_do_H-0041
+```
+
+### 14.2 Arquivo de entrada e validação estrutural (D-SEL-12; H2-ESP-13)
 
 ```yaml
 arquivo_de_entrada:
@@ -1306,6 +1323,24 @@ arquivo_de_entrada:
 
 `ids` transporta a lista ordenada de IDs reconciliados (`contrato_console.md`
 §23.6) — sem duplicatas, sem objetos completos.
+
+Rejeição integral antes de qualquer alteração quando:
+
+- `schema` estiver ausente ou divergente de `selecao_execucao.v1`;
+- `ids` estiver ausente ou não for lista;
+- a lista estiver vazia;
+- houver ID vazio ou não textual;
+- houver duplicatas.
+
+```yaml
+normalizacao_silenciosa: proibida
+processamento_parcial_do_pedido_invalido: proibido
+alteracao_da_copia_em_rejeicao: nenhuma
+codigo_saida_em_rejeicao: nao_zero
+```
+
+ID textual estruturalmente válido, porém ausente da fixture, não invalida o
+pedido — resulta em `nao_encontrado` por item (§14.9).
 
 ### 14.3 Invocação por CLI
 
@@ -1321,11 +1356,15 @@ CLI:
     flag: --dry-run
 ```
 
+A CLI provisória permanece com os mesmos argumentos. Não existem
+`--fixture`, flags de falha nem argumentos de binding. A fixture de
+trabalho é localizada por convenção posicional (§14.4).
+
 Não existe, neste ciclo, chip de alternância entre execução real e
 `dry-run` na interface (`contrato_barra_de_menus.md` §23.3); a escolha entre
 os dois cenários é declarativa.
 
-### 14.4 Canais do processo e arquivo de resultado (D-SEL-13)
+### 14.4 Canais, diretório temporário e arquivo de resultado (D-SEL-13; H2-ESP-14 a H2-ESP-16)
 
 - o Orquestrador cria previamente o arquivo JSON temporário de resultado e
   fornece explicitamente seu caminho ao script;
@@ -1338,7 +1377,35 @@ os dois cenários é declarativa.
 - o arquivo temporário é removido ao voltar por `Esc` e em encerramento
   anormal.
 
-### 14.5 Classificação de sucesso e falha (D-SEL-14)
+Cada invocação do Handoff 2 opera em diretório temporário exclusivo:
+
+```text
+<diretorio-exclusivo>/
+├── entrada.json
+├── resultado.json
+└── fixture_trabalho.json
+```
+
+```yaml
+resultado_json: criado_previamente
+fixture_trabalho: irma_de_resultado_json
+localizacao_da_fixture: derivada_pelo_executor_dessa_relacao
+limpeza_protegida: remove_todo_o_diretorio_em_sucesso_falha_ou_interrupcao
+inspecao_por_teste: mecanismo_interno_nao_integra_a_CLI_publica
+```
+
+Cenário normal de canais:
+
+```yaml
+stdout: vazio
+stderr: vazio
+```
+
+O resultado estruturado provém exclusivamente de `resultado.json`. `stderr`
+com código `0` não altera a classificação. Cenários focais podem emitir
+diagnóstico textual determinístico.
+
+### 14.5 Classificação de sucesso e falha (D-SEL-14; H2-ESP-10, H2-ESP-11)
 
 ```yaml
 sucesso: codigo_saida_0_E_json_de_resultado_valido
@@ -1357,6 +1424,26 @@ resultado_ausente_malformado_ou_semanticamente_invalido:
   gera: envelope_de_erro_valido_produzido_pelo_orquestrador
   abre: mesma_tela_padrao_de_resultado
 ```
+
+Status semântico interno do documento de sucesso, distinto da classificação
+de processo acima:
+
+```yaml
+processados_com_ignorados:
+  status: sucesso
+
+presenca_de_nao_encontrado_ou_falha_individual:
+  status: parcial
+
+falha_estrutural_ou_operacional_impeditiva:
+  status: falha
+```
+
+Quando o executor conclui o protocolo e grava documento válido com
+`status: sucesso` ou `status: parcial`, retorna código `0`. Código não zero
+permanece reservado a falha operacional, interrupção ou impossibilidade de
+concluir o protocolo. Código não zero produz classificação externa de falha
+mesmo quando existe JSON válido.
 
 ### 14.6 Envelope de erro multinível (D-SEL-15)
 
@@ -1383,7 +1470,11 @@ texto como string JSON. É proibido corrigir o JSON, normalizar ou
 reserializar o texto, inferir intenção do produtor, ou reinterpretar
 resultado inválido.
 
-### 14.7 Dry-run, execução real e restauração (D-SEL-19)
+Este envelope permanece inalterado pela ADR-0035. Os cenários sintéticos
+de falha (§14.10) serão consumidos posteriormente pela formação desse
+envelope no Handoff 3.
+
+### 14.7 Dry-run, execução real e restauração (D-SEL-19; H2-ESP-03 a H2-ESP-05)
 
 ```yaml
 dry_run:
@@ -1392,7 +1483,8 @@ dry_run:
   preserva_selecao_para_execucao_real_posterior: true
 
 execucao_real_reversivel:
-  altera: fixture_controlada
+  altera: somente_copia_temporaria_da_fixture
+  baseline_permanente: imutavel
   restaura_automaticamente_ao_encerrar: true
   restaura_em_erro_ou_KeyboardInterrupt: true
   deixa_fixture_contaminada: nunca
@@ -1403,6 +1495,28 @@ interrupcao:
   limpa_selecao_em_execucao_real: true
 ```
 
+Baseline sintética demonstrativa do Handoff 2 (imutável):
+
+```yaml
+item_01:
+  processado: false
+item_03:
+  processado: true
+item_05:
+  processado: false
+item_07:
+  processado: false
+```
+
+Cada invocação usa cópia temporária independente. No `dry-run`, o executor
+calcula o estado posterior previsto sem alterar a cópia. Na execução real,
+altera `processado: false` para `processado: true` somente na cópia.
+
+Resultados individuais mínimos: `processado`, `ignorado`, `nao_encontrado`,
+`falhou`. Item já processado resulta em `ignorado`. ID textual válido
+ausente da fixture resulta em `nao_encontrado`. A ordem dos resultados
+preserva a ordem dos IDs recebidos.
+
 ### 14.8 Fixtures e dimensão lógica de referência (D-SEL-20)
 
 Todas as fixtures de resultado devem caber integralmente na dimensão lógica
@@ -1412,16 +1526,108 @@ não truncar, não omitir conteúdo, não criar fallback temporário. A
 paginação da tela de resultado não é implementada neste ciclo
 (`ITEM-0003`).
 
-### 14.9 Fora de escopo
+O documento demonstrativo de resultado do Handoff 2 (§14.9) permanece sujeito
+a esse limite integral, sem paginação ou truncamento provisório.
 
-Protocolo definitivo de binding, script e processamento; registry,
-dispatcher e catálogo genérico de ações (`ITEM-0004`); paginação interativa
-da tela de resultado (`ITEM-0003`); correção automática de JSON inválido;
-comandos arbitrários declarados no JSON.
+### 14.9 Documento de sucesso multinível (H2-ESP-06 a H2-ESP-09, H2-ESP-12)
 
-### 14.10 Remissões
+O executor sintético grava diretamente um documento externo multinível
+válido — uso concreto do schema vigente (§12), não nova apresentação:
+
+```yaml
+tipo: multinivel
+apresentacao: conjuntos_campos
+niveis:
+  - secao: container
+  - registro: container
+  - campo: nome_valor
+```
+
+Estrutura semântica:
+
+```text
+Resumo
+└── Execução
+    ├── modo
+    ├── status
+    ├── solicitados
+    ├── processados
+    ├── ignorados
+    ├── nao_encontrados
+    └── falhos
+
+Itens
+└── <registro por ID>
+    ├── resultado
+    ├── aplicado
+    ├── processado_antes
+    ├── processado_depois
+    └── diagnostico, quando aplicável
+```
+
+`dry-run` e execução real usam o mesmo schema. Valores de `modo`:
+`dry_run`, `executar`.
+
+Campos individuais obrigatórios: `id`, `resultado`, `aplicado`,
+`processado_antes`, `processado_depois`. `diagnostico` aparece somente em
+`nao_encontrado` ou `falhou`.
+
+```yaml
+aplicado:
+  dry_run: false
+  execucao_real_com_gravacao: true
+
+nao_encontrado:
+  aplicado: false
+  processado_antes: null
+  processado_depois: null
+```
+
+Este documento é distinto do envelope de erro (§14.6).
+
+### 14.10 Controles sintéticos (H2-ESP-17, H2-ESP-18)
+
+Mecanismo exclusivo da demonstração — não institui protocolo definitivo:
+
+```text
+__falha_operacional__
+__resultado_invalido__
+__interrupcao__
+```
+
+Esses IDs não representam itens do domínio, não equivalem a
+`nao_encontrado`, não aparecem na fixture como itens normais e não criam
+argumentos adicionais de CLI.
+
+```yaml
+__falha_operacional__:
+  codigo: nao_zero
+  stderr: deterministico
+
+__resultado_invalido__:
+  resultado_json: texto_json_deliberadamente_invalido
+  codigo: 0
+
+__interrupcao__:
+  alteracao_observavel_na_copia: true
+  resultado_json: valido_com_status_interrompido
+  limpeza_protegida: true
+  codigo: 130
+```
+
+### 14.11 Fora de escopo
+
+Protocolo definitivo de binding, script e processamento; aplicação da
+minuta genérica de binding; registry, dispatcher e catálogo genérico de
+ações (`ITEM-0004`); paginação interativa da tela de resultado
+(`ITEM-0003`); correção automática de JSON inválido; comandos arbitrários
+declarados no JSON; ativação de `Enter`/`Executar` na interface; tela de
+resultado, abertura e retorno (Handoff 3); integração completa (Handoff 4).
+
+### 14.12 Remissões
 
 - `docs/adr/ADR-0034-selecao-multipla-e-fluxo-focal-de-processamento.md` — decisões D-SEL-11 a D-SEL-20;
+- `docs/adr/ADR-0035-protocolo-focal-execucao-sintetica-reversivel.md` — H2-ESP-01 a H2-ESP-18;
 - `docs/contratos/contrato_console.md` — seção 23: seleção múltipla e operação focal;
 - `docs/contratos/contrato_tela_json.md` — seção 34: perfil `resultado_execucao` e validação antecipada;
 - `docs/contratos/contrato_barra_de_menus.md` — seção 23: rótulos dinâmicos e chip `Espaço`;

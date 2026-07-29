@@ -20,6 +20,7 @@ metadata:
       - docs/adr/ADR-0026-fornecimento-externo-dados-console-json-multinivel.md
       - docs/adr/ADR-0027-carregamento-conjunto-tela-conteudo-externo-ponto-entrada.md
       - docs/adr/ADR-0034-selecao-multipla-e-fluxo-focal-de-processamento.md
+      - docs/adr/ADR-0035-protocolo-focal-execucao-sintetica-reversivel.md
     reaproveitado_de_legado: false
   dependencias_nomenclatura:
     dependencias_obrigatorias:
@@ -1193,7 +1194,7 @@ mas não remove IDs já selecionados nem limita posteriormente a execução de
 uma seleção já formada. A prova de persistência entre páginas e a paginação
 interativa do console permanecem no `ITEM-0003`.
 
-### 23.6 Operação consumidora e fronteira com ações genéricas (D-SEL-11)
+### 23.6 Operação consumidora e fronteira com ações genéricas (D-SEL-11; ADR-0035)
 
 A operação sobre o conjunto selecionado pertence ao binding ou à origem de
 dados consumida pelo `console` — nunca ao renderer, à instância genérica do
@@ -1207,12 +1208,34 @@ entrada_da_operacao:
   objetos_completos: nao_transportados
 ```
 
-Permanecem fora deste contrato aplicado: registry genérico de ações,
-dispatcher genérico, catálogo genérico de ações e comandos arbitrários
-declarados no JSON — responsabilidades do `ITEM-0004`. O protocolo
-provisório de invocação da operação (entrada/execução, resultado
-estruturado, classificação de sucesso/falha e envelope de erro) é fechado
-em `contrato_json_console.md` seção 14.
+A ADR-0035 especializa a fronteira comportamental do Handoff 2 sobre essa
+entrada, sem substituir a ADR-0034 nem alterar D-SEL-01 a D-SEL-10:
+
+```yaml
+handoff_2_fronteira_comportamental:
+  recebe: lista_ordenada_de_ids_reconciliados
+  consulta_sintetica_para_produzir_itens: ausente
+  transporte_de_objetos_completos: proibido
+  executor: sintetico_demonstrativo
+  fixture: sintetica_demonstrativa
+  binding_real: ausente
+  operacao_do_pipeline: ausente
+  dry_run:
+    altera_dados: false
+  execucao_real:
+    altera: somente_copia_temporaria_da_fixture
+  item_ja_processado: ignorado
+  id_textual_inexistente: nao_encontrado
+  ordem_dos_resultados: preserva_ordem_dos_ids_recebidos
+```
+
+Permanecem fora deste contrato aplicado e fora do Handoff 2: registry
+genérico de ações, dispatcher genérico, catálogo genérico de ações,
+comandos arbitrários declarados no JSON e ativação da interface
+(`Enter`/`Executar`) — responsabilidades do `ITEM-0004` ou dos Handoffs 3
+e 4. Schema completo do documento de resultado, CLI provisória, diretório
+temporário e controles sintéticos pertencem a `contrato_json_console.md`
+seção 14.
 
 ### 23.7 Fronteiras deste contrato aplicado (ADR-0034 D-SEL-26)
 
@@ -1225,6 +1248,7 @@ multinível (`ITEM-0007`).
 ### 23.8 Remissões
 
 - `docs/adr/ADR-0034-selecao-multipla-e-fluxo-focal-de-processamento.md` — decisões D-SEL-01 a D-SEL-26;
+- `docs/adr/ADR-0035-protocolo-focal-execucao-sintetica-reversivel.md` — especialização do Handoff 2 (H2-ESP-01 a H2-ESP-18);
 - `docs/contratos/contrato_json_console.md` — seção 14: protocolo provisório, resultado estruturado e envelope de erro;
 - `docs/contratos/contrato_barra_de_menus.md` — seção 23: rótulos dinâmicos `Todos`/`Executar` e chip `Espaço`;
 - `docs/contratos/contrato_tela_json.md` — seção 34: perfil `resultado_execucao`;

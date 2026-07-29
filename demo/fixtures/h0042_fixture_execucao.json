@@ -1,0 +1,8 @@
+{
+  "itens": [
+    {"id": "item_01", "processado": false},
+    {"id": "item_03", "processado": true},
+    {"id": "item_05", "processado": false},
+    {"id": "item_07", "processado": false}
+  ]
+}

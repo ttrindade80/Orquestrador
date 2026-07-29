@@ -64,9 +64,9 @@ esta lista.
 **Tipo:** implementacao
 **Prioridade:** media
 **Status:** em_andamento
-**Descricao:** Implementar selecao multipla e fluxo focal de processamento conforme ADR-0034: estado da selecao por conjunto de IDs estaveis, protocolo provisorio de execucao com resultado estruturado, tela padrao de resultado reutilizavel e fluxo focal de abertura/retorno, decompostos em quatro handoffs sequenciais (H1-H4).
-**Pre-requisitos:** ADR-0034 aceita e aplicada; Handoff 1 (H-0041) implementado, QA tecnico aprovado e validacao manual TTY aprovada; navegacao simples e selecao unica concluidas (ADR-0031).
-**Proxima acao:** Criar o Handoff 2 da ADR-0034, restrito ao protocolo focal do binding e execucao: dry-run, execucao real reversivel, resultado estruturado e restauracao protegida; Enter/Executar permanece inativo na interface.
+**Descricao:** Implementar selecao multipla e fluxo focal de processamento conforme ADR-0034, com especializacao do Handoff 2 pela ADR-0035: estado da selecao por conjunto de IDs estaveis, protocolo provisorio de execucao sintetica reversivel com resultado estruturado, tela padrao de resultado reutilizavel e fluxo focal de abertura/retorno, decompostos em quatro handoffs sequenciais (H1-H4). Binding definitivo entre Orquestrador e Pipeline e aplicacao da minuta generica permanecem fora deste ciclo.
+**Pre-requisitos:** ADR-0034 aceita e aplicada; Handoff 1 entregue pelo H-0041 no commit `f4b5df1`; ADR-0035 aceita e aplicada; Handoff 2 entregue pelo H-0042, com QA pos-patch da implementacao aprovado (`I1_IMPLEMENTATION_APPROVED`): 80 testes focais, 35 regressivos e 639 na suite completa, sete demonstracoes conformes, validacao manual nao aplicavel; navegacao simples e selecao unica concluidas (ADR-0031).
+**Proxima acao:** Apos o fechamento Git do H-0042, conduzir a especificacao focal do Handoff 3 — carregamento e apresentacao da tela padrao reutilizavel de resultado e do envelope visual de erro. O chip `Executar` permanece inativo; a integracao completa, abertura, suspensao, retorno e restauracao da tela de origem pertencem ao Handoff 4.
 
 ### ITEM-0018 — Selecionar todos apenas na pagina atual
 **Tipo:** implementacao
