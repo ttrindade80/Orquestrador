@@ -60,45 +60,37 @@ esta lista.
 **Pre-requisitos:** Registro de acoes individuais formalizado.
 **Proxima acao:** Levantar as regras vigentes de abertura, pilha de telas, retorno e preservacao de estado.
 
-### ITEM-0006 — Selecao multipla no console
-**Tipo:** implementacao
-**Prioridade:** media
-**Status:** em_andamento
-**Descricao:** Implementar selecao multipla e fluxo focal de processamento conforme ADR-0034, com especializacao do Handoff 2 pela ADR-0035 e do Handoff 3 pela ADR-0036: estado da selecao por conjunto de IDs estaveis, protocolo provisorio de execucao sintetica reversivel com resultado estruturado, especificacao fechada da tela padrao de resultado reutilizavel e do envelope de erro, e fluxo focal de abertura/retorno, decompostos em quatro handoffs sequenciais (H1-H4). Binding definitivo entre Orquestrador e Pipeline e aplicacao da minuta generica permanecem fora deste ciclo.
-**Pre-requisitos:** ADR-0034 aceita e aplicada; Handoff 1 entregue pelo H-0041 no commit `f4b5df1`; ADR-0035 aceita e aplicada; Handoff 2 entregue pelo H-0042, com QA pos-patch da implementacao aprovado (`I1_IMPLEMENTATION_APPROVED`): 80 testes focais, 35 regressivos e 639 na suite completa, sete demonstracoes conformes, validacao manual nao aplicavel; navegacao simples e selecao unica concluidas (ADR-0031); ADR-0036 aceita e aplicada em 2026-07-29; Handoff 3 entregue pelo H-0043, com patch P01 aprovado, 704 testes na suite completa, seis quadros `80x24` conformes e validacao manual TTY aprovada em seis de seis roteiros.
-**Proxima acao:** Prosseguir para a especificacao e criacao do Handoff 4, ainda nao criado e nao implementado: ativacao do chip `Executar`, abertura da tela de resultado, suspensao da tela de origem, retorno e restauracao. O ITEM-0006 permanece em andamento ate a conclusao dessa entrega.
-
 ### ITEM-0018 — Selecionar todos apenas na pagina atual
 **Tipo:** implementacao
 **Prioridade:** media
 **Status:** bloqueado
 **Descricao:** Permitir limitar a selecao em massa (`Todos`) aos itens selecionaveis da pagina corrente do console, em vez do conjunto filtrado completo em todas as paginas.
-**Pre-requisitos:** Registrado como item bloqueado pela ADR-0034 (D-SEL-24); depende da implementacao do ITEM-0006 e da paginacao interativa do ITEM-0003.
-**Proxima acao:** Realizar levantamento focal e decisao arquitetural propria quando o ITEM-0003 e o ITEM-0006 estiverem concluidos.
+**Pre-requisitos:** Registrado pela ADR-0034 (D-SEL-24); `ITEM-0006` concluido em 2026-07-29; permanece bloqueado exclusivamente pela paginacao interativa do `ITEM-0003`.
+**Proxima acao:** Realizar levantamento focal e decisao arquitetural propria quando o `ITEM-0003` estiver concluido.
 
 ### ITEM-0019 — Selecao compartilhada entre consoles compativeis
 **Tipo:** implementacao
 **Prioridade:** media
-**Status:** bloqueado
+**Status:** planejado
 **Descricao:** Permitir um conjunto de selecao comum entre consoles que exibam dados compativeis.
-**Pre-requisitos:** Registrado como item bloqueado pela ADR-0034 (D-SEL-24); depende da implementacao do ITEM-0006.
-**Proxima acao:** Realizar levantamento focal e decisao arquitetural propria.
+**Pre-requisitos:** Registrado pela ADR-0034 (D-SEL-24); `ITEM-0006` concluido em 2026-07-29.
+**Proxima acao:** Realizar levantamento focal e criar ADR propria para identidade, compatibilidade e ciclo de vida da selecao compartilhada.
 
 ### ITEM-0020 — Chip de escolha entre execucao real e dry-run
 **Tipo:** implementacao
 **Prioridade:** media
-**Status:** bloqueado
-**Descricao:** Permitir escolher na interface o modo (execucao real ou dry-run) da operacao vinculada ao lote selecionado.
-**Pre-requisitos:** Registrado como item bloqueado pela ADR-0034 (D-SEL-24); depende da implementacao do ITEM-0006.
-**Proxima acao:** Realizar levantamento focal e decisao arquitetural propria.
+**Status:** planejado
+**Descricao:** Padronizar genericamente a escolha entre execucao real e dry-run.
+**Pre-requisitos:** Registrado pela ADR-0034 (D-SEL-24); `ITEM-0006` concluido em 2026-07-29. O `[Ins] Dry-Run` da ADR-0037 e especializacao focal do Handoff 4 e nao encerra este item.
+**Proxima acao:** Realizar levantamento focal e criar ADR propria para a padronizacao universal do toggle de execucao real e dry-run.
 
 ### ITEM-0021 — Modos de visualizacao das telas de resultado
 **Tipo:** implementacao
 **Prioridade:** media
-**Status:** bloqueado
+**Status:** planejado
 **Descricao:** Permitir telas de resultado somente verbosas, somente nao verbosas ou alternaveis, alem da politica `somente_verboso` fixada pela ADR-0034.
-**Pre-requisitos:** Registrado como item bloqueado pela ADR-0034 (D-SEL-24); depende da implementacao do ITEM-0006.
-**Proxima acao:** Realizar levantamento focal e decisao arquitetural propria.
+**Pre-requisitos:** Registrado pela ADR-0034 (D-SEL-24); `ITEM-0006` concluido em 2026-07-29.
+**Proxima acao:** Realizar levantamento focal e criar ADR propria para as politicas e transicoes de modo das telas de resultado.
 
 ### ITEM-0007 — Conteudo multinivel colapsavel no console
 **Tipo:** implementacao
@@ -131,14 +123,6 @@ esta lista.
 **Descricao:** Implementar uma tela para visualizar, escolher, pre-visualizar, persistir e restaurar presets do estilo global.
 **Pre-requisitos:** Carregamento global e materializacao do estilo concluidos pelo H-0039.
 **Proxima acao:** Realizar levantamento focal da interacao e criar ADR propria.
-
-### ITEM-0011 — Cores de estado inativo e de alerta
-**Tipo:** implementacao
-**Prioridade:** media
-**Status:** planejado
-**Descricao:** Definir e implementar a semantica de `cor_inativo` e `cor_alerta`, incluindo sua traducao para o terminal.
-**Pre-requisitos:** Decisao contratual sobre significado, consumidores e representacao terminal.
-**Proxima acao:** Realizar decisao focal e criar ADR propria.
 
 ### ITEM-0012 — Tiling de elementos ou conteudo
 **Tipo:** implementacao

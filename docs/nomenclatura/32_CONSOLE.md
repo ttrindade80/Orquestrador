@@ -59,6 +59,11 @@ Não redefinir `grupo` como nó estrutural; esse sentido pertence ao módulo `40
 - reconciliação (ADR-0034)
 - item selecionável (ADR-0034)
 - lote reconciliado (ADR-0034)
+- preservação da origem em dry-run (ADR-0037)
+- restauração da origem após execução real (ADR-0037)
+- reconciliação de foco (ADR-0037)
+- preservação de cursor por ID (ADR-0037)
+- fallback de cursor (ADR-0037)
 
 ## 4. Definições
 
@@ -171,6 +176,27 @@ completa em `contrato_console.md` §23.
 | seleção (módulo `32`, conjunto nomeado geral) × seleção múltipla (ADR-0034) | Seleção múltipla é a materialização concreta do conceito geral de "seleção" (§4.2) para o `ITEM-0006`, com identidade por conjunto de IDs estáveis e reconciliação fechadas pela ADR-0034. |
 | lote (§4.2, unidade de execução) × lote reconciliado (ADR-0034) | Lote (§4.2) é o conceito geral de unidade de execução calculada a partir de uma seleção; lote reconciliado é a forma concreta desse lote no `ITEM-0006`, após reconciliação. |
 
+### 4.7 Estado do console no retorno (ADR-0037)
+
+Termos do estado do console no retorno após `resultado_execucao`. A definição
+geral de origem suspensa pertence ao módulo `20` — este módulo não a duplica.
+Autoridade comportamental: `contrato_console.md` §23.9.
+
+| Termo | Definição |
+|---|---|
+| **preservação da origem em dry-run** | Retorno sem recarregar o binding: mesma instância e mesmos dados; seleção, filtro, página, foco e cursor preservados; `dry_run_ativo` permanece ligado |
+| **restauração da origem após execução real** | Retorno com seleção limpa, binding recarregado, filtro reaplicado e `dry_run_ativo: false` — aplicável a sucesso, parcial, falha operacional, resultado inválido e interrupção `130` |
+| **reconciliação de foco** | Preserva o foco anterior se o console continuar válido; caso contrário, fallback para o primeiro console focalizável |
+| **preservação de cursor por ID** | Mantém o cursor no item cujo ID permanece válido após a recarga |
+| **fallback de cursor** | Quando o ID anterior é inválido, posiciona no primeiro item navegável |
+
+Distinções:
+
+| Par | Distinção normativa |
+|---|---|
+| dry-run × execução real (retorno) | Dry-run: mesma instância e mesmos dados; execução real: recarga do binding somente no retorno |
+| geometria física recalculada × recarga semântica | Redimensionamento recalcula geometria sem releitura de arquivos; recarga semântica só ocorre no retorno de execução real |
+
 ## 5. Distinções obrigatórias
 
 | Par | Distinção normativa |
@@ -192,6 +218,7 @@ completa em `contrato_console.md` §23.
 - ADR-0026, ADR-0027, ADR-0028: dados externos e modos de apresentação do console.
 - ADR-0031: navegação simples e seleção única; terminologia de console focalizável/focado, item lógico, lista de foco, travessia em profundidade, navegação toroidal por eixo, coluna indicadora, seleção única.
 - ADR-0034: seleção múltipla e fluxo focal de processamento; terminologia de seleção múltipla, conjunto de IDs estáveis, reconciliação, item selecionável e lote reconciliado.
+- ADR-0037: preservação/restauração da origem no retorno; reconciliação de foco; preservação e fallback de cursor.
 
 ## 8. Aliases ou termos descontinuados relacionados
 

@@ -130,6 +130,7 @@ from tela.renderizador import (
 from tela import navegacao
 from tela import selecao
 from tela import resultado_execucao as resultado_execucao_mod
+from tela import fluxo_execucao as fluxo_execucao_mod
 
 LARGURA_MINIMA_TELA = 10
 ALTURA_MINIMA_TELA = 6
@@ -172,6 +173,7 @@ _CATALOGO_CENARIOS_RESULTADO_EXECUCAO = {
 
 _ID_TELA_RESULTADO_EXECUCAO = "resultado_execucao"
 _DIR_FIXTURES_DEMO = os.path.join("demo", "fixtures")
+_ID_TELA_H0044 = fluxo_execucao_mod.ID_TELA_H0044
 
 
 def criar_estado_inicial():
@@ -366,6 +368,48 @@ def processar_comando(estado, comando, modelo=None):
         novo["altura_interna"] = estado["altura_interna"]
     if "desconto_estrutural" in estado:
         novo["desconto_estrutural"] = estado["desconto_estrutural"]
+    # H-0044: coordenador focal (objeto de runtime; preservado por referencia).
+    if "fluxo_execucao" in estado:
+        novo["fluxo_execucao"] = estado["fluxo_execucao"]
+
+    fluxo = estado.get("fluxo_execucao")
+    if fluxo is not None and isinstance(fluxo, fluxo_execucao_mod.FluxoExecucao):
+        # Resultado ativo: somente Esc (e teclas ignoradas) via fluxo.
+        if fluxo.resultado_ativo:
+            novo_estado, _modelo_r, consumido = fluxo.processar_comando(
+                novo, comando, modelo
+            )
+            if consumido:
+                # Preserva campos de sessao nao tocados pelo retorno.
+                for chave in (
+                    "estilo", "largura", "altura", "altura_interna",
+                    "desconto_estrutural", "fluxo_execucao", "saindo",
+                    "tela_atual", "pilha_telas", "modo_verboso",
+                    "modo_verboso_forcado",
+                ):
+                    if chave in novo and chave not in novo_estado:
+                        novo_estado[chave] = novo[chave]
+                novo_estado["fluxo_execucao"] = fluxo
+                return novo_estado
+        elif comando in (
+            fluxo_execucao_mod.TECLA_INSERT,
+            "\r",
+            "\n",
+        ):
+            novo_estado, _modelo_r, consumido = fluxo.processar_comando(
+                novo, comando, modelo
+            )
+            if consumido:
+                for chave in (
+                    "estilo", "largura", "altura", "altura_interna",
+                    "desconto_estrutural", "fluxo_execucao", "saindo",
+                    "tela_atual", "pilha_telas", "modo_verboso",
+                    "modo_verboso_forcado",
+                ):
+                    if chave in novo and chave not in novo_estado:
+                        novo_estado[chave] = novo[chave]
+                novo_estado["fluxo_execucao"] = fluxo
+                return novo_estado
 
     if comando == "s" or comando == "\x1b":
         # H-0041 / ADR-0034 D-SEL-08: quando o console focado declara selecao
@@ -525,6 +569,13 @@ def renderizar_estado(estado, modelo, largura=None, altura=None):
     dinamicas de existencia dos chips ``[⇆]``/``[✥]`` (D11/D12/D14).
     """
     lista_foco = navegacao.lista_foco(modelo) if modelo is not None else []
+    fluxo = estado.get("fluxo_execucao")
+    chips_destacados = None
+    executar_disponivel = None
+    if fluxo is not None and isinstance(fluxo, fluxo_execucao_mod.FluxoExecucao):
+        chips_destacados = fluxo.chips_destacados()
+        if not fluxo.resultado_ativo:
+            executar_disponivel = fluxo.executar_disponivel(estado)
     return renderizar_tela(
         modelo, estado["estilo"], largura=largura, altura=altura,
         verboso=_verboso_efetivo(estado, modelo),
@@ -533,6 +584,8 @@ def renderizar_estado(estado, modelo, largura=None, altura=None):
         lista_foco=lista_foco,
         largura_navegacao=largura,
         selecoes=estado.get("selecoes", {}),
+        chips_destacados=chips_destacados,
+        executar_disponivel=executar_disponivel,
     )
 
 
@@ -544,6 +597,66 @@ def id_conteudo_externo_de(id_tela):
     (chave ausente -> None). Nunca le vinculo do JSON estrutural.
     """
     return _CATALOGO_CONTEUDO_EXTERNO.get(id_tela)
+
+
+def _recarregador_focal_h0044(modelo):
+    """Recarregador focal observavel da demonstracao H-0044.
+
+    Nao altera a fixture baseline H-0042. Atualiza conteudo a partir da
+    entrada permanente da tela de origem, preservando a identidade do modelo.
+    """
+    tela_raw = carregar_tela(None, _ID_TELA_H0044, _RAIZ_TELAS_DEMO)
+    itens = None
+    try:
+        elementos = (tela_raw.get("corpo") or {}).get("elementos") or []
+        for el in elementos:
+            if isinstance(el, dict) and el.get("id") == "console_selecao":
+                itens = el.get("itens")
+                break
+    except AttributeError:
+        itens = None
+    if itens is None:
+        return modelo
+    for elemento in modelo.corpo.elementos:
+        if elemento.tipo == "console" and elemento.id == "console_selecao":
+            elemento._campos_inertes["itens"] = list(itens)
+            break
+    return modelo
+
+
+def _anexar_fluxo_h0044(estado, modelo):
+    """Cria o coordenador focal e estabelece foco inicial em item_01."""
+    contador = {"n": 0}
+
+    def _recarregador(origem):
+        contador["n"] += 1
+        return _recarregador_focal_h0044(origem)
+
+    fluxo = fluxo_execucao_mod.FluxoExecucao.criar_sessao(
+        modelo,
+        raiz_telas=_RAIZ_TELAS_DEMO,
+        recarregador=_recarregador,
+    )
+    fluxo._contador_recarga_demo = contador  # observavel em testes
+    lista = navegacao.lista_foco(modelo)
+    novo = dict(estado)
+    novo["fluxo_execucao"] = fluxo
+    if lista:
+        novo["foco_console"] = 0
+        novo["cursores"] = {lista[0].id: 0}
+        novo["selecoes"] = {lista[0].id: []}
+    return novo
+
+
+def _modelo_corrente(estado, modelo):
+    """Resolve o modelo a apresentar (origem ou resultado H-0044)."""
+    fluxo = estado.get("fluxo_execucao")
+    if fluxo is not None and isinstance(fluxo, fluxo_execucao_mod.FluxoExecucao):
+        if fluxo.resultado_ativo:
+            return fluxo.modelo_resultado.modelo
+        if fluxo.origem_ativa is not None:
+            return fluxo.origem_ativa
+    return modelo
 
 
 def _carregar_modelo_por_id(id_tela):
@@ -822,6 +935,7 @@ def _resolver_conteudo(estado, modelo, largura, altura):
     Retorna quadro minimo de aviso quando terminal pequeno demais ou
     quando o renderer levanta ``RenderizadorErro``.
     """
+    modelo = _modelo_corrente(estado, modelo)
     if _tela_pequena_demais(largura, altura):
         return _quadro_minimo_aviso(largura, altura)
     try:
@@ -911,6 +1025,8 @@ def main(argv=None, estado_inicial=None):
     if tela_inicial != estado["tela_atual"]:
         estado = dict(estado, tela_atual=tela_inicial)
     modelo = _carregar_modelo_por_id(estado["tela_atual"])
+    if estado["tela_atual"] == _ID_TELA_H0044:
+        estado = _anexar_fluxo_h0044(estado, modelo)
     # Override ``--verboso`` (modo_verboso_forcado) tem precedencia sobre a
     # politica do modelo ao iniciar a sessao; sem override, restaura o modo
     # inicial da politica (comportamento anterior).
@@ -990,6 +1106,13 @@ def main(argv=None, estado_inicial=None):
                     foco_antes = estado.get("foco_console")
                     cursores_antes = dict(estado.get("cursores", {}))
                     selecoes_antes = dict(estado.get("selecoes", {}))
+                    fluxo_antes = estado.get("fluxo_execucao")
+                    dry_antes = bool(
+                        getattr(fluxo_antes, "dry_run_ativo", False)
+                    )
+                    resultado_antes = bool(
+                        getattr(fluxo_antes, "resultado_ativo", False)
+                    )
                     estado = dict(
                         estado,
                         largura=largura,
@@ -1001,6 +1124,8 @@ def main(argv=None, estado_inicial=None):
                         break
                     if estado["tela_atual"] != tela_antes:
                         modelo = _carregar_modelo_por_id(estado["tela_atual"])
+                        if estado["tela_atual"] == _ID_TELA_H0044:
+                            estado = _anexar_fluxo_h0044(estado, modelo)
                         if estado.get("modo_verboso_forcado") is True:
                             estado = dict(estado, modo_verboso=True)
                         else:
@@ -1008,6 +1133,14 @@ def main(argv=None, estado_inicial=None):
                                 estado,
                                 modo_verboso=_modo_verboso_de_modelo(modelo),
                             )
+                    modelo = _modelo_corrente(estado, modelo)
+                    fluxo_depois = estado.get("fluxo_execucao")
+                    dry_mudou = bool(
+                        getattr(fluxo_depois, "dry_run_ativo", False)
+                    ) != dry_antes
+                    resultado_mudou = bool(
+                        getattr(fluxo_depois, "resultado_ativo", False)
+                    ) != resultado_antes
                     verboso_mudou = estado.get("modo_verboso", False) != verboso_antes
                     foco_mudou = estado.get("foco_console") != foco_antes
                     cursores_mudou = estado.get("cursores", {}) != cursores_antes
@@ -1018,6 +1151,8 @@ def main(argv=None, estado_inicial=None):
                         or foco_mudou
                         or cursores_mudou
                         or selecoes_mudou
+                        or dry_mudou
+                        or resultado_mudou
                     ):
                         _apresentar_quadro(
                             _resolver_conteudo(estado, modelo, largura, altura),
@@ -1060,6 +1195,11 @@ def main(argv=None, estado_inicial=None):
             foco_antes = estado.get("foco_console")
             cursores_antes = dict(estado.get("cursores", {}))
             selecoes_antes = dict(estado.get("selecoes", {}))
+            fluxo_antes = estado.get("fluxo_execucao")
+            dry_antes = bool(getattr(fluxo_antes, "dry_run_ativo", False))
+            resultado_antes = bool(
+                getattr(fluxo_antes, "resultado_ativo", False)
+            )
             # Patch VM-11: reafirma geometria corrente antes de cada comando
             # (mesma autoridade do caminho TTY), para a primeira seta usar a
             # formacao atual mesmo apos mudancas de dimensao.
@@ -1074,6 +1214,8 @@ def main(argv=None, estado_inicial=None):
                 break
             if estado["tela_atual"] != tela_antes:
                 modelo = _carregar_modelo_por_id(estado["tela_atual"])
+                if estado["tela_atual"] == _ID_TELA_H0044:
+                    estado = _anexar_fluxo_h0044(estado, modelo)
                 if estado.get("modo_verboso_forcado") is True:
                     estado = dict(estado, modo_verboso=True)
                 else:
@@ -1081,6 +1223,14 @@ def main(argv=None, estado_inicial=None):
                         estado,
                         modo_verboso=_modo_verboso_de_modelo(modelo),
                     )
+            modelo = _modelo_corrente(estado, modelo)
+            fluxo_depois = estado.get("fluxo_execucao")
+            dry_mudou = bool(
+                getattr(fluxo_depois, "dry_run_ativo", False)
+            ) != dry_antes
+            resultado_mudou = bool(
+                getattr(fluxo_depois, "resultado_ativo", False)
+            ) != resultado_antes
             verboso_mudou = estado.get("modo_verboso", False) != verboso_antes
             foco_mudou = estado.get("foco_console") != foco_antes
             cursores_mudou = estado.get("cursores", {}) != cursores_antes
@@ -1091,6 +1241,8 @@ def main(argv=None, estado_inicial=None):
                 or foco_mudou
                 or cursores_mudou
                 or selecoes_mudou
+                or dry_mudou
+                or resultado_mudou
             ):
                 print(_resolver_conteudo(estado, modelo, largura, altura), end="")
     return 0

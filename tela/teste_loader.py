@@ -4161,6 +4161,7 @@ _ESTILO_VALIDO = {
         },
     },
     "cor_inativo": "cinza",
+    "cor_alerta": "amarelo",
 }
 
 
@@ -4196,10 +4197,11 @@ def teste_carregar_estilo():
         "selecionado_simbolo", "selecionado_off",
         "incluido_on", "incluido_off",
         "cor_inativo",
+        "cor_alerta",
     )
     nenhuma_ausente = all(getattr(estilo, c, None) is not None for c in campos_esperados)
     _registrar(
-        "EstiloResolvido materializa os 19 campos (nenhum ausente/None)",
+        "EstiloResolvido materializa os 20 campos (nenhum ausente/None)",
         nenhuma_ausente,
     )
 
@@ -4234,6 +4236,10 @@ def teste_carregar_estilo():
     _registrar(
         "cor_inativo == 'cinza' (H-0041 P04; config/estilo.json)",
         estilo.cor_inativo == "cinza",
+    )
+    _registrar(
+        "cor_alerta == 'amarelo' (H-0044; config/estilo.json)",
+        estilo.cor_alerta == "amarelo",
     )
     _registrar(
         "selecionado_simbolo == '→' (preset 'Seta' ativo)",
@@ -4399,6 +4405,14 @@ def teste_carregar_estilo():
             "H-0041 P04 cor_inativo nao e string (tipo invalido)",
             _mutar(["cor_inativo"], 7),
         )
+        _espera(
+            "H-0044 cor_alerta ausente -> EstiloErro (sem fallback)",
+            _mutar(["cor_alerta"], _VAZIO),
+        )
+        _espera(
+            "H-0044 cor_alerta nao e string (tipo invalido)",
+            _mutar(["cor_alerta"], 7),
+        )
         # V-27: comprimento diferente de 1 (R-6).
         _espera(
             "V-27 caractere com len != 1 (R-6)",
@@ -4482,6 +4496,42 @@ def test_h0041_p04_cor_inativo_tipo_invalido_erro(tmp_path):
     with pytest.raises(EstiloErro):
         carregar_estilo(tmp_path)
 
+
+def test_h0044_cor_alerta_em_estilo_json():
+    caminho = _BASE_PADRAO / "config" / "estilo.json"
+    dados = json.loads(caminho.read_text(encoding="utf-8"))
+    assert dados["cor_alerta"] == "amarelo"
+
+
+def test_h0044_loader_transporta_cor_alerta():
+    estilo = carregar_estilo(_BASE_PADRAO)
+    assert estilo.cor_alerta == "amarelo"
+
+
+def test_h0044_cor_alerta_ausente_erro(tmp_path):
+    import copy
+    dados = copy.deepcopy(_ESTILO_VALIDO)
+    del dados["cor_alerta"]
+    cfg = tmp_path / "config"
+    cfg.mkdir()
+    (cfg / "estilo.json").write_text(
+        json.dumps(dados, ensure_ascii=False), encoding="utf-8"
+    )
+    with pytest.raises(EstiloErro):
+        carregar_estilo(tmp_path)
+
+
+def test_h0044_cor_alerta_tipo_invalido_erro(tmp_path):
+    import copy
+    dados = copy.deepcopy(_ESTILO_VALIDO)
+    dados["cor_alerta"] = 7
+    cfg = tmp_path / "config"
+    cfg.mkdir()
+    (cfg / "estilo.json").write_text(
+        json.dumps(dados, ensure_ascii=False), encoding="utf-8"
+    )
+    with pytest.raises(EstiloErro):
+        carregar_estilo(tmp_path)
 
 
 def test_h0043_carregar_tela_resultado_execucao():

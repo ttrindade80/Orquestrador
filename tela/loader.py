@@ -2636,7 +2636,7 @@ def carregar_conteudo_externo(caminho_base, id_conteudo, raiz_telas=None):
 # ``config/estilo.json`` passa a ser a autoridade global exclusiva de
 # aparencia (ADR-0030 D1). ``carregar_estilo`` le o arquivo UMA vez por
 # inicializacao, valida toda a estrutura (V-01 a V-29), resolve os presets
-# ativos e devolve um ``EstiloResolvido`` imutavel com 19 campos planos.
+# ativos e devolve um ``EstiloResolvido`` imutavel com 20 campos planos.
 # Nao ha fallback silencioso: configuracao parcialmente resolvida nunca
 # produz ``EstiloResolvido``. O renderer e demais consumidores recebem o
 # objeto ja resolvido -- nao releem ``config/estilo.json`` a cada render.
@@ -2648,10 +2648,10 @@ class EstiloResolvido:
     """Representacao de runtime do estilo global resolvido (H-0039 D6.2).
 
     ``frozen=True`` impede alteracao acidental em runtime (contrato_estilo.md
-    R-4). Os 19 campos cobrem borda (7), chip (5), indicadores (6) e
-    ``cor_inativo`` (1; contrato_estilo.md secao 3.5 / H-0041 P04). Nenhum
-    campo pode ser omitido -- a configuracao parcialmente resolvida nao pode
-    produzir instancia de ``EstiloResolvido``.
+    R-4). Os 20 campos cobrem borda (7), chip (5), indicadores (6),
+    ``cor_inativo`` (1; H-0041 P04) e ``cor_alerta`` (1; H-0044 / ADR-0037).
+    Nenhum campo pode ser omitido -- a configuracao parcialmente resolvida
+    nao pode produzir instancia de ``EstiloResolvido``.
     """
 
     # Borda -- 7 campos (contrato_estilo.md secao 3.1).
@@ -2675,10 +2675,11 @@ class EstiloResolvido:
     selecionado_off: str
     incluido_on: str
     incluido_off: str
-    # Estados dinamicos de cor -- 1 campo materializado (secao 3.5 / H-0041 P04).
-    # Default somente para construtores manuais de teste; ``carregar_estilo``
-    # exige o campo no JSON (sem fallback silencioso).
+    # Estados dinamicos de cor -- secao 3.5 (H-0041 P04 / H-0044).
+    # Defaults somente para construtores manuais de teste; ``carregar_estilo``
+    # exige ambos os campos no JSON (sem fallback silencioso).
     cor_inativo: str = "padrão"
+    cor_alerta: str = "padrão"
 
 
 def carregar_estilo(caminho_base=None):
@@ -2746,6 +2747,7 @@ def carregar_estilo(caminho_base=None):
     concluido_on, concluido_off, selecionado_simbolo, selecionado_off, \
         incluido_on, incluido_off = _resolver_indicadores(indicadores_cfg)
     cor_inativo = _resolver_cor_inativo(dados)
+    cor_alerta = _resolver_cor_alerta(dados)
 
     # V-29: so se chega aqui com todos os campos materializados; a construcao
     # abaixo falharia com TypeError se algum campo estivesse ausente, mas as
@@ -2770,6 +2772,7 @@ def carregar_estilo(caminho_base=None):
         incluido_on=incluido_on,
         incluido_off=incluido_off,
         cor_inativo=cor_inativo,
+        cor_alerta=cor_alerta,
     )
 
 
@@ -2793,6 +2796,27 @@ def _resolver_cor_inativo(dados):
             )
         )
     return cor_inativo
+
+
+def _resolver_cor_alerta(dados):
+    """Le e valida ``cor_alerta`` (contrato_estilo.md secao 3.5 / H-0044).
+
+    Validacao proporcional a ``cor_inativo``: campo obrigatorio, tipo texto,
+    sem fallback. O valor permanece como nome semantico; a traducao ANSI e
+    responsabilidade do renderer (R-7).
+    """
+    if "cor_alerta" not in dados:
+        raise EstiloErro(
+            "Campo obrigatorio ausente em config/estilo.json: 'cor_alerta'"
+        )
+    cor_alerta = dados["cor_alerta"]
+    if not isinstance(cor_alerta, str):  # V-26
+        raise EstiloErro(
+            "cor_alerta deve ser texto; encontrado: {0}".format(
+                type(cor_alerta).__name__
+            )
+        )
+    return cor_alerta
 
 
 def _exigir_secao(cfg, secao, caminho_logico):

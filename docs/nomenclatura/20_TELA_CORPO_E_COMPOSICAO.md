@@ -62,7 +62,10 @@ Não redefinir distribuição entre filhos, que pertence ao módulo `40`.
 - `ocupacao_vertical_terminal` (referenciado — definido no módulo `21`)
 - `posicao_dashboard` (descontinuado — referenciado no módulo `90`)
 - tela de resultado como composição (ADR-0034)
-- origem suspensa (ADR-0034)
+- origem suspensa (ADR-0034; especialização ADR-0037)
+- tela ativa (ADR-0037)
+- reativação da origem (ADR-0037)
+- transição focal (ADR-0037)
 
 Termos referenciados (não proprietários deste módulo):
 - `barra_de_menus` — citada como região concreta da tela; proprietário: módulo `31`
@@ -144,20 +147,26 @@ O corpo é modelado como árvore, não lista plana de elementos.
 A especificação normativa completa está em ADR-0015 e em
 `contrato_composicao_corpo.md`.
 
-### 4.6.1 Tela de resultado como composição e origem suspensa (ADR-0034)
+### 4.6.1 Tela de resultado como composição e origem suspensa (ADR-0034; ADR-0037)
 
 A tela padrão de resultado do `ITEM-0006` segue a mesma regra da tela de
 processamento (§4.5): não é tipo de corpo novo. É composição do único tipo
 funcional `console`, passivo e sem seleção, ocupando integralmente o corpo.
-Autoridade comportamental completa: `contrato_composicao_corpo.md` §3.1.1.
+Autoridade comportamental completa: `contrato_composicao_corpo.md` §3.1.1;
+ciclo de integração: `contrato_console.md` §23.9.
 
 | Termo | Definição |
 |---|---|
 | `tela de resultado` | Instância de `tela.json` com `perfil: resultado_execucao` (módulo `02`), composta por um único `console` passivo, sem seleção e sem outro elemento funcional |
-| `origem suspensa` | Estado do fluxo em que a instância de tela que abriu a tela de resultado permanece preservada (filtro, página, cursor e foco) enquanto a tela de resultado está aberta, para retorno direto ao fechá-la — sem pilha genérica de telas |
+| `tela ativa` | Instância de tela que recebe entrada e desenho no momento corrente da sessão |
+| `origem suspensa` | Referência para a instância viva de tela que abriu o resultado — cardinalidade zero ou uma; não é snapshot serializado; não é reconstruída; não recebe entrada nem sofre mutação enquanto o resultado estiver ativo |
+| `reativação da origem` | Retorno à mesma origem que abriu o resultado, reativando a referência viva — sem pilha genérica de telas |
+| `transição focal` | Sequência atômica entre acionamento na origem e ativação de `resultado_execucao`, sem tela de resultado vazia nem estado intermediário de carregamento |
 
 Neste ciclo existe somente uma origem suspensa por vez; a pilha genérica de
-abertura e retorno entre telas permanece no `ITEM-0005`.
+abertura e retorno entre telas permanece no `ITEM-0005`. Regras internas de
+filtro, cursor, seleção ou binding no retorno pertencem ao módulo `32` e a
+`contrato_console.md` §23.9 — este módulo não as duplica.
 
 ### 4.7 `tela.json` como declaração configurável
 
@@ -190,6 +199,7 @@ do schema completo: `contrato_tela_json.md` e módulo `02`.
 - ADR-0019: profundidade contada por grupos; multiplicidade estrutural.
 - ADR-0024: proibição de espaço externo vazio.
 - ADR-0034: tela de resultado como composição de um único console passivo; origem suspensa.
+- ADR-0037: especializa origem suspensa como referência viva; tela ativa; reativação da origem; transição focal.
 
 ## 8. Aliases ou termos descontinuados relacionados
 

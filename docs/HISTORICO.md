@@ -346,3 +346,17 @@ Nenhum item registrado.
 ## Incompatíveis
 
 Nenhum item registrado.
+
+### ITEM-0006 — Selecao multipla no console
+
+**Resultado:** CONCLUIDO
+**Data:** 2026-07-29
+**Referências:** docs/adr/ADR-0034-selecao-multipla-e-fluxo-focal-de-processamento.md; docs/adr/ADR-0035-protocolo-focal-execucao-sintetica-reversivel.md; docs/adr/ADR-0036-carregamento-e-apresentacao-da-tela-padrao-de-resultado.md; docs/adr/ADR-0037-integracao-do-fluxo-focal-com-dry-run-e-restauracao-da-origem.md; docs/handoff/H-0041-selecao-multipla-estado-comandos-e-apresentacao.md; docs/handoff/H-0042-protocolo-focal-execucao-sintetica-reversivel.md; docs/handoff/H-0043-carregamento-apresentacao-tela-padrao-resultado.md; docs/handoff/H-0044-integracao-fluxo-focal-dry-run-restauracao-origem.md; docs/relatorios/RELATORIO_VALIDACAO_MANUAL_H-0044.md
+**Resumo:** Selecao multipla concluida em quatro handoffs: estado, comandos e apresentacao pelo H-0041; executor focal sintetico reversivel pelo H-0042; tela padrao de resultado pelo H-0043; integracao completa com toggle Dry-Run, transicao atomica, suspensao e restauracao da origem pelo H-0044. O patch P01 do H-0044 foi aprovado, a suite completa alcançou 763 testes aprovados e a validacao manual terminou com dez de dez roteiros aprovados.
+
+### ITEM-0011 — Cores de estado inativo e de alerta
+
+**Resultado:** CONCLUIDO
+**Data:** 2026-07-29
+**Referências:** docs/adr/ADR-0004-estilo-cor-inativo-cor-alerta.md; docs/adr/ADR-0037-integracao-do-fluxo-focal-com-dry-run-e-restauracao-da-origem.md; docs/contratos/contrato_estilo.md; config/estilo.json; tela/loader.py; tela/renderizador.py
+**Resumo:** `cor_inativo: cinza` e `cor_alerta: amarelo` ficaram definidas no estilo global e traduzidas pelo runtime. O H-0044 materializou `cor_alerta` em `EstiloResolvido`, exigiu o campo sem fallback silencioso e comprovou seu consumo pelo renderer no destaque ativo do chip `[Ins] Dry-Run`, sem hardcoding funcional de cor ou ID.

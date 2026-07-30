@@ -18,6 +18,7 @@ metadata:
       - docs/adr/ADR-0008-modelo-configuracao-por-tela.md
       - docs/adr/ADR-0022-ponto-entrada-tela-inicial-orquestrador.md
       - docs/adr/ADR-0031-navegacao-simples-e-selecao-unica-em-console-de-nivel-unico.md
+      - docs/adr/ADR-0037-integracao-do-fluxo-focal-com-dry-run-e-restauracao-da-origem.md
     reaproveitado_de_legado: false
   dependencias_nomenclatura:
     dependencias_obrigatorias:
@@ -253,6 +254,14 @@ canônica entre si.
 `regra_ativo` é uma **regra dinâmica** recalculada a cada render. Determina se
 um chip que existe na instância está operável no estado atual da execução.
 
+Três condições visuais semanticamente distintas (ADR-0037):
+
+```text
+ausente
+visível e inativo
+visível, ativo e opcionalmente destacado
+```
+
 Um chip inativo:
 
 - continua existindo na posição canônica da `barra_de_menus`;
@@ -260,6 +269,12 @@ Um chip inativo:
   seção 3.5);
 - não reage a acionamento do usuário;
 - não desaparece da `barra_de_menus`.
+
+Um chip pode estar **ativo e simultaneamente destacado**: o destaque usa
+`cor_alerta` e **não** altera `regra_ativo`. Destaque não implica inatividade.
+
+Chip do tipo `alternancia` pode permanecer ativo nos dois estados do toggle.
+O estado ligado pode usar `cor_alerta` sem usar `cor_inativo`.
 
 Exemplos de regras de ativo/inativo:
 
@@ -282,6 +297,15 @@ aparece somente quando o console em foco possui mais de um item navegável; est�
 **ausente** (não inativo) nos demais casos. Sua existência é dinâmica, em
 contraste com o modelo estático geral desta seção.
 
+**Nota sobre `[Ins] Dry-Run` (ADR-0037)**: chip específico do fluxo focal do
+Handoff 4 — tipo `alternancia`. Permanece ativo nos estados ligado e
+desligado; nunca usa `cor_inativo`. Com `dry_run_ativo: true`, usa
+`cor_alerta` como único eco. Não entra na lista universal de chips canônicos
+(§7). O estado `dry_run_ativo` é estado vivo da instância; a codificação
+física da associação entre estado e apresentação será fechada no handoff —
+esta aplicação não cria novo campo de schema (`regra_destaque`,
+`estado_visual`, preset específico ou chave nova de `tela.json`).
+
 ---
 
 ## 10. Forma de exibição (`forma_exibicao`)
@@ -290,9 +314,10 @@ contraste com o modelo estático geral desta seção.
 
 Aspectos cobertos pelo campo:
 
-- chip visível e ativo;
-- chip visível e inativo (usa `cor_inativo`);
 - chip ausente (quando `regra_existencia` não é satisfeita);
+- chip visível e inativo (usa `cor_inativo`);
+- chip visível, ativo e opcionalmente destacado (destaque via `cor_alerta`,
+  sem alterar `regra_ativo` — ADR-0037);
 - texto/rótulo dinâmico (quando o rótulo muda conforme estado — ex.: `[⏎]`
   alternando entre `Todos`, `Executar` e `Visualizar`);
 - agrupamento visual (quando dois ou mais chips aparecem juntos — ex.:
@@ -340,12 +365,14 @@ A moldura visual do chip vem exclusivamente do `config/estilo.json`:
 - maiúsculas (`caixa_alta`).
 
 Estados dinâmicos de cor (`cor_inativo`, `cor_alerta`) pertencem ao schema de
-estilo universal, formalizados pela ADR-0004 (`contrato_estilo.md` seção 3.5):
+estilo universal, formalizados pela ADR-0004 e reconciliados pela ADR-0037
+(`contrato_estilo.md` seção 3.5):
 
-- `cor_inativo`: aplicada quando o chip existe mas está temporariamente
-  inativo;
-- `cor_alerta`: aplicada quando um valor atinge um limite ou exige destaque
-  visual.
+- `cor_inativo` (`cinza`): aplicada quando o chip existe mas está
+  temporariamente inativo;
+- `cor_alerta` (`amarelo`): aplicada a elemento operável em estado de
+  destaque, ou quando um valor/limite exige atenção — não implica
+  inatividade.
 
 O chip **não define** diretamente caractere de borda global nem valor de cor
 próprio — lê do schema de estilo ativo. O chip pode referenciar preset de estilo

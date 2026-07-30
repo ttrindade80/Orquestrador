@@ -143,17 +143,24 @@ seleção formável, `tg` mostra um símbolo fixo (não alternante) em vez do pa
 on/off — esse símbolo também é configurável via schema; nenhum valor concreto
 foi decidido até o momento.
 
-### 4.5 Estados dinâmicos de cor (ADR-0004)
+### 4.5 Estados dinâmicos de cor (ADR-0004; ADR-0037)
 
 Dois campos genéricos aplicáveis a qualquer chip ou indicador do sistema:
 
-| Campo | Função |
-|---|---|
-| `cor_inativo` | cor aplicada quando um elemento existe mas está temporariamente inativo (apagada/dessaturada) |
-| `cor_alerta` | cor aplicada quando um valor atinge um limite (ex.: mínimo/máximo) |
+| Campo | Função | Valor concreto |
+|---|---|---|
+| `cor_inativo` | cor aplicada quando um elemento existe mas está temporariamente inativo (apagada/dessaturada) | `cinza` |
+| `cor_alerta` | cor aplicada a elemento ativo destacado, ou quando um valor/limite exige atenção | `amarelo` |
 
-Nenhum valor concreto de cor foi decidido — vivem apenas como nomes semânticos
-no schema; quando decididos, entrarão em `config/estilo.json`.
+Distinções (ADR-0037):
+
+- `cor_alerta` não se confunde com `cor_inativo` — pode representar elemento
+  ativo destacado;
+- a configuração da cor é global (`config/estilo.json`);
+- a condição que liga o destaque é estado vivo da instância, não do estilo;
+- `[Ins] Dry-Run` ligado é exemplo focal dessa distinção, não regra universal
+  de todos os toggles;
+- a tradução do nome semântico para terminal permanece exclusiva do renderer.
 
 ### 4.6 `tiling` — preferência global de arranjo
 
@@ -221,6 +228,7 @@ e **quais** itens estão incluídos são estado vivo.
 | `tiling` × `corpo.arranjo` | `tiling` é preferência global de estilo consultada quando a classe não fixa arranjo; `corpo.arranjo` é arranjo fixado pela própria classe de tela — são conceitos diferentes em camadas diferentes |
 | `tiling` × redimensionamento | Redimensionamento não altera `tiling`; `tiling` é configuração declarativa |
 | `cor_inativo` × existência de chip | `cor_inativo` indica estado inativo de chip que existe; um chip pode existir e estar inativo — são propriedades independentes |
+| `cor_alerta` × `cor_inativo` | `cor_alerta` destaca elemento operável ou valor que exige atenção; `cor_inativo` marca elemento não operável — não são intercambiáveis (ADR-0037) |
 | chip como forma visual × chip como entidade de interface | A forma visual (campos de estilo) pertence a este módulo; a entidade declarativa de interface pertence ao módulo `31` e ao `contrato_chip.md` |
 | configuração de aparência × estado vivo | Configuração: carregada uma vez de `config/estilo.json`, imutável na sessão; estado vivo: produzido e mantido pela execução (cursor, inclusão, foco, página) |
 | preset resolvido × valor hardcoded | Preset resolvido: extraído do catálogo pelo loader a partir de `preset_default`; hardcoded: violação contratual (ADR-0030 D1) |
@@ -243,6 +251,8 @@ e **quais** itens estão incluídos são estado vivo.
 - ADR-0030: formaliza catálogo + `preset_default` como padrão canônico; materialização
   integral de todas as seções de `config/estilo.json`; `caixa_alta` per-preset;
   distinção configuração de aparência vs estado vivo; carregamento único por sessão.
+- ADR-0037: concretiza `cor_alerta: amarelo` no estilo global; distingue elemento
+  ativo destacado de elemento inativo; condição de destaque como estado vivo.
 
 ## 8. Aliases ou termos descontinuados relacionados
 
@@ -266,7 +276,7 @@ apenas os referencia para indicar o contexto de estilo/arranjo.
 origem_no_monolito:
   secao: "§1 (linhas 109-233)"
   intervalo_ou_bloco: "NOM-LEV-006"
-origem_normativa: ADR-0004, ADR-0011, ADR-0013, ADR-0014
+origem_normativa: ADR-0004, ADR-0011, ADR-0013, ADR-0014, ADR-0030, ADR-0037
 contratos_relacionados:
   - contrato_estilo.md
   - contrato_barra_de_menus.md
@@ -277,6 +287,8 @@ adrs_relacionadas:
   - ADR-0011
   - ADR-0013
   - ADR-0014
+  - ADR-0030
+  - ADR-0037
 tratamento:
   - PRESERVADO
   - SEPARADO_DE_REGRA_COMPORTAMENTAL

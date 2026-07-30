@@ -17,6 +17,7 @@ metadata:
       - docs/adr/ADR-0022-ponto-entrada-tela-inicial-orquestrador.md
       - docs/adr/ADR-0034-selecao-multipla-e-fluxo-focal-de-processamento.md
       - docs/adr/ADR-0036-carregamento-e-apresentacao-da-tela-padrao-de-resultado.md
+      - docs/adr/ADR-0037-integracao-do-fluxo-focal-com-dry-run-e-restauracao-da-origem.md
     reaproveitado_de_legado: false
   dependencias_nomenclatura:
     dependencias_obrigatorias:
@@ -613,7 +614,7 @@ universal (`contrato_estilo.md` seção 3.5):
 | Estado | Campo do schema de estilo | Condição de aplicação |
 |---|---|---|
 | Inativo | `cor_inativo` | Chip existe (declarado), mas não está operável no estado atual |
-| Alerta | `cor_alerta` | Valor atingiu limite ou exige destaque visual |
+| Alerta / destaque | `cor_alerta` | Elemento operável em destaque, ou valor/limite que exige atenção |
 
 O renderer da `barra_de_menus` **não define** nem **hardcoda** cores de estado
 dinâmico — lê exclusivamente do schema de estilo ativo. A tradução de nome
@@ -623,6 +624,9 @@ Um chip com estado `cor_inativo` aplicado:
 - continua ocupando sua posição na ordem canônica;
 - não reage a acionamento do usuário;
 - não desaparece da `barra_de_menus`.
+
+Um chip com `cor_alerta` aplicado permanece operável: destaque não implica
+inatividade (ADR-0037).
 
 ---
 
@@ -874,22 +878,60 @@ decisões; a semântica comportamental completa da seleção pertence a
 - ativo quando o item sob cursor é selecionável; inativo quando não é;
 - alterna a inclusão do item em foco sem mover o cursor.
 
-### 23.2 Rótulo dinâmico de `[⏎]` — `Todos` e `Executar` (D-SEL-06, D-SEL-07)
+### 23.2 Rótulo dinâmico de `[⏎]` — `Todos` e `Executar` (D-SEL-06, D-SEL-07; ADR-0037)
 
 | Estado da seleção | Rótulo | Efeito |
 |---|---|---|
 | Vazia | `Todos` | Seleciona todos os itens selecionáveis do conjunto filtrado, em todas as páginas; permanece visível e inativo quando não há item selecionável |
-| Não vazia | `Executar` | Executa a operação consumidora focal do binding (`contrato_console.md` §23.6); no Handoff 1, permanece inativo por ausência de operação externa |
+| Não vazia | `Executar` | Executa a operação consumidora focal do binding (`contrato_console.md` §23.6 e §23.9) |
+
+Ativação real de `Executar` (ADR-0037 D-H4-05) — ativo somente quando forem
+verdadeiras, cumulativamente:
+
+```yaml
+- lote_reconciliado_nao_vazio
+- executor_focal_disponivel
+- tela_resultado_execucao_prevalidada
+```
+
+Quando a reconciliação esvaziar o lote no próprio acionamento:
+
+```yaml
+executar: false
+selecionar_todos_no_mesmo_acionamento: false
+selecao_final: vazia
+rotulo_final: Todos
+```
 
 Este rótulo dinâmico já estava previsto de forma genérica na seção 4.5 de
 `docs/nomenclatura/31_BARRA_DE_MENUS_E_CHIPS.md`; a ADR-0034 fecha sua
-condição de disparo e sua fronteira com a operação focal do `ITEM-0006`.
+condição de disparo e a ADR-0037 fecha a ativação real de `Executar` no
+Handoff 4.
 
-### 23.3 Fronteira com o chip de alternância `dry-run`/execução real
+### 23.3 Chip específico `[Ins] Dry-Run` (ADR-0037)
 
-Não existe, neste ciclo, chip de alternância entre execução real e
-`dry-run` na `barra_de_menus`. A escolha entre os dois cenários é
-declarativa (`contrato_json_console.md` §14).
+```text
+[Ins] Dry-Run
+```
+
+Semântica:
+
+- sempre visível na tela integrada do Handoff 4;
+- ativo nos estados ligado e desligado — nunca usa `cor_inativo`;
+- `Insert` alterna execução real e `dry-run`;
+- desligado usa a cor normal do preset de chip ativo;
+- ligado usa `cor_alerta` (`amarelo`);
+- não produz outro eco (mensagem, popup, status ou linha adicional).
+
+Posicionamento: faixa canônica já vigente para chips específicos (entre
+`[⏎]` e `[V]`/`[?]`); não cria nova regra de ordenação.
+
+**Supersessão pontual (ADR-0037 D-H4-04)**: esta seção substitui a proibição
+anterior de chip de alternância entre execução real e `dry-run` contida em
+D-SEL-19 da ADR-0034 e a fronteira correspondente que esta seção registrava
+antes da ADR-0037. Todas as demais decisões das ADRs 0034, 0035 e 0036
+permanecem vigentes. O toggle é especialização focal do Handoff 4 — não
+padronização universal (`ITEM-0020` permanece aberto).
 
 ### 23.4 Instância concreta da tela de resultado (ADR-0036)
 
@@ -917,6 +959,7 @@ divisão original de D-SEL-21 da ADR-0034).
 
 - `docs/adr/ADR-0034-selecao-multipla-e-fluxo-focal-de-processamento.md`;
 - `docs/adr/ADR-0036-carregamento-e-apresentacao-da-tela-padrao-de-resultado.md`;
+- `docs/adr/ADR-0037-integracao-do-fluxo-focal-com-dry-run-e-restauracao-da-origem.md`;
 - `docs/contratos/contrato_console.md` — seção 23: seleção múltipla e fluxo focal;
 - `docs/contratos/contrato_json_console.md` — seção 14: protocolo provisório e resultado estruturado;
 - `docs/nomenclatura/31_BARRA_DE_MENUS_E_CHIPS.md` — terminologia de chip e rótulo dinâmico.

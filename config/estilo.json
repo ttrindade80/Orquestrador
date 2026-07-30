@@ -6,7 +6,6 @@
     "status": "rascunho_inicial",
     "reaproveitado_de_legado": false,
     "pendencias": [
-      "cor_alerta: nome semantico de cor definido em ADR-0004 — valor concreto ainda nao decidido",
       "tiling: preferencia do usuario, sem preset padrao decidido"
     ]
   },
@@ -121,5 +120,6 @@
       }
     }
   },
-  "cor_inativo": "cinza"
+  "cor_inativo": "cinza",
+  "cor_alerta": "amarelo"
 }

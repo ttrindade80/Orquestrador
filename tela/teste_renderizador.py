@@ -11779,6 +11779,275 @@ def test_h0041_p04_texto_chip_barra_nao_usa_lower():
     assert texto.endswith(_rend_qa002._ANSI_RESET_FG)
 
 
+# H-0044: cor_alerta / chips destacados
+# ---------------------------------------------------------------------------
+_ESTILO_H0044 = EstiloResolvido(
+    canto_superior_esquerdo="╭",
+    canto_superior_direito="╮",
+    canto_inferior_esquerdo="╰",
+    canto_inferior_direito="╯",
+    traco_superior="─",
+    traco_inferior="─",
+    lateral="│",
+    caractere_esquerdo="[",
+    caractere_direito="]",
+    cor_texto="padrão",
+    caixa_alta=False,
+    cor_fundo="padrão",
+    concluido_on="✓",
+    concluido_off=" ",
+    selecionado_simbolo="→",
+    selecionado_off=" ",
+    incluido_on="●",
+    incluido_off="○",
+    cor_inativo="cinza",
+    cor_alerta="amarelo",
+)
+
+
+def test_h0044_chip_destacado_usa_cor_alerta():
+    chip = {"id": "chip_x", "tecla": "Ins", "texto": "Dry-Run"}
+    texto = _rend_qa002._texto_chip_barra(
+        chip, _ESTILO_H0044, vao=1, inativo=False, destacado=True
+    )
+    codigo = _rend_qa002._codigo_ansi_de_cor(_ESTILO_H0044.cor_alerta)
+    assert codigo == "\x1b[33m"
+    assert codigo in texto
+    assert texto.endswith(_rend_qa002._ANSI_RESET_FG)
+    assert "Dry-Run" in texto
+
+
+def test_h0044_chip_ativo_normal_sem_destaque():
+    chip = {"id": "chip_x", "tecla": "Ins", "texto": "Dry-Run"}
+    texto = _rend_qa002._texto_chip_barra(
+        chip, _ESTILO_H0044, vao=1, inativo=False, destacado=False
+    )
+    assert _rend_qa002._codigo_ansi_de_cor("amarelo") not in texto
+    assert _rend_qa002._codigo_ansi_de_cor("cinza") not in texto
+
+
+def test_h0044_chip_inativo_cinza_nao_amarelo():
+    chip = {"id": "chip_e", "tecla": "⏎", "texto": "Executar"}
+    texto = _rend_qa002._texto_chip_barra(
+        chip, _ESTILO_H0044, vao=1, inativo=True, destacado=True
+    )
+    # Inativo tem precedencia; destaque nao se aplica.
+    assert _rend_qa002._codigo_ansi_de_cor("cinza") in texto
+    assert _rend_qa002._codigo_ansi_de_cor("amarelo") not in texto
+
+
+def test_h0044_destaque_nao_inativa():
+    assert _rend_qa002._avaliar_regra_ativo("sempre") is True
+    chip = {"id": "chip_dry_run", "tecla": "Ins", "texto": "Dry-Run"}
+    texto = _rend_qa002._texto_chip_barra(
+        chip, _ESTILO_H0044, destacado=True, inativo=False
+    )
+    assert "Dry-Run" in texto
+    assert _rend_qa002._codigo_ansi_de_cor("cinza") not in texto
+
+
+def test_h0044_largura_sem_ansi_destaque():
+    chip = {"tecla": "Ins", "texto": "Dry-Run"}
+    base = _rend_qa002._texto_chip_barra(chip, _ESTILO_H0044, destacado=False)
+    dest = _rend_qa002._texto_chip_barra(chip, _ESTILO_H0044, destacado=True)
+    assert _rend_qa002._largura_sem_ansi(base) == _rend_qa002._largura_sem_ansi(dest)
+
+
+def test_h0044_cor_nao_vaza_entre_chips():
+    chips = [
+        {"id": "a", "tecla": "Ins", "texto": "Dry-Run"},
+        {"id": "b", "tecla": "Esc", "texto": "Sair"},
+    ]
+    t0 = _rend_qa002._texto_chip_barra(
+        chips[0], _ESTILO_H0044, destacado=True
+    )
+    t1 = _rend_qa002._texto_chip_barra(
+        chips[1], _ESTILO_H0044, destacado=False
+    )
+    assert t0.endswith(_rend_qa002._ANSI_RESET_FG)
+    assert _rend_qa002._codigo_ansi_de_cor("amarelo") not in t1
+
+
+def test_h0044_executar_disponivel_ativa_selecao_nao_vazia():
+    assert _rend_qa002._avaliar_regra_ativo(
+        "selecao_vazia", selecao_vazia=False, executar_disponivel=True
+    ) is True
+    assert _rend_qa002._avaliar_regra_ativo(
+        "selecao_vazia", selecao_vazia=False, executar_disponivel=False
+    ) is False
+    # Sem contexto H-0044: preserva H-0041 (Executar inativo).
+    assert _rend_qa002._avaliar_regra_ativo(
+        "selecao_vazia", selecao_vazia=False
+    ) is False
+
+
+def test_h0044_regressao_sem_destaque_identica():
+    chip = {"tecla": "Esc", "texto": "Sair"}
+    a = _rend_qa002._texto_chip_barra(chip, _ESTILO_CURVA)
+    b = _rend_qa002._texto_chip_barra(chip, _ESTILO_H0044, destacado=False)
+    assert a == b
+
+
+# ---------------------------------------------------------------------------
+# PATCH H-0044 P01 — "terminal pequeno demais" persistente em TTY real
+#
+# Causa raiz comprovada: canais capturados do executor (stdout/stderr) e o
+# proprio ``resultado_bruto`` podem trazer ``\n`` a direita ou embutidos
+# (ex.: stderr de __falha_operacional__ == "ERRO: falha operacional sintetica.\n").
+# O envelope ``conjuntos_campos`` coloca o valor bruto em uma unica linha de
+# conteudo; o ``\n`` vira uma quebra de linha fisica fantasma, inflando a
+# contagem vertical em uma unidade e disparando o quadro minimo em QUALQUER
+# altura (off-by-one: corpo sempre exige ``area_disponivel + 1``).
+# ---------------------------------------------------------------------------
+
+def test_h0044_p01_valor_campo_normaliza_newline_a_direita():
+    # stderr do controle sintetico __falha_operacional__ vem com \n final.
+    texto = _rend_qa002._texto_valor_campo("ERRO: falha operacional sintetica.\n")
+    assert "\n" not in texto
+    assert texto == "ERRO: falha operacional sintetica."
+
+
+def test_h0044_p01_valor_campo_normaliza_newlines_embutidos():
+    texto = _rend_qa002._texto_valor_campo("linha1\nlinha2\tlinha3")
+    assert "\n" not in texto
+    assert "\t" not in texto
+    # Cada campo continua sendo uma unica linha visivel.
+    assert texto == "linha1 linha2 linha3"
+
+
+def test_h0044_p01_valor_campo_none_continua_indisponivel():
+    assert _rend_qa002._texto_valor_campo(None) == "indisponível"
+
+
+def test_h0044_p01_valor_campo_falsy_nao_none_preservado():
+    # Falsy nao-None nao recebe tratamento especial (H0043-P01).
+    assert _rend_qa002._texto_valor_campo("") == ""
+    assert _rend_qa002._texto_valor_campo(0) == "0"
+
+
+def test_h0044_p01_envelope_falha_cabe_em_altura_suficiente():
+    """QA-PATCH-H0044-P01: envelope de __falha_operacional__ renderiza em TTY
+    suficientemente grande, sem o quadro 'terminal pequeno demais'."""
+    from tela.resultado_execucao import (
+        DocumentoRuntime,
+        construir_modelo_resultado,
+    )
+    estilo = _carregar_estilo_qa002()
+    tela_raw = carregar_tela(None, "resultado_execucao", _RAIZ_TELAS_DEMO)
+    # stderr com \n final, tal qual o executor sintetico produz.
+    runtime = DocumentoRuntime(
+        codigo_saida=1,
+        stdout="",
+        stderr="ERRO: falha operacional sintetica.\n",
+        resultado_bruto="",
+    )
+    sessao = construir_modelo_resultado(tela_raw, runtime)
+    saida = renderizar_tela(sessao.modelo, estilo, largura=120, altura=24)
+    assert "terminal pequeno demais" not in saida
+    assert "falha operacional sintetica" in saida
+    # O valor bruto permanece intacto no envelope (preservacao literal).
+    mapa = {
+        f["nome"]: f["valor"]
+        for f in sessao.conteudo_apresentado["dados"][0]["filhos"]
+    }
+    assert mapa["stderr"] == "ERRO: falha operacional sintetica.\n"
+
+
+def test_h0044_p01_limite_calculado_corresponde_ao_conteudo_natural():
+    """A altura minima renderizavel coincide com a altura natural do conteudo:
+    uma linha a menos produz o quadro minimo; uma coluna a menos tambem.
+    Nenhum off-by-one inflando o minimo."""
+    from tela.resultado_execucao import (
+        DocumentoRuntime,
+        construir_modelo_resultado,
+    )
+    estilo = _carregar_estilo_qa002()
+    tela_raw = carregar_tela(None, "resultado_execucao", _RAIZ_TELAS_DEMO)
+    runtime = DocumentoRuntime(
+        codigo_saida=1,
+        stdout="",
+        stderr="ERRO: falha operacional sintetica.\n",
+        resultado_bruto="",
+    )
+    sessao = construir_modelo_resultado(tela_raw, runtime)
+    natural = renderizar_tela(
+        sessao.modelo, estilo, largura=120, altura=None
+    ).count("\n")
+
+    # No exato minimo natural: renderiza sem quadro minimo.
+    saida_min = renderizar_tela(
+        sessao.modelo, estilo, largura=120, altura=natural
+    )
+    assert "terminal pequeno demais" not in saida_min
+
+    # Uma linha a menos: terminal realmente insuficiente -> quadro minimo
+    # (via RenderizadorErro em _resolver_conteudo / ADR-0017).
+    with _pytest_qa002.raises(RenderizadorErro):
+        renderizar_tela(sessao.modelo, estilo, largura=120, altura=natural - 1)
+
+
+def test_h0044_p01_tres_controles_envelope_renderizam():
+    """RVM-H0044-06/07/08: os tres controles sinteticos de envelope
+    (__falha_operacional__, __resultado_invalido__, __interrupcao__) abrem
+    resultado_execucao sem 'terminal pequeno demais' em TTY grande."""
+    from tela.resultado_execucao import (
+        DocumentoRuntime,
+        construir_modelo_resultado,
+        DIAGNOSTICO_CODIGO_NAO_ZERO,
+        DIAGNOSTICO_RESULTADO_MALFORMADO,
+        DIAGNOSTICO_INTERRUPCAO,
+    )
+    estilo = _carregar_estilo_qa002()
+    tela_raw = carregar_tela(None, "resultado_execucao", _RAIZ_TELAS_DEMO)
+    casos = [
+        ("__falha_operacional__",
+         DocumentoRuntime(1, "", "ERRO: falha operacional sintetica.\n", ""),
+         DIAGNOSTICO_CODIGO_NAO_ZERO),
+        ("__resultado_invalido__",
+         DocumentoRuntime(0, "", "", "{\n  \"a\":\n"),
+         DIAGNOSTICO_RESULTADO_MALFORMADO),
+        ("__interrupcao__",
+         DocumentoRuntime(130, "", "", ""),
+         DIAGNOSTICO_INTERRUPCAO),
+    ]
+    for nome, runtime, diag in casos:
+        sessao = construir_modelo_resultado(tela_raw, runtime)
+        assert sessao.diagnostico == diag
+        saida = renderizar_tela(sessao.modelo, estilo, largura=120, altura=30)
+        assert "terminal pequeno demais" not in saida, nome
+
+
+def test_h0044_p01_redimensionamento_decide_capacidade_sem_reiniciar():
+    """Comeca abaixo do minimo em altura (RenderizadorErro => quadro minimo
+    via _resolver_conteudo), cresce para dimensões suficientes e volta a
+    renderizar a tela normal sem trocar de sessao (mesma instancia de modelo)."""
+    from tela.resultado_execucao import (
+        DocumentoRuntime,
+        construir_modelo_resultado,
+        SessaoResultado,
+    )
+    estilo = _carregar_estilo_qa002()
+    tela_raw = carregar_tela(None, "resultado_execucao", _RAIZ_TELAS_DEMO)
+    runtime = DocumentoRuntime(
+        codigo_saida=1,
+        stdout="",
+        stderr="ERRO: falha operacional sintetica.\n",
+        resultado_bruto="",
+    )
+    sessao = construir_modelo_resultado(tela_raw, runtime)
+    # Mesma instancia de modelo ao longo do redimensionamento (sem releitura).
+    modelo_ref = sessao.modelo
+    # Abaixo do minimo em altura: terminal realmente insuficiente -> erro
+    # (capacidade decidida por altura, nao pelo bug off-by-one).
+    with _pytest_qa002.raises(RenderizadorErro):
+        renderizar_tela(modelo_ref, estilo, largura=120, altura=10)
+    # Dimensões suficientes: tela normal, sem quadro minimo, mesma instancia.
+    saida_grande = renderizar_tela(modelo_ref, estilo, largura=120, altura=30)
+    assert "terminal pequeno demais" not in saida_grande
+    assert "RESULTADO" in saida_grande
+    assert isinstance(sessao, SessaoResultado)
+
+
 def main():
     print("Diagnostico H-0010A - renderer declarativo (curva/reta)")
     print("Base padrao: {0}".format(_BASE_PADRAO))

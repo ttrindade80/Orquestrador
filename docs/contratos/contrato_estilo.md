@@ -12,6 +12,7 @@ metadata:
       - docs/adr/ADR-0021-separacao-demo-produto-politica-caminhos.md
       - docs/adr/ADR-0022-ponto-entrada-tela-inicial-orquestrador.md
       - docs/adr/ADR-0030-carregamento-global-e-materializacao-do-estilo.md
+      - docs/adr/ADR-0037-integracao-do-fluxo-focal-com-dry-run-e-restauracao-da-origem.md
     reaproveitado_de_legado: false
   dependencias_nomenclatura:
     dependencias_obrigatorias:
@@ -252,19 +253,37 @@ isolado.
 | Campo | Função | Tipo |
 |---|---|---|
 | `cor_inativo` | Cor aplicada quando um elemento existe mas está temporariamente inativo | nome semântico de cor (string) |
-| `cor_alerta` | Cor aplicada quando um valor ou limite exige destaque visual | nome semântico de cor (string) |
+| `cor_alerta` | Cor aplicada a elemento operável em estado de destaque, ou quando um valor/limite exige atenção | nome semântico de cor (string) |
 
-`cor_inativo` e `cor_alerta` são nomes semânticos de cor — ex.: `"cinza"`,
-`"amarelo"`, `"padrão"` (sem cor diferenciada). A tradução desse nome para
-o valor real de terminal (ANSI, paleta, etc.) é responsabilidade exclusiva
-do renderer, nunca do schema de estilo (R-7).
+```yaml
+cor_inativo:
+  valor_concreto: cinza
+  uso: elemento_existente_mas_nao_operavel
 
-**Escopo de materialização em `config/estilo.json`**: o arquivo
-`config/estilo.json` contém os valores concretos já decididos para presets de
-estilo. A obrigatoriedade de `cor_inativo` e `cor_alerta` vale para o schema de
-estilo em tempo de execução. Enquanto seus valores concretos não forem
-definidos, eles permanecem documentados como campos obrigatórios do schema, mas
-não como presets materializados no JSON.
+cor_alerta:
+  valor_concreto: amarelo
+  uso:
+    - elemento_operavel_em_estado_de_destaque
+    - valor_ou_limite_que_exige_atencao
+```
+
+`cor_inativo` e `cor_alerta` são nomes semânticos de cor. A tradução desse
+nome para o valor real de terminal (ANSI, paleta, etc.) é responsabilidade
+exclusiva do renderer, nunca do schema de estilo (R-7).
+
+**Distinção ativo × destacado (ADR-0037)**:
+
+- um elemento pode estar ativo e simultaneamente destacado;
+- `cor_alerta` não implica inatividade;
+- `[Ins] Dry-Run` ligado é a primeira especialização focal dessa distinção —
+  não é regra universal de todos os toggles;
+- os valores concretos existem em `config/estilo.json` (`cor_inativo: "cinza"`,
+  `cor_alerta: "amarelo"`);
+- a materialização pelo loader em `EstiloResolvido` e o consumo pelo renderer
+  pertencem ao futuro handoff/implementação — este contrato não declara que
+  loader ou renderer já implementam a nova capacidade;
+- o estado vivo que determina o destaque (ex.: `dry_run_ativo`) não pertence
+  ao estilo global nem a `config/estilo.json`.
 
 **Distinção fundamental (ADR-0004)**:
 
@@ -288,9 +307,11 @@ Os presets ativos iniciais preservam a aparência vigente antes da migração:
 
 O literal `"padrão"` em `cor_texto` e `cor_fundo` significa ausência de cor
 diferenciada — preserva o comportamento atual do renderer, que não aplica
-cor especial a chips. Os valores de `cor_inativo` e `cor_alerta` não possuem
-valor decidido neste ciclo (pendência registrada em `_meta` de
-`config/estilo.json` e nas decisões deferidas da ADR-0030).
+cor especial a chips. Os valores concretos de `cor_inativo` (`cinza`) e
+`cor_alerta` (`amarelo`) existem em `config/estilo.json` (ADR-0037 para
+`cor_alerta`; `cor_inativo` já materializado anteriormente). A materialização
+completa pelo loader e o consumo pelo renderer de `cor_alerta` permanecem
+para o Handoff 4.
 
 ### 3.7 Fronteira com implementação (ADR-0030)
 
@@ -334,11 +355,14 @@ Continuam fora do estado implementado (pendências futuras):
 - tela de escolha de estilo;
 - persistência de escolha;
 - troca de estilo durante sessão;
-- `cor_inativo`;
-- `cor_alerta`;
+- materialização de `cor_alerta` pelo loader e consumo pelo renderer
+  (valor concreto já em `config/estilo.json`; ADR-0037 / Handoff 4);
 - `tiling`;
 - Blocos 2 e 3;
 - promoção de `_meta.status`.
+
+`cor_inativo: "cinza"` permanece materializado em `config/estilo.json`.
+O consumo completo de `cor_alerta` pelo runtime foi concluído e validado pelo H-0044; a capacidade correspondente do ITEM-0011 está encerrada.
 
 ---
 

@@ -22,6 +22,7 @@ metadata:
       - docs/adr/ADR-0034-selecao-multipla-e-fluxo-focal-de-processamento.md
       - docs/adr/ADR-0035-protocolo-focal-execucao-sintetica-reversivel.md
       - docs/adr/ADR-0036-carregamento-e-apresentacao-da-tela-padrao-de-resultado.md
+      - docs/adr/ADR-0037-integracao-do-fluxo-focal-com-dry-run-e-restauracao-da-origem.md
     reaproveitado_de_legado: false
   dependencias_nomenclatura:
     dependencias_obrigatorias:
@@ -1175,7 +1176,7 @@ reconciliacao_vazia_apos_enter:
 |---|---|
 | `Espaço` | Alterna a inclusão do item em foco na seleção; não move o cursor; sem efeito em item não selecionável |
 | `Enter` sem seleção | Assume o rótulo `Todos` (§4.5 de `docs/nomenclatura/31_BARRA_DE_MENUS_E_CHIPS.md`); seleciona todos os itens selecionáveis do conjunto filtrado, em todas as páginas; produz snapshot de IDs (§23.1); com zero itens selecionáveis, o chip permanece visível e inativo |
-| `Enter` com seleção | Assume o rótulo `Executar`; executa a operação consumidora declarada pelo binding (§23.6); no Handoff 1, permanece inativo por ausência de operação externa |
+| `Enter` com seleção | Assume o rótulo `Executar`; executa a operação consumidora declarada pelo binding (§23.6); ativação real no Handoff 4 conforme §23.9 e `contrato_barra_de_menus.md` §23.2 |
 | `Esc` com seleção ativa | Limpa a seleção; permanece na tela; só volta ao comportamento de navegação depois de limpar |
 | `Esc` sem seleção, tela raiz | Sai |
 | `Esc` sem seleção, demais telas | Volta |
@@ -1262,13 +1263,13 @@ handoff_3_fronteira_comportamental:
 A abertura da tela de resultado e a execução do retorno pertencem
 exclusivamente ao Handoff 4 (ADR-0036 D-H3-19) — ver §23.7.
 
-### 23.7 Fronteiras deste contrato aplicado (ADR-0034 D-SEL-26; supersessão parcial ADR-0036 D-H3-19)
+### 23.7 Fronteiras deste contrato aplicado (ADR-0034 D-SEL-26; supersessões ADR-0036 D-H3-19 e ADR-0037 D-H4-04)
 
 Permanecem fora deste contrato aplicado: registry e dispatcher genéricos de
 ações (`ITEM-0004`); pilha genérica de telas (`ITEM-0005`); paginação
 interativa (`ITEM-0003`); seleção compartilhada entre consoles compatíveis;
-chip de alternância entre `dry-run` e execução real; colapso e expansão
-multinível (`ITEM-0007`).
+padronização universal do toggle real/`dry-run` (`ITEM-0020`); colapso e
+expansão multinível (`ITEM-0007`).
 
 A ADR-0036 substitui pontualmente, quanto à tela de resultado, a divisão
 original de D-SEL-21: a ativação do chip `Executar`, a abertura da tela de
@@ -1276,16 +1277,93 @@ resultado, a suspensão da tela de origem, o retorno e a restauração
 pertencem exclusivamente ao Handoff 4. O Handoff 3 permanece limitado ao
 carregamento, à validação, à construção do modelo, à escolha entre
 documento e envelope de erro, e à materialização/apresentação do conteúdo
-(§23.6). Todas as demais decisões de D-SEL-21 e da ADR-0034 permanecem
-vigentes.
+(§23.6).
+
+A ADR-0037 substitui pontualmente: a proibição de chip de `dry-run` em
+D-SEL-19 da ADR-0034; a fronteira correspondente do `contrato_barra_de_menus.md`;
+os fora de escopo da ADR-0036 sobre escolha de `dry-run` pela interface e
+sobre definição concreta de `cor_alerta`. Todas as demais decisões das
+ADRs 0034, 0035 e 0036 permanecem vigentes. A especialização completa do
+Handoff 4 está em §23.9.
 
 ### 23.8 Remissões
 
 - `docs/adr/ADR-0034-selecao-multipla-e-fluxo-focal-de-processamento.md` — decisões D-SEL-01 a D-SEL-26;
 - `docs/adr/ADR-0035-protocolo-focal-execucao-sintetica-reversivel.md` — especialização do Handoff 2 (H2-ESP-01 a H2-ESP-18);
 - `docs/adr/ADR-0036-carregamento-e-apresentacao-da-tela-padrao-de-resultado.md` — especialização do Handoff 3 e supersessão parcial da divisão H3/H4 (D-H3-19);
+- `docs/adr/ADR-0037-integracao-do-fluxo-focal-com-dry-run-e-restauracao-da-origem.md` — especialização do Handoff 4 (D-H4-01 a D-H4-10);
 - `docs/contratos/contrato_json_console.md` — seção 14: protocolo provisório, resultado estruturado e envelope de erro;
-- `docs/contratos/contrato_barra_de_menus.md` — seção 23: rótulos dinâmicos `Todos`/`Executar` e chip `Espaço`;
+- `docs/contratos/contrato_barra_de_menus.md` — seção 23: rótulos dinâmicos `Todos`/`Executar`, chip `Espaço` e `[Ins] Dry-Run`;
 - `docs/contratos/contrato_tela_json.md` — seção 34: perfil `resultado_execucao`;
 - `docs/contratos/contrato_composicao_corpo.md` — tela de resultado como composição;
 - `docs/nomenclatura/32_CONSOLE.md` — terminologia de seleção múltipla e reconciliação.
+
+### 23.9 Handoff 4 — integração focal, origem suspensa e retornos (ADR-0037)
+
+A ADR-0037 especializa o Handoff 4 do `ITEM-0006`. Preserva as fronteiras dos
+H-0041, H-0042 e H-0043 — não reimplementa protocolo nem construção de
+resultado.
+
+#### Transição atômica (D-H4-06)
+
+```text
+reconciliar seleção
+→ capturar modo
+→ preservar referência da origem
+→ executar protocolo do H-0042
+→ classificar resultado
+→ construir modelo do H-0043
+→ suspender origem
+→ ativar resultado_execucao
+```
+
+Proibido:
+
+- tela de resultado vazia;
+- estado intermediário de carregamento;
+- reimplementação do H-0042 ou H-0043;
+- mutação da origem enquanto o resultado estiver aberto;
+- pilha genérica de telas.
+
+#### Origem suspensa (D-H4-07)
+
+```yaml
+cardinalidade: zero_ou_uma
+representacao: referencia_para_instancia_viva
+snapshot: proibido
+reconstrucao: proibida
+```
+
+Preservar na origem suspensa: dados carregados; filtro; página; foco;
+cursores; seleção; estado de `dry-run`. Enquanto `resultado_execucao`
+estiver ativa, a origem não recebe entrada nem sofre mutação.
+
+#### Retorno após `dry-run` (D-H4-08)
+
+- não recarregar binding;
+- preservar seleção, filtro, página, foco e cursor;
+- manter `dry_run_ativo: true`;
+- recalcular apenas a geometria em caso de redimensionamento.
+
+#### Retorno após execução real (D-H4-09)
+
+Aplicável a sucesso, parcial, falha operacional, resultado inválido e
+interrupção `130`:
+
+- limpar seleção;
+- recarregar binding;
+- reaplicar filtro;
+- preservar foco quando válido;
+- fallback para primeiro console focalizável;
+- preservar cursor pelo ID quando válido;
+- fallback para primeiro item navegável;
+- retornar com `dry_run_ativo: false`.
+
+#### Limpeza por propriedade (D-H4-10)
+
+- H-0042 limpa temporários e subprocesso;
+- H-0043 mantém apenas o modelo em memória;
+- H4 limpa suas referências e estado de transição;
+- exceção interna do H4 não vira envelope operacional;
+- terminal e referências próprias são restaurados por `finally`;
+- erro interno é propagado.

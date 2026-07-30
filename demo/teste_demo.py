@@ -3604,3 +3604,392 @@ def test_h0043_esc_encerra_sem_pilha():
     novo = processar_comando(estado, "\x1b", modelo)
     assert novo["saindo"] is True
     assert novo["pilha_telas"] == []
+
+
+# ---------------------------------------------------------------------------
+# H-0044 / ADR-0037 — fluxo focal integrado
+# ---------------------------------------------------------------------------
+
+def _estado_h0044():
+    import demo.demo as _demo_mod
+    from tela import fluxo_execucao as fe
+    modelo = _demo_mod._carregar_modelo_por_id(fe.ID_TELA_H0044)
+    estado = criar_estado_inicial()
+    estado = dict(estado, estilo=_ESTILO, tela_atual=fe.ID_TELA_H0044)
+    estado = _demo_mod._anexar_fluxo_h0044(estado, modelo)
+    return estado, modelo, estado["fluxo_execucao"]
+
+
+def test_h0044_entrada_demo():
+    import demo.demo as _demo_mod
+    from tela import fluxo_execucao as fe
+    assert _demo_mod._tela_inicial_de_argv(
+        ["demo.py", fe.ID_TELA_H0044]
+    ) == fe.ID_TELA_H0044
+    modelo = _demo_mod._carregar_modelo_por_id(fe.ID_TELA_H0044)
+    assert modelo.id == fe.ID_TELA_H0044
+
+
+def test_h0044_insert_toggle_via_demo():
+    from tela import fluxo_execucao as fe
+    estado, modelo, fluxo = _estado_h0044()
+    assert fluxo.dry_run_ativo is False
+    estado = processar_comando(estado, fe.TECLA_INSERT, modelo)
+    assert estado["fluxo_execucao"].dry_run_ativo is True
+    saida = renderizar_estado(estado, modelo, largura=80, altura=24)
+    codigo = __import__("tela.renderizador", fromlist=["_"])._codigo_ansi_de_cor(
+        estado["estilo"].cor_alerta
+    )
+    assert codigo in saida
+    assert "Dry-Run" in saida
+    estado = processar_comando(estado, fe.TECLA_INSERT, modelo)
+    assert estado["fluxo_execucao"].dry_run_ativo is False
+
+
+def test_h0044_enter_abre_resultado_e_esc_retorna():
+    from tela import fluxo_execucao as fe
+    from tela import selecao as sel
+    from tela import navegacao as nav
+    estado, modelo, fluxo = _estado_h0044()
+    estado = processar_comando(estado, " ", modelo)  # marca item_01
+    cons = nav.console_focado(dict(estado, modelo=modelo))
+    assert sel.selecao(cons, estado) == ["item_01"]
+    estado = processar_comando(estado, "\r", modelo)
+    assert fluxo.resultado_ativo
+    modelo_res = fluxo.modelo_resultado.modelo
+    saida = renderizar_estado(estado, modelo_res, largura=80, altura=24)
+    assert "Resultado" in saida or "RESULTADO" in saida.upper()
+    estado = processar_comando(estado, "\x1b", modelo_res)
+    assert not fluxo.resultado_ativo
+    assert fluxo.origem_ativa is modelo
+    assert sel.selecao(cons, estado) == []
+    assert fluxo.dry_run_ativo is False
+    assert fluxo.chamadas_recarregador == 1
+
+
+def test_h0044_dry_run_depois_real():
+    from tela import fluxo_execucao as fe
+    from tela import selecao as sel
+    from tela import navegacao as nav
+    estado, modelo, fluxo = _estado_h0044()
+    estado = processar_comando(estado, " ", modelo)
+    estado = processar_comando(estado, fe.TECLA_INSERT, modelo)
+    estado = processar_comando(estado, "\r", modelo)
+    assert fluxo.resultado_ativo
+    estado = processar_comando(estado, "\x1b", modelo)
+    cons = nav.console_focado(dict(estado, modelo=modelo))
+    assert sel.selecao(cons, estado) == ["item_01"]
+    assert fluxo.dry_run_ativo is True
+    assert fluxo.chamadas_recarregador == 0
+    estado = processar_comando(estado, fe.TECLA_INSERT, modelo)
+    estado = processar_comando(estado, "\r", modelo)
+    estado = processar_comando(estado, "\x1b", modelo)
+    assert sel.selecao(cons, estado) == []
+    assert fluxo.dry_run_ativo is False
+    assert fluxo.chamadas_recarregador == 1
+
+
+def test_h0044_interrupcao_nao_encerra():
+    from tela import navegacao as nav
+    from tela import selecao as sel
+    estado, modelo, fluxo = _estado_h0044()
+    cons = nav.console_focado(dict(estado, modelo=modelo))
+    # Cursor em __interrupcao__ (indice 7)
+    estado = dict(estado, cursores={cons.id: 7})
+    estado = processar_comando(estado, " ", modelo)
+    assert sel.selecao(cons, estado) == ["__interrupcao__"]
+    estado = processar_comando(estado, "\r", modelo)
+    assert fluxo.resultado_ativo
+    assert fluxo.modelo_resultado.documento_runtime.codigo_saida == 130
+    estado = processar_comando(estado, "\x1b", modelo)
+    assert estado.get("saindo") is not True
+    assert not fluxo.resultado_ativo
+
+
+def test_h0044_sigwinch_durante_resultado():
+    estado, modelo, fluxo = _estado_h0044()
+    estado = processar_comando(estado, " ", modelo)
+    estado = processar_comando(estado, "\r", modelo)
+    assert fluxo.resultado_ativo
+    # Redimensionamento: geometria no estado; modelo do resultado permanece.
+    estado = dict(estado, largura=100, altura=30)
+    modelo_res = fluxo.modelo_resultado.modelo
+    saida = renderizar_estado(estado, modelo_res, largura=100, altura=30)
+    assert isinstance(saida, str) and len(saida) > 0
+    # Origem suspensa intacta
+    assert fluxo.origem_suspensa is modelo
+    estado = processar_comando(estado, "\x1b", modelo_res)
+    assert estado.get("largura") == 100
+    assert fluxo.chamadas_recarregador == 1
+
+
+def test_h0044_segundo_esc_encerra_na_raiz():
+    estado, modelo, fluxo = _estado_h0044()
+    estado = processar_comando(estado, " ", modelo)
+    estado = processar_comando(estado, "\r", modelo)
+    estado = processar_comando(estado, "\x1b", modelo)  # volta
+    assert not fluxo.resultado_ativo
+    estado = processar_comando(estado, "\x1b", modelo)  # sai
+    assert estado["saindo"] is True
+
+
+def test_h0044_pty_ciclo_basico():
+    """PTY: Insert, Enter, abertura de resultado, Esc, interrupcao sem kill."""
+    import fcntl
+    import pty
+    import select as selmod
+    import struct
+    import termios
+    import time
+
+    master, slave = pty.openpty()
+    try:
+        # 80x24
+        winsz = struct.pack("HHHH", 24, 80, 0, 0)
+        fcntl.ioctl(slave, termios.TIOCSWINSZ, winsz)
+        env = os.environ.copy()
+        env["PYTHONDONTWRITEBYTECODE"] = "1"
+        proc = subprocess.Popen(
+            [sys.executable, "demo/demo.py", "h0044_fluxo_execucao_integrado"],
+            stdin=slave,
+            stdout=slave,
+            stderr=slave,
+            env=env,
+            close_fds=True,
+        )
+        os.close(slave)
+        slave = None
+        time.sleep(0.3)
+
+        def _drain(timeout=0.4):
+            buf = b""
+            fim = time.time() + timeout
+            while time.time() < fim:
+                r, _, _ = selmod.select([master], [], [], 0.05)
+                if master in r:
+                    try:
+                        chunk = os.read(master, 4096)
+                    except OSError:
+                        break
+                    if not chunk:
+                        break
+                    buf += chunk
+                    fim = time.time() + 0.15
+            return buf
+
+        _drain()
+        # Espaco + Enter -> resultado
+        os.write(master, b" ")
+        _drain(0.2)
+        os.write(master, b"\r")
+        out = _drain(1.0)
+        texto = out.decode("utf-8", errors="replace")
+        assert "RESULTADO" in texto.upper() or "Resultado" in texto or "Voltar" in texto
+        # Esc volta
+        os.write(master, b"\x1b")
+        _drain(0.5)
+        # Esc sai
+        os.write(master, b"\x1b")
+        try:
+            proc.wait(timeout=3)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+            proc.wait(timeout=2)
+            raise AssertionError("PTY nao encerrou apos segundo Esc")
+        assert proc.returncode == 0
+    finally:
+        try:
+            os.close(master)
+        except OSError:
+            pass
+        if slave is not None:
+            try:
+                os.close(slave)
+            except OSError:
+                pass
+        if "proc" in locals() and proc.poll() is None:
+            proc.kill()
+
+
+# ---------------------------------------------------------------------------
+# PATCH H-0044 P01 — RVM-H0044-06: "terminal pequeno demais" persistente
+#
+# Causa raiz: o envelope de __falha_operacional__ recebia stderr com "\n"
+# final do executor sintetico; o renderer embutia esse "\n" numa unica linha
+# de conteudo, inflando a contagem vertical e disparando o quadro minimo em
+# qualquer altura (off-by-one). Os tres controles de envelope (falha
+# operacional, resultado invalido, interrupcao) eram os afetados.
+# ---------------------------------------------------------------------------
+
+def _navegar_h0044_ate(estado, modelo, id_alvo):
+    """Move o cursor por Setas para baixo ate o item ``id_alvo`` (H-0041)."""
+    import demo.demo as _demo_mod
+    from tela import navegacao
+    ordem = [
+        "item_01", "item_05", "item_03", "item_07", "item_inexistente",
+        "__falha_operacional__", "__resultado_invalido__", "__interrupcao__",
+    ]
+    alvo = ordem.index(id_alvo)
+    for _ in range(alvo):
+        estado = processar_comando(estado, "\x1b[B", modelo)
+    return estado
+
+
+def test_h0044_p01_falha_operacional_sem_terminal_pequeno():
+    """RVM-H0044-06: Down x5 -> Espaco -> Enter abre resultado_execucao do
+    envelope de falha operacional sem 'terminal pequeno demais' em TTY grande."""
+    estado, modelo, fluxo = _estado_h0044()
+    estado = _navegar_h0044_ate(estado, modelo, "__falha_operacional__")
+    estado = processar_comando(estado, " ", modelo)
+    estado = processar_comando(estado, "\r", modelo)
+    assert estado["fluxo_execucao"].resultado_ativo is True
+    modelo_res = _modelo_corrente_call(estado, modelo)
+    saida = renderizar_estado(estado, modelo_res, largura=120, altura=30)
+    assert "terminal pequeno demais" not in saida
+    assert "falha operacional sintetica" in saida
+    # valor bruto permanece intacto no envelope (preservacao literal).
+    mapa = {
+        f["nome"]: f["valor"]
+        for f in estado["fluxo_execucao"].modelo_resultado
+        .conteudo_apresentado["dados"][0]["filhos"]
+    }
+    assert mapa["stderr"] == "ERRO: falha operacional sintetica.\n"
+
+
+def test_h0044_p01_resultado_invalido_sem_terminal_pequeno():
+    """RVM-H0044-07: envelope de resultado invalido abre sem bloqueio."""
+    estado, modelo, fluxo = _estado_h0044()
+    estado = _navegar_h0044_ate(estado, modelo, "__resultado_invalido__")
+    estado = processar_comando(estado, " ", modelo)
+    estado = processar_comando(estado, "\r", modelo)
+    assert estado["fluxo_execucao"].resultado_ativo is True
+    modelo_res = _modelo_corrente_call(estado, modelo)
+    saida = renderizar_estado(estado, modelo_res, largura=120, altura=30)
+    assert "terminal pequeno demais" not in saida
+
+
+def test_h0044_p01_interrupcao_sem_terminal_pequeno():
+    """RVM-H0044-08: envelope de interrupcao (130) abre sem bloqueio."""
+    estado, modelo, fluxo = _estado_h0044()
+    estado = _navegar_h0044_ate(estado, modelo, "__interrupcao__")
+    estado = processar_comando(estado, " ", modelo)
+    estado = processar_comando(estado, "\r", modelo)
+    assert estado["fluxo_execucao"].resultado_ativo is True
+    modelo_res = _modelo_corrente_call(estado, modelo)
+    saida = renderizar_estado(estado, modelo_res, largura=120, altura=40)
+    assert "terminal pequeno demais" not in saida
+
+
+def _modelo_corrente_call(estado, modelo):
+    import demo.demo as _demo_mod
+    return _demo_mod._modelo_corrente(estado, modelo)
+
+
+def test_h0044_p01_tty_grande_ciclo_falha_operacional():
+    """PTY grande (192x50): abre h0044, navega ate __falha_operacional__,
+    seleciona, dispara Enter e confirma abertura de resultado sem o quadro
+    minimo — reproduz o roteiro RVM-H0044-06 que falhava em TTY real."""
+    import fcntl
+    import pty
+    import select as selmod
+    import struct
+    import termios
+    import time
+
+    linhas, colunas = 50, 192
+    master, slave = pty.openpty()
+    try:
+        winsz = struct.pack("HHHH", linhas, colunas, 0, 0)
+        fcntl.ioctl(slave, termios.TIOCSWINSZ, winsz)
+        env = os.environ.copy()
+        env["PYTHONDONTWRITEBYTECODE"] = "1"
+        proc = subprocess.Popen(
+            [sys.executable, "demo/demo.py", "h0044_fluxo_execucao_integrado"],
+            stdin=slave, stdout=slave, stderr=slave,
+            env=env, close_fds=True,
+        )
+        os.close(slave)
+        slave = None
+        time.sleep(0.3)
+
+        def _drain(timeout=0.4):
+            buf = b""
+            fim = time.time() + timeout
+            while time.time() < fim:
+                r, _, _ = selmod.select([master], [], [], 0.05)
+                if master in r:
+                    try:
+                        chunk = os.read(master, 4096)
+                    except OSError:
+                        break
+                    if not chunk:
+                        break
+                    buf += chunk
+                    fim = time.time() + 0.15
+            return buf
+
+        _drain()
+        # Down x5 ate __falha_operacional__
+        for _ in range(5):
+            os.write(master, b"\x1b[B")
+            _drain(0.12)
+        os.write(master, b" ")
+        _drain(0.2)
+        os.write(master, b"\r")
+        out = _drain(1.0)
+        texto = out.decode("utf-8", errors="replace")
+        # Resultado aberto e SEM o quadro minimo em TTY grande.
+        assert "terminal pequeno demais" not in texto
+        assert "falha operacional sintetica" in texto
+        # Esc volta; Esc sai.
+        os.write(master, b"\x1b")
+        _drain(0.4)
+        os.write(master, b"\x1b")
+        try:
+            proc.wait(timeout=3)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+            proc.wait(timeout=2)
+            raise AssertionError("PTY nao encerrou apos segundo Esc")
+        assert proc.returncode == 0
+    finally:
+        try:
+            os.close(master)
+        except OSError:
+            pass
+        if slave is not None:
+            try:
+                os.close(slave)
+            except OSError:
+                pass
+        if "proc" in locals() and proc.poll() is None:
+            proc.kill()
+
+
+def test_h0044_p01_redimensionamento_resolve_bloqueio_visual():
+    """Reproduz a recuperacao do quadro minimo: abaixo do minimo (altura
+    insuficiente => quadro via _resolver_conteudo), cresce para dimensões
+    suficientes e a tela de resultado volta a renderizar sem reiniciar a
+    sessao (mesma instancia de fluxo e de modelo de resultado)."""
+    import demo.demo as _demo_mod
+    estado, modelo, fluxo = _estado_h0044()
+    # Navega ate __falha_operacional__, seleciona e dispara Enter -> resultado.
+    estado = _navegar_h0044_ate(estado, modelo, "__falha_operacional__")
+    estado = processar_comando(estado, " ", modelo)
+    estado = processar_comando(estado, "\r", modelo)
+    assert estado["fluxo_execucao"].resultado_ativo is True
+    modelo_res = _modelo_corrente_call(estado, modelo)
+    # Abaixo do minimo em altura: _resolver_conteudo exibe o quadro minimo
+    # (terminal realmente insuficiente), sem traceback.
+    saida_peq = _demo_mod._resolver_conteudo(estado, modelo_res, 120, 10)
+    assert "terminal pequeno demais" in saida_peq
+    # Dimensões suficientes: tela normal de resultado, sem reiniciar sessao.
+    saida_grande = renderizar_estado(estado, modelo_res, largura=120, altura=30)
+    assert "terminal pequeno demais" not in saida_grande
+    assert "falha operacional sintetica" in saida_grande
+    # O fluxo e o modelo de resultado permanecem as mesmas instancias
+    # (redimensionamento nao reconstroi nem rele a sessao).
+    assert estado["fluxo_execucao"] is fluxo
+    assert (
+        estado["fluxo_execucao"].modelo_resultado.modelo is modelo_res
+    )

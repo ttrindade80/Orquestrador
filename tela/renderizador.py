@@ -139,6 +139,13 @@ _navegacao_atual = {
     # avaliacao de ``regra_ativo`` (independente do rotulo apresentado).
     # Preenchido em ``_linhas_barra``; consultavel por testes apos render.
     "estado_ativo_chips": {},  # dict id-do-chip -> bool (True=ATIVO)
+    # H-0044 / ADR-0037: conjunto de IDs de chips ja resolvidos pelo chamador
+    # para receber ``cor_alerta`` (destaque). O renderer nao decide dry-run.
+    "chips_destacados": frozenset(),
+    # Quando nao-None, altera a avaliacao de ``selecao_vazia`` para Executar
+    # (H-0044): selecao nao vazia fica ativa somente se True. None preserva
+    # H-0041 (Executar inativo).
+    "executar_disponivel": None,
 }
 
 # Defaults normativos do alias transitório ``distribuicao = "horizontal"`` e
@@ -1051,10 +1058,21 @@ def _texto_valor_campo(valor_bruto):
     sem documento) e e exibido como texto fixo; qualquer outro valor
     (incluindo falsy nao-None, como ``0``, ``False`` ou string vazia) segue a
     formatacao padrao, sem tratamento especial.
+
+    QA-PATCH-H0044-P01: cada campo ``nome_valor`` ocupa exatamente uma linha
+    visivel. Canais capturados do executor (``stdout``/``stderr``) e o proprio
+    ``resultado_json`` bruto podem trazer ``\\n`` a direita ou embutidos (ex.:
+    ``"ERRO: falha operacional sintetica.\\n"``). Sem normalizacao, o ``\\n``
+    vira uma quebra de linha fisica fantasma dentro de uma unica "linha" de
+    conteudo, inflando a contagem vertical em uma unidade e disparando
+    indevidamente o quadro minimo "terminal pequeno demais" em qualquer altura.
+    O espaco em branco e normalizado para um unico espaco (cada campo segue
+    sendo uma linha); o valor bruto do envelope permanece intocado (preservacao
+    literal de ``resultado_bruto`` e testada no dominio do resultado).
     """
     if valor_bruto is None:
         return _VALOR_CAMPO_AUSENTE_TEXTO
-    return "{0}".format(valor_bruto)
+    return " ".join("{0}".format(valor_bruto).split())
 
 
 def _linhas_apresentacao_conjuntos(conteudo, content_w=None, verboso=False):
@@ -1500,7 +1518,8 @@ def _linhas_lancador(elemento, content_w=None):
 
 
 def _avaliar_regra_ativo(
-    regra, *, selecao_vazia=None, item_focalizado_selecionavel=None
+    regra, *, selecao_vazia=None, item_focalizado_selecionavel=None,
+    executar_disponivel=None,
 ):
     """Avalia ``regra_ativo`` do chip e devolve o estado logico ATIVO.
 
@@ -1513,7 +1532,10 @@ def _avaliar_regra_ativo(
     - ``None`` / ``"sempre"``: sempre ATIVO (comportamento pre-existente);
     - ``"selecao_vazia"``: ATIVO somente quando a selecao reconciliada do
       console focado esta vazia (chip Enter=Todos); INATIVO com selecao
-      (chip Enter=Executar, D-SEL-07/D-SEL-21).
+      (chip Enter=Executar, D-SEL-07/D-SEL-21). H-0044: quando
+      ``executar_disponivel`` nao e ``None``, selecao nao vazia fica ATIVA
+      somente se ``executar_disponivel`` for verdadeiro (ativacao cumulativa
+      de Executar); ``None`` preserva o comportamento H-0041.
     - ``"item_focalizado_selecionavel"``: ATIVO somente quando o item sob
       cursor no console focado e selecionavel (chip Espaco=Marcar,
       D-SEL-05/D-SEL-09); INATIVO quando o item sob cursor nao e
@@ -1532,7 +1554,12 @@ def _avaliar_regra_ativo(
     if regra == "selecao_vazia":
         if selecao_vazia is None:
             return True
-        return bool(selecao_vazia)
+        if selecao_vazia:
+            return True
+        # Selecao nao vazia -> rotulo Executar.
+        if executar_disponivel is not None:
+            return bool(executar_disponivel)
+        return False
     if regra == "item_focalizado_selecionavel":
         if item_focalizado_selecionavel is None:
             return True
@@ -1594,7 +1621,7 @@ def _ljust_sem_ansi(texto, largura):
     return texto + (" " * pad)
 
 
-def _texto_chip_barra(chip, estilo, vao=1, inativo=False):
+def _texto_chip_barra(chip, estilo, vao=1, inativo=False, destacado=False):
     """Monta o texto de um chip da barra no formato ``"{ec}{tecla}{ed}{padding}{texto}"``.
 
     H-0039 / ADR-0030 D5: os delimitadores e a capitalizacao do rotulo vêm do
@@ -1615,6 +1642,11 @@ def _texto_chip_barra(chip, estilo, vao=1, inativo=False):
     O estado logico continua vindo de ``regra_ativo`` / ``estado_ativo_chips``,
     nunca inferido pelo rotulo. Consoles sem selecao multipla preservam o
     comportamento anterior (``inativo`` default ``False``).
+
+    H-0044 / ADR-0037: quando ``destacado=True`` e o chip nao esta inativo,
+    aplica ``estilo.cor_alerta`` ao texto integral do chip. Destaque nao
+    implica inatividade. O conjunto de chips destacados e resolvido pelo
+    chamador — o renderer nao decide dry-run nem hardcoda IDs de chip.
     """
     tecla = chip.get("tecla", "")
     texto = chip.get("texto", "")
@@ -1632,12 +1664,17 @@ def _texto_chip_barra(chip, estilo, vao=1, inativo=False):
     # Referencia material a cor_texto/cor_fundo (H-0039); sem efeito enquanto
     # o valor semantico for ``"padrão"``.
     _ = (cor_texto, cor_fundo)
-    if not inativo:
-        return base
-    codigo = _codigo_ansi_de_cor(estilo.cor_inativo)
-    if not codigo:
-        return base
-    return "{0}{1}{2}".format(codigo, base, _ANSI_RESET_FG)
+    if inativo:
+        codigo = _codigo_ansi_de_cor(estilo.cor_inativo)
+        if not codigo:
+            return base
+        return "{0}{1}{2}".format(codigo, base, _ANSI_RESET_FG)
+    if destacado:
+        codigo = _codigo_ansi_de_cor(getattr(estilo, "cor_alerta", "padrão"))
+        if not codigo:
+            return base
+        return "{0}{1}{2}".format(codigo, base, _ANSI_RESET_FG)
+    return base
 
 
 def _normalizar_distribuicao(distribuicao):
@@ -2132,12 +2169,14 @@ def _linhas_barra(barra_de_menus, estilo, content_w):
     # que ``regra_ativo: item_focalizado_selecionavel`` (chip Espaco) reflita a
     # selecionabilidade do item sob cursor, recalculada a cada movimento.
     estado_ativo_chips = {}
+    executar_disponivel = _navegacao_atual.get("executar_disponivel")
     for c in chips:
         chip_id = c.get("id")
         ativo = _avaliar_regra_ativo(
             c.get("regra_ativo"),
             selecao_vazia=selecao_vazia,
             item_focalizado_selecionavel=item_focalizado_selecionavel,
+            executar_disponivel=executar_disponivel,
         )
         if chip_id is not None:
             estado_ativo_chips[chip_id] = ativo
@@ -2161,11 +2200,13 @@ def _linhas_barra(barra_de_menus, estilo, content_w):
     vao_entre_chips = (esp.get("vao_entre_chips") or {}).get("minimo", 2)
     vao_entre_colunas = (esp.get("vao_entre_colunas") or {}).get("minimo", 2)
 
+    chips_destacados = _navegacao_atual.get("chips_destacados") or frozenset()
     texto_chips = [
         _texto_chip_barra(
             c, estilo, vao=vao_ct,
             # Estado visual inativo = consequencia de regra_ativo == False.
             inativo=not estado_ativo_chips.get(c.get("id"), True),
+            destacado=(c.get("id") in chips_destacados),
         )
         for c in chips
     ]
@@ -3322,6 +3363,8 @@ def renderizar_tela(
     lista_foco=None,
     largura_navegacao=None,
     selecoes=None,
+    chips_destacados=None,
+    executar_disponivel=None,
 ) -> str:
     """Renderiza ModeloTela como string visual declarativa (H-0010A).
 
@@ -3433,6 +3476,16 @@ def renderizar_tela(
     _navegacao_atual["inc_on"] = getattr(estilo, "incluido_on", None)
     _navegacao_atual["inc_off"] = getattr(estilo, "incluido_off", None)
     _navegacao_atual["estado_ativo_chips"] = {}
+    # H-0044: destaque e ativacao de Executar resolvidos pelo chamador.
+    if chips_destacados is None:
+        _navegacao_atual["chips_destacados"] = frozenset()
+    elif isinstance(chips_destacados, dict):
+        _navegacao_atual["chips_destacados"] = frozenset(
+            k for k, v in chips_destacados.items() if v
+        )
+    else:
+        _navegacao_atual["chips_destacados"] = frozenset(chips_destacados)
+    _navegacao_atual["executar_disponivel"] = executar_disponivel
 
     total_w = TOTAL_WIDTH if largura is None else largura
     inner_w = total_w - 2
