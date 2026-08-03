@@ -739,7 +739,10 @@ def teste_proibicoes_importacao():
 
     _registrar(
         "renderer acessa _campos_inertes legitimamente (H-0010A declarativo)",
-        "_campos_inertes" in texto_mod,
+        "_campos_inertes" in (
+            (_BASE_PADRAO / "tela" / "renderizacao" / "contexto_execucao.py")
+            .read_text(encoding="utf-8")
+        ),
     )
 
 
@@ -793,11 +796,17 @@ def teste_inspecao_fonte_hardcoded():
 
     _registrar(
         "renderer fonte contem '_campos_inertes' (acesso declarativo)",
-        "_campos_inertes" in texto_mod,
+        "_campos_inertes" in (
+            (_BASE_PADRAO / "tela" / "renderizacao" / "matriz_participantes.py")
+            .read_text(encoding="utf-8")
+        ),
     )
     _registrar(
         "renderer fonte contem 'barra_de_menus' (leitura declarativa)",
-        "barra_de_menus" in texto_mod,
+        "barra_de_menus" in (
+            (_BASE_PADRAO / "tela" / "renderizacao" / "barra_menus.py")
+            .read_text(encoding="utf-8")
+        ),
     )
 
 
@@ -1090,11 +1099,17 @@ def teste_alternancia_borda():
     # materialmente no caminho de renderizacao (_texto_chip_barra).
     _registrar(
         "renderer acessa estilo.cor_texto no caminho de renderizacao",
-        "estilo.cor_texto" in texto_mod,
+        "estilo.cor_texto" in (
+            (_BASE_PADRAO / "tela" / "renderizacao" / "barra_menus.py")
+            .read_text(encoding="utf-8")
+        ),
     )
     _registrar(
         "renderer acessa estilo.cor_fundo no caminho de renderizacao",
-        "estilo.cor_fundo" in texto_mod,
+        "estilo.cor_fundo" in (
+            (_BASE_PADRAO / "tela" / "renderizacao" / "barra_menus.py")
+            .read_text(encoding="utf-8")
+        ),
     )
 
 
@@ -10279,7 +10294,8 @@ class TestDistribuicaoMatricialH0035:
         # 1x1, participante "ABCDEFGH" (8) em coluna de 5: coluna permanece 5.
         # Prova comportamental: fronteira interna recebe o conteudo integral.
         import inspect
-        import tela.renderizador as _mod
+        import importlib
+        _mod = importlib.import_module("tela.renderizacao.matriz_participantes")
         chamadas = []
         _original = _mod._renderizar_participante_na_celula
 
@@ -13285,7 +13301,8 @@ def test_h0045_ph07_coerencia_renderer_mapa_fisico():
     (renderer) e IGUAL, nas quatro larguras exigidas, a largura calculada por
     ``_larguras_mapa_fisico_matricial`` (mapa fisico consumido pela
     paginacao) -- nunca dois calculos paralelos divergentes."""
-    from tela import renderizador as _rend
+    import importlib
+    _rend = importlib.import_module("tela.renderizacao.matriz_participantes")
     from tela.renderizador import (
         _larguras_mapa_fisico_matricial,
         _participantes_distribuicao_matricial,

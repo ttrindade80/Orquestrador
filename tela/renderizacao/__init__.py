@@ -1,0 +1,1 @@
+"""Implementações internas do renderizador."""
