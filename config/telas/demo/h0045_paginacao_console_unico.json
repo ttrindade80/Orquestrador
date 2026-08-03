@@ -1,0 +1,339 @@
+{
+  "schema": "tela.v1",
+  "id": "h0045_paginacao_console_unico",
+  "metadados": {
+    "descricao": "H-0045: console unico paginado.",
+    "origem": "H-0045"
+  },
+  "cabecalho": {
+    "titulo": "Paginacao Console Unico",
+    "descricao": "Paginas fisicas em console navegavel."
+  },
+  "corpo": {
+    "arranjo": "vertical",
+    "elementos": [
+      {
+        "id": "console_pag",
+        "tipo": "console",
+        "titulo": "Itens",
+        "origem_dados": null,
+        "itens": [
+          {
+            "id": "item_01",
+            "texto": "item_01",
+            "navegavel": true,
+            "politica_quebra": "permitir_quebra_somente_se_maior_que_pagina"
+          },
+          {
+            "id": "item_02",
+            "texto": "item_02",
+            "navegavel": true,
+            "politica_quebra": "permitir_quebra_somente_se_maior_que_pagina"
+          },
+          {
+            "id": "item_03",
+            "texto": "item_03",
+            "navegavel": true,
+            "politica_quebra": "permitir_quebra_somente_se_maior_que_pagina"
+          },
+          {
+            "id": "item_04",
+            "texto": "item_04",
+            "navegavel": true,
+            "politica_quebra": "permitir_quebra_somente_se_maior_que_pagina"
+          },
+          {
+            "id": "item_05",
+            "texto": "item_05",
+            "navegavel": true,
+            "politica_quebra": "permitir_quebra_somente_se_maior_que_pagina"
+          },
+          {
+            "id": "item_06",
+            "texto": "item_06",
+            "navegavel": true,
+            "politica_quebra": "permitir_quebra_somente_se_maior_que_pagina"
+          },
+          {
+            "id": "item_07",
+            "texto": "item_07",
+            "navegavel": true,
+            "politica_quebra": "permitir_quebra_somente_se_maior_que_pagina"
+          },
+          {
+            "id": "item_08",
+            "texto": "item_08",
+            "navegavel": true,
+            "politica_quebra": "permitir_quebra_somente_se_maior_que_pagina"
+          },
+          {
+            "id": "item_09",
+            "texto": "item_09",
+            "navegavel": true,
+            "politica_quebra": "permitir_quebra_somente_se_maior_que_pagina"
+          },
+          {
+            "id": "item_10",
+            "texto": "item_10",
+            "navegavel": true,
+            "politica_quebra": "permitir_quebra_somente_se_maior_que_pagina"
+          },
+          {
+            "id": "item_11",
+            "texto": "item_11",
+            "navegavel": true,
+            "politica_quebra": "permitir_quebra_somente_se_maior_que_pagina"
+          },
+          {
+            "id": "item_12",
+            "texto": "item_12",
+            "navegavel": true,
+            "politica_quebra": "permitir_quebra_somente_se_maior_que_pagina"
+          },
+          {
+            "id": "item_13",
+            "texto": "item_13",
+            "navegavel": true,
+            "politica_quebra": "permitir_quebra_somente_se_maior_que_pagina"
+          },
+          {
+            "id": "item_14",
+            "texto": "item_14",
+            "navegavel": true,
+            "politica_quebra": "permitir_quebra_somente_se_maior_que_pagina"
+          },
+          {
+            "id": "item_15",
+            "texto": "item_15",
+            "navegavel": true,
+            "politica_quebra": "permitir_quebra_somente_se_maior_que_pagina"
+          },
+          {
+            "id": "item_16",
+            "texto": "item_16",
+            "navegavel": true,
+            "politica_quebra": "permitir_quebra_somente_se_maior_que_pagina"
+          },
+          {
+            "id": "item_17",
+            "texto": "item_17",
+            "navegavel": true,
+            "politica_quebra": "permitir_quebra_somente_se_maior_que_pagina"
+          },
+          {
+            "id": "item_18",
+            "texto": "item_18",
+            "navegavel": true,
+            "politica_quebra": "permitir_quebra_somente_se_maior_que_pagina"
+          },
+          {
+            "id": "item_19",
+            "texto": "item_19",
+            "navegavel": true,
+            "politica_quebra": "permitir_quebra_somente_se_maior_que_pagina"
+          },
+          {
+            "id": "item_20",
+            "texto": "item_20",
+            "navegavel": true,
+            "politica_quebra": "permitir_quebra_somente_se_maior_que_pagina"
+          },
+          {
+            "id": "item_21",
+            "texto": "item_21",
+            "navegavel": true,
+            "politica_quebra": "permitir_quebra_somente_se_maior_que_pagina"
+          },
+          {
+            "id": "item_22",
+            "texto": "item_22",
+            "navegavel": true,
+            "politica_quebra": "permitir_quebra_somente_se_maior_que_pagina"
+          },
+          {
+            "id": "item_23",
+            "texto": "item_23",
+            "navegavel": true,
+            "politica_quebra": "permitir_quebra_somente_se_maior_que_pagina"
+          },
+          {
+            "id": "item_24",
+            "texto": "item_24",
+            "navegavel": true,
+            "politica_quebra": "permitir_quebra_somente_se_maior_que_pagina"
+          },
+          {
+            "id": "item_25",
+            "texto": "item_25",
+            "navegavel": true,
+            "politica_quebra": "permitir_quebra_somente_se_maior_que_pagina"
+          },
+          {
+            "id": "item_26",
+            "texto": "item_26",
+            "navegavel": true,
+            "politica_quebra": "permitir_quebra_somente_se_maior_que_pagina"
+          },
+          {
+            "id": "item_27",
+            "texto": "item_27",
+            "navegavel": true,
+            "politica_quebra": "permitir_quebra_somente_se_maior_que_pagina"
+          },
+          {
+            "id": "item_28",
+            "texto": "item_28",
+            "navegavel": true,
+            "politica_quebra": "permitir_quebra_somente_se_maior_que_pagina"
+          },
+          {
+            "id": "item_29",
+            "texto": "item_29",
+            "navegavel": true,
+            "politica_quebra": "permitir_quebra_somente_se_maior_que_pagina"
+          },
+          {
+            "id": "item_30",
+            "texto": "item_30",
+            "navegavel": true,
+            "politica_quebra": "permitir_quebra_somente_se_maior_que_pagina"
+          },
+          {
+            "id": "item_31",
+            "texto": "item_31",
+            "navegavel": true,
+            "politica_quebra": "permitir_quebra_somente_se_maior_que_pagina"
+          },
+          {
+            "id": "item_32",
+            "texto": "item_32",
+            "navegavel": true,
+            "politica_quebra": "permitir_quebra_somente_se_maior_que_pagina"
+          },
+          {
+            "id": "item_33",
+            "texto": "item_33",
+            "navegavel": true,
+            "politica_quebra": "permitir_quebra_somente_se_maior_que_pagina"
+          },
+          {
+            "id": "item_34",
+            "texto": "item_34",
+            "navegavel": true,
+            "politica_quebra": "permitir_quebra_somente_se_maior_que_pagina"
+          }
+        ],
+        "politica_composicao": {
+          "alinhamento": "esquerda",
+          "overflow_normal": "truncar_com_reticencias"
+        },
+        "politica_navegacao": {
+          "navegavel": true
+        },
+        "politica_selecao": "unica",
+        "politica_paginacao": "com",
+        "politica_exibicao": {
+          "modo_inicial": "normal",
+          "verboso": false
+        },
+        "distribuicao_matricial": {
+          "formacao": {
+            "politica": "preferencia_colunas",
+            "colunas": {
+              "minimo": 1,
+              "maximo": 1
+            }
+          },
+          "ordem": "por_linha",
+          "dimensionamento": {
+            "colunas": {
+              "politica": "uniforme"
+            },
+            "linhas": {
+              "politica": "uniforme"
+            }
+          },
+          "espacamento": {
+            "margem_esquerda": {
+              "minimo": 1
+            },
+            "margem_direita": {
+              "minimo": 1
+            },
+            "margem_superior": {
+              "minimo": 0
+            },
+            "margem_inferior": {
+              "minimo": 0
+            },
+            "vao_horizontal": {
+              "minimo": 1
+            },
+            "vao_vertical": {
+              "minimo": 0
+            }
+          },
+          "distribuicao_horizontal": {
+            "politica": "inicio"
+          },
+          "distribuicao_vertical": {
+            "politica": "inicio"
+          },
+          "ordem_expansao": {
+            "horizontal": "uniforme_margens_e_vaos",
+            "vertical": "uniforme_margens_e_vaos"
+          },
+          "politica_resto": {
+            "horizontal": "ao_ultimo",
+            "vertical": "ao_ultimo"
+          },
+          "alinhamento_interno": {
+            "horizontal": "inicio",
+            "vertical": "topo"
+          }
+        }
+      }
+    ]
+  },
+  "barra_de_menus": {
+    "distribuicao": "horizontal",
+    "chips": [
+      {
+        "id": "chip_esc",
+        "tipo": "acao",
+        "tecla": "Esc",
+        "texto": "Sair",
+        "regra_existencia": "sempre",
+        "regra_ativo": "sempre",
+        "forma_exibicao": "visivel_ativo"
+      },
+      {
+        "id": "chip_pagina_anterior",
+        "tipo": "navegacao",
+        "tecla": "<",
+        "texto": "Anterior",
+        "regra_existencia": "console_com_paginacao",
+        "regra_ativo": "pagina_nao_e_primeira",
+        "forma_exibicao": "visivel_ativo"
+      },
+      {
+        "id": "chip_pagina_proxima",
+        "tipo": "navegacao",
+        "tecla": ">",
+        "texto": "Proxima",
+        "regra_existencia": "console_com_paginacao",
+        "regra_ativo": "pagina_nao_e_ultima",
+        "forma_exibicao": "visivel_ativo"
+      },
+      {
+        "id": "chip_navegar",
+        "tipo": "navegacao",
+        "tecla": "✥",
+        "texto": "Navegar",
+        "regra_existencia": "console_focado_com_mais_de_um_item_navegavel",
+        "regra_ativo": "sempre",
+        "forma_exibicao": "visivel_ativo"
+      }
+    ]
+  }
+}

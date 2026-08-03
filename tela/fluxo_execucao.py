@@ -16,6 +16,7 @@ import tempfile
 from pathlib import Path
 
 from tela import navegacao
+from tela import paginacao
 from tela import selecao
 from tela.execucao_focal import executar_protocolo_focal
 from tela.loader import carregar_tela
@@ -89,6 +90,7 @@ class FluxoExecucao:
         self._modo_na_transicao = None
         self._filtro_suspenso = None
         self._pagina_suspensa = None
+        self._paginas_suspensas = None
         self._foco_suspenso = None
         self._cursores_suspensos = None
         self._ids_cursor_suspensos = None
@@ -332,6 +334,7 @@ class FluxoExecucao:
         self._estado_runtime = estado
         self._filtro_suspenso = estado.get("filtro")
         self._pagina_suspensa = estado.get("pagina")
+        self._paginas_suspensas = dict(estado.get("pagina_atual") or {})
         self._foco_suspenso = estado.get("foco_console")
         self._cursores_suspensos = dict(estado.get("cursores") or {})
         self._selecoes_suspensas = {
@@ -365,6 +368,7 @@ class FluxoExecucao:
         if self._estado_runtime is not None:
             for chave in (
                 "selecoes", "cursores", "foco_console", "filtro", "pagina",
+                "pagina_atual",
             ):
                 if chave in self._estado_runtime:
                     estado_base[chave] = self._estado_runtime[chave]
@@ -395,6 +399,8 @@ class FluxoExecucao:
             novo["filtro"] = self._filtro_suspenso
         if self._pagina_suspensa is not None:
             novo["pagina"] = self._pagina_suspensa
+        if self._paginas_suspensas is not None:
+            novo["pagina_atual"] = dict(self._paginas_suspensas)
         # dry_run permanece ligado; zero recargas.
         self.dry_run_ativo = True
         return novo
@@ -424,6 +430,7 @@ class FluxoExecucao:
             self._foco_suspenso,
             self._cursores_suspensos or {},
         )
+        novo = self._reconciliar_paginas(novo, origem)
         self.dry_run_ativo = False
         return novo
 
@@ -468,11 +475,46 @@ class FluxoExecucao:
         novo["cursores"] = cursores
         return novo
 
+    def _reconciliar_paginas(self, estado, modelo):
+        novo = dict(estado)
+        paginas = {}
+        lista = navegacao.lista_foco(modelo)
+        largura = estado.get("largura", 80)
+        altura_interna = estado.get("altura_interna")
+        if altura_interna is None:
+            altura_interna = max(1, int(estado.get("altura", 24)) - 8)
+        verboso = bool(
+            estado.get("modo_verboso_forcado") is True
+            or estado.get("modo_verboso", False)
+        )
+        desconto = estado.get("desconto_estrutural", 0)
+        for cons in lista:
+            if cons._campos_inertes.get("politica_paginacao") != "com":
+                continue
+            item_logico = (novo.get("cursores") or {}).get(cons.id)
+            if item_logico is None:
+                paginas[cons.id] = 1
+            else:
+                paginas[cons.id] = paginacao.pagina_do_item_logico(
+                    cons,
+                    item_logico,
+                    largura,
+                    altura_interna,
+                    verboso,
+                    desconto_estrutural=desconto,
+                )
+        if paginas:
+            novo["pagina_atual"] = paginas
+        else:
+            novo.pop("pagina_atual", None)
+        return novo
+
     def _limpar_refs_proprias(self, *, preservar_origem):
         self.modelo_resultado = None
         self.transicao_em_andamento = False
         self._filtro_suspenso = None
         self._pagina_suspensa = None
+        self._paginas_suspensas = None
         self._foco_suspenso = None
         self._cursores_suspensos = None
         self._ids_cursor_suspensos = None

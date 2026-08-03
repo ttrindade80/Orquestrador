@@ -4635,3 +4635,139 @@ def main():
 
 if __name__ == "__main__":
     sys.exit(main())
+def test_h0045_loader_carrega_fixtures_paginadas_autorizadas():
+    ids = [
+        "h0045_paginacao_console_unico",
+        "h0045_paginacao_conjunto_vazio",
+        "h0045_dois_consoles_paginas_independentes",
+        "h0045_fluxo_execucao_paginado",
+        "h0045_paginacao_modo_verboso_multilinha",
+        "h0045_paginacao_politicas_quebra",
+    ]
+    for id_tela in ids:
+        tela = carregar_tela(None, id_tela, "config/telas/demo")
+        assert tela["id"] == id_tela
+
+
+def _h0045_p04_envelope_console(id_console, *, paginacao="com", itens=None):
+    """Envelope console valido (pre-ADR-0028) para fixtures temporarias P04."""
+    if itens is None:
+        itens = [
+            {"id": "{0}_i1".format(id_console), "texto": "x1", "navegavel": True},
+            {"id": "{0}_i2".format(id_console), "texto": "x2", "navegavel": True},
+        ]
+    return {
+        "id": id_console,
+        "tipo": "console",
+        "titulo": id_console,
+        "itens": itens,
+        "origem_dados": None,
+        "politica_composicao": {
+            "alinhamento": "esquerda",
+            "overflow_normal": "truncar_com_reticencias",
+        },
+        "politica_navegacao": {"navegavel": True},
+        "politica_selecao": "unica",
+        "politica_paginacao": paginacao,
+        "politica_exibicao": {"modo_inicial": "normal", "verboso": False},
+    }
+
+
+def _h0045_p04_escrever_tela(tmp_path, id_tela, elementos):
+    dados = {
+        "schema": "tela.v1",
+        "id": id_tela,
+        "cabecalho": {"titulo": "P04", "descricao": "unicidade"},
+        "corpo": {
+            "arranjo": "horizontal",
+            "distribuicao": {"modo": "igual"},
+            "elementos": elementos,
+        },
+        "barra_de_menus": {
+            "chips": [
+                {
+                    "id": "chip_esc",
+                    "tecla": "Esc",
+                    "texto": "Sair",
+                }
+            ]
+        },
+    }
+    raiz = tmp_path / "config" / "telas" / "demo"
+    raiz.mkdir(parents=True, exist_ok=True)
+    (raiz / "{0}.json".format(id_tela)).write_text(
+        json.dumps(dados, ensure_ascii=False), encoding="utf-8"
+    )
+    return str(tmp_path)
+
+
+def test_h0045_p04_loader_aceita_dois_consoles_com_ids_unicos(tmp_path):
+    """P04: IDs unicos carregam; estado de runtime permanece indexavel por id."""
+    base = _h0045_p04_escrever_tela(
+        tmp_path,
+        "h0045_p04_ids_unicos",
+        [
+            _h0045_p04_envelope_console("console_a"),
+            _h0045_p04_envelope_console("console_b"),
+        ],
+    )
+    tela = carregar_tela(base, "h0045_p04_ids_unicos", "config/telas/demo")
+    ids = [e["id"] for e in tela["corpo"]["elementos"]]
+    assert ids == ["console_a", "console_b"]
+
+
+def test_h0045_p04_loader_rejeita_ids_de_console_duplicados(tmp_path):
+    """QA-H0045-P03-001: duplicidade de id de console e erro estrutural."""
+    base = _h0045_p04_escrever_tela(
+        tmp_path,
+        "h0045_p04_ids_duplicados",
+        [
+            _h0045_p04_envelope_console("console_a"),
+            _h0045_p04_envelope_console("console_a"),
+        ],
+    )
+    with pytest.raises(TelaEstruturaInvalida) as exc:
+        carregar_tela(base, "h0045_p04_ids_duplicados", "config/telas/demo")
+    msg = str(exc.value)
+    assert "id de console duplicado" in msg
+    assert "console_a" in msg
+    # Nenhuma renderizacao parcial: o loader aborta antes do modelo/runtime.
+    assert "corpo.elementos[0]" in msg
+    assert "corpo.elementos[1]" in msg
+
+
+def test_h0045_p04_loader_rejeita_duplicidade_paginado_e_nao_paginado(tmp_path):
+    """Duplicidade permanece invalida mesmo misturando politicas de pagina."""
+    base = _h0045_p04_escrever_tela(
+        tmp_path,
+        "h0045_p04_dup_pag_mista",
+        [
+            _h0045_p04_envelope_console("mesmo_id", paginacao="com"),
+            _h0045_p04_envelope_console("mesmo_id", paginacao="sem"),
+        ],
+    )
+    with pytest.raises(TelaEstruturaInvalida) as exc:
+        carregar_tela(base, "h0045_p04_dup_pag_mista", "config/telas/demo")
+    assert "id de console duplicado" in str(exc.value)
+    assert "mesmo_id" in str(exc.value)
+
+
+def test_h0045_p04_loader_rejeita_duplicidade_em_grupo_aninhado(tmp_path):
+    """Unicidade cobre consoles aninhados em grupo (mesmo id no escopo da tela)."""
+    console_a = _h0045_p04_envelope_console("compartilhado")
+    console_b = _h0045_p04_envelope_console("compartilhado")
+    grupo = {
+        "id": "g1",
+        "tipo": "grupo",
+        "arranjo": "vertical",
+        "elementos": [console_b],
+    }
+    base = _h0045_p04_escrever_tela(
+        tmp_path,
+        "h0045_p04_dup_grupo",
+        [console_a, grupo],
+    )
+    with pytest.raises(TelaEstruturaInvalida) as exc:
+        carregar_tela(base, "h0045_p04_dup_grupo", "config/telas/demo")
+    assert "id de console duplicado" in str(exc.value)
+    assert "compartilhado" in str(exc.value)

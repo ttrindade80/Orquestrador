@@ -1,0 +1,133 @@
+{
+  "schema": "tela.v1",
+  "id": "h0045_validacao_continuacao",
+  "metadados": {
+    "descricao": "H-0045: caso fixo H0045-VAL-CONTINUACAO (pagina somente de continuacao). Modelo criado uma vez; sem regeneracao por W/C.",
+    "origem": "H-0045"
+  },
+  "cabecalho": {
+    "titulo": "H0045-VAL-CONTINUACAO",
+    "descricao": "pagina_somente_de_continuacao"
+  },
+  "corpo": {
+    "arranjo": "vertical",
+    "elementos": [
+      {
+        "id": "console_continuacao",
+        "tipo": "console",
+        "titulo": "H0045-VAL-CONTINUACAO",
+        "origem_dados": null,
+        "itens": [
+          {
+            "id": "val_continuacao_01",
+            "texto": "CONT_INICIO Este relato fixo acompanha a continuidade de um unico item ao longo de varias paginas. CONT_Cada frase acrescenta ocupacao fisica previsivel sem depender da geometria corrente. CONT_Trecho_01 descreve o mesmo assunto com palavras suficientes para ocupar uma linha tipica em terminal comum e manter leitura coerente. CONT_Trecho_02 descreve o mesmo assunto com palavras suficientes para ocupar uma linha tipica em terminal comum e manter leitura coerente. CONT_Trecho_03 descreve o mesmo assunto com palavras suficientes para ocupar uma linha tipica em terminal comum e manter leitura coerente. CONT_Trecho_04 descreve o mesmo assunto com palavras suficientes para ocupar uma linha tipica em terminal comum e manter leitura coerente. CONT_Trecho_05 descreve o mesmo assunto com palavras suficientes para ocupar uma linha tipica em terminal comum e manter leitura coerente. CONT_Trecho_06 descreve o mesmo assunto com palavras suficientes para ocupar uma linha tipica em terminal comum e manter leitura coerente. CONT_Trecho_07 descreve o mesmo assunto com palavras suficientes para ocupar uma linha tipica em terminal comum e manter leitura coerente. CONT_Trecho_08 descreve o mesmo assunto com palavras suficientes para ocupar uma linha tipica em terminal comum e manter leitura coerente. CONT_Trecho_09 descreve o mesmo assunto com palavras suficientes para ocupar uma linha tipica em terminal comum e manter leitura coerente. CONT_Trecho_10 descreve o mesmo assunto com palavras suficientes para ocupar uma linha tipica em terminal comum e manter leitura coerente. CONT_Trecho_11 descreve o mesmo assunto com palavras suficientes para ocupar uma linha tipica em terminal comum e manter leitura coerente. CONT_Trecho_12 descreve o mesmo assunto com palavras suficientes para ocupar uma linha tipica em terminal comum e manter leitura coerente. CONT_Trecho_13 descreve o mesmo assunto com palavras suficientes para ocupar uma linha tipica em terminal comum e manter leitura coerente. CONT_Trecho_14 descreve o mesmo assunto com palavras suficientes para ocupar uma linha tipica em terminal comum e manter leitura coerente. CONT_Trecho_15 descreve o mesmo assunto com palavras suficientes para ocupar uma linha tipica em terminal comum e manter leitura coerente. CONT_Trecho_16 descreve o mesmo assunto com palavras suficientes para ocupar uma linha tipica em terminal comum e manter leitura coerente. CONT_Trecho_17 descreve o mesmo assunto com palavras suficientes para ocupar uma linha tipica em terminal comum e manter leitura coerente. CONT_Trecho_18 descreve o mesmo assunto com palavras suficientes para ocupar uma linha tipica em terminal comum e manter leitura coerente. CONT_Trecho_19 descreve o mesmo assunto com palavras suficientes para ocupar uma linha tipica em terminal comum e manter leitura coerente. CONT_Trecho_20 descreve o mesmo assunto com palavras suficientes para ocupar uma linha tipica em terminal comum e manter leitura coerente. CONT_Trecho_21 descreve o mesmo assunto com palavras suficientes para ocupar uma linha tipica em terminal comum e manter leitura coerente. CONT_Trecho_22 descreve o mesmo assunto com palavras suficientes para ocupar uma linha tipica em terminal comum e manter leitura coerente. CONT_Trecho_23 descreve o mesmo assunto com palavras suficientes para ocupar uma linha tipica em terminal comum e manter leitura coerente. CONT_Trecho_24 descreve o mesmo assunto com palavras suficientes para ocupar uma linha tipica em terminal comum e manter leitura coerente. CONT_Trecho_25 descreve o mesmo assunto com palavras suficientes para ocupar uma linha tipica em terminal comum e manter leitura coerente. CONT_Trecho_26 descreve o mesmo assunto com palavras suficientes para ocupar uma linha tipica em terminal comum e manter leitura coerente. CONT_Trecho_27 descreve o mesmo assunto com palavras suficientes para ocupar uma linha tipica em terminal comum e manter leitura coerente. CONT_Trecho_28 descreve o mesmo assunto com palavras suficientes para ocupar uma linha tipica em terminal comum e manter leitura coerente. CONT_Trecho_29 descreve o mesmo assunto com palavras suficientes para ocupar uma linha tipica em terminal comum e manter leitura coerente. CONT_Trecho_30 descreve o mesmo assunto com palavras suficientes para ocupar uma linha tipica em terminal comum e manter leitura coerente. CONT_Trecho_31 descreve o mesmo assunto com palavras suficientes para ocupar uma linha tipica em terminal comum e manter leitura coerente. CONT_Trecho_32 descreve o mesmo assunto com palavras suficientes para ocupar uma linha tipica em terminal comum e manter leitura coerente. CONT_Trecho_33 descreve o mesmo assunto com palavras suficientes para ocupar uma linha tipica em terminal comum e manter leitura coerente. CONT_Trecho_34 descreve o mesmo assunto com palavras suficientes para ocupar uma linha tipica em terminal comum e manter leitura coerente. CONT_Trecho_35 descreve o mesmo assunto com palavras suficientes para ocupar uma linha tipica em terminal comum e manter leitura coerente. CONT_Trecho_36 descreve o mesmo assunto com palavras suficientes para ocupar uma linha tipica em terminal comum e manter leitura coerente. CONT_Trecho_37 descreve o mesmo assunto com palavras suficientes para ocupar uma linha tipica em terminal comum e manter leitura coerente. CONT_Trecho_38 descreve o mesmo assunto com palavras suficientes para ocupar uma linha tipica em terminal comum e manter leitura coerente. CONT_Trecho_39 descreve o mesmo assunto com palavras suficientes para ocupar uma linha tipica em terminal comum e manter leitura coerente. CONT_Trecho_40 descreve o mesmo assunto com palavras suficientes para ocupar uma linha tipica em terminal comum e manter leitura coerente. CONT_MEIO CONT_Trecho_41 descreve o mesmo assunto com palavras suficientes para ocupar uma linha tipica em terminal comum e manter leitura coerente. CONT_Trecho_42 descreve o mesmo assunto com palavras suficientes para ocupar uma linha tipica em terminal comum e manter leitura coerente. CONT_Trecho_43 descreve o mesmo assunto com palavras suficientes para ocupar uma linha tipica em terminal comum e manter leitura coerente. CONT_Trecho_44 descreve o mesmo assunto com palavras suficientes para ocupar uma linha tipica em terminal comum e manter leitura coerente. CONT_Trecho_45 descreve o mesmo assunto com palavras suficientes para ocupar uma linha tipica em terminal comum e manter leitura coerente. CONT_Trecho_46 descreve o mesmo assunto com palavras suficientes para ocupar uma linha tipica em terminal comum e manter leitura coerente. CONT_Trecho_47 descreve o mesmo assunto com palavras suficientes para ocupar uma linha tipica em terminal comum e manter leitura coerente. CONT_Trecho_48 descreve o mesmo assunto com palavras suficientes para ocupar uma linha tipica em terminal comum e manter leitura coerente. CONT_Trecho_49 descreve o mesmo assunto com palavras suficientes para ocupar uma linha tipica em terminal comum e manter leitura coerente. CONT_Trecho_50 descreve o mesmo assunto com palavras suficientes para ocupar uma linha tipica em terminal comum e manter leitura coerente. CONT_Trecho_51 descreve o mesmo assunto com palavras suficientes para ocupar uma linha tipica em terminal comum e manter leitura coerente. CONT_Trecho_52 descreve o mesmo assunto com palavras suficientes para ocupar uma linha tipica em terminal comum e manter leitura coerente. CONT_Trecho_53 descreve o mesmo assunto com palavras suficientes para ocupar uma linha tipica em terminal comum e manter leitura coerente. CONT_Trecho_54 descreve o mesmo assunto com palavras suficientes para ocupar uma linha tipica em terminal comum e manter leitura coerente. CONT_Trecho_55 descreve o mesmo assunto com palavras suficientes para ocupar uma linha tipica em terminal comum e manter leitura coerente. CONT_Trecho_56 descreve o mesmo assunto com palavras suficientes para ocupar uma linha tipica em terminal comum e manter leitura coerente. CONT_Trecho_57 descreve o mesmo assunto com palavras suficientes para ocupar uma linha tipica em terminal comum e manter leitura coerente. CONT_Trecho_58 descreve o mesmo assunto com palavras suficientes para ocupar uma linha tipica em terminal comum e manter leitura coerente. CONT_Trecho_59 descreve o mesmo assunto com palavras suficientes para ocupar uma linha tipica em terminal comum e manter leitura coerente. CONT_Trecho_60 descreve o mesmo assunto com palavras suficientes para ocupar uma linha tipica em terminal comum e manter leitura coerente. CONT_Trecho_61 descreve o mesmo assunto com palavras suficientes para ocupar uma linha tipica em terminal comum e manter leitura coerente. CONT_Trecho_62 descreve o mesmo assunto com palavras suficientes para ocupar uma linha tipica em terminal comum e manter leitura coerente. CONT_Trecho_63 descreve o mesmo assunto com palavras suficientes para ocupar uma linha tipica em terminal comum e manter leitura coerente. CONT_Trecho_64 descreve o mesmo assunto com palavras suficientes para ocupar uma linha tipica em terminal comum e manter leitura coerente. CONT_Trecho_65 descreve o mesmo assunto com palavras suficientes para ocupar uma linha tipica em terminal comum e manter leitura coerente. CONT_Trecho_66 descreve o mesmo assunto com palavras suficientes para ocupar uma linha tipica em terminal comum e manter leitura coerente. CONT_Trecho_67 descreve o mesmo assunto com palavras suficientes para ocupar uma linha tipica em terminal comum e manter leitura coerente. CONT_Trecho_68 descreve o mesmo assunto com palavras suficientes para ocupar uma linha tipica em terminal comum e manter leitura coerente. CONT_Trecho_69 descreve o mesmo assunto com palavras suficientes para ocupar uma linha tipica em terminal comum e manter leitura coerente. CONT_Trecho_70 descreve o mesmo assunto com palavras suficientes para ocupar uma linha tipica em terminal comum e manter leitura coerente. CONT_Trecho_71 descreve o mesmo assunto com palavras suficientes para ocupar uma linha tipica em terminal comum e manter leitura coerente. CONT_Trecho_72 descreve o mesmo assunto com palavras suficientes para ocupar uma linha tipica em terminal comum e manter leitura coerente. CONT_Trecho_73 descreve o mesmo assunto com palavras suficientes para ocupar uma linha tipica em terminal comum e manter leitura coerente. CONT_Trecho_74 descreve o mesmo assunto com palavras suficientes para ocupar uma linha tipica em terminal comum e manter leitura coerente. CONT_Trecho_75 descreve o mesmo assunto com palavras suficientes para ocupar uma linha tipica em terminal comum e manter leitura coerente. CONT_Trecho_76 descreve o mesmo assunto com palavras suficientes para ocupar uma linha tipica em terminal comum e manter leitura coerente. CONT_Trecho_77 descreve o mesmo assunto com palavras suficientes para ocupar uma linha tipica em terminal comum e manter leitura coerente. CONT_Trecho_78 descreve o mesmo assunto com palavras suficientes para ocupar uma linha tipica em terminal comum e manter leitura coerente. CONT_Trecho_79 descreve o mesmo assunto com palavras suficientes para ocupar uma linha tipica em terminal comum e manter leitura coerente. CONT_Trecho_80 descreve o mesmo assunto com palavras suficientes para ocupar uma linha tipica em terminal comum e manter leitura coerente. CONT_FIM",
+            "navegavel": true,
+            "politica_quebra": "permitir_quebra"
+          }
+        ],
+        "politica_composicao": {
+          "alinhamento": "esquerda",
+          "overflow_normal": "truncar_com_reticencias"
+        },
+        "politica_navegacao": {
+          "navegavel": true
+        },
+        "politica_selecao": "unica",
+        "politica_paginacao": "com",
+        "politica_exibicao": {
+          "modo_inicial": "verboso",
+          "verboso": true
+        },
+        "politica_modo": "somente_verboso",
+        "distribuicao_matricial": {
+          "formacao": {
+            "politica": "preferencia_colunas",
+            "colunas": {
+              "minimo": 1,
+              "maximo": 1
+            }
+          },
+          "ordem": "por_linha",
+          "dimensionamento": {
+            "colunas": {
+              "politica": "uniforme"
+            },
+            "linhas": {
+              "politica": "uniforme"
+            }
+          },
+          "espacamento": {
+            "margem_esquerda": {
+              "minimo": 1
+            },
+            "margem_direita": {
+              "minimo": 1
+            },
+            "margem_superior": {
+              "minimo": 0
+            },
+            "margem_inferior": {
+              "minimo": 0
+            },
+            "vao_horizontal": {
+              "minimo": 1
+            },
+            "vao_vertical": {
+              "minimo": 0
+            }
+          },
+          "distribuicao_horizontal": {
+            "politica": "inicio"
+          },
+          "distribuicao_vertical": {
+            "politica": "inicio"
+          },
+          "ordem_expansao": {
+            "horizontal": "uniforme_margens_e_vaos",
+            "vertical": "uniforme_margens_e_vaos"
+          },
+          "politica_resto": {
+            "horizontal": "ao_ultimo",
+            "vertical": "ao_ultimo"
+          },
+          "alinhamento_interno": {
+            "horizontal": "inicio",
+            "vertical": "topo"
+          }
+        }
+      }
+    ]
+  },
+  "barra_de_menus": {
+    "distribuicao": "horizontal",
+    "chips": [
+      {
+        "id": "chip_esc",
+        "tipo": "acao",
+        "tecla": "Esc",
+        "texto": "Sair",
+        "regra_existencia": "sempre",
+        "regra_ativo": "sempre",
+        "forma_exibicao": "visivel_ativo"
+      },
+      {
+        "id": "chip_pagina_anterior",
+        "tipo": "navegacao",
+        "tecla": "<",
+        "texto": "Anterior",
+        "regra_existencia": "console_com_paginacao",
+        "regra_ativo": "pagina_nao_e_primeira",
+        "forma_exibicao": "visivel_ativo"
+      },
+      {
+        "id": "chip_pagina_proxima",
+        "tipo": "navegacao",
+        "tecla": ">",
+        "texto": "Proxima",
+        "regra_existencia": "console_com_paginacao",
+        "regra_ativo": "pagina_nao_e_ultima",
+        "forma_exibicao": "visivel_ativo"
+      }
+    ]
+  }
+}

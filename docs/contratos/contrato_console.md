@@ -4,7 +4,7 @@ description: Schema e regras do console como container genérico de itens hetero
 metadata:
   type: contrato
   scope: orquestrador
-  versao: "0.1"
+  versao: "0.2"
   status: ativo
   rastreabilidade:
     origem_especificacao:
@@ -23,6 +23,7 @@ metadata:
       - docs/adr/ADR-0035-protocolo-focal-execucao-sintetica-reversivel.md
       - docs/adr/ADR-0036-carregamento-e-apresentacao-da-tela-padrao-de-resultado.md
       - docs/adr/ADR-0037-integracao-do-fluxo-focal-com-dry-run-e-restauracao-da-origem.md
+      - docs/adr/ADR-0038-paginacao-interativa-limitada-em-console.md
     reaproveitado_de_legado: false
   dependencias_nomenclatura:
     dependencias_obrigatorias:
@@ -367,9 +368,16 @@ Regras:
 
 | Política de quebra | Descrição |
 |---|---|
-| `evitar_quebra` | O item deve ser movido inteiro para a próxima página quando possível. Se o item não couber inteiro nem em página vazia, a quebra passa a ser permitida. |
-| `permitir_quebra` | O item pode atravessar páginas normalmente. |
-| `permitir_quebra_somente_se_maior_que_pagina` | O item evita quebra, salvo quando não cabe nem em página vazia. |
+| `permitir_quebra` | Fluxo contínuo. O item começa na próxima linha disponível, usa o espaço restante da página atual — inclusive a última linha disponível — e continua nas páginas seguintes quando necessário. |
+| `evitar_quebra` | Sempre começa em página nova. O item começa na primeira linha útil de uma página nova, mesmo quando ainda há espaço na página anterior. Se maior que uma página, continua nas páginas seguintes. O próximo item com a mesma política também espera uma página nova para começar. |
+| `permitir_quebra_somente_se_maior_que_pagina` | Mantém junto quando possível. O item pode começar logo após o item anterior: se couber inteiro no espaço restante, permanece na página atual; se não couber no espaço restante mas couber inteiro em uma página vazia, começa inteiro na página seguinte; se for maior que uma página inteira, começa na primeira linha útil da página seguinte e continua nas páginas posteriores. |
+
+`evitar_quebra` e `permitir_quebra_somente_se_maior_que_pagina` não são
+equivalentes: `evitar_quebra` nunca aproveita espaço restante da página
+anterior — sempre inicia em página nova, mesmo havendo espaço suficiente;
+`permitir_quebra_somente_se_maior_que_pagina` aproveita o espaço restante da
+página atual sempre que o item cabe inteiro nele, só adiando o início para
+a página seguinte quando não cabe no espaço restante.
 
 - chips `[<][>]` **refletem o estado de paginação** — existem quando a
   instância declara `paginacao: com`; ficam inativos quando há apenas uma
@@ -1092,7 +1100,9 @@ declarados navegáveis sem itens. Não se inventa chip novo neste ciclo.
 
 Permanecem fora deste contrato aplicado (ADR-0031 D15):
 
-- Paginação interativa por `<` e `>` (ITEM-0003).
+- Paginação interativa por `<` e `>` (ITEM-0003) — a especificação foi
+  fechada pela ADR-0038; ver §24. A implementação permanece pendente e não é
+  antecipada por esta seção.
 - Catálogo e dispatcher de ações (ITEM-0004 / DOC-B009).
 - Abertura e retorno entre telas (ITEM-0005).
 - Seleção múltipla (ITEM-0006).
@@ -1267,7 +1277,8 @@ exclusivamente ao Handoff 4 (ADR-0036 D-H3-19) — ver §23.7.
 
 Permanecem fora deste contrato aplicado: registry e dispatcher genéricos de
 ações (`ITEM-0004`); pilha genérica de telas (`ITEM-0005`); paginação
-interativa (`ITEM-0003`); seleção compartilhada entre consoles compatíveis;
+interativa (`ITEM-0003` — especificação fechada pela ADR-0038, ver §24;
+implementação pendente); seleção compartilhada entre consoles compatíveis;
 padronização universal do toggle real/`dry-run` (`ITEM-0020`); colapso e
 expansão multinível (`ITEM-0007`).
 
@@ -1367,3 +1378,259 @@ interrupção `130`:
 - exceção interna do H4 não vira envelope operacional;
 - terminal e referências próprias são restaurados por `finally`;
 - erro interno é propagado.
+
+---
+
+## 24. Paginação interativa limitada (ADR-0038)
+
+A ADR-0038 (2026-07-29) fecha a paginação interativa do `console`, deferida
+pela ADR-0031 (D15) para o `ITEM-0003`. Esta seção propaga as 14 decisões
+fechadas (D-PAG-01 a D-PAG-14) para o contrato do `console`, especializando
+a paginação já prevista em §12 e as seções 22 (navegação e foco, ADR-0031) e
+23 (seleção múltipla e fluxo focal, ADR-0034/0035/0036/0037) quanto à
+interação com página.
+
+### 24.1 Topologia limitada entre páginas (D-PAG-01)
+
+```yaml
+topologia: LIMITADA
+primeira_pagina:
+  pagina_anterior: INATIVA
+ultima_pagina:
+  proxima_pagina: INATIVA
+wrap_entre_paginas: false
+```
+
+Não há transição circular entre a primeira e a última página. Esta topologia
+é distinta da navegação toroidal por eixo já fixada pela ADR-0031 (D8, D9;
+§22.4) para o movimento do cursor **dentro** de uma mesma página: dentro da
+página, o cursor faz wrap toroidal por linha e por coluna; entre páginas, não
+há wrap.
+
+### 24.2 Troca explícita de página (D-PAG-02)
+
+```yaml
+evento: TROCA_EXPLICITA_DE_PAGINA
+preservar_console_focado: true
+cursor_destino: PRIMEIRO_ITEM_NAVEGAVEL_DA_PAGINA_DE_DESTINO
+preservar_posicao_fisica: false
+preservar_ordinal_da_pagina_anterior: false
+```
+
+A troca de página é transição de runtime dentro do mesmo console focado — não
+é nova entrada por foco (distinta, portanto, da entrada tratada em §22.3). O
+cursor não preserva posição física nem ordinal da página anterior; é
+reposicionado no primeiro item navegável da página de destino.
+
+### 24.3 Página sem item navegável (D-PAG-03)
+
+```yaml
+pagina_acessivel: true
+exibicao: normal
+console_permanece_focado: true
+cursor_visivel: false
+item_corrente: nenhum
+setas: SEM_MOVIMENTO
+controles_de_pagina: continuam_operaveis
+pular_pagina_automaticamente: false
+reorganizar_conteudo: false
+```
+
+Uma página pode conter conteúdo visível e nenhum item navegável. A página
+permanece acessível e normalmente exibida; o console permanece focado; as
+setas não produzem movimento; os controles `[<][>]` continuam operáveis
+conforme sua própria condição; não há salto automático de página nem
+reorganização de conteúdo para introduzir item navegável artificial.
+
+### 24.4 Universo do chip `[✥]` restrito à página atual (D-PAG-04)
+
+```yaml
+universo_de_avaliacao: PAGINA_ATUAL
+presente_quando: MAIS_DE_UM_ITEM_NAVEGAVEL_NA_PAGINA_ATUAL
+ausente_quando:
+  - ZERO_ITENS_NAVEGAVEIS_NA_PAGINA_ATUAL
+  - UM_ITEM_NAVEGAVEL_NA_PAGINA_ATUAL
+itens_em_outras_paginas_influenciam: false
+```
+
+Esta decisão especializa, para console paginado, a condição de existência de
+`[✥]` fixada pela ADR-0031 D14 (§22.8): o universo relevante passa a ser a
+página atual do console focado, não o total de itens navegáveis do console
+em todas as páginas. Itens navegáveis presentes apenas em outras páginas não
+fazem `[✥]` aparecer nem permanecer.
+
+### 24.5 Retorno ao console por foco em console paginado (D-PAG-05)
+
+```yaml
+eventos:
+  - RETORNO_POR_TAB
+  - RETORNO_POR_SHIFT_TAB
+pagina: PRESERVAR_PAGINA_ANTERIOR_DO_CONSOLE
+restaurar_cursor_anterior: false
+cursor_destino: PRIMEIRO_ITEM_NAVEGAVEL_DA_PAGINA_PRESERVADA
+pagina_sem_item_navegavel:
+  cursor_visivel: false
+```
+
+Esta decisão especializa, para console paginado, a regra de entrada sempre no
+item lógico `0` (ADR-0031 D6; §22.3): cada console mantém seu estado de
+página durante a sessão; ao retornar por Tab ou Shift+Tab, a página anterior
+do console é preservada, mas o cursor não é restaurado ao item anterior — é
+reposicionado no primeiro item navegável da página preservada. Se essa página
+não tiver item navegável (§24.3), o cursor permanece sem exibição visível.
+
+### 24.6 Repaginação por redimensionamento e mudança de modo (D-PAG-06)
+
+```yaml
+eventos:
+  - REDIMENSIONAMENTO
+  - MUDANCA_DE_MODO
+preservar: ITEM_LOGICO_CORRENTE
+pagina_apos_recalculo: PAGINA_QUE_PASSA_A_CONTER_O_ITEM_CORRENTE
+preservar_numero_anterior_da_pagina: false
+```
+
+Estende às páginas o mesmo princípio já fixado por ADR-0031 D10 (§22.5) para
+redistribuição e mudança de modo dentro de uma página: o item lógico corrente
+é preservado; a página que passa a contê-lo após o recálculo pode ter número
+diferente do anterior, sem que esse número anterior seja preservado como
+referência.
+
+### 24.7 Filtros e paginação (D-PAG-07 a D-PAG-09)
+
+Filtros continuam sendo aplicados antes da paginação (§11, §12, R-4).
+
+```yaml
+filtro_oculta_item_corrente:
+  destino_do_cursor:
+    prioridade_1: PROXIMO_ITEM_NAVEGAVEL_NA_ORDEM_LOGICA_DO_CONJUNTO_FILTRADO
+    prioridade_2: ITEM_NAVEGAVEL_ANTERIOR_SE_NAO_HOUVER_PROXIMO
+  pagina_resultante: PAGINA_QUE_CONTEM_O_NOVO_ITEM_CORRENTE
+  preservar_referencia_ao_item_oculto: false
+
+filtro_zera_itens_navegaveis:
+  pagina_exibida: PRIMEIRA_PAGINA_DO_RESULTADO_FILTRADO
+  console_permanece_focado: true
+  cursor_visivel: false
+  item_corrente: nenhum
+  setas: SEM_MOVIMENTO
+
+remocao_de_filtro:
+  restaurar_item_anterior_ao_filtro: false
+  preservar: ITEM_LOGICO_CORRENTE_APOS_RECONCILIACAO
+  pagina_resultante: PAGINA_QUE_CONTEM_O_ITEM_CORRENTE_ATUAL
+  memoria_especial_de_cursor_por_filtro: ausente
+```
+
+O resultado filtrado ainda pode possuir conteúdo visível não navegável.
+Remover o filtro não desfaz a reconciliação já realizada — não há memória
+especial de cursor por filtro para restaurar o item corrente anterior ao
+filtro.
+
+### 24.8 Atualização genérica dos dados e precedência da ADR-0037 (D-PAG-10)
+
+```yaml
+evento: ATUALIZACAO_GENERICA_DOS_DADOS_REMOVE_ITEM_CORRENTE
+destino_do_cursor:
+  prioridade_1: PROXIMO_ITEM_NAVEGAVEL_COM_BASE_NA_POSICAO_LOGICA_ANTERIOR
+  prioridade_2: ITEM_NAVEGAVEL_ANTERIOR_SE_NAO_HOUVER_PROXIMO
+pagina_resultante: PAGINA_QUE_CONTEM_O_NOVO_ITEM_CORRENTE
+sem_itens_navegaveis:
+  pagina: PRIMEIRA
+  cursor_visivel: false
+```
+
+Esta é a regra genérica de atualização dos dados para o `ITEM-0003`. Ela não
+substitui a reconciliação especializada por ID já fixada pela ADR-0037 para o
+retorno após execução real do Handoff 4 do `ITEM-0006` (D-H4-09; §23.9): no
+fluxo especializado da ADR-0037, o cursor é preservado pelo ID do item
+anterior quando este continuar válido, com fallback no primeiro item
+navegável — não no "próximo item navegável com base na posição lógica
+anterior" desta seção. As duas regras operam em fronteiras distintas e
+coexistem sem contradição: esta seção 24.8 é a regra padrão do `ITEM-0003`
+para atualizações genéricas fora do fluxo focal de execução real da
+ADR-0037; onde os dois conjuntos poderiam se sobrepor, prevalece a regra
+especializada de §23.9.
+
+### 24.9 Indicador de página (D-PAG-11, D-PAG-12)
+
+```yaml
+uma_pagina:
+  indicador: "página 1/1"
+  pagina_anterior: INATIVA
+  proxima_pagina: INATIVA
+
+conjunto_vazio:
+  quantidade_de_itens_visiveis: 0
+  pagina_logica:
+    atual: 1
+    total: 1
+  indicador: "página 1/1"
+  pagina_anterior: INATIVA
+  proxima_pagina: INATIVA
+  cursor_visivel: false
+  item_corrente: nenhum
+```
+
+Quando a paginação estiver habilitada na instância de `console`, o indicador
+é sempre visível — inclusive com uma única página e com conjunto vazio de
+itens visíveis. Não existe estado visual `página 0/0`.
+
+### 24.10 Independência de página por console (D-PAG-13)
+
+```yaml
+estado_de_pagina: INDEPENDENTE_POR_CONSOLE
+alvo_dos_comandos_de_pagina: CONSOLE_FOCADO
+sem_console_focado:
+  pagina_anterior: INATIVA
+  proxima_pagina: INATIVA
+console_focado_sem_paginacao:
+  pagina_anterior: INATIVA
+  proxima_pagina: INATIVA
+console_focado_com_paginacao:
+  estado_dos_controles: CALCULADO_PELA_PAGINA_DESSE_CONSOLE
+alterar_outros_consoles: false
+alterar_foco: false
+```
+
+O estado de página é independente por console — mesmo princípio de
+independência já fixado para foco (ADR-0031) e para seleção múltipla
+(ADR-0034 D-SEL-01; §23.1). Os comandos de página (§24.11) são dirigidos
+exclusivamente ao console focado, sem alterar o estado de página de nenhum
+outro console nem o foco corrente.
+
+### 24.11 Entradas aceitas (D-PAG-14)
+
+```yaml
+pagina_anterior:
+  entradas_aceitas: [",", "<"]
+proxima_pagina:
+  entradas_aceitas: [".", ">"]
+chips_exibidos:
+  anterior: "[<]"
+  proxima: "[>]"
+```
+
+Esta decisão não define leitura por scan code, keycode físico nem dependência
+de layout de teclado — a fronteira de captura e tradução de tecla física
+permanece de implementação.
+
+### 24.12 Relação com seleção múltipla e persistência entre páginas
+
+A independência de página (§24.10) e a repaginação (§24.6 a §24.8) não
+alteram a identidade da seleção múltipla como conjunto de IDs estáveis nem
+sua persistência entre páginas, já fixadas pela ADR-0034 (D-SEL-01, D-SEL-02,
+D-SEL-10; §23.1, §23.2). Posição visual e página não definem identidade nem
+ordem de execução do conjunto selecionado — esta seção opera exclusivamente
+sobre cursor e página, nunca sobre a seleção.
+
+### 24.13 Remissões
+
+- `docs/adr/ADR-0038-paginacao-interativa-limitada-em-console.md` — decisões D-PAG-01 a D-PAG-14;
+- `docs/adr/ADR-0031-navegacao-simples-e-selecao-unica-em-console-de-nivel-unico.md` — D6, D8, D9, D10, D14, D15, especializados por esta seção;
+- `docs/adr/ADR-0034-selecao-multipla-e-fluxo-focal-de-processamento.md` — D-SEL-01, D-SEL-02, D-SEL-10, preservados sem alteração;
+- `docs/adr/ADR-0037-integracao-do-fluxo-focal-com-dry-run-e-restauracao-da-origem.md` — D-H4-09, cuja precedência sobre §24.8 é explícita;
+- `docs/contratos/contrato_barra_de_menus.md` — seção 24: paginação limitada e independência por console;
+- `docs/contratos/contrato_chip.md` — regras de existência e ativo/inativo de `[<][>]`, entradas aceitas;
+- `docs/nomenclatura/21_LAYOUT_REDIMENSIONAMENTO_E_PAGINACAO.md` — terminologia de paginação limitada e repaginação;
+- `docs/nomenclatura/32_CONSOLE.md` — terminologia de página como estado independente por console.

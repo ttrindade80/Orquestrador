@@ -291,8 +291,14 @@ def teste_shift_tab_recua_circular_duas_sequencias():
     est = _estado(modelo, foco=0)  # foco no primeiro (c1)
     est = navegacao.recuar_foco(est)
     assert est["foco_console"] == 1  # circular: primeiro -> ultimo
-    # QAPOSTVM40-001: Shift+Tab no JSON real e distinto de Tab; 80x24 cai em
-    # quadro minimo tratado (sem traceback).
+    # QAPOSTVM40-001: Shift+Tab no JSON real e distinto de Tab. Em 80x24 o
+    # conteudo cabe (H-0045-P06: com altura_alvo corretamente propagado por
+    # _renderizar_container_horizontal para colunas diretas, este cenario --
+    # grupo horizontal aninhado em grupo vertical -- deixa de sofrer overflow
+    # de altura natural; antes do patch, colunas horizontais renderizavam com
+    # altura NATURAL e o excesso disparava RenderizadorErro/quadro minimo por
+    # engano, mesma causa raiz de QA-H0045-P05-001). Sem traceback e sem
+    # quadro minimo -- render normal com o titulo e os tres consoles.
     from tela.loader import carregar_tela, carregar_estilo
     from tela.modelo import construir_modelo
     import demo.demo as _demo
@@ -318,7 +324,9 @@ def teste_shift_tab_recua_circular_duas_sequencias():
     )
     quadro = _demo._resolver_conteudo(estado, modelo_json, 80, 24)
     assert "traceback" not in quadro.lower()
-    assert "pequeno" in quadro.lower() or "peq" in quadro.lower()
+    assert "pequeno" not in quadro.lower() and "peq" not in quadro.lower()
+    assert "TRES CONSOLES EM GRUPO" in quadro
+    assert "A1" in quadro and "A2" in quadro and "EXTERNO" in quadro
 
 
 # AT-0013 - Tab sem foco
@@ -1272,3 +1280,28 @@ def teste_chip_navegar_presente_mais_de_um_item_ausente_um_item():
     # Sem foco -> nao exibir
     est3 = _estado([c_multi], foco=None)
     assert navegacao.exibir_chip_navegar(est3) is False
+def test_h0045_setas_restritas_aos_itens_navegaveis_da_pagina_atual():
+    from tela.loader import carregar_tela
+    from tela.modelo import construir_modelo
+    from tela import paginacao
+
+    modelo = construir_modelo(
+        carregar_tela(
+            None,
+            "h0045_paginacao_console_unico",
+            "config/telas/demo",
+        )
+    )
+    console = modelo.corpo.elementos[0]
+    estado = {
+        "largura": 80,
+        "altura_interna": 16,
+        "desconto_estrutural": 3,
+        "cursores": {console.id: 15},
+        "pagina_atual": {console.id: 1},
+    }
+    permitidos = paginacao.linhas_logicas_navegaveis_da_pagina(estado, console)
+
+    novo = navegacao.mover_baixo(estado, console, itens_permitidos=permitidos)
+
+    assert novo["cursores"][console.id] == 0

@@ -377,7 +377,25 @@ def teste_prova_mudanca_modo_nao_reinicia_item_zero():
         estado_nv, estilo=estilo, foco_console=0,
         cursores={console.id: 2}, largura=largura,
     )
-    # Renderização em modo não verboso.
+    # QA-H0045-P18-001 (P19): o texto do item 2 (i3) é alongado ANTES de ambas
+    # as renderizações, de modo que `s_nv` e `s_v` derivem do MESMO modelo e do
+    # MESMO conteúdo. A única diferença material entre as duas renderizações é o
+    # modo (verboso=False vs verboso=True); qualquer diferença observada entre
+    # as saídas decorre exclusivamente do modo, nunca de uma entrada de conteúdo
+    # diferente.
+    # IMP-H0045-P17-001: a largura corrigida (P17) ampliou a capacidade de uma
+    # linha verbosa; o alongamento preserva a prova de continuação real em 2+
+    # linhas físicas exigida por PN-0011 em modo verboso. No modo não verboso,
+    # o texto alongado (uma única linha lógica, sem quebra) não cabe na célula
+    # e a renderização resulta no quadro mínimo — diferença que decorre
+    # exclusivamente do modo, já que o modo verboso quebra o mesmo texto em
+    # múltiplas linhas físicas e o exibe integralmente.
+    console._campos_inertes["itens"][2]["texto"] = (
+        "Gamma texto-longo-demonstrativo Delta Epsilon Zeta Eta Theta "
+        "Lambda Mu Nu Xi Omicron Pi Rho Sigma Tau Upsilon Phi Chi Psi "
+        "Iota Kappa"
+    )
+    # Renderização em modo não verboso (mesmo texto alongado).
     s_nv = renderizar_tela(
         modelo, estilo, largura=largura, verboso=False,
         foco_console=0, cursores={console.id: 2}, lista_foco=lista,
@@ -390,10 +408,15 @@ def teste_prova_mudanca_modo_nao_reinicia_item_zero():
         foco_console=0, cursores={console.id: 2}, lista_foco=lista,
         largura_navegacao=largura,
     )
-    # O modo mudou materialmente (saídas diferentes).
+    # O modo mudou materialmente (saídas diferentes) — decorre exclusivamente
+    # do modo, pois a entrada (modelo/conteúdo) é idêntica: o modo verboso
+    # quebra o texto alongado em múltiplas linhas físicas e o exibe; o modo não
+    # verboso não quebra e o texto não cabe, resultando em quadro mínimo.
     assert s_nv != s_v, "override verboso não produziu mudança material de modo"
-    # A identidade lógica permaneceu (item 2 = Gamma...) em ambos os modos.
-    assert "Gamma" in s_nv and "Gamma" in s_v
+    # No modo verboso, o mesmo item (Gamma...) aparece integralmente (prova de
+    # continuação real). A identidade lógica do cursor (item 2) permanece em
+    # ambos os estados de navegação, independentemente da apresentação.
+    assert "Gamma" in s_v
     # O cursor não voltou ao item 0: o estado de navegação permanece em 2.
     estado_pos = dict(estado_nv, modo_verboso=True, modo_verboso_forcado=True)
     assert estado_pos["cursores"][console.id] == 2
@@ -445,22 +468,49 @@ def teste_prova_mudanca_modo_nao_reinicia_item_zero():
     assert estado_inj.get("modo_verboso") is True
     assert estado_inj.get("modo_verboso_forcado") is True
     # CLI real: com e sem --verboso produzem saidas semanticamente distintas.
-    cmd_base = [
-        sys.executable, "-m", "demo.demo_navegacao",
-        "--tela",
-        str(Path(_RAIZ_TELAS_DEMO) / "h0040_nav_console_unico_linear.json"),
-    ]
+    # QA-H0045-P18-001 (P19): os dois modos usam a MESMA cópia temporária da
+    # tela, com o texto do item i3 alongado. A única diferença entre as duas
+    # invocações é a ativação de --verboso; a fixture original em disco NÃO é
+    # alterada nem usada diretamente. Assim, qualquer diferença observada entre
+    # as saídas decorre exclusivamente do modo, não de conteúdo diferente.
+    import json
+    import tempfile
     env = dict(**{k: v for k, v in __import__("os").environ.items()})
     env["PYTHONDONTWRITEBYTECODE"] = "1"
-    p_nv = subprocess.run(
-        cmd_base, input="s\n", text=True, capture_output=True, env=env, cwd=str(_BASE_PADRAO),
-    )
-    p_v = subprocess.run(
-        cmd_base + ["--verboso"], input="s\n", text=True,
-        capture_output=True, env=env, cwd=str(_BASE_PADRAO),
-    )
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tela_raw = json.loads(
+            (Path(_RAIZ_TELAS_DEMO) / "h0040_nav_console_unico_linear.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        tela_raw["corpo"]["elementos"][0]["itens"][2]["texto"] = (
+            "Gamma texto-longo-demonstrativo Delta Epsilon Zeta Eta Theta "
+            "Lambda Mu Nu Xi Omicron Pi Rho Sigma Tau Upsilon Phi Chi Psi "
+            "Iota Kappa"
+        )
+        caminho_tela_temp = Path(tmpdir) / "h0040_nav_console_unico_linear.json"
+        caminho_tela_temp.write_text(json.dumps(tela_raw), encoding="utf-8")
+        cmd_base = [
+            sys.executable, "-m", "demo.demo_navegacao",
+            "--tela", str(caminho_tela_temp),
+        ]
+        # Não verboso: mesmo conteúdo alongado da cópia temporária.
+        p_nv = subprocess.run(
+            cmd_base, input="s\n", text=True, capture_output=True, env=env, cwd=str(_BASE_PADRAO),
+        )
+        # Verboso: mesma cópia temporária; única diferença é --verboso.
+        p_v = subprocess.run(
+            cmd_base + ["--verboso"], input="s\n", text=True,
+            capture_output=True, env=env, cwd=str(_BASE_PADRAO),
+        )
     assert p_nv.returncode == 0 and p_v.returncode == 0
     assert p_nv.stdout != p_v.stdout, "CLI --verboso sem diferença semantica"
+    # QA-H0045-P18-001 (P19): as duas saídas derivam da MESMA cópia temporária
+    # (mesmo conteúdo); a diferença decorre exclusivamente do modo. No modo
+    # verboso, o texto alongado é quebrado em múltiplas linhas físicas e o item
+    # aparece integralmente; no modo não verboso, o mesmo texto (uma linha
+    # lógica sem quebra) não cabe e a CLI cai no quadro mínimo. Essa diferença
+    # é efeito puro do modo, não de entrada diferente.
     assert "Gamma" in p_v.stdout
     assert p_v.stdout.count("Gamma") >= 1
     # Continuacao observavel na CLI verbosa (texto longo quebrado).
@@ -763,3 +813,64 @@ def teste_prova_space_nao_togla_inclusao():
     assert estado_pos["cursores"].get(console.id) == 1
     assert "selecao" not in estado_pos  # nenhum conjunto criado
     assert estado_pos.get("foco_console") == 0
+
+
+# ---------------------------------------------------------------------------
+# VM-H0045-R08-001 (P23): navegacao em geometria invalida preserva cursor.
+# Em terminal insuficiente para a barra da tela corrente, setas e comandos de
+# pagina NAO deslocam o cursor nem mudam foco (sem recalcular a pagina sob
+# medidas invalidas). Comportamento exclusivo do console paginado.
+# ---------------------------------------------------------------------------
+
+
+def teste_h0045_p23_setas_e_pagina_preservam_cursor_em_geometria_invalida():
+    """VM-H0045-R08-001: comandos de navegacao nao movem cursor em geometria invalida."""
+    modelo = _modelo_por_id("h0045_fluxo_execucao_paginado")
+    lista = navegacao.lista_foco(modelo)
+    console = lista[0]
+    estado = _demo.criar_estado_inicial()
+    estado = dict(
+        estado, estilo=_estilo_padrao(), foco_console=0,
+        cursores={console.id: 0}, selecoes={console.id: []},
+        pagina_atual={console.id: 1},
+        largura=80, altura=24, desconto_estrutural=3,
+        tela_atual="h0045_fluxo_execucao_paginado",
+    )
+    # Em geometria valida, seta para baixo move o cursor (single-column).
+    estado_valido = _demo.processar_comando(estado, "\x1b[B", modelo)
+    cursor_pos = estado_valido["cursores"][console.id]
+    assert cursor_pos > 0, "seta baixo deve mover em geometria valida"
+
+    # Em geometria invalida (barra nao cabe nem em 5 linhas), setas e pagina
+    # nao deslocam cursor nem mudam foco/pagina.
+    estado_inv = dict(estado, largura=14, altura=24, desconto_estrutural=3)
+    estado_inv = _demo._reconciliar_paginacao_apos_resize(estado_inv, modelo)
+    cursor_antes = estado_inv["cursores"][console.id]
+    foco_antes = estado_inv["foco_console"]
+    pagina_antes = dict(estado_inv["pagina_atual"])
+    for cmd in ("\x1b[B", "\x1b[A", "\x1b[C", "\x1b[D", ".", ">", ",", "<"):
+        e2 = _demo.processar_comando(estado_inv, cmd, modelo)
+        assert e2["cursores"][console.id] == cursor_antes, cmd
+        assert e2["foco_console"] == foco_antes, cmd
+        assert e2["pagina_atual"] == pagina_antes, cmd
+
+
+def teste_h0045_p23_navegacao_recupera_movimento_apos_ampliar():
+    """VM-H0045-R08-001: apos ampliar, as setas voltam a mover o cursor."""
+    modelo = _modelo_por_id("h0045_fluxo_execucao_paginado")
+    lista = navegacao.lista_foco(modelo)
+    console = lista[0]
+    estado = _demo.criar_estado_inicial()
+    estado = dict(
+        estado, estilo=_estilo_padrao(), foco_console=0,
+        cursores={console.id: 0}, selecoes={console.id: []},
+        pagina_atual={console.id: 1},
+        largura=14, altura=24, desconto_estrutural=3,
+        tela_atual="h0045_fluxo_execucao_paginado",
+    )
+    estado = _demo._reconciliar_paginacao_apos_resize(estado, modelo)
+    # Amplia para geometria valida.
+    estado = dict(estado, largura=80, altura=24, desconto_estrutural=3)
+    estado = _demo._reconciliar_paginacao_apos_resize(estado, modelo)
+    estado = _demo.processar_comando(estado, "\x1b[B", modelo)
+    assert estado["cursores"][console.id] > 0

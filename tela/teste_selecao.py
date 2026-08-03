@@ -299,3 +299,124 @@ class TestChipEspacoAtivo:
         console = _console_oito_itens()
         nav = self._stub_nav("item_99")
         assert selecao.chip_espaco_ativo(console, _estado(), nav) is False
+
+
+# ---------------------------------------------------------------------------
+# Rotulo dinamico do chip Esc (VM-H0045-R06-001 / P21)
+# ---------------------------------------------------------------------------
+
+
+def _console_unica(idc="console_unica"):
+    """Console de selecao UNICA para prova de isolamento (P21).
+
+    Mesmos itens navegaveis da fixture multipla, mas declarando
+    ``politica_selecao: "unica"`` -- nunca recebe o rotulo ``Limpar``.
+    """
+    return ElementoCorpo(
+        id=idc,
+        tipo="console",
+        _campos_inertes={
+            "titulo": "Itens",
+            "itens": [
+                {"id": "item_01", "texto": "Item um", "navegavel": True},
+                {"id": "item_02", "texto": "Item dois", "navegavel": True},
+            ],
+            "politica_navegacao": {"navegavel": True},
+            "politica_selecao": "unica",
+        },
+    )
+
+
+class TestRotuloEsc:
+    """VM-H0045-R06-001 (P21): rotulo dinamico do chip ``[Esc]``.
+
+    Cobre os 16 criterios focais exigidos pelo prompt de correcao:
+    selecao multipla vazia exibe o rotulo original; uma ou varias selecoes
+    exibem ``Limpar``; preservacao do rotulo original (Sair/Voltar/outro);
+    isolamento por console focal; e ausencia de efeito colateral (a funcao
+    e pura e nao muta estado/cursores/selecao).
+    """
+
+    # (1) selecao multipla VAZIA exibe o rotulo original.
+    def test_rotulo_original_quando_selecao_multipla_vazia(self):
+        console = _console_oito_itens()
+        assert selecao.rotulo_esc(_estado(), console, "Sair") == "Sair"
+
+    # (2) rotulo original ``Voltar`` e preservado quando nao ha selecao.
+    def test_rotulo_voltar_preservado_quando_vazio(self):
+        console = _console_oito_itens()
+        assert selecao.rotulo_esc(_estado(), console, "Voltar") == "Voltar"
+
+    # (3) uma selecao exibe ``Limpar``.
+    def test_limpar_quando_uma_selecao(self):
+        console = _console_oito_itens()
+        estado = _estado({console.id: ["item_01"]})
+        assert selecao.rotulo_esc(estado, console, "Sair") == "Limpar"
+
+    # (4) varias selecoes exibem ``Limpar``.
+    def test_limpar_quando_varias_selecoes(self):
+        console = _console_oito_itens()
+        estado = _estado({console.id: ["item_01", "item_03", "item_07"]})
+        assert selecao.rotulo_esc(estado, console, "Sair") == "Limpar"
+
+    # (5) ``Limpar`` e o rotulo original nunca coexistem para Esc.
+    def test_limpar_e_original_nunca_coexistem(self):
+        console = _console_oito_itens()
+        estado_vazio = _estado()
+        estado_sel = _estado({console.id: ["item_01"]})
+        r1 = selecao.rotulo_esc(estado_vazio, console, "Sair")
+        r2 = selecao.rotulo_esc(estado_sel, console, "Sair")
+        assert r1 == "Sair" and r2 == "Limpar"
+        assert r1 != r2
+
+    # Isolamento: console de selecao UNICA preserva o rotulo original.
+    def test_console_selecao_unica_preserva_rotulo_original_sem_selecao(self):
+        console = _console_unica()
+        assert selecao.rotulo_esc(_estado(), console, "Sair") == "Sair"
+
+    def test_console_selecao_unica_preserva_rotulo_original_com_selecao(self):
+        # Mesmo havendo IDs em ``selecoes``, console de selecao unica nao
+        # declara multipla => rotulo original preservado (isolamento).
+        console = _console_unica()
+        estado = _estado({console.id: ["item_01"]})
+        assert selecao.rotulo_esc(estado, console, "Sair") == "Sair"
+
+    # Isolamento por console focal: selecao em OUTRO console nao produz
+    # ``Limpar`` para o console focal sem selecao.
+    def test_selecao_em_outro_console_nao_afeta_console_focal(self):
+        console_focal = _console_oito_itens("console_focal")
+        # Outro console (multipla) com selecao ativa -- nao e o focal.
+        assert selecao.rotulo_esc(
+            _estado({"outro_console": ["item_01"]}), console_focal, "Sair"
+        ) == "Sair"
+
+    # Robustez: ``console`` ``None`` e rotulo original ausente/vazio.
+    def test_console_none_preserva_rotulo_original(self):
+        assert selecao.rotulo_esc(_estado(), None, "Sair") == "Sair"
+
+    def test_rotulo_original_vazio_preservado(self):
+        console = _console_oito_itens()
+        estado = _estado({console.id: ["item_01"]})
+        assert selecao.rotulo_esc(estado, console, "") == ""
+        assert selecao.rotulo_esc(estado, console, None) is None
+
+    # Reconciliacao implicita: ID inexistente na selecao nao produz
+    # ``Limpar`` (D-SEL-03 remove residuo na leitura).
+    def test_id_inexistente_nao_produz_limpar(self):
+        console = _console_oito_itens()
+        estado = _estado({console.id: ["item_inexistente"]})
+        assert selecao.rotulo_esc(estado, console, "Sair") == "Sair"
+
+    # Pureza: a funcao nao muta o estado recebido nem a selecao.
+    def test_rotulo_esc_nao_muta_estado(self):
+        console = _console_oito_itens()
+        estado = _estado({console.id: ["item_01"]})
+        antes = {k: list(v) if isinstance(v, list) else v
+                 for k, v in estado.get("selecoes", {}).items()}
+        _ = selecao.rotulo_esc(estado, console, "Sair")
+        assert estado.get("selecoes") == antes
+
+    # Outro rotulo original valido qualquer e preservado quando vazio.
+    def test_rotulo_original_arbitrario_preservado(self):
+        console = _console_oito_itens()
+        assert selecao.rotulo_esc(_estado(), console, "Fechar") == "Fechar"

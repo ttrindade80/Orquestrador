@@ -191,6 +191,58 @@ def rotulo_enter(estado, console):
     return "Todos" if esta_vazia(estado, console) else "Executar"
 
 
+def rotulo_esc(estado, console, rotulo_original):
+    """Retorna o texto do chip ``[Esc]`` para o ``console`` focal (P21).
+
+    VM-H0045-R06-001: o tratamento funcional de Esc em ``demo/demo.py`` ja
+    limpa a selecao do console focado (declarando selecao multipla nao vazia)
+    e mantem a tela aberta; o defeito a corrigir e exclusivamente VISUAL -- o
+    chip continuava exibindo o rotulo original enquanto a acao corrente era
+    limpar a selecao.
+
+    Esta funcao pura devolve:
+
+    - ``"Limpar"``, quando ``console`` declara ``politica_selecao ==
+      "multipla"`` E possui selecao reconciliada nao vazia;
+    - ``rotulo_original`` (ex.: Sair, Voltar ou outro rotulo valido) em todos os
+      demais
+      casos: console sem selecao multipla, selecao vazia, ou console/rotulo
+      ausentes.
+
+    ``console`` pode ser ``None`` (sem console focado): devolve o rotulo
+    original. ``rotulo_original`` ``None``/vazio tambem e devolvido inalterado
+    (nao inventa rotulo). A funcao nao le estado de modulo nem arquivo, nao
+    move cursor nem altera selecao -- apenas descreve o texto a exibir.
+    """
+    if not rotulo_original:
+        return rotulo_original
+    if console is None:
+        return rotulo_original
+    if not _console_declarou_selecao_multipla(console):
+        return rotulo_original
+    if esta_vazia(estado, console):
+        return rotulo_original
+    return "Limpar"
+
+
+def _console_declarou_selecao_multipla(console):
+    """True quando ``console`` declara ``politica_selecao == "multipla"``.
+
+    Espelha ``tela.navegacao._console_declarou_selecao_multipla`` /
+    ``tela.renderizador._console_declarou_selecao_multipla``: leitura direta de
+    ``_campos_inertes["politica_selecao"]`` (transporte inerte do modelo).
+    Consoles sem a chave (legado) ou que nao sao ``ElementoCorpo`` retornam
+    ``False``. Centralizada aqui para que ``rotulo_esc`` permaneca pura e
+    isolada de imports de outros modulos (D-SEL-01).
+    """
+    if console is None:
+        return False
+    campos = getattr(console, "_campos_inertes", None)
+    if not isinstance(campos, dict):
+        return False
+    return campos.get("politica_selecao") == "multipla"
+
+
 def chip_espaco_ativo(console, estado, navegacao):
     """True quando o chip ``[Espaco]`` esta ativo (D-SEL-09).
 

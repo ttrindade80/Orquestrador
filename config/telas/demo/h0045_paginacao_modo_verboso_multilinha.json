@@ -1,0 +1,150 @@
+{
+  "schema": "tela.v1",
+  "id": "h0045_paginacao_modo_verboso_multilinha",
+  "metadados": {
+    "descricao": "H-0045: esqueleto/regressao controlada de paginacao em modo verboso com item multilinha. Nao e prova universal independente de geometria; validacao adaptativa usa h0045_validacao_* + demo/casos_validacao_paginacao.py.",
+    "origem": "H-0045"
+  },
+  "cabecalho": {
+    "titulo": "Paginacao Verbosa",
+    "descricao": "Esqueleto de regressao controlada (conteudo estatico para geometria conhecida; nao prova universal)."
+  },
+  "corpo": {
+    "arranjo": "vertical",
+    "elementos": [
+      {
+        "id": "console_verboso",
+        "tipo": "console",
+        "titulo": "Verbose",
+        "origem_dados": null,
+        "itens": [
+          {
+            "id": "longo_01",
+            "texto": "segmento_01 alfa demonstra conteudo verboso deterministico; segmento_02 beta preserva a primeira linha logica; segmento_03 gamma prova quebra textual real; segmento_04 delta continua a mesma identidade; segmento_05 epsilon ocupa espaco fisico; segmento_06 zeta segue sem truncamento; segmento_07 eta permanece na ordem declarada; segmento_08 theta atravessa a pagina; segmento_09 iota confirma continuidade; segmento_10 kappa mantem o conteudo integral; segmento_11 lambda produz mais linhas; segmento_12 mu torna a paginacao observavel; segmento_13 nu evita depender de janela extrema; segmento_14 xi conserva o cursor logico; segmento_15 omicron chega ao limite; segmento_16 pi inicia a continuacao; segmento_17 rho encerra o item longo",
+            "navegavel": true,
+            "politica_quebra": "permitir_quebra"
+          },
+          {
+            "id": "longo_02",
+            "texto": "segmento_18 sigma demonstra o segundo item; segmento_19 tau conserva dados deterministas; segmento_20 upsilon confirma a pagina seguinte; segmento_21 phi exibe uma linha adicional; segmento_22 chi permanece legivel",
+            "navegavel": true,
+            "politica_quebra": "evitar_quebra"
+          },
+          {
+            "id": "curto_03",
+            "texto": "segmento_23 psi confirma a ordem do terceiro item; segmento_24 omega fecha o terceiro bloco",
+            "navegavel": true,
+            "politica_quebra": "permitir_quebra_somente_se_maior_que_pagina"
+          },
+          {
+            "id": "curto_04",
+            "texto": "segmento_25 finaliza a evidencia multilinha; segmento_26 conclui o quarto item",
+            "navegavel": true,
+            "politica_quebra": "permitir_quebra_somente_se_maior_que_pagina"
+          }
+        ],
+        "politica_composicao": {
+          "alinhamento": "esquerda",
+          "overflow_normal": "truncar_com_reticencias"
+        },
+        "politica_navegacao": {
+          "navegavel": true
+        },
+        "politica_selecao": "unica",
+        "politica_paginacao": "com",
+        "politica_exibicao": {
+          "modo_inicial": "verboso",
+          "verboso": true
+        },
+        "distribuicao_matricial": {
+          "formacao": {
+            "politica": "preferencia_colunas",
+            "colunas": {
+              "minimo": 1,
+              "maximo": 1
+            }
+          },
+          "ordem": "por_linha",
+          "dimensionamento": {
+            "colunas": {
+              "politica": "uniforme"
+            },
+            "linhas": {
+              "politica": "uniforme"
+            }
+          },
+          "espacamento": {
+            "margem_esquerda": {
+              "minimo": 1
+            },
+            "margem_direita": {
+              "minimo": 1
+            },
+            "margem_superior": {
+              "minimo": 0
+            },
+            "margem_inferior": {
+              "minimo": 0
+            },
+            "vao_horizontal": {
+              "minimo": 1
+            },
+            "vao_vertical": {
+              "minimo": 0
+            }
+          },
+          "distribuicao_horizontal": {
+            "politica": "inicio"
+          },
+          "distribuicao_vertical": {
+            "politica": "inicio"
+          },
+          "ordem_expansao": {
+            "horizontal": "uniforme_margens_e_vaos",
+            "vertical": "uniforme_margens_e_vaos"
+          },
+          "politica_resto": {
+            "horizontal": "ao_ultimo",
+            "vertical": "ao_ultimo"
+          },
+          "alinhamento_interno": {
+            "horizontal": "inicio",
+            "vertical": "topo"
+          }
+        }
+      }
+    ]
+  },
+  "barra_de_menus": {
+    "distribuicao": "horizontal",
+    "chips": [
+      {
+        "id": "chip_esc",
+        "tipo": "acao",
+        "tecla": "Esc",
+        "texto": "Sair",
+        "regra_existencia": "sempre",
+        "regra_ativo": "sempre",
+        "forma_exibicao": "visivel_ativo"
+      },
+      {
+        "id": "chip_pagina_anterior",
+        "tipo": "navegacao",
+        "tecla": "<",
+        "texto": "Anterior",
+        "regra_existencia": "console_com_paginacao",
+        "regra_ativo": "pagina_nao_e_primeira",
+        "forma_exibicao": "visivel_ativo"
+      },
+      {
+        "id": "chip_pagina_proxima",
+        "tipo": "navegacao",
+        "tecla": ">",
+        "texto": "Proxima",
+        "regra_existencia": "console_com_paginacao",
+        "regra_ativo": "pagina_nao_e_ultima",
+        "forma_exibicao": "visivel_ativo"
+      }
+    ]
+  }
+}

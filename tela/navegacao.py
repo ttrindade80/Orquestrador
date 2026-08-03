@@ -361,21 +361,43 @@ def item_logico_de_posicao(grade, linha, coluna):
     return None
 
 
-def _coluna_com_itens(grade, coluna):
+def _posicoes_permitidas(grade, itens_permitidos):
+    if itens_permitidos is None:
+        return None
+    permitidos = set(itens_permitidos)
+    posicoes = set()
+    contador = 0
+    for linha in range(len(grade)):
+        for coluna in range(len(grade[linha])):
+            if grade[linha][coluna] is None:
+                continue
+            if contador in permitidos:
+                posicoes.add((linha, coluna))
+            contador += 1
+    return posicoes
+
+
+def _coluna_com_itens(grade, coluna, itens_permitidos=None):
     """Lista de linhas ocupadas na ``coluna`` (toroide vertical)."""
+    posicoes = _posicoes_permitidas(grade, itens_permitidos)
     ocupadas = []
     for linha in range(len(grade)):
         if coluna < len(grade[linha]) and grade[linha][coluna] is not None:
+            if posicoes is not None and (linha, coluna) not in posicoes:
+                continue
             ocupadas.append(linha)
     return ocupadas
 
 
-def _linha_com_itens(grade, linha):
+def _linha_com_itens(grade, linha, itens_permitidos=None):
     """Lista de colunas ocupadas na ``linha`` (toroide horizontal)."""
+    posicoes = _posicoes_permitidas(grade, itens_permitidos)
     ocupadas = []
     if 0 <= linha < len(grade):
         for coluna in range(len(grade[linha])):
             if grade[linha][coluna] is not None:
+                if posicoes is not None and (linha, coluna) not in posicoes:
+                    continue
                 ocupadas.append(coluna)
     return ocupadas
 
@@ -396,7 +418,7 @@ def _mover_toroide_lista(atual, ocupados):
     return ocupados[(idx + 1) % len(ocupados)]
 
 
-def mover_direita(estado, console):
+def mover_direita(estado, console, itens_permitidos=None):
     """Move o cursor para a direita com toroide na mesma linha (D8).
 
     Dominio: itens ocupados da mesma linha. Topologia TOROIDAL. Nao muda de
@@ -406,10 +428,10 @@ def mover_direita(estado, console):
     ocupado na mesma linha, produz SEM_MOVIMENTO (D9). Setas nunca alteram
     ``pagina_atual`` (D15/PN-0014).
     """
-    return _mover_horizontal(estado, console, +1)
+    return _mover_horizontal(estado, console, +1, itens_permitidos=itens_permitidos)
 
 
-def mover_esquerda(estado, console):
+def mover_esquerda(estado, console, itens_permitidos=None):
     """Move o cursor para a esquerda com toroide na mesma linha (D8).
 
     Dominio: itens ocupados da mesma linha. Topologia TOROIDAL. Nao muda de
@@ -418,10 +440,10 @@ def mover_esquerda(estado, console):
     Retorna novo estado com o item logico atualizado. Quando nao ha outro item
     ocupado na mesma linha, produz SEM_MOVIMENTO (D9).
     """
-    return _mover_horizontal(estado, console, -1)
+    return _mover_horizontal(estado, console, -1, itens_permitidos=itens_permitidos)
 
 
-def _mover_horizontal(estado, console, passo):
+def _mover_horizontal(estado, console, passo, itens_permitidos=None):
     """Nucleo do movimento horizontal toroidal (D8/D9)."""
     largura = estado.get("largura", 0)
     altura_interna = estado.get("altura_interna")
@@ -429,11 +451,15 @@ def _mover_horizontal(estado, console, passo):
     grade = grade_de_itens(console, largura, altura_interna, desconto_estrutural=desconto)
     cursores = dict(estado.get("cursores", {}))
     item_logico = cursores.get(console.id, 0)
+    if itens_permitidos is not None and item_logico not in set(itens_permitidos):
+        return estado
     pos = _posicao_do_item_logico(grade, item_logico)
     if pos is None:
         return estado
     linha, _coluna = pos
-    ocupadas = _linha_com_itens(grade, linha)
+    ocupadas = _linha_com_itens(grade, linha, itens_permitidos=itens_permitidos)
+    if _coluna not in ocupadas:
+        return estado
     idx = ocupadas.index(_coluna)
     novo_idx = (idx + passo) % len(ocupadas)
     nova_coluna = ocupadas[novo_idx]
@@ -445,7 +471,7 @@ def _mover_horizontal(estado, console, passo):
     return novo
 
 
-def mover_baixo(estado, console):
+def mover_baixo(estado, console, itens_permitidos=None):
     """Move o cursor para baixo com toroide na mesma coluna (D8).
 
     Dominio: itens ocupados da mesma coluna. Topologia TOROIDAL. Nao muda de
@@ -454,10 +480,10 @@ def mover_baixo(estado, console):
     Retorna novo estado com o item logico atualizado. Quando nao ha outro item
     ocupado na mesma coluna, produz SEM_MOVIMENTO (D9).
     """
-    return _mover_vertical(estado, console, +1)
+    return _mover_vertical(estado, console, +1, itens_permitidos=itens_permitidos)
 
 
-def mover_cima(estado, console):
+def mover_cima(estado, console, itens_permitidos=None):
     """Move o cursor para cima com toroide na mesma coluna (D8).
 
     Dominio: itens ocupados da mesma coluna. Topologia TOROIDAL. Nao muda de
@@ -466,10 +492,10 @@ def mover_cima(estado, console):
     Retorna novo estado com o item logico atualizado. Quando nao ha outro item
     ocupado na mesma coluna, produz SEM_MOVIMENTO (D9).
     """
-    return _mover_vertical(estado, console, -1)
+    return _mover_vertical(estado, console, -1, itens_permitidos=itens_permitidos)
 
 
-def _mover_vertical(estado, console, passo):
+def _mover_vertical(estado, console, passo, itens_permitidos=None):
     """Nucleo do movimento vertical toroidal (D8/D9)."""
     largura = estado.get("largura", 0)
     altura_interna = estado.get("altura_interna")
@@ -477,11 +503,15 @@ def _mover_vertical(estado, console, passo):
     grade = grade_de_itens(console, largura, altura_interna, desconto_estrutural=desconto)
     cursores = dict(estado.get("cursores", {}))
     item_logico = cursores.get(console.id, 0)
+    if itens_permitidos is not None and item_logico not in set(itens_permitidos):
+        return estado
     pos = _posicao_do_item_logico(grade, item_logico)
     if pos is None:
         return estado
     _linha, coluna = pos
-    ocupadas = _coluna_com_itens(grade, coluna)
+    ocupadas = _coluna_com_itens(grade, coluna, itens_permitidos=itens_permitidos)
+    if _linha not in ocupadas:
+        return estado
     idx = ocupadas.index(_linha)
     novo_idx = (idx + passo) % len(ocupadas)
     nova_linha = ocupadas[novo_idx]
@@ -595,6 +625,10 @@ def exibir_chip_navegar(estado):
     if foco is None:
         return False
     console = lista[foco]
+    if console._campos_inertes.get("politica_paginacao") == "com":
+        from tela import paginacao
+
+        return len(paginacao.linhas_logicas_navegaveis_da_pagina(estado, console)) > 1
     return len(itens_navegaveis(console)) > 1
 
 

@@ -36,14 +36,6 @@ esta lista.
 
 > A ordem dos itens deste backlog nao representa prioridade nem sequencia de execucao. Cada item somente podera avancar pelo fluxo documental aplicavel.
 
-### ITEM-0003 — Paginacao interativa do console
-**Tipo:** implementacao
-**Prioridade:** media
-**Status:** planejado
-**Descricao:** Implementar paginacao interativa do console em ciclo separado da navegacao simples.
-**Pre-requisitos:** Navegacao simples e modelo de cursor do console formalizados.
-**Proxima acao:** Realizar levantamento focal e criar ADR propria para paginacao.
-
 ### ITEM-0004 — Registro e execucao declarativa de acoes individuais
 **Tipo:** implementacao
 **Prioridade:** media
@@ -63,10 +55,10 @@ esta lista.
 ### ITEM-0018 — Selecionar todos apenas na pagina atual
 **Tipo:** implementacao
 **Prioridade:** media
-**Status:** bloqueado
+**Status:** planejado
 **Descricao:** Permitir limitar a selecao em massa (`Todos`) aos itens selecionaveis da pagina corrente do console, em vez do conjunto filtrado completo em todas as paginas.
-**Pre-requisitos:** Registrado pela ADR-0034 (D-SEL-24); `ITEM-0006` concluido em 2026-07-29; permanece bloqueado exclusivamente pela paginacao interativa do `ITEM-0003`.
-**Proxima acao:** Realizar levantamento focal e decisao arquitetural propria quando o `ITEM-0003` estiver concluido.
+**Pre-requisitos:** Registrado pela ADR-0034 (D-SEL-24); `ITEM-0006` concluido em 2026-07-29; `ITEM-0003` concluido em 2026-08-03 pela ADR-0038 e pelo H-0045, com QA tecnico e validacao manual aprovados.
+**Proxima acao:** Realizar levantamento focal e decisao arquitetural propria para a especializacao de `Todos` à pagina atual.
 
 ### ITEM-0019 — Selecao compartilhada entre consoles compativeis
 **Tipo:** implementacao

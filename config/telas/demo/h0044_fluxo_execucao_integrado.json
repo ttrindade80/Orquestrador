@@ -77,7 +77,7 @@
       "overflow": {"quando_nao_couber": "erro_layout", "nao_omitir_chips": true, "nao_truncar_texto": true, "nao_reordenar": true}
     },
     "chips": [
-      {"id": "chip_esc", "tipo": "acao", "tecla": "Esc", "texto": "Sair", "regra_existencia": "sempre", "regra_ativo": "sempre", "forma_exibicao": "visivel_ativo"},
+      {"id": "chip_esc", "tipo": "acao", "tecla": "Esc", "texto": "Sair", "regra_existencia": "sempre", "regra_ativo": "sempre", "forma_exibicao": "rotulo_dinamico_esc"},
       {"id": "chip_espaco", "tipo": "selecao", "tecla": "␣", "texto": "Marcar", "regra_existencia": "console_focado_com_selecao_multipla", "regra_ativo": "item_focalizado_selecionavel", "forma_exibicao": "visivel_ativo"},
       {"id": "chip_enter", "tipo": "selecao", "tecla": "⏎", "texto": "Todos", "regra_existencia": "console_focado_com_selecao_multipla", "regra_ativo": "selecao_vazia", "forma_exibicao": "rotulo_dinamico_selecao"},
       {"id": "chip_dry_run", "tipo": "alternancia", "tecla": "Ins", "texto": "Dry-Run", "regra_existencia": "sempre", "regra_ativo": "sempre", "forma_exibicao": "visivel_ativo"}

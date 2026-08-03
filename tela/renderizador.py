@@ -68,6 +68,8 @@ H-0006, sem carater normativo de layout).
 Apenas biblioteca padrao do Python.
 """
 
+import copy
+
 from tela.modelo import ModeloTela
 from tela.distribuicao_matricial import (
     calcular_distribuicao,
@@ -146,6 +148,7 @@ _navegacao_atual = {
     # (H-0044): selecao nao vazia fica ativa somente se True. None preserva
     # H-0041 (Executar inativo).
     "executar_disponivel": None,
+    "paginas_atuais": {},
 }
 
 # Defaults normativos do alias transitório ``distribuicao = "horizontal"`` e
@@ -223,27 +226,43 @@ def _linha_topo(label, borda, label_max):
     )
 
 
-def _linha_base(borda, inner_w):
+def _linha_base(borda, inner_w, texto_direita=None):
     """Monta a borda inferior: {bl}{h x inner_w}{br}.
 
     Comprimento total: inner_w + 2 == total_w.
     """
-    return "{bl}{0}{br}".format(
-        borda["h_inferior"] * inner_w, bl=borda["bl"], br=borda["br"]
-    )
+    miolo = borda["h_inferior"] * inner_w
+    if texto_direita:
+        marcador = " {0} ".format(texto_direita)
+        if len(marcador) <= inner_w:
+            inicio = inner_w - len(marcador)
+            miolo = miolo[:inicio] + marcador
+    return "{bl}{0}{br}".format(miolo, bl=borda["bl"], br=borda["br"])
 
 
 def _linha_conteudo(texto, borda, content_w):
     """Monta uma linha de conteudo: {v} {text:<content_w}{v}.
 
-    Comprimento total: content_w + 3 == total_w.
+    Comprimento total VISUAL: content_w + 3 == total_w.
+    Truncamento e preenchimento ignoram sequencias SGR ANSI (chips com
+    ``cor_inativo``/destaque nao deslocam a borda direita nem encurtam
+    a moldura — H-0045-P02 / VM-H0045-R02-002).
     """
-    txt = texto[:content_w]
-    pad = " " * (content_w - len(txt))
-    return "{v} {0}{1}{v}".format(txt, pad, v=borda["v"])
+    txt = _cortar_sem_ansi(texto, content_w)
+    miolo = _ljust_sem_ansi(txt, content_w)
+    return "{v} {0}{v}".format(miolo, v=borda["v"])
 
 
-def _caixa(label, linhas_conteudo, borda, inner_w, content_w, label_max, altura_alvo=None):
+def _caixa(
+    label,
+    linhas_conteudo,
+    borda,
+    inner_w,
+    content_w,
+    label_max,
+    altura_alvo=None,
+    texto_base=None,
+):
     """Monta uma caixa bordeada com label no topo e linhas de conteudo.
 
     Quando altura_alvo e fornecida, a caixa ocupa exatamente essa altura:
@@ -258,7 +277,7 @@ def _caixa(label, linhas_conteudo, borda, inner_w, content_w, label_max, altura_
         linha_fill = borda["v"] + " " * inner_w + borda["v"]
         while len(partes) < altura_alvo - 1:
             partes.append(linha_fill)
-    partes.append(_linha_base(borda, inner_w))
+    partes.append(_linha_base(borda, inner_w, texto_direita=texto_base))
     return "\n".join(partes)
 
 
@@ -368,6 +387,33 @@ def _distribuir_larguras(largura_disponivel, pesos):
 # ---------------------------------------------------------------------------
 
 
+def _mesmo_console_de_contexto(e, elemento):
+    """True quando ``e`` (da lista de foco) e ``elemento`` sao o MESMO console.
+
+    H-0045-P03: no caminho de paginacao matricial, ``elemento`` pode ser um
+    CLONE recortado para a pagina atual (``_elemento_fragmentado_para_pagina``
+    -- ``copy.copy`` com ``_campos_inertes["itens"]`` substituido pela fatia
+    da pagina). O clone e um objeto Python distinto: comparacao por identidade
+    (``is``) nunca casa, mesmo sendo logicamente "o mesmo console". A
+    correspondencia por ``id`` (estavel entre o console original e seu clone
+    de pagina, preservado por ``copy.copy``) e a autoridade correta -- a MESMA
+    usada por ``tela.navegacao`` para nomear consoles (NC-002/NC-003).
+
+    H-0045-P04 / QA-H0045-P03-001: a correspondencia por ``id`` so e segura
+    porque o loader rejeita IDs de console duplicados antes do runtime
+    (``_validar_unicidade_ids_consoles``). Com unicidade garantida, o casamento
+    clone/original permanece deterministico e o foco de um console nunca
+    materializa cursor em outro.
+    """
+    if e is elemento:
+        return True
+    return (
+        getattr(e, "tipo", None) == "console"
+        and getattr(elemento, "tipo", None) == "console"
+        and e.id == elemento.id
+    )
+
+
 def _console_focalizavel_de_contexto(elemento):
     """True quando ``elemento`` esta na lista de foco do contexto vigente.
 
@@ -377,11 +423,14 @@ def _console_focalizavel_de_contexto(elemento):
     inalterados, preservando a compatibilidade retroativa. Quando o contexto
     de navegacao nao esta ativo (lista_foco ausente), nenhum console e
     considerado focalizavel (comportamento pre-H-0040).
+
+    H-0045-P03: casa tambem por ``id`` (``_mesmo_console_de_contexto``) para
+    reconhecer o clone de paginacao como o mesmo console da lista de foco.
     """
     lista = _navegacao_atual.get("lista_foco")
     if not lista:
         return False
-    return any(e is elemento for e in lista)
+    return any(_mesmo_console_de_contexto(e, elemento) for e in lista)
 
 
 def _console_focado_de_contexto(elemento):
@@ -391,6 +440,9 @@ def _console_focado_de_contexto(elemento):
     nao exibem o símbolo em nenhum item (PN-0008). Quando o contexto de
     navegacao nao esta ativo (lista_foco/foco_console ausentes), nenhum
     console e considerado focado (comportamento pre-H-0040).
+
+    H-0045-P03: casa tambem por ``id`` (``_mesmo_console_de_contexto``) para
+    reconhecer o clone de paginacao como o console focado.
     """
     lista = _navegacao_atual.get("lista_foco")
     foco = _navegacao_atual.get("foco_console")
@@ -398,7 +450,35 @@ def _console_focado_de_contexto(elemento):
         return False
     if foco < 0 or foco >= len(lista):
         return False
-    return lista[foco] is elemento
+    return _mesmo_console_de_contexto(lista[foco], elemento)
+
+
+def _console_original_de_contexto(elemento):
+    """Resolve o console ORIGINAL (itens completos) correspondente a ``elemento``.
+
+    H-0045-P03: no caminho de paginacao matricial, ``elemento`` pode ser um
+    clone recortado para a pagina atual (``_elemento_fragmentado_para_pagina``),
+    cujo ``_campos_inertes["itens"]`` contem SOMENTE os itens fisicos da
+    pagina corrente. ``cursores[console.id]`` armazena o item logico GLOBAL
+    (indice na lista COMPLETA de itens navegaveis do console -- a mesma
+    autoridade usada por ``tela.navegacao.grade_de_itens`` e por
+    ``tela.paginacao``): resolver o item corrente a partir da lista LOCAL do
+    clone produz um indice fora de alcance (ou, pior, aponta para o item
+    errado) a partir da segunda pagina. Retorna o console original da lista de
+    foco (mesmo ``id``); quando nao ha correspondencia, retorna ``elemento``
+    inalterado (compatibilidade retroativa fora do contexto de paginacao).
+
+    H-0045-P04: com IDs unicos no loader, a busca por ``id`` encontra no
+    maximo um console na lista de foco -- nao ha escolha arbitraria entre
+    homonimos. Se o contexto estiver inconsistente (elemento sem
+    correspondente), devolve ``elemento`` sem inventar outro console.
+    """
+    lista = _navegacao_atual.get("lista_foco")
+    if lista:
+        for e in lista:
+            if _mesmo_console_de_contexto(e, elemento):
+                return e
+    return elemento
 
 
 def _console_declarou_selecao_multipla(elemento):
@@ -595,12 +675,20 @@ def _item_corrente_de_contexto(elemento):
     Lê ``_navegacao_atual["cursores"][elemento.id]`` e resolve qual item
     navegavel da ordem declarada corresponde ao item logico armazenado. Quando
     ausente, retorna ``None`` (sem cursor materializado).
+
+    H-0045-P03: o item logico e um indice GLOBAL (ordem declarada de itens
+    navegaveis do console INTEIRO -- mesma autoridade de
+    ``tela.navegacao.grade_de_itens``/``tela.paginacao``), nao um indice local
+    da pagina. Resolve contra ``_console_original_de_contexto(elemento)`` (a
+    lista COMPLETA) para que o mapeamento indice->id permaneca correto mesmo
+    quando ``elemento`` e o clone recortado de uma pagina especifica.
     """
     cursores = _navegacao_atual.get("cursores") or {}
     idx = cursores.get(elemento.id)
     if idx is None:
         return None
-    navegaveis = _itens_navegaveis_do_elemento(elemento)
+    origem = _console_original_de_contexto(elemento)
+    navegaveis = _itens_navegaveis_do_elemento(origem)
     if not navegaveis or idx < 0 or idx >= len(navegaveis):
         return None
     return navegaveis[idx].get("id")
@@ -1519,7 +1607,8 @@ def _linhas_lancador(elemento, content_w=None):
 
 def _avaliar_regra_ativo(
     regra, *, selecao_vazia=None, item_focalizado_selecionavel=None,
-    executar_disponivel=None,
+    executar_disponivel=None, pagina_nao_e_primeira=None,
+    pagina_nao_e_ultima=None,
 ):
     """Avalia ``regra_ativo`` do chip e devolve o estado logico ATIVO.
 
@@ -1564,6 +1653,14 @@ def _avaliar_regra_ativo(
         if item_focalizado_selecionavel is None:
             return True
         return bool(item_focalizado_selecionavel)
+    if regra == "pagina_nao_e_primeira":
+        if pagina_nao_e_primeira is None:
+            return True
+        return bool(pagina_nao_e_primeira)
+    if regra == "pagina_nao_e_ultima":
+        if pagina_nao_e_ultima is None:
+            return True
+        return bool(pagina_nao_e_ultima)
     return True
 
 
@@ -1611,6 +1708,40 @@ def _largura_sem_ansi(texto):
         n += 1
         i += 1
     return n
+
+
+def _cortar_sem_ansi(texto, largura):
+    """Corta ``texto`` para no maximo ``largura`` caracteres visiveis.
+
+    Sequencias SGR sao preservadas integralmente; apenas caracteres
+    visiveis entram na contagem do limite.
+    """
+    if largura <= 0:
+        return ""
+    if not texto or _largura_sem_ansi(texto) <= largura:
+        return texto
+    out = []
+    n = 0
+    i = 0
+    comprimento = len(texto)
+    while i < comprimento:
+        ch = texto[i]
+        if ch == "\x1b" and i + 1 < comprimento and texto[i + 1] == "[":
+            j = i + 2
+            while j < comprimento:
+                fim = texto[j]
+                j += 1
+                if "A" <= fim <= "Z" or "a" <= fim <= "z":
+                    break
+            out.append(texto[i:j])
+            i = j
+            continue
+        if n >= largura:
+            break
+        out.append(ch)
+        n += 1
+        i += 1
+    return "".join(out)
 
 
 def _ljust_sem_ansi(texto, largura):
@@ -2097,14 +2228,71 @@ def _linhas_barra(barra_de_menus, estilo, content_w):
     # inativo). Reaproveita ``tela.selecao.chip_espaco_ativo``, que resolve o
     # item corrente via ``tela.navegacao`` sem acoplamento por import direto.
     item_focalizado_selecionavel = None
+    console_tem_paginacao = False
+    pagina_nao_e_primeira = None
+    pagina_nao_e_ultima = None
+    # VM-H0045-R06-001 (P21): console focado e acessivel tambem fora do bloco
+    # de selecao multipla para resolver o rotulo dinamico do chip ``[Esc]``.
+    # Inicializado aqui (antes do bloco ``if lista is not None``) para que a
+    # materializacao do ``rotulo_dinamico_esc`` funcione mesmo quando o
+    # contexto de navegacao esta inativo (``lista is None`` => ``None`` =>
+    # nenhum chip Esc e alterado, preservando o rotulo original).
+    console_foco = None
     if lista is not None:
+        # D-TEC-12 / H-0045-P01 / VM-H0045-R07-003: existencia de ``[<]``/
+        # ``[>]`` e propriedade ESTATICA de qualquer console do corpo que
+        # declara ``politica_paginacao: "com"`` (contrato_console.md §12:
+        # "existem quando a instancia declara paginacao: com"), nao
+        # condicionada a foco corrente NEM a focalizabilidade (ADR-0031 D2 —
+        # um console paginado com zero itens navegaveis nunca entra em
+        # ``lista_foco``, mas ainda declara paginacao "com" e deve exibir os
+        # chips INATIVOS, nunca omiti-los). Fonte: ``existe_console_paginado``
+        # (``_algum_console_paginado_no_corpo``, travessia do corpo inteiro),
+        # nao ``lista`` (apenas consoles focalizaveis).
+        console_tem_paginacao = bool(_navegacao_atual.get("existe_console_paginado"))
         tem_alternar = len(lista) >= 2
         foco = _navegacao_atual.get("foco_console")
         tem_navegar = False
-        console_foco = None
         if lista and foco is not None and 0 <= foco < len(lista):
             console_foco = lista[foco]
-            tem_navegar = len(_itens_navegaveis_do_elemento(console_foco)) > 1
+            if _console_tem_paginacao(console_foco):
+                from tela import paginacao
+
+                largura = _navegacao_atual.get("largura") or 80
+                altura_interna = _navegacao_atual.get("altura_interna") or max(1, 24 - 8)
+                total = paginacao.total_paginas(
+                    console_foco,
+                    largura,
+                    altura_interna,
+                    bool(_navegacao_atual.get("verboso")),
+                    desconto_estrutural=DESCONTO_ESTRUTURAL_CONSOLE,
+                )
+                pagina_ctx = _pagina_atual_de_contexto(console_foco)
+                pagina_nao_e_primeira = pagina_ctx > 1
+                pagina_nao_e_ultima = pagina_ctx < total
+                tem_navegar = (
+                    len(
+                        paginacao.linhas_logicas_navegaveis_da_pagina(
+                            {
+                                "pagina_atual": _navegacao_atual.get("paginas_atuais") or {},
+                                "largura": largura,
+                                "altura_interna": altura_interna,
+                                "modo_verboso": bool(_navegacao_atual.get("verboso")),
+                                "desconto_estrutural": DESCONTO_ESTRUTURAL_CONSOLE,
+                            },
+                            console_foco,
+                        )
+                    )
+                    > 1
+                )
+            else:
+                tem_navegar = len(_itens_navegaveis_do_elemento(console_foco)) > 1
+                if console_tem_paginacao:
+                    pagina_nao_e_primeira = False
+                    pagina_nao_e_ultima = False
+        elif console_tem_paginacao:
+            pagina_nao_e_primeira = False
+            pagina_nao_e_ultima = False
         # H-0041 / ADR-0034 D-SEL-09: regras dinamicas dos chips ``[Espaço]``
         # e ``[Enter]``. ``[Espaço]`` existe quando o console focado declara
         # selecao multipla (``regra_existencia: console_focado_com_selecao_multipla``).
@@ -2145,6 +2333,10 @@ def _linhas_barra(barra_de_menus, estilo, content_w):
                 if tem_selecao_multipla:
                     filtrados.append(chip)
                 continue
+            if regra == "console_com_paginacao":
+                if console_tem_paginacao:
+                    filtrados.append(chip)
+                continue
             filtrados.append(chip)
         chips = filtrados
 
@@ -2157,6 +2349,48 @@ def _linhas_barra(barra_de_menus, estilo, content_w):
         chips = [
             (dict(c, texto=rotulo_enter)
              if c.get("forma_exibicao") == "rotulo_dinamico_selecao"
+             else c)
+            for c in chips
+        ]
+
+    # VM-H0045-R06-001 (P21): materializa o rotulo dinamico ``Limpar``/original
+    # do chip ``[Esc]``. Reutiliza o MESMO mecanismo contratado de
+    # ``forma_exibicao`` (nenhum campo novo): quando a instancia declara
+    # ``forma_exibicao: "rotulo_dinamico_esc"``, o renderer resolve o texto do
+    # chip Esc via ``tela.selecao.rotulo_esc`` a partir do console FOCADO e do
+    # rotulo original configurado (Sair, Voltar ou outro rotulo valido).
+    # Devolve ``Limpar`` quando o console focado declara selecao multipla e
+    # possui selecao reconciliada NAO VAZIA; o rotulo original em todos os
+    # demais casos (console sem selecao multipla, selecao vazia, sem console
+    # focado, ou chip que nao usa a nova forma de exibicao).
+    #
+    # Isolamento por console focal: somente a selecao do console focado
+    # determina o rotulo (D-SEL-01/03). Configuracoes de selecao unica nao
+    # declaram ``rotulo_dinamico_esc`` e permanecem com o chip original. O
+    # texto substituido e SOMENTE o exibido: tecla, ordem, atividade, cores e
+    # demais propriedades do chip sao preservados. O comportamento funcional
+    # de Esc (limpar selecao e manter a tela aberta) ja existe em
+    # ``demo/demo.py`` e nao e alterado por este patch.
+    if any(
+        c.get("tecla") == "Esc"
+        and c.get("forma_exibicao") == "rotulo_dinamico_esc"
+        for c in chips
+    ):
+        from tela import selecao as _sel_mod_esc
+
+        estado_sel_esc = {
+            "selecoes": _navegacao_atual.get("selecoes") or {},
+            "cursores": _navegacao_atual.get("cursores") or {},
+        }
+        chips = [
+            (dict(
+                c,
+                texto=_sel_mod_esc.rotulo_esc(
+                    estado_sel_esc, console_foco, c.get("texto")
+                ),
+            )
+             if c.get("tecla") == "Esc"
+             and c.get("forma_exibicao") == "rotulo_dinamico_esc"
              else c)
             for c in chips
         ]
@@ -2177,6 +2411,8 @@ def _linhas_barra(barra_de_menus, estilo, content_w):
             selecao_vazia=selecao_vazia,
             item_focalizado_selecionavel=item_focalizado_selecionavel,
             executar_disponivel=executar_disponivel,
+            pagina_nao_e_primeira=pagina_nao_e_primeira,
+            pagina_nao_e_ultima=pagina_nao_e_ultima,
         )
         if chip_id is not None:
             estado_ativo_chips[chip_id] = ativo
@@ -2454,6 +2690,370 @@ def _altura_quebra_item(texto, largura_texto):
     return max(1, len(_quebrar_texto(texto, largura_texto)))
 
 
+def _item_console_e_navegavel(item):
+    return isinstance(item, dict) and bool(item.get("navegavel"))
+
+
+def _politica_quebra_item(item):
+    if isinstance(item, dict):
+        return item.get("politica_quebra") or "evitar_quebra"
+    return "evitar_quebra"
+
+
+def _itens_visiveis_console(elemento):
+    conteudo = getattr(elemento, "conteudo_externo", None)
+    if conteudo is not None:
+        return []
+    return list(elemento._campos_inertes.get("itens", []) or [])
+
+
+def _larguras_mapa_fisico_matricial(
+    elemento, area_w, altura_interna, verboso, participantes,
+):
+    """Calcula as larguras de celula usadas pelo mapa fisico.
+
+    O planejamento de pagina precisa usar a largura da celula, nao a largura
+    total da caixa. A mesma distribuicao matricial usada pelo renderer fornece
+    essas larguras; a altura de calculo e ampliada apenas quando o conjunto
+    inteiro nao cabe em uma unica pagina, sem alterar a formacao preferida.
+    """
+    ind_w = _largura_indicador_do_elemento(elemento)
+    quebrar = (
+        verboso and elemento.tipo == "console"
+        and getattr(elemento, "conteudo_externo", None) is None
+        and area_w is not None
+    )
+    if quebrar:
+        esp = elemento.distribuicao_matricial.get("espacamento", {})
+        margem_esq = int(
+            (esp.get("margem_esquerda") or {}).get("minimo", 0) or 0
+        )
+        margem_dir = int(
+            (esp.get("margem_direita") or {}).get("minimo", 0) or 0
+        )
+        largura_texto_est = max(
+            1, area_w - ind_w - margem_esq - margem_dir
+        )
+        colunas_cfg = (
+            elemento.distribuicao_matricial.get("formacao") or {}
+        ).get("colunas") or {}
+        colunas_max = colunas_cfg.get("fixo")
+        if colunas_max is None:
+            colunas_max = colunas_cfg.get("maximo")
+        celula_unica_por_linha = isinstance(colunas_max, int) and colunas_max <= 1
+
+    min_ws = []
+    for participante in participantes:
+        if quebrar:
+            if celula_unica_por_linha:
+                # VM-H0045-R07-001: com no maximo uma celula por linha, o
+                # item usa toda a largura util atribuida (apenas indicador e
+                # margens descontados), sem o teto arbitrario de metade da
+                # area que forcava a truncar o texto pela metade.
+                teto = max(10, largura_texto_est)
+            else:
+                teto = max(10, (area_w - ind_w) // 2)
+            texto_min = max(10, min(len(participante), teto))
+        else:
+            texto_min = len(participante)
+        min_ws.append(texto_min + ind_w)
+
+    if quebrar:
+        min_hs = [
+            _altura_quebra_item(participante, largura_texto_est)
+            for participante in participantes
+        ]
+    else:
+        min_hs = [1 for _ in participantes]
+
+    try:
+        altura_calculo = max(1, int(altura_interna))
+    except (TypeError, ValueError):
+        altura_calculo = 1
+    resultado = calcular_distribuicao(
+        area_w=area_w,
+        area_h=altura_calculo,
+        n_participantes=len(participantes),
+        config=elemento.distribuicao_matricial,
+        min_ws=min_ws,
+        min_hs=min_hs,
+    )
+    if resultado["fallback"]:
+        dim_lin_pol = elemento.distribuicao_matricial["dimensionamento"]["linhas"]["politica"]
+        if dim_lin_pol == "uniforme" and min_hs:
+            altura_calculo = max(1, len(participantes)) * max(min_hs) + 8
+        else:
+            altura_calculo = max(1, sum(min_hs)) + 8
+        resultado = calcular_distribuicao(
+            area_w=area_w,
+            area_h=altura_calculo,
+            n_participantes=len(participantes),
+            config=elemento.distribuicao_matricial,
+            min_ws=min_ws,
+            min_hs=min_hs,
+        )
+    if resultado["fallback"]:
+        return {}
+
+    larguras = {
+        celula["participante"]: celula["largura"]
+        for celula in resultado["celulas"]
+    }
+    if not quebrar or not resultado["celulas"]:
+        return larguras
+
+    min_hs_reais = list(min_hs)
+    for celula in resultado["celulas"]:
+        participante_idx = celula["participante"]
+        largura_texto = max(1, celula["largura"] - ind_w)
+        min_hs_reais[participante_idx] = _altura_quebra_item(
+            participantes[participante_idx], largura_texto
+        )
+    if min_hs_reais != min_hs:
+        dim_lin_pol = elemento.distribuicao_matricial["dimensionamento"]["linhas"]["politica"]
+        if dim_lin_pol == "uniforme" and min_hs_reais:
+            altura_calculo = max(1, len(participantes)) * max(min_hs_reais) + 8
+        else:
+            altura_calculo = max(1, sum(min_hs_reais)) + 8
+        resultado_recalculado = calcular_distribuicao(
+            area_w=area_w,
+            area_h=altura_calculo,
+            n_participantes=len(participantes),
+            config=elemento.distribuicao_matricial,
+            min_ws=min_ws,
+            min_hs=min_hs_reais,
+        )
+        if not resultado_recalculado["fallback"]:
+            larguras = {
+                celula["participante"]: celula["largura"]
+                for celula in resultado_recalculado["celulas"]
+            }
+    return larguras
+
+
+def mapa_fisico_de_itens(
+    elemento,
+    largura,
+    altura_interna,
+    verboso,
+    desconto_estrutural=0,
+):
+    """Autoridade publica do mapa fisico de itens de console (H-0045).
+
+    Retorna uma lista de dicts com identidade declarada, navegabilidade e
+    linhas fisicas efetivas. O modulo ``tela.paginacao`` consome esta funcao;
+    o renderer tambem a usa ao recortar fragmentos da pagina atual.
+    """
+    if getattr(elemento, "tipo", None) != "console":
+        return []
+    participantes = _participantes_distribuicao_matricial(elemento)
+    itens = _itens_visiveis_console(elemento)
+    navegavel_idx = 0
+    try:
+        area_w = max(0, int(largura) - int(desconto_estrutural or 0))
+    except (TypeError, ValueError):
+        area_w = 0
+    larguras_celulas = _larguras_mapa_fisico_matricial(
+        elemento, area_w, altura_interna, verboso, participantes
+    )
+
+    entradas = []
+    for idx, texto in enumerate(participantes):
+        item = itens[idx] if idx < len(itens) else None
+        navegavel = _item_console_e_navegavel(item)
+        if verboso and idx in larguras_celulas:
+            ind_w = _largura_indicador_do_elemento(elemento)
+            texto_w = max(1, larguras_celulas[idx] - ind_w)
+            linhas = _altura_quebra_item(str(texto), texto_w)
+        else:
+            linhas = 1
+        item_logico = navegavel_idx if navegavel else None
+        if navegavel:
+            navegavel_idx += 1
+        item_id = item.get("id") if isinstance(item, dict) else None
+        entradas.append(
+            {
+                "indice_fisico": idx,
+                "id": item_id if item_id is not None else idx,
+                "item_logico": item_logico,
+                "item_logico_ou_id": item_logico if navegavel else (item_id if item_id is not None else idx),
+                "navegavel": navegavel,
+                "linhas_fisicas": linhas,
+                "politica_quebra": _politica_quebra_item(item),
+            }
+        )
+    return entradas
+
+
+def _console_tem_paginacao(elemento):
+    return (
+        getattr(elemento, "tipo", None) == "console"
+        and elemento._campos_inertes.get("politica_paginacao") == "com"
+    )
+
+
+def _algum_console_paginado_no_corpo(elementos):
+    """True se algum console de ``elementos`` declara ``politica_paginacao: "com"``.
+
+    VM-H0045-R07-003: existencia de ``[<]``/``[>]`` (``contrato_console.md``
+    §12: "existem quando a instancia declara paginacao: com") e propriedade
+    ESTATICA do console declarado no corpo -- independente de o console ser
+    FOCALIZAVEL (ADR-0031 D2 exige >= 1 item navegavel para entrar em
+    ``navegacao.lista_foco``). Um console paginado com zero itens navegaveis
+    (cenario "conjunto vazio") nunca aparece em ``lista_foco`` e por isso
+    nao pode ser a fonte desta verificacao (usar ``lista_foco`` aqui omitia
+    os chips por completo, em vez de exibi-los inativos). Percorre grupos
+    recursivamente (mesma travessia de ``navegacao._atravessar_elementos``),
+    sem aplicar o filtro de focalizabilidade.
+    """
+    for elemento in elementos or []:
+        if getattr(elemento, "tipo", None) == "grupo":
+            if _algum_console_paginado_no_corpo(elemento.elementos):
+                return True
+        elif _console_tem_paginacao(elemento):
+            return True
+    return False
+
+
+def _pagina_atual_de_contexto(elemento):
+    paginas = _navegacao_atual.get("paginas_atuais") or {}
+    try:
+        return max(1, int(paginas.get(elemento.id, 1)))
+    except (TypeError, ValueError):
+        return 1
+
+
+def _fragmentos_e_total_paginacao(elemento, content_w, altura_alvo, verboso):
+    from tela import paginacao
+
+    capacidade = max(1, (altura_alvo - 2) if altura_alvo is not None else 1)
+    largura_total = content_w + DESCONTO_ESTRUTURAL_CONSOLE
+    plano = paginacao.plano_de_paginacao(
+        elemento,
+        largura_total,
+        capacidade,
+        verboso,
+        desconto_estrutural=DESCONTO_ESTRUTURAL_CONSOLE,
+    )
+    pagina = min(_pagina_atual_de_contexto(elemento), plano["total_paginas"])
+    fragmentos = []
+    for pag in plano["paginas"]:
+        if pag["pagina"] == pagina:
+            fragmentos = list(pag["fragmentos"])
+            break
+    return fragmentos, pagina, plano["total_paginas"], capacidade
+
+
+def _recortar_linhas_paginadas(elemento, linhas, content_w, altura_alvo, verboso):
+    fragmentos, _pagina, _total, capacidade = _fragmentos_e_total_paginacao(
+        elemento, content_w, altura_alvo, verboso
+    )
+    if not fragmentos:
+        return []
+    mapa = mapa_fisico_de_itens(
+        elemento,
+        content_w + DESCONTO_ESTRUTURAL_CONSOLE,
+        capacidade,
+        verboso,
+        desconto_estrutural=DESCONTO_ESTRUTURAL_CONSOLE,
+    )
+    inicios = {}
+    cursor = 0
+    for entrada in mapa:
+        inicios[entrada["id"]] = cursor
+        cursor += entrada["linhas_fisicas"]
+    recortadas = []
+    for frag in fragmentos:
+        inicio_item = inicios.get(frag["id"], 0)
+        inicio = inicio_item + frag["inicio_linha"]
+        fim = inicio + frag["linhas_fisicas"]
+        recortadas.extend(linhas[inicio:fim])
+    return recortadas[:capacidade]
+
+
+def _texto_base_paginacao(elemento, content_w, altura_alvo, verboso):
+    if not _console_tem_paginacao(elemento):
+        return None
+    _fragmentos, pagina, total, _capacidade = _fragmentos_e_total_paginacao(
+        elemento, content_w, altura_alvo, verboso
+    )
+    return "página {0}/{1}".format(pagina, total)
+
+
+def _linhas_texto_item_para_pagina(
+    texto, content_w, elemento, verboso, largura_texto=None,
+):
+    texto = str(texto)
+    if not verboso:
+        return [texto]
+    if largura_texto is None:
+        largura_texto = content_w - _largura_indicador_do_elemento(elemento)
+    largura = max(1, largura_texto)
+    return _quebrar_texto(texto, largura)
+
+
+def _elemento_fragmentado_para_pagina(elemento, content_w, altura_alvo, verboso):
+    fragmentos, _pagina, _total, _capacidade = _fragmentos_e_total_paginacao(
+        elemento, content_w, altura_alvo, verboso
+    )
+    itens = _itens_visiveis_console(elemento)
+    mapa = mapa_fisico_de_itens(
+        elemento,
+        content_w + DESCONTO_ESTRUTURAL_CONSOLE,
+        max(1, (altura_alvo - 2) if altura_alvo is not None else 1),
+        verboso,
+        desconto_estrutural=DESCONTO_ESTRUTURAL_CONSOLE,
+    )
+    larguras_celulas = _larguras_mapa_fisico_matricial(
+        elemento,
+        content_w,
+        max(1, (altura_alvo - 2) if altura_alvo is not None else 1),
+        verboso,
+        _participantes_distribuicao_matricial(elemento),
+    )
+    por_id = {entrada["id"]: entrada for entrada in mapa}
+    novos_itens = []
+    for frag in fragmentos:
+        entrada = por_id.get(frag["id"])
+        if entrada is None:
+            continue
+        idx = entrada["indice_fisico"]
+        item_original = itens[idx] if idx < len(itens) else {}
+        texto_original = (
+            item_original.get("texto", item_original.get("valor", ""))
+            if isinstance(item_original, dict)
+            else item_original
+        )
+        linhas_texto = _linhas_texto_item_para_pagina(
+            texto_original,
+            content_w,
+            elemento,
+            verboso,
+            largura_texto=(
+                larguras_celulas.get(idx, content_w)
+                - _largura_indicador_do_elemento(elemento)
+            ),
+        )
+        inicio = frag["inicio_linha"]
+        fim = inicio + frag["linhas_fisicas"]
+        for offset, linha_texto in enumerate(linhas_texto[inicio:fim]):
+            if isinstance(item_original, dict):
+                item = dict(item_original)
+            else:
+                item = {"texto": str(item_original)}
+            item["texto"] = linha_texto
+            item["navegavel"] = bool(
+                item.get("navegavel")
+                and frag["primeira_linha_do_item"]
+                and offset == 0
+            )
+            novos_itens.append(item)
+    clone = copy.copy(elemento)
+    clone._campos_inertes = dict(elemento._campos_inertes)
+    clone._campos_inertes["itens"] = novos_itens
+    return clone
+
+
 def _linhas_distribuicao_matricial(elemento, content_w, altura_alvo, verboso=False):
     """Renderiza os participantes de um elemento em grade (motor centralizado).
 
@@ -2526,27 +3126,42 @@ def _linhas_distribuicao_matricial(elemento, content_w, altura_alvo, verboso=Fal
     # entao uma fracao do texto (limite razoavel para permitir a quebra),
     # evitando fallback geometrico quando o item e longo. Em modo nao verboso,
     # o minimo e o comprimento integral (truncado pela fronteira da celula).
+    if quebrar:
+        # Altura mínima = quebra REAL por palavra. Usa a largura util real da
+        # CELULA (area - margens min - indicador): subestimar a largura infla
+        # a altura e provoca fallback indevido (e, no caminho antigo,
+        # sobreposicao).
+        esp = config.get("espacamento", {})
+        marg_e = int((esp.get("margem_esquerda") or {}).get("minimo", 0) or 0)
+        marg_d = int((esp.get("margem_direita") or {}).get("minimo", 0) or 0)
+        largura_texto_est = max(1, area_w - ind_w - marg_e - marg_d)
+        # VM-H0045-R07-001: quando a formacao limita a no maximo uma celula
+        # por linha (colunas.fixo/maximo <= 1), o item usa toda a largura
+        # util atribuida. Com mais de uma celula possivel por linha, mantem o
+        # teto historico (metade da area util de texto, no minimo 10) para
+        # que itens longos quebrem em vez de forcar fallback.
+        colunas_cfg = (config.get("formacao") or {}).get("colunas") or {}
+        colunas_max = colunas_cfg.get("fixo")
+        if colunas_max is None:
+            colunas_max = colunas_cfg.get("maximo")
+        celula_unica_por_linha = isinstance(colunas_max, int) and colunas_max <= 1
+    else:
+        largura_texto_est = None
+        celula_unica_por_linha = False
+
     min_ws = []
     for p in participantes:
         if quebrar:
-            # Limite razoavel: permite quebra em poucas linhas, sem exigir a
-            # largura integral. Usamos um teto conservador (metade da area util
-            # de texto, no minimo 10) para que itens longos quebrem em vez de
-            # forcar fallback.
-            texto_min = max(10, min(len(p), max(10, (area_w - ind_w) // 2)))
+            if celula_unica_por_linha:
+                teto = max(10, largura_texto_est)
+            else:
+                teto = max(10, (area_w - ind_w) // 2)
+            texto_min = max(10, min(len(p), teto))
         else:
             texto_min = len(p)
         min_ws.append(texto_min + ind_w)
 
     if quebrar:
-        # Altura mínima = quebra REAL por palavra. Para a estimativa inicial,
-        # usa a largura util pessimista da CELULA (area - margens min - indicador),
-        # nao a metade usada em min_ws: subestimar a largura infla a altura e
-        # provoca fallback indevido (e, no caminho antigo, sobreposicao).
-        esp = config.get("espacamento", {})
-        marg_e = int((esp.get("margem_esquerda") or {}).get("minimo", 0) or 0)
-        marg_d = int((esp.get("margem_direita") or {}).get("minimo", 0) or 0)
-        largura_texto_est = max(1, area_w - ind_w - marg_e - marg_d)
         min_hs = [
             _altura_quebra_item(p, largura_texto_est) for p in participantes
         ]
@@ -2755,7 +3370,7 @@ def _linhas_distribuicao_matricial(elemento, content_w, altura_alvo, verboso=Fal
 
 def _caixa_de_elemento(
     elemento, borda, inner_w, content_w, label_max,
-    altura_alvo=None, verboso=False,
+    altura_alvo=None, verboso=False, registro_geometria=None,
 ):
     """Despacha um elemento funcional para sua caixa bordeada.
 
@@ -2770,7 +3385,30 @@ def _caixa_de_elemento(
     linhas em branco bordeadas quando o conteudo natural e menor que a cota.
     Quando ``None``, preserva o comportamento anterior (topo + conteudo +
     base, sem preenchimento interno).
+
+    ``registro_geometria`` (H-0045-P07 / QA-H0045-P06-001): dict opcional
+    ``console.id -> {"largura": int, "altura_interna": int}`` populado como
+    efeito colateral quando ``elemento`` e um console e ``altura_alvo`` e um
+    inteiro concreto (cota fisica resolvida pelo container pai). Esta funcao
+    e o UNICO ponto de despacho de console em toda a arvore de containers
+    (raiz, grupo, grupo aninhado, estrutura matriz -- todos convergem aqui
+    via ``_renderizar_container*``), portanto registrar aqui, com os MESMOS
+    ``inner_w``/``altura_alvo`` que o render efetivamente usa para montar a
+    caixa, garante que a geometria relatada nunca diverge da caixa
+    renderizada, sem duplicar nenhuma regra de particionamento/distribuicao.
+    Quando ``altura_alvo`` e ``None`` (altura natural, orientada pelo
+    conteudo), nenhuma entrada e registrada -- essa geometria nao e uma cota
+    fisica estavel utilizavel por paginacao (ausencia explicita).
     """
+    if (
+        registro_geometria is not None
+        and altura_alvo is not None
+        and getattr(elemento, "tipo", None) == "console"
+    ):
+        registro_geometria[elemento.id] = {
+            "largura": inner_w + 2,
+            "altura_interna": max(1, altura_alvo - 2),
+        }
     # H-0035 / ADR-0025: quando o elemento funcional declara distribuicao_
     # matricial, ela organiza os participantes imediatos em grade. Para console
     # substitui as politicas geometricas antigas (DEC-APP-0025-03); para lancador
@@ -2791,14 +3429,24 @@ def _caixa_de_elemento(
         # útil final dos itens coincide com a consumida pela navegação, que
         # aplica o mesmo desconto estrutural explícito (AT-0021/PN-0016).
         content_w_itens = content_w
+        elemento_render = elemento
+        texto_base = None
+        if _console_tem_paginacao(elemento):
+            elemento_render = _elemento_fragmentado_para_pagina(
+                elemento, content_w_itens, altura_alvo, verboso
+            )
+            texto_base = _texto_base_paginacao(
+                elemento, content_w_itens, altura_alvo, verboso
+            )
         linhas = _linhas_distribuicao_matricial(
-            elemento, content_w_itens, altura_alvo, verboso=verboso,
+            elemento_render, content_w_itens, altura_alvo, verboso=verboso,
         )
         # QAI40-001: o indicador matricial já é aplicado dentro das células;
         # _aplicar_indicador_linhas permanece apenas para o caminho sem grade.
         return _caixa(
             titulo_el.upper(), linhas,
             borda, inner_w, content_w, label_max, altura_alvo,
+            texto_base=texto_base,
         )
 
     if elemento.tipo == "console":
@@ -2811,9 +3459,18 @@ def _caixa_de_elemento(
         linhas_console = _aplicar_indicador_linhas(
             linhas_console, elemento, content_w, content_w_itens
         )
+        texto_base = None
+        if _console_tem_paginacao(elemento):
+            linhas_console = _recortar_linhas_paginadas(
+                elemento, linhas_console, content_w, altura_alvo, verboso
+            )
+            texto_base = _texto_base_paginacao(
+                elemento, content_w, altura_alvo, verboso
+            )
         return _caixa(
             titulo_el.upper(), linhas_console,
             borda, inner_w, content_w, label_max, altura_alvo,
+            texto_base=texto_base,
         )
     if elemento.tipo == "dashboard":
         titulo_el = elemento._campos_inertes.get("titulo", "DASHBOARD")
@@ -2833,7 +3490,7 @@ def _caixa_de_elemento(
 def _renderizar_container_vertical(
     distribuicao, elementos, borda, total_w,
     inner_w, content_w, label_max, altura_disponivel,
-    verboso=False,
+    verboso=False, registro_geometria=None,
 ):
     """Renderiza elementos em disposicao vertical dentro de um container.
 
@@ -2850,6 +3507,10 @@ def _renderizar_container_vertical(
     Quando altura_disponivel e None, cada filho usa sua altura natural
     (orientado pelo conteudo — ADR-0018 D2).
     Grupo e despachado recursivamente via _renderizar_container (H-0027).
+
+    ``registro_geometria`` (H-0045-P07): repassado inalterado a cada chamada
+    recursiva e a cada ``_caixa_de_elemento`` -- ver docstring de
+    ``_caixa_de_elemento``.
     """
     partes = []
 
@@ -2866,7 +3527,7 @@ def _renderizar_container_vertical(
                 bloco = _renderizar_container(
                     arranjo_g, dist_g, elemento.elementos, borda, total_w, cota,
                     estrutura=estrutura_g, matriz_config=matriz_g,
-                    verboso=verboso,
+                    verboso=verboso, registro_geometria=registro_geometria,
                 )
                 fill_linha = " " * total_w
                 if bloco:
@@ -2880,6 +3541,7 @@ def _renderizar_container_vertical(
                 caixa = _caixa_de_elemento(
                     elemento, borda, inner_w, content_w, label_max,
                     altura_alvo=cota, verboso=verboso,
+                    registro_geometria=registro_geometria,
                 )
                 if caixa is not None:
                     partes.append(caixa)
@@ -2900,7 +3562,7 @@ def _renderizar_container_vertical(
                         arranjo_g, dist_g, elemento.elementos, borda,
                         total_w, altura_disponivel,
                         estrutura=estrutura_g, matriz_config=matriz_g,
-                        verboso=verboso,
+                        verboso=verboso, registro_geometria=registro_geometria,
                     )
                     if bloco:
                         partes.append(bloco)
@@ -2908,6 +3570,7 @@ def _renderizar_container_vertical(
                     caixa = _caixa_de_elemento(
                         elemento, borda, inner_w, content_w, label_max,
                         altura_alvo=altura_disponivel, verboso=verboso,
+                        registro_geometria=registro_geometria,
                     )
                     if caixa is not None:
                         partes.append(caixa)
@@ -2923,14 +3586,14 @@ def _renderizar_container_vertical(
                         arranjo_g, dist_g, elemento.elementos, borda,
                         total_w, None,
                         estrutura=estrutura_g, matriz_config=matriz_g,
-                        verboso=verboso,
+                        verboso=verboso, registro_geometria=registro_geometria,
                     )
                     if bloco:
                         partes.append(bloco)
                 else:
                     caixa = _caixa_de_elemento(
                         elemento, borda, inner_w, content_w, label_max,
-                        verboso=verboso,
+                        verboso=verboso, registro_geometria=registro_geometria,
                     )
                     if caixa is not None:
                         partes.append(caixa)
@@ -2965,14 +3628,14 @@ def _renderizar_container_vertical(
                 bloco = _renderizar_container(
                     arranjo_g, dist_g, elemento.elementos, borda, total_w, None,
                     estrutura=estrutura_g, matriz_config=matriz_g,
-                    verboso=verboso,
+                    verboso=verboso, registro_geometria=registro_geometria,
                 )
                 if bloco:
                     partes.append(bloco)
             else:
                 caixa = _caixa_de_elemento(
                     elemento, borda, inner_w, content_w, label_max,
-                    verboso=verboso,
+                    verboso=verboso, registro_geometria=registro_geometria,
                 )
                 if caixa is not None:
                     partes.append(caixa)
@@ -2982,7 +3645,7 @@ def _renderizar_container_vertical(
 
 def _renderizar_container_horizontal(
     distribuicao, elementos, borda, total_w, altura_disponivel,
-    larguras=None, verboso=False,
+    larguras=None, verboso=False, registro_geometria=None,
 ):
     """Renderiza elementos em disposicao horizontal dentro de um container.
 
@@ -2992,6 +3655,10 @@ def _renderizar_container_horizontal(
       DA-02; ausencia de distribuicao nunca equivale a particionamento uniforme.
     Quando larguras sao fornecidas externamente (ex.: matriz), usa-as diretamente.
     Grupo e despachado recursivamente via _renderizar_container (H-0027).
+
+    ``registro_geometria`` (H-0045-P07): repassado inalterado a cada chamada
+    recursiva e a cada ``_caixa_de_elemento`` -- ver docstring de
+    ``_caixa_de_elemento``.
     """
     N = len(elementos)
 
@@ -3048,11 +3715,25 @@ def _renderizar_container_horizontal(
             bloco = _renderizar_container(
                 arranjo_g, dist_g, elemento.elementos, borda, w, altura_disponivel,
                 estrutura=estrutura_g, matriz_config=matriz_g, verboso=verboso,
+                registro_geometria=registro_geometria,
             )
             linhas_area = bloco.split("\n") if bloco else []
         else:
+            # QA-H0045-P05-001: ``altura_alvo`` DEVE ser repassado aqui (nao
+            # so no preenchimento posterior abaixo). Sem isso, um console
+            # paginado dentro de uma coluna horizontal renderiza sua caixa
+            # com altura NATURAL (``altura_alvo=None``), fazendo
+            # ``_fragmentos_e_total_paginacao`` cair no fallback interno
+            # ``capacidade=1`` -- divergente da capacidade real da coluna
+            # (mesma ``altura_disponivel`` usada pela geometria auxiliar
+            # ``geometria_console``). Chamar com ``altura_alvo=altura_
+            # disponivel`` e idempotente para elementos nao paginados: quando
+            # a caixa ja atinge exatamente essa altura, o preenchimento
+            # posterior abaixo nao adiciona nem remove linhas.
             caixa_str = _caixa_de_elemento(
-                elemento, borda, w - 2, w - 3, w - 4, verboso=verboso,
+                elemento, borda, w - 2, w - 3, w - 4,
+                altura_alvo=altura_disponivel, verboso=verboso,
+                registro_geometria=registro_geometria,
             )
             if caixa_str is None or caixa_str == "":
                 linhas_area = []
@@ -3097,6 +3778,7 @@ def _renderizar_container_horizontal(
 
 def _renderizar_container_matriz(
     matriz_config, elementos, borda, total_w, altura_disponivel, verboso=False,
+    registro_geometria=None,
 ):
     """Renderiza um grupo ``estrutura: matriz`` com grade bidimensional comum.
 
@@ -3104,6 +3786,10 @@ def _renderizar_container_matriz(
     matricial e compartilhadas por todas as celulas. As linhas sao renderizadas
     como containers horizontais com larguras pre-computadas, preservando as
     primitivas de borda e preenchimento ja existentes.
+
+    ``registro_geometria`` (H-0045-P07): repassado inalterado a cada linha
+    (``_renderizar_container_horizontal``) -- ver docstring de
+    ``_caixa_de_elemento``.
     """
     if not isinstance(matriz_config, dict):
         raise RenderizadorErro("estrutura matriz sem objeto matriz validado")
@@ -3142,6 +3828,7 @@ def _renderizar_container_matriz(
             altura_disponivel=alturas[linha - 1],
             larguras=larguras,
             verboso=verboso,
+            registro_geometria=registro_geometria,
         )
         if bloco:
             blocos.append(bloco)
@@ -3151,7 +3838,7 @@ def _renderizar_container_matriz(
 
 def _renderizar_container(
     arranjo, distribuicao, elementos, borda, total_w, altura_disponivel,
-    estrutura=None, matriz_config=None, verboso=False,
+    estrutura=None, matriz_config=None, verboso=False, registro_geometria=None,
 ):
     """Renderiza os filhos de um container recursivamente (H-0027 / ADR-0019).
 
@@ -3165,6 +3852,17 @@ def _renderizar_container(
     elementos: lista de ElementoCorpo.
     total_w: largura total disponivel para este container.
     altura_disponivel: altura alocada pelo pai (None = conteudo natural).
+
+    ``registro_geometria`` (H-0045-P07 / QA-H0045-P06-001): dict opcional
+    ``console.id -> {"largura": int, "altura_interna": int}``, repassado
+    recursivamente por TODOS os ramos (vertical/horizontal/matriz, incluindo
+    grupos aninhados) ate ``_caixa_de_elemento``, onde e efetivamente
+    populado para cada console -- a UNICA funcao de despacho de console de
+    toda a arvore. Usado por ``tela.renderizador._geometria_por_console``
+    para obter a geometria real recursiva sem duplicar nenhuma regra de
+    particionamento/distribuicao: e a MESMA chamada usada pelo render real
+    (``renderizar_tela`` nao passa ``registro_geometria``, portanto o
+    comportamento/desempenho do render normal e inalterado).
     """
     if not elementos:
         return ""
@@ -3172,7 +3870,7 @@ def _renderizar_container(
     if estrutura == "matriz":
         return _renderizar_container_matriz(
             matriz_config, elementos, borda, total_w, altura_disponivel,
-            verboso=verboso,
+            verboso=verboso, registro_geometria=registro_geometria,
         )
 
     arr = arranjo
@@ -3184,7 +3882,7 @@ def _renderizar_container(
     if arr == "horizontal":
         return _renderizar_container_horizontal(
             distribuicao, elementos, borda, total_w, altura_disponivel,
-            verboso=verboso,
+            verboso=verboso, registro_geometria=registro_geometria,
         )
     else:
         inner_w = total_w - 2
@@ -3193,7 +3891,7 @@ def _renderizar_container(
         return _renderizar_container_vertical(
             distribuicao, elementos, borda,
             total_w, inner_w, content_w, label_max, altura_disponivel,
-            verboso=verboso,
+            verboso=verboso, registro_geometria=registro_geometria,
         )
 
 
@@ -3352,6 +4050,241 @@ def _quadro_minimo_global(total_w, altura):
     return "\n".join(linhas) + "\n"
 
 
+def _preparar_contexto_navegacao(
+    estilo, largura, altura, verboso,
+    foco_console=None, cursores=None, lista_foco=None,
+    largura_navegacao=None, selecoes=None, chips_destacados=None,
+    executar_disponivel=None, paginas_atuais=None, modelo=None,
+):
+    """Repopula o contexto de runtime ``_navegacao_atual`` (H-0045-P05).
+
+    Extraido de ``renderizar_tela`` para ser reutilizado por
+    ``altura_interna_disponivel``: a autoridade de geometria vertical usada
+    pela reconciliacao de pagina (``tela.paginacao``) precisa avaliar
+    EXATAMENTE o mesmo contexto de chips (``regra_existencia``/``regra_ativo``
+    da barra de menus, D-TEC-12) que o render real vai usar -- caso contrario
+    a contagem de linhas da barra (``l_barra``) pode divergir entre a
+    reconciliacao e o quadro efetivamente renderizado (VM-H0045-R04-004). O
+    renderer e puro: o contexto e redefinido a cada chamada (R-14), nunca
+    persiste entre redesenhos.
+
+    VM-H0045-R07-003: ``modelo``, quando fornecido, alimenta
+    ``_navegacao_atual["existe_console_paginado"]`` via
+    ``_algum_console_paginado_no_corpo`` -- travessia do corpo INTEIRO
+    (todos os consoles declarados, inclusive nao focalizaveis), distinta de
+    ``lista_foco`` (apenas consoles focalizaveis, ADR-0031 D2). Sem
+    ``modelo`` (chamadores legados), preserva a aproximacao anterior a
+    partir de ``lista_foco``.
+    """
+    global _quadro_minimo_lancador_ativo
+    _quadro_minimo_lancador_ativo = False
+    _navegacao_atual["lista_foco"] = lista_foco
+    if modelo is not None:
+        _navegacao_atual["existe_console_paginado"] = _algum_console_paginado_no_corpo(
+            modelo.corpo.elementos
+        )
+    else:
+        _navegacao_atual["existe_console_paginado"] = any(
+            _console_tem_paginacao(c) for c in (lista_foco or [])
+        )
+    _navegacao_atual["foco_console"] = foco_console
+    _navegacao_atual["cursores"] = cursores or {}
+    _navegacao_atual["largura"] = (
+        largura_navegacao if largura_navegacao is not None else largura
+    )
+    _navegacao_atual["altura_interna"] = max(1, (altura if altura is not None else 24) - 8)
+    _navegacao_atual["verboso"] = bool(verboso)
+    _navegacao_atual["paginas_atuais"] = paginas_atuais or {}
+    _navegacao_atual["simbolo"] = getattr(estilo, "selecionado_simbolo", None)
+    _navegacao_atual["off"] = getattr(estilo, "selecionado_off", None)
+    _navegacao_atual["selecoes"] = selecoes or {}
+    _navegacao_atual["inc_on"] = getattr(estilo, "incluido_on", None)
+    _navegacao_atual["inc_off"] = getattr(estilo, "incluido_off", None)
+    _navegacao_atual["estado_ativo_chips"] = {}
+    if chips_destacados is None:
+        _navegacao_atual["chips_destacados"] = frozenset()
+    elif isinstance(chips_destacados, dict):
+        _navegacao_atual["chips_destacados"] = frozenset(
+            k for k, v in chips_destacados.items() if v
+        )
+    else:
+        _navegacao_atual["chips_destacados"] = frozenset(chips_destacados)
+    _navegacao_atual["executar_disponivel"] = executar_disponivel
+
+
+def _geometria_por_console(
+    modelo, estilo, largura, altura, verboso=False,
+    foco_console=None, cursores=None, lista_foco=None,
+    selecoes=None, chips_destacados=None, executar_disponivel=None,
+    paginas_atuais=None,
+):
+    """Autoridade unica RECURSIVA de geometria por console (H-0045-P07).
+
+    Reproduz EXATAMENTE o mesmo calculo de ``l_cab``/``l_barra``/
+    ``l_corpo_disponivel`` de ``renderizar_tela`` (mesmo contexto de
+    navegacao via ``_preparar_contexto_navegacao``, portanto o mesmo
+    ``l_barra``) e entao delega a particao do corpo a
+    ``_renderizar_container`` -- a MESMA funcao que ``renderizar_tela`` usa
+    para montar o corpo real, incluindo a recursao em ``grupo`` e
+    ``estrutura: matriz`` ja implementada por
+    ``_renderizar_container_vertical``/``_renderizar_container_horizontal``/
+    ``_renderizar_container_matriz`` (H-0027/H-0035). Nenhuma regra de
+    particionamento/distribuicao e reimplementada aqui: a geometria e
+    coletada como efeito colateral do proprio render, via o parametro
+    ``registro_geometria`` (ver docstrings de ``_renderizar_container`` e de
+    ``_caixa_de_elemento``), por isso nunca diverge do quadro que
+    ``renderizar_tela`` produziria para a mesma largura/altura/estado.
+
+    QA-H0045-P06-001: ate este patch, a autoridade so calculava os elementos
+    DIRETOS de ``corpo.elementos[]``, documentando explicitamente que "nao
+    recursiona em grupo/estrutura: matriz". Consoles dentro de um grupo
+    permitido (H-0027) nunca apareciam no mapa resultante, e o wrapper
+    ``geometria_console`` reagia a essa ausencia devolvendo a PRIMEIRA
+    geometria do mapa (``next(iter(...))``) -- a geometria de outro elemento
+    do corpo raiz, nunca a do console solicitado. Agora a recursao cobre
+    TODOS os niveis de grupo permitidos (H-0027 D5/D6: ate 3 niveis) e todas
+    as celulas de ``estrutura: matriz``, exatamente como o renderer as
+    percorre.
+
+    Cada entrada e mapeada por ``console.id`` (chave inequivoca -- unicidade
+    garantida pelo loader, ``_validar_unicidade_ids_consoles``). Um console
+    so recebe entrada quando o container pai lhe atribui uma cota FISICA
+    concreta (``altura_alvo`` resolvido, nao ``None``); quando o console so
+    seria desenhado com altura natural (orientada por conteudo, fora de
+    qualquer particionamento fixo), nenhuma entrada e registrada -- essa
+    geometria nao e uma capacidade de paginacao estavel (ausencia explicita,
+    nao uma aproximacao).
+
+    Retorna ``{}`` quando a geometria e insuficiente para cabecalho +
+    barra_de_menus, quando o corpo esta vazio, ou quando a composicao
+    declarada e invalida (``RenderizadorErro`` -- o mesmo caso em que
+    ``renderizar_tela`` rejeitaria a tela e o render seguinte substituira a
+    tela pelo quadro minimo); o chamador deve preservar pagina/estado
+    correntes nesse caso.
+    """
+    borda = _borda_de_estilo(estilo)
+    total_w = TOTAL_WIDTH if largura is None else largura
+    inner_w = total_w - 2
+    content_w = total_w - 3
+    label_max = total_w - 4
+
+    _preparar_contexto_navegacao(
+        estilo, largura, altura, verboso,
+        foco_console=foco_console, cursores=cursores, lista_foco=lista_foco,
+        largura_navegacao=largura, selecoes=selecoes,
+        chips_destacados=chips_destacados,
+        executar_disponivel=executar_disponivel,
+        paginas_atuais=paginas_atuais, modelo=modelo,
+    )
+
+    titulo = modelo.cabecalho.get("titulo", "(ausente)")
+    descricao = modelo.cabecalho.get("descricao", "(ausente)")
+    caixa_cab = _caixa(
+        titulo.upper(), [descricao], borda, inner_w, content_w, label_max
+    )
+    l_cab = _contar_linhas(caixa_cab)
+
+    linhas_barra = _linhas_barra(modelo.barra_de_menus, estilo, content_w)
+    l_barra = len(linhas_barra) + 2
+
+    if altura is None or l_cab + l_barra > altura:
+        return {}
+    l_corpo_disponivel = altura - l_cab - l_barra
+
+    arranjo_corpo = modelo.corpo.arranjo
+    elementos = modelo.corpo.elementos
+    if not elementos:
+        return {}
+
+    resultado = {}
+    try:
+        _renderizar_container(
+            arranjo_corpo, modelo.corpo.distribuicao, elementos, borda,
+            total_w, l_corpo_disponivel, verboso=verboso,
+            registro_geometria=resultado,
+        )
+    except RenderizadorErro:
+        return {}
+    return resultado
+
+
+def geometria_console(
+    modelo, estilo, largura, altura, verboso=False,
+    console=None, foco_console=None, cursores=None, lista_foco=None,
+    selecoes=None, chips_destacados=None, executar_disponivel=None,
+    paginas_atuais=None,
+):
+    """Geometria real (``largura``/``altura_interna``) de UM console (H-0045-P07).
+
+    Wrapper de ``_geometria_por_console`` que seleciona a entrada
+    correspondente a ``console`` por ``id``. Retorna ``{"largura": int,
+    "altura_interna": int}`` quando -- e somente quando -- ``console`` e um
+    console real do modelo com geometria fisica resolvida pela autoridade
+    recursiva. Retorna ``None`` em qualquer outro caso: geometria
+    globalmente insuficiente, ``console`` ausente/``None``, ou
+    ``console.id`` nao presente no mapa (console que nao existe no modelo,
+    ou cuja caixa e desenhada com altura natural sem cota fisica estavel).
+
+    QA-H0045-P06-001: ate este patch, ausencia de ``console.id`` no mapa
+    produzia ``next(iter(geometria.values()))`` -- a geometria de QUALQUER
+    outro elemento do corpo raiz, entregue silenciosamente para um console
+    ausente ou para um console dentro de grupo (que nunca chegava a
+    ``_geometria_por_console`` antes deste patch). Essa correspondencia
+    silenciosa foi removida: nao ha mais fallback para "a primeira entrada
+    calculada". Os chamadores (``demo._com_geometria_real_do_console``,
+    ``demo._reconciliar_paginacao_apos_resize``) ja tratam ``None``
+    preservando o estado corrente sem processar o comando de pagina/seta com
+    geometria alheia (ver seus docstrings).
+
+    Autoridade unica consumida por render (via
+    ``_renderizar_container_horizontal``/``_renderizar_container_vertical``/
+    ``_renderizar_container_matriz``), reconciliacao de resize e comandos de
+    pagina/setas (``demo.processar_comando``) -- nenhum caminho interativo do
+    H-0045 deve aproximar essa geometria por conta propria.
+    """
+    if console is None:
+        return None
+    geometria = _geometria_por_console(
+        modelo, estilo, largura, altura, verboso,
+        foco_console=foco_console, cursores=cursores, lista_foco=lista_foco,
+        selecoes=selecoes, chips_destacados=chips_destacados,
+        executar_disponivel=executar_disponivel, paginas_atuais=paginas_atuais,
+    )
+    if not geometria:
+        return None
+    console_id = getattr(console, "id", None)
+    if console_id is None:
+        return None
+    return geometria.get(console_id)
+
+
+def altura_interna_disponivel(
+    modelo, estilo, largura, altura, verboso=False,
+    console=None, foco_console=None, cursores=None, lista_foco=None,
+    selecoes=None, chips_destacados=None, executar_disponivel=None,
+    paginas_atuais=None,
+):
+    """Capacidade fisica vertical de paginacao de UM console (H-0045-P05/P06).
+
+    Retrocompativel: wrapper de ``geometria_console`` que devolve apenas
+    ``altura_interna`` (``int``) ou ``None``. Ver ``geometria_console`` e
+    ``_geometria_por_console`` para a autoridade completa (inclui largura de
+    coluna, necessaria em arranjo horizontal e agora tambem consumida pelo
+    render real -- QA-H0045-P05-001/QA-H0045-P05-002).
+    """
+    geometria = geometria_console(
+        modelo, estilo, largura, altura, verboso,
+        console=console, foco_console=foco_console, cursores=cursores,
+        lista_foco=lista_foco, selecoes=selecoes,
+        chips_destacados=chips_destacados,
+        executar_disponivel=executar_disponivel,
+        paginas_atuais=paginas_atuais,
+    )
+    if geometria is None:
+        return None
+    return geometria["altura_interna"]
+
+
 def renderizar_tela(
     modelo: ModeloTela,
     estilo: "EstiloResolvido",
@@ -3365,6 +4298,7 @@ def renderizar_tela(
     selecoes=None,
     chips_destacados=None,
     executar_disponivel=None,
+    paginas_atuais=None,
 ) -> str:
     """Renderiza ModeloTela como string visual declarativa (H-0010A).
 
@@ -3459,33 +4393,18 @@ def renderizar_tela(
     # (sem indicador de cursor, sem chips dinamicos). Os dados sao
     # EXCLUSIVAMENTE de runtime (NC-005): nunca persistem em JSON. Os símbolos
     # do indicador derivam do estilo global materializado (D12/ADR-0030).
-    _navegacao_atual["lista_foco"] = lista_foco
-    _navegacao_atual["foco_console"] = foco_console
-    _navegacao_atual["cursores"] = cursores or {}
-    _navegacao_atual["largura"] = (
-        largura_navegacao if largura_navegacao is not None else largura
+    #
+    # H-0045-P05: extraido para ``_preparar_contexto_navegacao`` (reutilizado
+    # por ``altura_interna_disponivel``), garantindo que a autoridade de
+    # geometria vertical usada pela reconciliacao de pagina avalia EXATAMENTE
+    # o mesmo contexto de chips (regra_existencia/regra_ativo) que este render.
+    _preparar_contexto_navegacao(
+        estilo, largura, altura, verboso,
+        foco_console=foco_console, cursores=cursores, lista_foco=lista_foco,
+        largura_navegacao=largura_navegacao, selecoes=selecoes,
+        chips_destacados=chips_destacados, executar_disponivel=executar_disponivel,
+        paginas_atuais=paginas_atuais, modelo=modelo,
     )
-    _navegacao_atual["simbolo"] = getattr(estilo, "selecionado_simbolo", None)
-    _navegacao_atual["off"] = getattr(estilo, "selecionado_off", None)
-    # H-0041 / ADR-0034: estado de selecao multipla (runtime, por console) e
-    # simbolos do indicador de inclusao (``tg``). ``selecoes`` ausente preserva
-    # o comportamento pre-H-0041 (sem coluna tg). Os simbolos derivam do
-    # estilo global materializado (``incluido_on/off``), ja resolvidos pelo
-    # loader a partir de ``config/estilo.json`` (sem novo campo de estilo).
-    _navegacao_atual["selecoes"] = selecoes or {}
-    _navegacao_atual["inc_on"] = getattr(estilo, "incluido_on", None)
-    _navegacao_atual["inc_off"] = getattr(estilo, "incluido_off", None)
-    _navegacao_atual["estado_ativo_chips"] = {}
-    # H-0044: destaque e ativacao de Executar resolvidos pelo chamador.
-    if chips_destacados is None:
-        _navegacao_atual["chips_destacados"] = frozenset()
-    elif isinstance(chips_destacados, dict):
-        _navegacao_atual["chips_destacados"] = frozenset(
-            k for k, v in chips_destacados.items() if v
-        )
-    else:
-        _navegacao_atual["chips_destacados"] = frozenset(chips_destacados)
-    _navegacao_atual["executar_disponivel"] = executar_disponivel
 
     total_w = TOTAL_WIDTH if largura is None else largura
     inner_w = total_w - 2

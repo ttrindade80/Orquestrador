@@ -360,3 +360,11 @@ Nenhum item registrado.
 **Data:** 2026-07-29
 **Referências:** docs/adr/ADR-0004-estilo-cor-inativo-cor-alerta.md; docs/adr/ADR-0037-integracao-do-fluxo-focal-com-dry-run-e-restauracao-da-origem.md; docs/contratos/contrato_estilo.md; config/estilo.json; tela/loader.py; tela/renderizador.py
 **Resumo:** `cor_inativo: cinza` e `cor_alerta: amarelo` ficaram definidas no estilo global e traduzidas pelo runtime. O H-0044 materializou `cor_alerta` em `EstiloResolvido`, exigiu o campo sem fallback silencioso e comprovou seu consumo pelo renderer no destaque ativo do chip `[Ins] Dry-Run`, sem hardcoding funcional de cor ou ID.
+
+### ITEM-0003 — Paginacao interativa do console
+
+**Resultado:** CONCLUIDO
+**Origem:** backlog
+**Data:** 2026-08-03
+**Referências:** docs/adr/ADR-0038-paginacao-interativa-limitada-em-console.md; docs/handoff/H-0045-paginacao-interativa-limitada-em-console.md; docs/relatorios/RELATORIO_QA_POS_PATCH_IMPLEMENTACAO_H-0045_P25.md; docs/relatorios/RELATORIO_VALIDACAO_MANUAL_H-0045.md
+**Resumo:** Paginacao interativa limitada implementada com estado independente por console, comandos explicitos de pagina, indicador X/Y, reconciliacao de cursor por item logico, selecao persistente, tres politicas de quebra, conteudo multilinha, conjunto vazio e paginas somente de continuacao. O ciclo terminou com 970 testes aprovados, matriz tecnica de 60 dimensoes, validacao manual consolidada das etapas 6/17 a 17/17 e aprovacao das correcoes focais de Esc dinamico, largura horizontal e terminal insuficiente. O encerramento do ITEM-0003 removeu o bloqueio tecnico do ITEM-0018.

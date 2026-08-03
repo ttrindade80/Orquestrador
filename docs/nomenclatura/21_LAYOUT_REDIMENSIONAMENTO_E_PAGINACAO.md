@@ -47,6 +47,10 @@ Grandezas exclusivas do lançador (`area_lancador_w`, `lancador_caixa_min_w`,
 - paginação
 - indicador de paginação
 - `ocupacao_vertical_terminal`
+- paginação limitada (ADR-0038)
+- página lógica vazia (ADR-0038)
+- repaginação (ADR-0038)
+- página de destino (ADR-0038)
 
 ## 4. Definições
 
@@ -109,7 +113,30 @@ e à paginação. Autoridade comportamental completa em `contrato_console.md` §
   paginação.
 - **Paginação interativa pertence ao ITEM-0003**: toda a capacidade de paginação
   interativa do console (chips `[<][>]`, avanço de página por ação) é escopo do
-  ITEM-0003 e está fora da ADR-0031.
+  ITEM-0003 e estava fora da ADR-0031. A especificação foi fechada pela
+  ADR-0038 (ver §4.7); a implementação permanece pendente.
+
+### 4.7 Paginação interativa limitada (ADR-0038)
+
+Termos operacionais fechados pela ADR-0038 para a paginação interativa do
+`console`. Autoridade comportamental completa em `contrato_console.md` §24.
+
+| Termo | Definição |
+|---|---|
+| `paginação limitada` | Topologia entre páginas sem wrap: a primeira página não tem página anterior operável; a última não tem próxima página operável (D-PAG-01). Distinta da navegação toroidal por eixo (§4.6), que se aplica ao movimento do cursor dentro de uma mesma página, não entre páginas. |
+| `página atual` | Página em que o cursor do console focado se encontra no momento; estado de runtime independente por console (D-PAG-13). |
+| `total de páginas` | Quantidade de páginas do conjunto de itens já filtrado do console; base do indicador `página X/Y`. |
+| `página lógica vazia` | Estado do conjunto de itens visíveis igual a zero; a paginação lógica permanece em página `1` de `1`, sem estado `0/0` (D-PAG-12). |
+| `repaginação` | Recálculo da página que contém o item lógico corrente, disparado por redimensionamento, mudança de modo, filtro ou atualização genérica dos dados, preservando o item lógico e não o número anterior da página (D-PAG-06 a D-PAG-10). |
+| `página de destino` | Página para a qual o cursor é reposicionado — no primeiro item navegável dessa página — após troca explícita de página (D-PAG-02) ou após retorno por foco a console paginado (D-PAG-05). |
+
+**Ausência de `0/0`**: o indicador de paginação (§4.4) nunca exibe `página
+0/0`; com conjunto vazio ou com uma única página, exibe `página 1/1` e mantém
+os controles de página inativos (D-PAG-11, D-PAG-12).
+
+**Filtros antes da paginação**: a ordem entre filtro e paginação já fixada
+por `contrato_console.md` §11/§12 é preservada; a repaginação por filtro
+(D-PAG-07 a D-PAG-09) opera sobre o conjunto já filtrado.
 
 ## 5. Distinções obrigatórias
 
@@ -122,6 +149,7 @@ e à paginação. Autoridade comportamental completa em `contrato_console.md` §
 | `corpo.arranjo` | Ordem/composição dos elementos do corpo declarada no `tela.json` | Resultado visual do redimensionamento — o redimensionamento não altera `corpo.arranjo` |
 | `tiling` | Preferência de arranjo do estilo ou fixação pela classe de tela | Resultado de redimensionamento |
 | `quadro mínimo de terminal pequeno` | Aviso exibido quando tela não cabe mas sessão permanece ativa | Encerramento da sessão TUI |
+| `paginação limitada` (entre páginas) | Topologia sem wrap entre a primeira e a última página (ADR-0038 D-PAG-01) | Navegação toroidal por eixo (§4.6) — wrap aplicado ao cursor dentro de uma mesma página, não entre páginas |
 
 ## 6. Relação com contratos
 
@@ -140,6 +168,9 @@ e à paginação. Autoridade comportamental completa em `contrato_console.md` §
   geométrica da distribuição matricial.
 - ADR-0031: D10 (redimensionamento preserva item lógico); D15 (setas restritas à
   página atual; paginação interativa deferida ao ITEM-0003).
+- ADR-0038: paginação limitada; página atual; repaginação por redimensionamento,
+  mudança de modo, filtro e atualização genérica; indicador `página 1/1` para
+  conjunto vazio e para página única; ausência de `0/0`.
 
 ## 8. Aliases ou termos descontinuados relacionados
 
@@ -170,6 +201,7 @@ adrs_relacionadas:
   - ADR-0023
   - ADR-0025
   - ADR-0031
+  - ADR-0038
 tratamento:
   - PRESERVADO
   - SEPARADO_DE_REGRA_COMPORTAMENTAL

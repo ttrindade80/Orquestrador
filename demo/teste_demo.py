@@ -2064,12 +2064,16 @@ def teste_redimensionamento_reativo_h0023():
             return _estado_saindo_8
         return _estado_normal_8
 
+    # P25: os caminhos de main continuam usando um modelo válido; os
+    # subcasos exercitam ciclo TTY/resize, não erro estrutural de modelo.
+    _modelo_teste_8 = _carregar_modelo_por_id("demo")
+
     with _patch("demo.demo._apresentar_quadro", side_effect=_pq_side_8), \
          _patch("demo.demo.processar_comando", side_effect=_processar_8), \
          _patch("demo.demo._ler_tecla_sessao", return_value="x"), \
          _patch("demo.demo._iniciar_sessao_tui", return_value=[0, 0, 0, 0, 0, 0, []]), \
          _patch("demo.demo._encerrar_sessao_tui"), \
-         _patch("demo.demo._carregar_modelo_por_id", return_value=object()), \
+         _patch("demo.demo._carregar_modelo_por_id", return_value=_modelo_teste_8), \
          _patch("demo.demo._obter_dimensoes_apos_sigwinch", side_effect=_sw_side_8), \
          _patch("demo.demo._instalar_handler_sigwinch", return_value=signal.SIG_DFL), \
          _patch("demo.demo._restaurar_handler_sigwinch"), \
@@ -2103,7 +2107,7 @@ def teste_redimensionamento_reativo_h0023():
          _patch("demo.demo._apresentar_quadro"), \
          _patch("demo.demo._iniciar_sessao_tui", return_value=[0, 0, 0, 0, 0, 0, []]), \
          _patch("demo.demo._encerrar_sessao_tui"), \
-         _patch("demo.demo._carregar_modelo_por_id", return_value=object()), \
+         _patch("demo.demo._carregar_modelo_por_id", return_value=_modelo_teste_8), \
          _patch("demo.demo._instalar_handler_sigwinch", return_value=signal.SIG_DFL), \
          _patch("demo.demo._restaurar_handler_sigwinch",
                 side_effect=lambda h: _sig_rest_calls.append(h)), \
@@ -2126,7 +2130,7 @@ def teste_redimensionamento_reativo_h0023():
          _patch("demo.demo._apresentar_quadro"), \
          _patch("demo.demo._iniciar_sessao_tui", return_value=[0, 0, 0, 0, 0, 0, []]), \
          _patch("demo.demo._encerrar_sessao_tui"), \
-         _patch("demo.demo._carregar_modelo_por_id", return_value=object()), \
+         _patch("demo.demo._carregar_modelo_por_id", return_value=_modelo_teste_8), \
          _patch("demo.demo._instalar_handler_sigwinch", return_value=signal.SIG_DFL), \
          _patch("demo.demo._restaurar_handler_sigwinch",
                 side_effect=lambda h: _sig_rest_exc.append(h)), \
@@ -2157,7 +2161,7 @@ def teste_redimensionamento_reativo_h0023():
          _patch("demo.demo._apresentar_quadro"), \
          _patch("demo.demo._iniciar_sessao_tui", return_value=[0, 0, 0, 0, 0, 0, []]), \
          _patch("demo.demo._encerrar_sessao_tui"), \
-         _patch("demo.demo._carregar_modelo_por_id", return_value=object()), \
+         _patch("demo.demo._carregar_modelo_por_id", return_value=_modelo_teste_8), \
          _patch("demo.demo._instalar_handler_sigwinch", return_value=signal.SIG_DFL), \
          _patch("demo.demo._restaurar_handler_sigwinch",
                 side_effect=lambda h: _order_calls.append(("restore_handler", h))), \
@@ -2312,9 +2316,18 @@ def teste_redimensionamento_reativo_h0023():
 
     from tela.renderizador import RenderizadorErro as _RenderizadorErro
     with _patch("demo.demo.renderizar_estado", side_effect=_RenderizadorErro("r")):
-        r_rc_err = _resolver_conteudo(_estado_rc, _modelo_rc, 80, 30)
-    _registrar("8.12: RenderizadorErro: retorna quadro minimo",
-               r_rc_err.count("\n") == 30)
+        try:
+            _resolver_conteudo(_estado_rc, _modelo_rc, 80, 30)
+        except _RenderizadorErro as _exc_rc:
+            _registrar(
+                "8.12: RenderizadorErro estrutural: relanca a excecao original",
+                str(_exc_rc) == "r",
+            )
+        else:
+            _registrar(
+                "8.12: RenderizadorErro estrutural: relanca a excecao original",
+                False,
+            )
 
     # --- 8.13: Falhas parciais na inicializacao e cleanup ---
     print("")
@@ -2452,7 +2465,7 @@ def teste_redimensionamento_reativo_h0023():
     with _patch("os.pipe", side_effect=OSError("pipe fail")), \
          _patch("demo.demo._iniciar_sessao_tui") as _mock_init_fp, \
          _patch("demo.demo._encerrar_sessao_tui") as _mock_enc_fp, \
-         _patch("demo.demo._carregar_modelo_por_id", return_value=object()), \
+         _patch("demo.demo._carregar_modelo_por_id", return_value=_modelo_teste_8), \
          _patch("sys.stdin") as _mock_stdin_fp, \
          _patch("sys.stdout") as _mock_stdout_fp:
         _mock_stdin_fp.isatty.return_value = True
@@ -2481,7 +2494,7 @@ def teste_redimensionamento_reativo_h0023():
          _patch("os.set_blocking", side_effect=OSError("set_blocking fail")), \
          _patch("demo.demo._iniciar_sessao_tui") as _mock_init_sb, \
          _patch("demo.demo._encerrar_sessao_tui") as _mock_enc_sb, \
-         _patch("demo.demo._carregar_modelo_por_id", return_value=object()), \
+         _patch("demo.demo._carregar_modelo_por_id", return_value=_modelo_teste_8), \
          _patch("sys.stdin") as _mock_stdin_sb, \
          _patch("sys.stdout") as _mock_stdout_sb:
         _mock_stdin_sb.isatty.return_value = True
@@ -2522,7 +2535,7 @@ def teste_redimensionamento_reativo_h0023():
          _patch("demo.demo._iniciar_sessao_tui",
                 side_effect=RuntimeError("init fail")), \
          _patch("demo.demo._encerrar_sessao_tui") as _mock_enc_it, \
-         _patch("demo.demo._carregar_modelo_por_id", return_value=object()), \
+         _patch("demo.demo._carregar_modelo_por_id", return_value=_modelo_teste_8), \
          _patch("sys.stdin") as _mock_stdin_it, \
          _patch("sys.stdout") as _mock_stdout_it:
         _mock_stdin_it.isatty.return_value = True
@@ -2559,7 +2572,7 @@ def teste_redimensionamento_reativo_h0023():
          _patch("demo.demo._iniciar_sessao_tui", return_value=[0, 0, 0, 0, 0, 0, []]), \
          _patch("demo.demo._encerrar_sessao_tui") as _mock_enc_sig, \
          _patch("demo.demo._restaurar_handler_sigwinch") as _mock_rest_sig, \
-         _patch("demo.demo._carregar_modelo_por_id", return_value=object()), \
+         _patch("demo.demo._carregar_modelo_por_id", return_value=_modelo_teste_8), \
          _patch("select.select", return_value=([0], [], [])), \
          _patch("sys.stdin") as _mock_stdin_sig, \
          _patch("sys.stdout") as _mock_stdout_sig:
@@ -2586,7 +2599,7 @@ def teste_redimensionamento_reativo_h0023():
          _patch("demo.demo._iniciar_sessao_tui", return_value=[0, 0, 0, 0, 0, 0, []]), \
          _patch("demo.demo._encerrar_sessao_tui",
                 side_effect=lambda *a: _cleanup_seq.append("encerrar")), \
-         _patch("demo.demo._carregar_modelo_por_id", return_value=object()), \
+         _patch("demo.demo._carregar_modelo_por_id", return_value=_modelo_teste_8), \
          _patch("demo.demo._instalar_handler_sigwinch", return_value=signal.SIG_DFL), \
          _patch("demo.demo._restaurar_handler_sigwinch",
                 side_effect=lambda *a: _cleanup_seq.append("restore_handler")), \
@@ -2626,7 +2639,7 @@ def teste_redimensionamento_reativo_h0023():
          _patch("demo.demo._apresentar_quadro"), \
          _patch("demo.demo._iniciar_sessao_tui", return_value=[0, 0, 0, 0, 0, 0, []]), \
          _patch("demo.demo._encerrar_sessao_tui"), \
-         _patch("demo.demo._carregar_modelo_por_id", return_value=object()), \
+         _patch("demo.demo._carregar_modelo_por_id", return_value=_modelo_teste_8), \
          _patch("demo.demo._instalar_handler_sigwinch", return_value=signal.SIG_DFL), \
          _patch("signal.signal", side_effect=OSError("signal fail during restore")), \
          _patch("select.select", return_value=([0], [], [])), \
@@ -2852,8 +2865,9 @@ def teste_redimensionamento_reativo_h0023():
             )
 
             _registrar(
-                "PTY: quadro minimo apareceu na reducao ('terminal pequeno demais')",
-                b"terminal pequeno demais" in _saida_reducao
+                "PTY: quadro controlado apareceu na reducao",
+                b"Terminal pequeno demais" in _saida_reducao
+                and b"Aumente a janela para continua" in _saida_reducao
                 and b"ORQUESTRADOR" not in _saida_reducao,
             )
 
@@ -3979,10 +3993,11 @@ def test_h0044_p01_redimensionamento_resolve_bloqueio_visual():
     estado = processar_comando(estado, "\r", modelo)
     assert estado["fluxo_execucao"].resultado_ativo is True
     modelo_res = _modelo_corrente_call(estado, modelo)
-    # Abaixo do minimo em altura: _resolver_conteudo exibe o quadro minimo
-    # (terminal realmente insuficiente), sem traceback.
+    # Abaixo do minimo em altura: _resolver_conteudo exibe o quadro
+    # controlado unificado, sem traceback.
     saida_peq = _demo_mod._resolver_conteudo(estado, modelo_res, 120, 10)
-    assert "terminal pequeno demais" in saida_peq
+    assert "Terminal pequeno demais" in saida_peq
+    assert "Aumente a janela para continuar" in saida_peq
     # Dimensões suficientes: tela normal de resultado, sem reiniciar sessao.
     saida_grande = renderizar_estado(estado, modelo_res, largura=120, altura=30)
     assert "terminal pequeno demais" not in saida_grande

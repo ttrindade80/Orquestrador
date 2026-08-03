@@ -19,6 +19,7 @@ metadata:
       - docs/adr/ADR-0022-ponto-entrada-tela-inicial-orquestrador.md
       - docs/adr/ADR-0031-navegacao-simples-e-selecao-unica-em-console-de-nivel-unico.md
       - docs/adr/ADR-0037-integracao-do-fluxo-focal-com-dry-run-e-restauracao-da-origem.md
+      - docs/adr/ADR-0038-paginacao-interativa-limitada-em-console.md
     reaproveitado_de_legado: false
   dependencias_nomenclatura:
     dependencias_obrigatorias:
@@ -292,10 +293,30 @@ Exemplos de regras de ativo/inativo:
 Estado inativo é sempre derivado do estado da execução — nunca hardcoded pelo
 renderer.
 
-**Nota sobre `[✥]` (ADR-0031 D14)**: `[✥]` **não possui estado inativo**. Ele
-aparece somente quando o console em foco possui mais de um item navegável; está
-**ausente** (não inativo) nos demais casos. Sua existência é dinâmica, em
-contraste com o modelo estático geral desta seção.
+**Nota sobre `[✥]` (ADR-0031 D14; especializada por ADR-0038 D-PAG-04)**:
+`[✥]` **não possui estado inativo**. Ele aparece somente quando o console em
+foco possui mais de um item navegável; está **ausente** (não inativo) nos
+demais casos. Sua existência é dinâmica, em contraste com o modelo estático
+geral desta seção. Em console paginado, o universo de avaliação é restrito
+aos itens navegáveis da **página atual** do console focado — itens
+navegáveis presentes apenas em outras páginas não fazem `[✥]` aparecer nem
+permanecer (ADR-0038 D-PAG-04).
+
+**Nota sobre `[<][>]` (ADR-0038)**: chips de tipo `navegacao`, existência
+condicionada a `paginacao: com` (§8). A topologia entre páginas é **limitada**,
+não circular: `[<]` fica inativo na primeira página e `[>]` fica inativo na
+última; ambos ficam inativos quando há apenas uma página (`página 1/1`),
+inclusive quando o conjunto de itens visíveis é vazio. O estado ativo/inativo
+de ambos é calculado a partir da página do console focado; sem console
+focado, ou com o console focado sem `paginacao: com` declarada, ambos ficam
+inativos (D-PAG-13) — a mesma distinção desta seção entre existência estática
+e ativo/inativo dinâmico se aplica: a existência de `[<][>]` depende da
+declaração da instância; o estado ativo/inativo depende da página corrente do
+console focado no momento do render. As entradas de teclado aceitas para
+acioná-los são `,`/`<` (página anterior) e `.`/`>` (próxima página) —
+tradução de tecla física para esses caracteres permanece de implementação
+(D-PAG-14). A apresentação visual permanece `[<]` e `[>]`, sem alteração de
+notação.
 
 **Nota sobre `[Ins] Dry-Run` (ADR-0037)**: chip específico do fluxo focal do
 Handoff 4 — tipo `alternancia`. Permanece ativo nos estados ligado e

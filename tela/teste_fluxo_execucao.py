@@ -414,3 +414,27 @@ def test_dry_run_depois_execucao_real_mesma_selecao(
     estado, _, _ = fluxo.processar_comando(estado, "\x1b", None)
     assert selecao.selecao(_console(origem, estado), estado) == []
     assert fluxo.chamadas_recarregador == 1
+def test_h0045_fluxo_real_reconcilia_pagina_atual_pelo_cursor_reconciliado():
+    from tela.loader import carregar_tela
+    from tela.modelo import construir_modelo
+    from tela.fluxo_execucao import FluxoExecucao
+
+    modelo = construir_modelo(
+        carregar_tela(
+            None,
+            "h0045_fluxo_execucao_paginado",
+            "config/telas/demo",
+        )
+    )
+    fluxo = FluxoExecucao(modelo, tela_resultado_raw={})
+    estado = {
+        "largura": 80,
+        "altura_interna": 8,
+        "desconto_estrutural": 3,
+        "cursores": {"console_selecao": 9},
+        "pagina_atual": {"console_selecao": 1},
+    }
+
+    novo = fluxo._reconciliar_paginas(estado, modelo)
+
+    assert novo["pagina_atual"]["console_selecao"] == 2

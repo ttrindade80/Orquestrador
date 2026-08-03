@@ -1,0 +1,26 @@
+{
+  "schema": "tela.v1",
+  "id": "h0045_paginacao_politicas_quebra",
+  "metadados": {
+    "descricao": "H-0045: esqueleto/regressao controlada das tres politicas de quebra. Conteudo estatico serve apenas a geometria conhecida de regressao; nao e prova universal (capacidade fixa, 31 linhas ou N paginas). Validacao adaptativa: h0045_validacao_* + demo/casos_validacao_paginacao.py.",
+    "origem": "H-0045"
+  },
+  "cabecalho": {"titulo": "Politicas De Quebra", "descricao": "Esqueleto com as tres politicas; regressao controlada, nao prova universal."},
+  "corpo": {"arranjo": "vertical", "elementos": [
+    {"id": "console_politicas", "tipo": "console", "titulo": "Politicas", "origem_dados": null,
+     "itens": [
+       {"id": "permitir_quebra_01", "texto": "PERM_L01_----------- PERM_L02_----------- PERM_L03_----------- PERM_L04_----------- PERM_L05_----------- PERM_L06_----------- PERM_L07_----------- PERM_L08_----------- PERM_L09_----------- PERM_L10_----------- PERM_L11_----------- PERM_L12_----------- PERM_L13_----------- PERM_L14_----------- PERM_L15_----------- PERM_L16_----------- PERM_L17_----------- PERM_L18_----------- PERM_L19_----------- PERM_L20_----------- PERM_L21_----------- PERM_L22_----------- PERM_L23_----------- PERM_L24_----------- PERM_L25_----------- PERM_L26_----------- PERM_L27_----------- PERM_L28_----------- PERM_L29_----------- PERM_L30_----------- PERM_L31_-----------", "navegavel": true, "politica_quebra": "permitir_quebra"},
+       {"id": "evitar_quebra_02", "texto": "EVIT_L01_----------- EVIT_L02_----------- EVIT_L03_----------- EVIT_L04_----------- EVIT_L05_----------- EVIT_L06_-----------", "navegavel": true, "politica_quebra": "evitar_quebra"},
+       {"id": "condicional_cabe_03", "texto": "CABE_L01_----------- CABE_L02_----------- CABE_L03_----------- CABE_L04_----------- CABE_L05_----------- CABE_L06_----------- CABE_L07_----------- CABE_L08_----------- CABE_L09_----------- CABE_L10_----------- CABE_L11_----------- CABE_L12_-----------", "navegavel": true, "politica_quebra": "permitir_quebra_somente_se_maior_que_pagina"},
+       {"id": "condicional_maior_04", "texto": "MAIOR_L01_---------- MAIOR_L02_---------- MAIOR_L03_---------- MAIOR_L04_---------- MAIOR_L05_---------- MAIOR_L06_---------- MAIOR_L07_---------- MAIOR_L08_---------- MAIOR_L09_---------- MAIOR_L10_---------- MAIOR_L11_---------- MAIOR_L12_---------- MAIOR_L13_---------- MAIOR_L14_---------- MAIOR_L15_---------- MAIOR_L16_---------- MAIOR_L17_---------- MAIOR_L18_---------- MAIOR_L19_---------- MAIOR_L20_----------", "navegavel": true, "politica_quebra": "permitir_quebra_somente_se_maior_que_pagina"}
+     ],
+     "politica_composicao": {"alinhamento": "esquerda", "overflow_normal": "truncar_com_reticencias"}, "politica_navegacao": {"navegavel": true}, "politica_selecao": "unica", "politica_paginacao": "com", "politica_exibicao": {"modo_inicial": "verboso", "verboso": true}, "politica_modo": "somente_verboso",
+     "distribuicao_matricial": {"formacao": {"politica": "preferencia_colunas", "colunas": {"minimo": 1, "maximo": 1}}, "ordem": "por_linha", "dimensionamento": {"colunas": {"politica": "uniforme"}, "linhas": {"politica": "uniforme"}}, "espacamento": {"margem_esquerda": {"minimo": 1}, "margem_direita": {"minimo": 1}, "margem_superior": {"minimo": 0}, "margem_inferior": {"minimo": 0}, "vao_horizontal": {"minimo": 1}, "vao_vertical": {"minimo": 0}}, "distribuicao_horizontal": {"politica": "inicio"}, "distribuicao_vertical": {"politica": "inicio"}, "ordem_expansao": {"horizontal": "uniforme_margens_e_vaos", "vertical": "uniforme_margens_e_vaos"}, "politica_resto": {"horizontal": "ao_ultimo", "vertical": "ao_ultimo"}, "alinhamento_interno": {"horizontal": "inicio", "vertical": "topo"}}
+    }
+  ]},
+  "barra_de_menus": {"distribuicao": "horizontal", "chips": [
+    {"id": "chip_esc", "tipo": "acao", "tecla": "Esc", "texto": "Sair", "regra_existencia": "sempre", "regra_ativo": "sempre", "forma_exibicao": "visivel_ativo"},
+    {"id": "chip_pagina_anterior", "tipo": "navegacao", "tecla": "<", "texto": "Anterior", "regra_existencia": "console_com_paginacao", "regra_ativo": "pagina_nao_e_primeira", "forma_exibicao": "visivel_ativo"},
+    {"id": "chip_pagina_proxima", "tipo": "navegacao", "tecla": ">", "texto": "Proxima", "regra_existencia": "console_com_paginacao", "regra_ativo": "pagina_nao_e_ultima", "forma_exibicao": "visivel_ativo"}
+  ]}
+}

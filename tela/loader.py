@@ -577,6 +577,59 @@ def _tem_lancador_em_elementos(elementos):
     return False
 
 
+def _iterar_consoles_do_corpo(elementos, caminho="corpo.elementos"):
+    """Percorre recursivamente o corpo e rende ``(id, caminho)`` de cada console.
+
+    Inclui consoles aninhados em grupos. Usado para garantir unicidade de
+    identidade estavel (contrato_console.md §3; estado de runtime
+    cursores/pagina_atual/selecoes indexado por ``console.id``).
+    """
+    if not isinstance(elementos, list):
+        return
+    for indice, elemento in enumerate(elementos):
+        if not isinstance(elemento, dict):
+            continue
+        caminho_item = "{0}[{1}]".format(caminho, indice)
+        tipo = elemento.get("tipo")
+        id_elemento = elemento.get("id")
+        if tipo == "console":
+            yield id_elemento, caminho_item
+        elif tipo == "grupo":
+            id_grupo = id_elemento if isinstance(id_elemento, str) else "?"
+            yield from _iterar_consoles_do_corpo(
+                elemento.get("elementos", []),
+                "{0} → {1}.elementos".format(caminho_item, id_grupo),
+            )
+
+
+def _validar_unicidade_ids_consoles(elementos):
+    """Rejeita IDs de console duplicados no escopo do ``tela.json``.
+
+    ``cursores``, ``pagina_atual`` e ``selecoes`` usam ``console.id`` como
+    chave de estado de runtime; a correspondencia por id no renderer
+    (clone paginado vs original) tambem depende dessa unicidade. Duplicatas
+    tornam cursor, pagina, selecao e foco inerentemente ambiguos — devem
+    ser rejeitadas como erro estrutural antes da construcao do runtime.
+    Autoridade: contrato_console.md §3 (``id`` estavel e unico no escopo
+    do ``tela.json``). Abrange todos os consoles do corpo (incluidos em
+    grupos), nao apenas os focalizaveis ou presentes em ``lista_foco``.
+    """
+    vistos = {}
+    for id_console, caminho in _iterar_consoles_do_corpo(elementos):
+        if not isinstance(id_console, str) or id_console == "":
+            # id vazio ja e rejeitado antes (TelaElementoSemId / grupo);
+            # ignora aqui para nao mascarar o erro canonico anterior.
+            continue
+        if id_console in vistos:
+            raise TelaEstruturaInvalida(
+                "id de console duplicado: {0!r} "
+                "(ja declarado em {1}; duplicado em {2})".format(
+                    id_console, vistos[id_console], caminho
+                )
+            )
+        vistos[id_console] = caminho
+
+
 def _carregar_e_validar_config_lancador(base):
     """Carrega e valida config/elementos/lancador.json (H-0034 / ADR-0023).
 
@@ -1441,6 +1494,12 @@ def carregar_tela(caminho_base, id_tela, raiz_telas=None):
                     em_escopo=_console_em_escopo_d23(elemento, id_interno),
                 )
         elementos_internos.append(elemento)
+
+    # H-0045-P04 / QA-H0045-P03-001: IDs de console devem ser unicos no escopo
+    # do tela.json antes de qualquer construcao de runtime (cursor/pagina/
+    # selecao/foco indexados por id). Deteccao minima apos validar a arvore
+    # de elementos e antes de retornar o dict ao modelo.
+    _validar_unicidade_ids_consoles(elementos_internos)
 
     arranjo = corpo.get("arranjo")
     if arranjo not in ARRANJOS_CORPO_VALIDOS:

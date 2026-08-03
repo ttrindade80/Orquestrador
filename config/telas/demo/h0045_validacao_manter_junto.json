@@ -1,0 +1,157 @@
+{
+  "schema": "tela.v1",
+  "id": "h0045_validacao_manter_junto",
+  "metadados": {
+    "descricao": "H-0045: tela fixa da politica permitir_quebra_somente_se_maior_que_pagina (manter junto quando possivel). Conteudo invariavel; redimensionamento livre.",
+    "origem": "H-0045"
+  },
+  "cabecalho": {
+    "titulo": "Manter Junto",
+    "descricao": "Politica condicional: permanece junto quando cabe; senao vai inteiro para a proxima."
+  },
+  "corpo": {
+    "arranjo": "vertical",
+    "elementos": [
+      {
+        "id": "console_manter_junto",
+        "tipo": "console",
+        "titulo": "Manter junto",
+        "origem_dados": null,
+        "itens": [
+          {
+            "id": "intro_manter",
+            "texto": "Texto inicial de referencia. Esta faixa ocupa parte da pagina e nao e avaliada; os quatro itens seguintes demonstram a politica condicional.",
+            "navegavel": false,
+            "politica_quebra": "permitir_quebra_somente_se_maior_que_pagina"
+          },
+          {
+            "id": "item_manter_1",
+            "texto": "1. Item muito curto.",
+            "navegavel": true,
+            "politica_quebra": "permitir_quebra_somente_se_maior_que_pagina"
+          },
+          {
+            "id": "item_manter_2",
+            "texto": "2. Item intermediario. Pode permanecer na mesma pagina do anterior quando o espaco restante for suficiente.",
+            "navegavel": true,
+            "politica_quebra": "permitir_quebra_somente_se_maior_que_pagina"
+          },
+          {
+            "id": "item_manter_3",
+            "texto": "3. Outro bloco intermediario, um pouco maior. Em algumas alturas permanece junto; em outras e movido inteiro para a pagina seguinte sem fragmentar.",
+            "navegavel": true,
+            "politica_quebra": "permitir_quebra_somente_se_maior_que_pagina"
+          },
+          {
+            "id": "item_manter_4",
+            "texto": "4. Item longo desta tela. Quando nao cabe no residuo mas cabe em pagina vazia, comeca inteiro na proxima. Quando ultrapassa uma pagina inteira, comeca no topo da pagina seguinte e continua nas posteriores. O texto e fixo, coerente e suficiente para ocupar mais de uma pagina em geometrias normalmente alcancaveis por redimensionamento. A narrativa descreve a mesma politica sem tokens mecanicos, sem hifens de preenchimento e sem regeneracao conforme a largura. Ao redimensionar, apenas as quebras fisicas e o quadro mudam; a identidade e a ordem permanecem intactas ate o fim desta execucao.",
+            "navegavel": true,
+            "politica_quebra": "permitir_quebra_somente_se_maior_que_pagina"
+          }
+        ],
+        "politica_composicao": {
+          "alinhamento": "esquerda",
+          "overflow_normal": "truncar_com_reticencias"
+        },
+        "politica_navegacao": {
+          "navegavel": true
+        },
+        "politica_selecao": "unica",
+        "politica_paginacao": "com",
+        "politica_exibicao": {
+          "modo_inicial": "verboso",
+          "verboso": true
+        },
+        "politica_modo": "somente_verboso",
+        "distribuicao_matricial": {
+          "formacao": {
+            "politica": "preferencia_colunas",
+            "colunas": {
+              "minimo": 1,
+              "maximo": 1
+            }
+          },
+          "ordem": "por_linha",
+          "dimensionamento": {
+            "colunas": {
+              "politica": "uniforme"
+            },
+            "linhas": {
+              "politica": "uniforme"
+            }
+          },
+          "espacamento": {
+            "margem_esquerda": {
+              "minimo": 1
+            },
+            "margem_direita": {
+              "minimo": 1
+            },
+            "margem_superior": {
+              "minimo": 0
+            },
+            "margem_inferior": {
+              "minimo": 0
+            },
+            "vao_horizontal": {
+              "minimo": 1
+            },
+            "vao_vertical": {
+              "minimo": 0
+            }
+          },
+          "distribuicao_horizontal": {
+            "politica": "inicio"
+          },
+          "distribuicao_vertical": {
+            "politica": "inicio"
+          },
+          "ordem_expansao": {
+            "horizontal": "uniforme_margens_e_vaos",
+            "vertical": "uniforme_margens_e_vaos"
+          },
+          "politica_resto": {
+            "horizontal": "ao_ultimo",
+            "vertical": "ao_ultimo"
+          },
+          "alinhamento_interno": {
+            "horizontal": "inicio",
+            "vertical": "topo"
+          }
+        }
+      }
+    ]
+  },
+  "barra_de_menus": {
+    "distribuicao": "horizontal",
+    "chips": [
+      {
+        "id": "chip_esc",
+        "tipo": "acao",
+        "tecla": "Esc",
+        "texto": "Sair",
+        "regra_existencia": "sempre",
+        "regra_ativo": "sempre",
+        "forma_exibicao": "visivel_ativo"
+      },
+      {
+        "id": "chip_pagina_anterior",
+        "tipo": "navegacao",
+        "tecla": "<",
+        "texto": "Anterior",
+        "regra_existencia": "console_com_paginacao",
+        "regra_ativo": "pagina_nao_e_primeira",
+        "forma_exibicao": "visivel_ativo"
+      },
+      {
+        "id": "chip_pagina_proxima",
+        "tipo": "navegacao",
+        "tecla": ">",
+        "texto": "Proxima",
+        "regra_existencia": "console_com_paginacao",
+        "regra_ativo": "pagina_nao_e_ultima",
+        "forma_exibicao": "visivel_ativo"
+      }
+    ]
+  }
+}

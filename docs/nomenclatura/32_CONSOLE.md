@@ -64,6 +64,10 @@ Não redefinir `grupo` como nó estrutural; esse sentido pertence ao módulo `40
 - reconciliação de foco (ADR-0037)
 - preservação de cursor por ID (ADR-0037)
 - fallback de cursor (ADR-0037)
+- página atual / página de destino (ADR-0038)
+- paginação limitada (ADR-0038)
+- página lógica vazia (ADR-0038)
+- repaginação (ADR-0038)
 
 ## 4. Definições
 
@@ -197,6 +201,47 @@ Distinções:
 | dry-run × execução real (retorno) | Dry-run: mesma instância e mesmos dados; execução real: recarga do binding somente no retorno |
 | geometria física recalculada × recarga semântica | Redimensionamento recalcula geometria sem releitura de arquivos; recarga semântica só ocorre no retorno de execução real |
 
+### 4.8 Terminologia de paginação interativa (ADR-0038)
+
+Os termos abaixo foram introduzidos pela ADR-0038. Autoridade comportamental
+completa em `contrato_console.md` §24.
+
+| Termo | Definição |
+|---|---|
+| **página atual** | Página em que se encontra o cursor do console focado; estado de runtime independente por console — cada console mantém a própria página durante a sessão (D-PAG-13). |
+| **página de destino** | Página para a qual o cursor é reposicionado — no primeiro item navegável dessa página — após troca explícita de página (D-PAG-02) ou após retorno por foco a um console paginado (D-PAG-05). |
+| **paginação limitada** | Topologia sem wrap entre a primeira e a última página: página anterior inativa na primeira página; próxima página inativa na última (D-PAG-01). Distinta da navegação toroidal por eixo (§4.5), que é interna a uma mesma página. |
+| **página sem item navegável** | Página com conteúdo visível e nenhum item navegável; permanece acessível, com o console focado, sem cursor visível e sem movimento de setas (D-PAG-03). |
+| **repaginação** | Recálculo da página que contém o item lógico corrente após redimensionamento, mudança de modo, filtro ou atualização genérica dos dados, preservando o item lógico e não o número anterior da página (D-PAG-06 a D-PAG-10). |
+
+**Relação entre foco, cursor lógico, seleção e página**: foco determina qual
+console recebe as setas e os comandos de página; cursor lógico é o item sob
+foco dentro do console; seleção múltipla é conjunto de IDs independente de
+cursor e de página (ADR-0034 §4.6); página é quarta camada de estado,
+também independente por console, que determina qual subconjunto de itens do
+console está atualmente acessível às setas. As quatro camadas são
+reconciliadas de forma determinística nos eventos de troca de página, retorno
+por foco, redimensionamento, mudança de modo, filtro e atualização genérica
+dos dados (D-PAG-02 a D-PAG-10).
+
+**Entrada por foco em console paginado**: ao retornar por Tab ou Shift+Tab a
+um console paginado, a página anterior desse console é preservada; o cursor
+não é restaurado ao item que ocupava antes da saída — é reposicionado no
+primeiro item navegável da página preservada (D-PAG-05), especialização de
+`console focalizável`/`console focado` (§4.5) para o caso paginado.
+
+**Reconciliação por filtro e por atualização genérica**: quando um filtro
+oculta o item corrente ou zera os itens navegáveis, ou quando uma atualização
+genérica dos dados remove o item corrente, o cursor e a página são
+reconciliados por prioridade determinística (próximo item navegável da ordem
+lógica, com fallback no item navegável anterior) — D-PAG-07 a D-PAG-10.
+
+**Precedência do retorno especializado da ADR-0037**: a reconciliação
+genérica de D-PAG-10 não substitui a reconciliação especializada por ID já
+fixada pela ADR-0037 (§4.7, **preservação de cursor por ID** e **fallback de
+cursor**) para o retorno após execução real do Handoff 4 do `ITEM-0006`; as
+duas regras operam em fronteiras distintas e coexistem sem conflito.
+
 ## 5. Distinções obrigatórias
 
 | Par | Distinção normativa |
@@ -205,6 +250,8 @@ Distinções:
 | seleção × lote | Seleção: conjunto nomeado persistente; lote: calculado por processo específico no momento de execução |
 | cursor × seleção | Cursor aponta um item; seleção é conjunto de itens marcados — são mecanismos independentes |
 | `[✥]` (console) × `[⇆]` (barra) | `[✥]` move cursor dentro do console focado; `[⇆]` move foco entre consoles focalizáveis (ADR-0031 D14) |
+| página × seleção | Página é estado de runtime independente por console que delimita o subconjunto de itens acessível às setas; seleção é conjunto de IDs independente de página e persistente entre páginas (ADR-0034) — não se confundem |
+| repaginação (D-PAG-10) × reconciliação especializada por ID (ADR-0037) | Repaginação genérica é regra padrão do `ITEM-0003` para atualização de dados; a reconciliação por ID do retorno pós-execução real do Handoff 4 é especialização exclusiva da ADR-0037 e tem precedência onde as duas poderiam se sobrepor |
 
 ## 6. Relação com contratos
 
@@ -219,6 +266,7 @@ Distinções:
 - ADR-0031: navegação simples e seleção única; terminologia de console focalizável/focado, item lógico, lista de foco, travessia em profundidade, navegação toroidal por eixo, coluna indicadora, seleção única.
 - ADR-0034: seleção múltipla e fluxo focal de processamento; terminologia de seleção múltipla, conjunto de IDs estáveis, reconciliação, item selecionável e lote reconciliado.
 - ADR-0037: preservação/restauração da origem no retorno; reconciliação de foco; preservação e fallback de cursor.
+- ADR-0038: paginação interativa limitada e independência de página por console; terminologia de página atual, página de destino, página sem item navegável e repaginação; precedência da reconciliação especializada por ID da ADR-0037 sobre a regra genérica de atualização de dados.
 
 ## 8. Aliases ou termos descontinuados relacionados
 
@@ -251,6 +299,7 @@ adrs_relacionadas:
   - ADR-0027
   - ADR-0028
   - ADR-0031
+  - ADR-0038
 tratamento:
   - PRESERVADO
   - SEPARADO_DE_REGRA_COMPORTAMENTAL

@@ -1,0 +1,22 @@
+{
+  "schema": "tela.v1",
+  "id": "h0045_paginacao_conjunto_vazio",
+  "metadados": {
+    "descricao": "H-0045: esqueleto de console paginado com zero itens reais (regressao controlada e base de H0045-VAL-VAZIO). Nao e prova universal de geometria.",
+    "origem": "H-0045"
+  },
+  "cabecalho": {"titulo": "Paginacao Vazia", "descricao": "Pagina visivel sem cursor navegavel (itens: [])."},
+  "corpo": {"arranjo": "vertical", "elementos": [
+    {"id": "console_vazio", "tipo": "console", "titulo": "Vazio", "origem_dados": null,
+     "itens": [],
+     "politica_composicao": {"alinhamento": "esquerda", "overflow_normal": "truncar_com_reticencias"},
+     "politica_navegacao": {"navegavel": true}, "politica_selecao": "unica", "politica_paginacao": "com", "politica_exibicao": {"modo_inicial": "normal", "verboso": false},
+     "distribuicao_matricial": {"formacao": {"politica": "preferencia_colunas", "colunas": {"minimo": 1, "maximo": 1}}, "ordem": "por_linha", "dimensionamento": {"colunas": {"politica": "uniforme"}, "linhas": {"politica": "uniforme"}}, "espacamento": {"margem_esquerda": {"minimo": 1}, "margem_direita": {"minimo": 1}, "margem_superior": {"minimo": 0}, "margem_inferior": {"minimo": 0}, "vao_horizontal": {"minimo": 1}, "vao_vertical": {"minimo": 0}}, "distribuicao_horizontal": {"politica": "inicio"}, "distribuicao_vertical": {"politica": "inicio"}, "ordem_expansao": {"horizontal": "uniforme_margens_e_vaos", "vertical": "uniforme_margens_e_vaos"}, "politica_resto": {"horizontal": "ao_ultimo", "vertical": "ao_ultimo"}, "alinhamento_interno": {"horizontal": "inicio", "vertical": "topo"}}
+    }
+  ]},
+  "barra_de_menus": {"distribuicao": "horizontal", "chips": [
+    {"id": "chip_esc", "tipo": "acao", "tecla": "Esc", "texto": "Sair", "regra_existencia": "sempre", "regra_ativo": "sempre", "forma_exibicao": "visivel_ativo"},
+    {"id": "chip_pagina_anterior", "tipo": "navegacao", "tecla": "<", "texto": "Anterior", "regra_existencia": "console_com_paginacao", "regra_ativo": "pagina_nao_e_primeira", "forma_exibicao": "visivel_ativo"},
+    {"id": "chip_pagina_proxima", "tipo": "navegacao", "tecla": ">", "texto": "Proxima", "regra_existencia": "console_com_paginacao", "regra_ativo": "pagina_nao_e_ultima", "forma_exibicao": "visivel_ativo"}
+  ]}
+}
