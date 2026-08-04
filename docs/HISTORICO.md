@@ -297,6 +297,14 @@ edição da entrada histórica.
 **Referências:** ADR-0031; H-0040; commit `13d743d2def11ea4e32b936d9b5accb71346dc5c`
 **Resumo:** Navegação simples, foco entre consoles e seleção única implementados, validados e encerrados no Git.
 
+### ITEM-0022 — Modularizacao estrutural do runtime de telas
+
+**Resultado:** CONCLUIDO
+**Origem:** backlog
+**Data:** 2026-08-04
+**Referências:** docs/adr/ADR-0039-modularizacao-estrutural-do-runtime-de-telas.md; docs/handoff/H-0046-modularizacao-estrutural-do-renderizador.md; docs/handoff/H-0047-modularizacao-estrutural-do-loader.md; docs/handoff/H-0048-reorganizacao-estrutural-dos-testes-do-renderizador.md; docs/relatorios/RELATORIO_QA_PATCH_IMPLEMENTACAO_H-0048_P01.md
+**Resumo:** Modularizacao estrutural do runtime de telas concluida em tres handoffs sequenciais. O H-0046 extraiu a producao do renderizador para `tela/renderizacao/`; o H-0047 extraiu o carregamento para `tela/carregamento/`; e o H-0048 reorganizou o monolito de testes em oito modulos proprietarios, um modulo comum e um runner, preservando `tela/teste_renderizador.py` como fachada compativel. As fachadas publicas, o comportamento, o schema, a politica e a API permaneceram inalterados. O fechamento tecnico confirmou 371 testes do renderizador, runner direto com 1308/1308 verificacoes, 365 testes externos relacionados e suite completa com 970 testes aprovados.
+
 ## Cancelados
 
 ### DOC-B003 — Segunda pauta de "estilo de exibição de dados no corpo"

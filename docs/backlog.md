@@ -84,14 +84,6 @@ esta lista.
 **Pre-requisitos:** Registrado pela ADR-0034 (D-SEL-24); `ITEM-0006` concluido em 2026-07-29.
 **Proxima acao:** Realizar levantamento focal e criar ADR propria para as politicas e transicoes de modo das telas de resultado.
 
-### ITEM-0022 — Modularizacao estrutural do runtime de telas
-**Tipo:** implementacao
-**Prioridade:** media
-**Status:** em_andamento
-**Descricao:** Modularizar estruturalmente `tela/renderizador.py`, `tela/loader.py` e `tela/teste_renderizador.py` sem alterar comportamento, schema, politica ou API publica, em tres handoffs sequenciais: (1) modularizacao de `tela/renderizador.py` para `tela/renderizacao/` — concluida no H-0046; (2) modularizacao de `tela/loader.py` para `tela/carregamento/` — concluida no H-0047; (3) reorganizacao de `tela/teste_renderizador.py` e testes diretamente relacionados pela mesma divisao de responsabilidades — proxima. O passo 2 foi fechado com validacao tecnica, e o passo 3 permanece dependente do fechamento validado do passo 2; a atividade global permanece ativa.
-**Pre-requisitos:** Registrado pela ADR-0039 (D-MOD-01 a D-MOD-08), aceita e aplicada em 2026-08-03.
-**Proxima acao:** Criar o Handoff 3 para reorganizacao de `tela/teste_renderizador.py` e dos testes diretamente relacionados, preservando integralmente casos, fixtures, entradas, expectativas e criterios de regressao.
-
 ### ITEM-0007 — Conteudo multinivel colapsavel no console
 **Tipo:** implementacao
 **Prioridade:** media
