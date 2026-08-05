@@ -68,14 +68,6 @@ esta lista.
 **Pre-requisitos:** Registrado pela ADR-0034 (D-SEL-24); `ITEM-0006` concluido em 2026-07-29.
 **Proxima acao:** Realizar levantamento focal e criar ADR propria para identidade, compatibilidade e ciclo de vida da selecao compartilhada.
 
-### ITEM-0020 — Chip de escolha entre execucao real e dry-run
-**Tipo:** implementacao
-**Prioridade:** media
-**Status:** planejado
-**Descricao:** Padronizar genericamente a escolha entre execucao real e dry-run.
-**Pre-requisitos:** Registrado pela ADR-0034 (D-SEL-24); `ITEM-0006` concluido em 2026-07-29. O `[Ins] Dry-Run` da ADR-0037 e especializacao focal do Handoff 4 e nao encerra este item.
-**Proxima acao:** Realizar levantamento focal e criar ADR propria para a padronizacao universal do toggle de execucao real e dry-run.
-
 ### ITEM-0021 — Modos de visualizacao das telas de resultado
 **Tipo:** implementacao
 **Prioridade:** media

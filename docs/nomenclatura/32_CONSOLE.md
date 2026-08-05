@@ -242,6 +242,24 @@ fixada pela ADR-0037 (§4.7, **preservação de cursor por ID** e **fallback de
 cursor**) para o retorno após execução real do Handoff 4 do `ITEM-0006`; as
 duas regras operam em fronteiras distintas e coexistem sem conflito.
 
+### 4.9 Transmissão do modo universal junto ao lote reconciliado (ADR-0040)
+
+Quando uma operação baseada em seleção adota o controle universal da
+ADR-0040, o modo corrente é transmitido explicitamente na requisição junto ao
+lote reconciliado. O modo não compõe a identidade do lote nem altera seleção
+ou reconciliação. Esta relação registra a entrada adicional da requisição; a
+propriedade do modo global permanece na instância da tela, não no console. O
+modo capturado e o lote reconciliado são dados da requisição para o executor;
+`controle_execucao` e `controle_execucao.modo_inicial` não pertencem ao domínio
+terminológico do console. O console não é proprietário do modo global da tela.
+
+As referências de ação configuradas pelo console são resolvidas no registro
+autoritativo da implementação. O console pode referenciar ou acionar uma ação,
+mas não declara nem possui sua categoria ou seus modos de execução aceitos; a
+aparência da configuração não os define. Incompatibilidade ou resolução
+insuficiente deve falhar de forma fechada antes da execução. O modo acompanha a
+requisição, mas não pertence ao console nem ao lote.
+
 ## 5. Distinções obrigatórias
 
 | Par | Distinção normativa |
@@ -251,6 +269,7 @@ duas regras operam em fronteiras distintas e coexistem sem conflito.
 | cursor × seleção | Cursor aponta um item; seleção é conjunto de itens marcados — são mecanismos independentes |
 | `[✥]` (console) × `[⇆]` (barra) | `[✥]` move cursor dentro do console focado; `[⇆]` move foco entre consoles focalizáveis (ADR-0031 D14) |
 | página × seleção | Página é estado de runtime independente por console que delimita o subconjunto de itens acessível às setas; seleção é conjunto de IDs independente de página e persistente entre páginas (ADR-0034) — não se confundem |
+| modo universal da tela × console | O modo universal pode acompanhar o lote reconciliado na requisição, mas não pertence ao lote nem ao console; `controle_execucao` pertence à declaração e ao runtime da tela (ADR-0040) |
 | repaginação (D-PAG-10) × reconciliação especializada por ID (ADR-0037) | Repaginação genérica é regra padrão do `ITEM-0003` para atualização de dados; a reconciliação por ID do retorno pós-execução real do Handoff 4 é especialização exclusiva da ADR-0037 e tem precedência onde as duas poderiam se sobrepor |
 
 ## 6. Relação com contratos
@@ -267,6 +286,7 @@ duas regras operam em fronteiras distintas e coexistem sem conflito.
 - ADR-0034: seleção múltipla e fluxo focal de processamento; terminologia de seleção múltipla, conjunto de IDs estáveis, reconciliação, item selecionável e lote reconciliado.
 - ADR-0037: preservação/restauração da origem no retorno; reconciliação de foco; preservação e fallback de cursor.
 - ADR-0038: paginação interativa limitada e independência de página por console; terminologia de página atual, página de destino, página sem item navegável e repaginação; precedência da reconciliação especializada por ID da ADR-0037 sobre a regra genérica de atualização de dados.
+- ADR-0040: transmissão explícita do modo universal junto ao lote reconciliado, sem atribuir o modo ao console.
 
 ## 8. Aliases ou termos descontinuados relacionados
 

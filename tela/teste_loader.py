@@ -4974,3 +4974,57 @@ def test_h0049_preserva_e_carrega_os_oito_conteudos_externos():
         )
         assert set(documento) == {"dados", "formato", "tipo"}
         assert "cabecalho" not in documento
+
+
+def test_h0050_controle_execucao_ausente_nao_cria_default(tmp_path):
+    nome = "h0050_sem_controle"
+    _escrever_tela(tmp_path, nome, _tela_minima(nome))
+    tela = carregar_tela(tmp_path, nome)
+    assert tela["controle_execucao"] is None
+    assert "controle_execucao" not in tela["_raw"]
+
+
+def test_h0050_controle_execucao_aceita_os_dois_modos(tmp_path):
+    for modo in ("executar", "dry_run"):
+        nome = "h0050_modo_" + modo
+        _escrever_tela(
+            tmp_path,
+            nome,
+            _tela_minima(nome, controle_execucao={"modo_inicial": modo}),
+        )
+        tela = carregar_tela(tmp_path, nome)
+        assert tela["controle_execucao"] == {"modo_inicial": modo}
+
+
+def test_h0050_controle_execucao_rejeita_configuracao_aberta_e_invalida(tmp_path):
+    casos = (
+        ("campo_ausente", {}),
+        ("tipo_invalido", {"modo_inicial": 1}),
+        ("valor_invalido", {"modo_inicial": "real"}),
+        ("campo_adicional", {"modo_inicial": "executar", "estado": "vivo"}),
+    )
+    for nome, controle in casos:
+        documento = _tela_minima("h0050_" + nome, controle_execucao=controle)
+        with pytest.raises(TelaEstruturaInvalida, match="CONFIGURACAO_INVALIDA"):
+            _escrever_tela(tmp_path, "h0050_" + nome, documento)
+            carregar_tela(tmp_path, "h0050_" + nome)
+
+
+@pytest.mark.parametrize(
+    "modo_inicial",
+    [[], {}, None, True, 7, 3.14, "desconhecido"],
+)
+def test_h0050_modo_inicial_tipo_nao_hashable_gera_diagnostico_controlado(
+    tmp_path, modo_inicial
+):
+    nome = "h0050_modo_inicial_invalido"
+    documento = _tela_minima(
+        nome, controle_execucao={"modo_inicial": modo_inicial}
+    )
+    _escrever_tela(tmp_path, nome, documento)
+    with pytest.raises(TelaEstruturaInvalida) as erro:
+        carregar_tela(tmp_path, nome)
+    mensagem = str(erro.value)
+    assert "CONFIGURACAO_INVALIDA" in mensagem
+    assert "controle_execucao.modo_inicial" in mensagem
+    assert not isinstance(erro.value, (TypeError, KeyError))

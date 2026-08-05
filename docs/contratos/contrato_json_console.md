@@ -22,6 +22,7 @@ metadata:
       - docs/adr/ADR-0034-selecao-multipla-e-fluxo-focal-de-processamento.md
       - docs/adr/ADR-0035-protocolo-focal-execucao-sintetica-reversivel.md
       - docs/adr/ADR-0036-carregamento-e-apresentacao-da-tela-padrao-de-resultado.md
+      - docs/adr/ADR-0040-padronizacao-universal-do-controle-de-execucao-real-e-dry-run.md
     reaproveitado_de_legado: false
   dependencias_nomenclatura:
     dependencias_obrigatorias:
@@ -405,6 +406,22 @@ existentes.
 Quando nenhuma formação válida conseguir acomodar todos os participantes e todos
 os mínimos, o estado exibido é o `quadro mínimo de terminal pequeno` (ADR-0017,
 ADR-0023). Não é criada variante concorrente de estado de fallback.
+
+### 10.6 Ações configuradas e controle universal (ADR-0040)
+
+As ações configuradas pelo console continuam usando suas referências vigentes.
+O JSON do console não declara `categoria`, `modos_execucao_aceitos` ou qualquer
+campo novo de compatibilidade. Cada referência deve resolver para o registro
+autoritativo mantido junto à implementação da ação.
+
+Quando a tela declarar `controle_execucao`, uma ação de processo relevante sem
+registro completo e sem aceitação explícita de `executar` e `dry_run` invalida a
+adoção antes da execução. Ações de navegação e visualização são classificadas
+pelo registro e ficam fora dessa verificação; a aparência ou a configuração do
+JSON não define sua categoria. Registro ausente, categoria ausente ou
+desconhecida e declaração insuficiente falham de forma fechada. Não se cria
+campo adicional no objeto da ação nem se infere compatibilidade por ID, nome,
+rótulo, texto, script, flag, adaptador ou comportamento.
 
 ---
 

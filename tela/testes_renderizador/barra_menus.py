@@ -1561,3 +1561,82 @@ def _preparar_ctx_p23(modelo):
         paginas_atuais={console.id: 1} if console else {},
         modelo=modelo,
     )
+
+
+def test_h0050_chip_controle_tem_rotulo_dinamico_ordem_atividade_e_cor_alerta():
+    from tela.controle_execucao import ControleExecucaoRepresentacao
+    from tela.loader import carregar_estilo
+    from tela.renderizacao.texto_ansi import _codigo_ansi_de_cor
+
+    estilo_h0050 = carregar_estilo()
+    representacao = ControleExecucaoRepresentacao(
+        modo="dry_run",
+        chip_id="chip_controle_execucao",
+        rotulo="Simulação",
+        destacado=True,
+    )
+    bar = {
+        "distribuicao": "horizontal",
+        "chips": [
+            {"id": "chip_esc", "tecla": "Esc", "texto": "Sair"},
+            {
+                "id": "chip_espaco",
+                "tecla": "␣",
+                "texto": "Marcar",
+            },
+            {
+                "id": "chip_enter",
+                "tecla": "⏎",
+                "texto": "Todos",
+                "forma_exibicao": "rotulo_dinamico_selecao",
+            },
+            {
+                "id": "chip_controle_execucao",
+                "tecla": "Ins",
+                "texto": "Executar",
+                "forma_exibicao": "controle_execucao",
+            },
+            {"id": "chip_verboso", "tecla": "V", "texto": "Verboso"},
+            {"id": "chip_ajuda", "tecla": "?", "texto": "Ajuda"},
+        ],
+    }
+    linhas = _linhas_barra(bar, estilo_h0050, 80, representacao)
+    saida = " ".join(linhas)
+    assert "[Espaço]" not in saida
+    assert "[Enter]" not in saida
+    assert "[Insert]" not in saida
+    assert "[␣] Marcar" in saida
+    assert "[⏎] Todos" in saida
+    assert "[Ins] Simulação" in saida
+    assert "[V] Verboso" in saida
+    assert "[?] Ajuda" in saida
+    assert saida.index("[␣]") < saida.index("[⏎]")
+    assert saida.index("[⏎]") < saida.index("[Ins]")
+    assert saida.index("[Ins]") < saida.index("[V]")
+    assert saida.index("[Ins]") < saida.index("[?]")
+    assert _codigo_ansi_de_cor(estilo_h0050.cor_alerta) in saida
+    linhas_estreitas = _linhas_barra(bar, estilo_h0050, 50, representacao)
+    junta_estreita = " ".join(linhas_estreitas)
+    assert len(linhas_estreitas) >= 2
+    assert "[␣] Marcar" in junta_estreita
+    assert "[⏎] Todos" in junta_estreita
+    assert "[Ins] Simulação" in junta_estreita
+    assert "[V] Verboso" in junta_estreita
+    assert "[?] Ajuda" in junta_estreita
+
+    representacao_real = ControleExecucaoRepresentacao(
+        modo="executar",
+        chip_id="chip_controle_execucao",
+        rotulo="Real",
+        destacado=False,
+    )
+    saida_real = " ".join(
+        _linhas_barra(bar, estilo_h0050, 80, representacao_real)
+    )
+    assert "[Ins] Real" in saida_real
+    codigo_alerta = _codigo_ansi_de_cor(estilo_h0050.cor_alerta)
+    codigo_inativo = _codigo_ansi_de_cor(estilo_h0050.cor_inativo)
+    if codigo_alerta:
+        assert codigo_alerta not in saida_real
+    if codigo_inativo:
+        assert codigo_inativo not in saida_real

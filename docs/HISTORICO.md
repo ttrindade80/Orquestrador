@@ -305,6 +305,14 @@ edição da entrada histórica.
 **Referências:** docs/adr/ADR-0039-modularizacao-estrutural-do-runtime-de-telas.md; docs/handoff/H-0046-modularizacao-estrutural-do-renderizador.md; docs/handoff/H-0047-modularizacao-estrutural-do-loader.md; docs/handoff/H-0048-reorganizacao-estrutural-dos-testes-do-renderizador.md; docs/relatorios/RELATORIO_QA_PATCH_IMPLEMENTACAO_H-0048_P01.md
 **Resumo:** Modularizacao estrutural do runtime de telas concluida em tres handoffs sequenciais. O H-0046 extraiu a producao do renderizador para `tela/renderizacao/`; o H-0047 extraiu o carregamento para `tela/carregamento/`; e o H-0048 reorganizou o monolito de testes em oito modulos proprietarios, um modulo comum e um runner, preservando `tela/teste_renderizador.py` como fachada compativel. As fachadas publicas, o comportamento, o schema, a politica e a API permaneceram inalterados. O fechamento tecnico confirmou 371 testes do renderizador, runner direto com 1308/1308 verificacoes, 365 testes externos relacionados e suite completa com 970 testes aprovados.
 
+### ITEM-0020 — Chip de escolha entre execucao real e dry-run
+
+**Resultado:** CONCLUIDO
+**Origem:** backlog
+**Data:** 2026-08-05
+**Referências:** docs/adr/ADR-0040-padronizacao-universal-do-controle-de-execucao-real-e-dry-run.md; docs/handoff/H-0050-controle-universal-execucao-real-dry-run.md; docs/relatorios/RELATORIO_QA_POS_PATCH_HANDOFF_H-0050_P06.md; docs/relatorios/RELATORIO_QA_POS_PATCH_IMPLEMENTACAO_H-0050_P04.md; docs/relatorios/RELATORIO_VALIDACAO_MANUAL_H-0050_R03.md; docs/relatorios/RELATORIO_VALIDACAO_MANUAL_H-0050_R04.md
+**Resumo:** O controle universal reutilizavel de escolha entre execucao real e dry-run foi concluido. O schema raiz fechado `controle_execucao.modo_inicial` aceita somente `executar` e `dry_run`; a compatibilidade pertence ao registro autoritativo das acoes; o modo e unico por instancia, capturado explicitamente na requisicao e preservado no retorno. D-DRY-12 consolidou os rotulos visuais `[Ins] Real` e `[Ins] Simulação`, com aparencia normal em Real e `cor_alerta` em Simulação, preservando `[⏎] Executar` como acao separada e mantendo sem delta a especializacao focal `[Ins] Dry-Run` do H-0044. O fechamento tecnico confirmou 268 testes focais, 1037 testes na suite completa, 17 provas isoladas do H-0050, validacao manual funcional R03 em 7/7 e validacao complementar R04 em 4/4.
+
 ## Cancelados
 
 ### DOC-B003 — Segunda pauta de "estilo de exibição de dados no corpo"

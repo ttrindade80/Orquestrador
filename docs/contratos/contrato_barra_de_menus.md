@@ -19,6 +19,7 @@ metadata:
       - docs/adr/ADR-0036-carregamento-e-apresentacao-da-tela-padrao-de-resultado.md
       - docs/adr/ADR-0037-integracao-do-fluxo-focal-com-dry-run-e-restauracao-da-origem.md
       - docs/adr/ADR-0038-paginacao-interativa-limitada-em-console.md
+      - docs/adr/ADR-0040-padronizacao-universal-do-controle-de-execucao-real-e-dry-run.md
     reaproveitado_de_legado: false
   dependencias_nomenclatura:
     dependencias_obrigatorias:
@@ -758,6 +759,13 @@ nem de ativação de `[✥]` (ADR-0005).
 - [ ] `[V]` só existe quando a instância de `console` declara que permite modo
       verboso.
 - [ ] Chips específicos de classe aparecem entre `[⏎]` e `[V]`/`[?]`.
+- [ ] O controle universal `[Ins]` só existe quando a tela declara
+      validamente `controle_execucao.modo_inicial` e satisfaz a compatibilidade
+      integral das ações de processo relevantes com `executar` e `dry_run`.
+- [ ] A ausência de `controle_execucao` deixa o chip universal ausente.
+- [ ] O controle universal permanece ativo nos dois estados, usa o rótulo
+      correspondente ao modo corrente (`Real`/`Simulação`, D-DRY-12) e aplica
+      `cor_alerta` somente em `Simulação`.
 - [ ] `[?]`, quando declarado, é o último chip da instância e permanece ativo.
 - [ ] A distinção `barra_de_menus` vs objeto `lancador` do corpo é verificável:
       chips dos itens do `lancador` não são chips da `barra_de_menus`; nenhuma
@@ -944,7 +952,44 @@ anterior de chip de alternância entre execução real e `dry-run` contida em
 D-SEL-19 da ADR-0034 e a fronteira correspondente que esta seção registrava
 antes da ADR-0037. Todas as demais decisões das ADRs 0034, 0035 e 0036
 permanecem vigentes. O toggle é especialização focal do Handoff 4 — não
-padronização universal (`ITEM-0020` permanece aberto).
+implementação ou reconciliação do padrão universal (`ITEM-0020` permanece
+aberto).
+
+### 23.3.1 Controle universal `[Ins] Real` / `[Ins] Simulação` (ADR-0040)
+
+O controle universal existe somente quando a tela declara validamente, na raiz
+do `tela.json`, `controle_execucao` com o campo obrigatório
+`controle_execucao.modo_inicial` em `executar` ou `dry_run`, e satisfaz a
+compatibilidade integral das ações de processo relevantes com os dois modos.
+Na ausência do objeto, com objeto inválido ou sem essa compatibilidade, o chip
+universal não existe.
+
+Quando declarado validamente, ele é um chip específico padronizado e
+reutilizável. Permanece na faixa dos chips específicos, fora da lista de chips
+canônicos, e usa a tecla `Insert` com rótulo dinâmico:
+
+```text
+[Ins] Real
+[Ins] Simulação
+```
+
+Rótulos vigentes fixados por D-DRY-12, que substituem os rótulos `[Ins]
+Executar`/`[Ins] Dry-Run` originalmente fixados por D-DRY-02 (histórico
+substituído). O chip permanece ativo e operável nos dois estados. Em `Real`,
+usa a aparência ativa normal; somente em `Simulação` o texto usa `cor_alerta`.
+O rótulo indica o modo em que a futura execução ocorrerá — distinção
+obrigatória em relação ao chip de ação `[⏎] Executar`, que inicia o
+processamento do lote atual; os dois chips não colidem lexicalmente. O rótulo
+é a indicação primária e a cor é reforço visual. Existe um único modo corrente
+por instância da tela; ele não é um estado independente do console focado nem
+do item corrente. A distinção é obrigatória: este controle universal é o padrão
+reutilizável da ADR-0040, não é chip canônico, enquanto o `[Ins] Dry-Run`
+acima continua sendo a especialização focal da ADR-0037 para o Handoff 4 do
+`ITEM-0006`, com rótulo próprio inalterado por D-DRY-12. Esta seção não migra
+nem altera a instância focal.
+O rótulo representa o modo corrente; a inicialização, a preservação durante a
+mesma instância e a reinicialização em nova abertura ou recarga pertencem ao
+ciclo de vida da tela, conforme `contrato_tela_json.md`, e não à barra.
 
 ### 23.4 Instância concreta da tela de resultado (ADR-0036)
 

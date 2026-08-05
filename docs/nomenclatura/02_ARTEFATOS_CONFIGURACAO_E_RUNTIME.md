@@ -63,6 +63,16 @@ Estados transitórios de migração não são apresentados como termos vigentes.
 - tela inicial real (`config/telas/orquestrador.json`)
 - identidade real (`orquestrador`)
 - `perfil` (campo raiz opcional do `tela.json`, ADR-0034)
+- `controle_execucao` (objeto raiz opcional fechado do `tela.json`, ADR-0040)
+- `modo_inicial` (único campo permitido em `controle_execucao`, ADR-0040)
+- `controle_execucao.modo_inicial` (configuração concreta opcional do `tela.json`, ADR-0040)
+- registro de ações
+- ação registrada
+- categoria da ação
+- modos de execução aceitos
+- autoridade implementacional da compatibilidade
+- falha fechada de resolução
+- ação legada não classificada
 
 ## 4. Definições
 
@@ -72,7 +82,7 @@ Estados transitórios de migração não são apresentados como termos vigentes.
 |---|---|
 | `docs/NOMENCLATURA.md` | No antigo monólito, substituído pela fachada na fase 2 da ADR-0029, este artefato era responsável por schema e semântica: quais campos existem, o que cada um significa, tipo, restrições e como o renderer deve interpretá-los. Atualmente `docs/NOMENCLATURA.md` atua somente como fachada de compatibilidade e navegação; a autoridade terminológica vigente está nos módulos proprietários. |
 | `config/estilo.json` | Biblioteca global de aparência: presets de borda, chip, indicadores e demais parâmetros gerais de aparência. Não declara tela, conteúdo, composição, destino, ação, item de `lancador` nem instância de `dashboard`. |
-| `tela.json` (JSON próprio de cada tela) | Declaração concreta da tela: composição do corpo, instâncias de `console`, `dashboard`, `lancador` e `barra_de_menus`, listas de itens, chips, destinos, ações registradas, regras de existência/ativo-inativo, parâmetros visuais locais, bindings, filtros e regras de exibição. Não é código executável. Não guarda estado de runtime. |
+| `tela.json` (JSON próprio de cada tela) | Declaração concreta da tela: composição do corpo, instâncias de `console`, `dashboard`, `lancador` e `barra_de_menus`, listas de itens, chips, destinos, ações registradas, regras de existência/ativo-inativo, parâmetros visuais locais, bindings, filtros e regras de exibição. Não é código executável. Não guarda estado de runtime nem declara categoria ou compatibilidade de ação. |
 
 ### 4.2 Separação motor / demonstração / produto real (ADR-0021)
 
@@ -110,6 +120,26 @@ Cursor atual, página atual, filtro ativo, modo verboso, seleção atual e item
 focado são estado de execução, não configuração. O JSON pode declarar defaults
 iniciais; o estado vivo pertence à execução.
 
+No controle universal da ADR-0040, a configuração concreta é declarada pelo
+objeto raiz opcional e fechado `controle_execucao` do `tela.json`, que contém
+exatamente o campo obrigatório `modo_inicial`, limitado a `executar` ou
+`dry_run`. A ausência do objeto significa não adoção da capacidade e não há
+default implícito; propriedade interna adicional é inválida. O modo corrente
+após a abertura é inicializado por `modo_inicial`, é estado de runtime e existe
+uma única vez por instância da tela. A suspensão e o retorno à mesma instância
+preservam esse estado; nova abertura ou recarga o reinicializam pelo valor
+configurado. O estado vivo não é persistido de volta no JSON.
+`dry_run_ativo` continua restrito ao estado de runtime da especialização focal
+da ADR-0037 e não é configuração concreta universal.
+
+O **registro de ações** é o contrato semântico da autoridade mantida junto à
+implementação. Uma **ação registrada** declara a **categoria da ação** como
+`processo`, `navegacao` ou `visualizacao`; uma ação de processo declara também
+os **modos de execução aceitos**, somente entre `executar` e `dry_run`. Essa
+autoridade implementacional da compatibilidade não pode ser inferida ou
+contradita pelo JSON. Resolução ausente ou insuficiente é **falha fechada de
+resolução**. Ação legada não classificada é inelegível para tela adotante.
+
 A seleção múltipla do console (`ITEM-0006`, ADR-0034) é caso concreto de
 estado de runtime: o conjunto de IDs estáveis selecionado nunca é persistido
 no `tela.json` — apenas a política (`politica_selecao: multipla`) é
@@ -135,6 +165,8 @@ comportamental completa: `contrato_tela_json.md` seção 34.
 | motor compartilhado (`tela/`) × aplicação demonstrativa (`demo/`) | `tela/` é motor reutilizável; `demo/` é aplicação demonstrativa — não é segunda implementação de loader, modelo ou renderizador |
 | tela demonstrativa × tela do produto real | Tela demonstrativa fica em `config/telas/demo/<id>.json`; tela do produto real fica em `config/telas/<id>.json` |
 | `orquestrador.py` × `demo/demo.py` | Ponto de entrada futuro do produto real × ponto de entrada da demonstração atual |
+| `controle_execucao` × modo corrente | Objeto raiz fechado de configuração concreta, com exatamente `modo_inicial` × estado de runtime único por instância, não persistido |
+| contrato semântico do registro × arquitetura física | Regras de categoria, compatibilidade, resolução e falha fechada × localização e estrutura internas reversíveis, não decididas aqui |
 
 ## 6. Relação com contratos
 
@@ -148,6 +180,9 @@ comportamental completa: `contrato_tela_json.md` seção 34.
 - ADR-0021: separação demo/produto real/motor; política de caminhos.
 - ADR-0022: ponto de entrada real; tela inicial real; identidade `orquestrador`.
 - ADR-0034: campo raiz `perfil`; seleção múltipla como estado de runtime.
+- ADR-0040: distinção entre estado inicial declarado e modo corrente de runtime.
+- ADR-0040: objeto fechado `controle_execucao` e autoridade implementacional
+  do registro de ações.
 
 ## 8. Aliases ou termos descontinuados relacionados
 

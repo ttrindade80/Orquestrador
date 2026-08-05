@@ -4008,3 +4008,523 @@ def test_h0044_p01_redimensionamento_resolve_bloqueio_visual():
     assert (
         estado["fluxo_execucao"].modelo_resultado.modelo is modelo_res
     )
+
+
+def _estado_h0050(identidade):
+    import demo.demo as _demo_mod
+
+    modelo = _demo_mod._carregar_modelo_por_id(identidade)
+    estado = _demo_mod.criar_estado_inicial()
+    estado = _demo_mod._estabelecer_foco_paginacao_inicial(estado, modelo)
+    estado = _demo_mod._anexar_controle_execucao(estado, modelo)
+    return estado, modelo
+
+
+def test_h0050_dois_modos_iniciais_e_alternancia_por_insert():
+    from tela import fluxo_execucao as fe
+
+    estado, modelo = _estado_h0050("h0050_controle_execucao_universal")
+    assert estado["controle_execucao"].modo_atual == "executar"
+    assert estado["controle_execucao"].representacao_chip().rotulo == "Real"
+    estado = processar_comando(estado, fe.TECLA_INSERT, modelo)
+    assert estado["controle_execucao"].modo_atual == "dry_run"
+    assert estado["controle_execucao"].representacao_chip().rotulo == "Simulação"
+    estado = processar_comando(estado, fe.TECLA_INSERT, modelo)
+    assert estado["controle_execucao"].modo_atual == "executar"
+    assert estado["controle_execucao"].representacao_chip().rotulo == "Real"
+    estado, _ = _estado_h0050(
+        "h0050_controle_execucao_universal_dry_run_inicial"
+    )
+    assert estado["controle_execucao"].modo_atual == "dry_run"
+    assert estado["controle_execucao"].representacao_chip().rotulo == "Simulação"
+
+
+def test_h0050_enter_entrega_modo_e_lote_reconciliado_ao_executor():
+    from tela import fluxo_execucao as fe
+    import demo.demo as _demo_mod
+
+    estado, modelo = _estado_h0050("h0050_controle_execucao_universal")
+    estado = processar_comando(estado, " ", modelo)
+    estado = processar_comando(estado, "\x1b[B", modelo)
+    estado = processar_comando(estado, " ", modelo)
+    estado = processar_comando(estado, fe.TECLA_INSERT, modelo)
+    estado = processar_comando(estado, "\r", modelo)
+    assert estado["resultado_controle_execucao"]["modo"] == "dry_run"
+    assert estado["resultado_controle_execucao"]["lote_reconciliado"] == [
+        "item_01",
+        "item_02",
+    ]
+    assert _demo_mod._resultado_controle_ativo(estado) is True
+    modelo_res = _demo_mod._modelo_corrente(estado, modelo)
+    assert modelo_res is estado["_sessao_resultado_controle"].modelo
+    assert modelo_res is not modelo
+
+
+def test_h0050_lote_vazio_aplica_todos_sem_chamar_executor(monkeypatch):
+    import demo.demo as _demo_mod
+    from tela.loader import carregar_estilo
+    from tela.registro_acoes import RegistroAcoes
+    from tela import renderizador as _rend
+
+    chamadas = []
+    registro = RegistroAcoes()
+    registro.registrar(
+        "h0050.controle_execucao",
+        "processo",
+        ("executar", "dry_run"),
+        executor=lambda captura: chamadas.append(captura),
+    )
+    monkeypatch.setattr(_demo_mod, "_registro_acoes_h0050", lambda: registro)
+    estado, modelo = _estado_h0050("h0050_controle_execucao_universal")
+    estado = dict(estado, estilo=carregar_estilo())
+    saida_inicial = _demo_mod.renderizar_estado(
+        estado, modelo, largura=80, altura=24
+    )
+    chips_inicial = dict(_rend._navegacao_atual.get("estado_ativo_chips") or {})
+    assert chips_inicial.get("chip_enter") is True
+    assert "[⏎] Todos" in saida_inicial
+    estado = processar_comando(estado, "\r", modelo)
+    assert chamadas == []
+    assert "resultado_controle_execucao" not in estado
+    assert estado["selecoes"]["console_execucao"] == [
+        "item_01",
+        "item_02",
+        "item_03",
+        "item_04",
+    ]
+    saida = _demo_mod.renderizar_estado(estado, modelo, largura=80, altura=24)
+    chips = dict(_rend._navegacao_atual.get("estado_ativo_chips") or {})
+    assert saida.count("●") == 4
+    assert "[⏎] Executar" in saida or "Executar" in saida
+    assert chips.get("chip_enter") is True
+
+
+def test_h0050_todos_depois_enter_executa_os_quatro():
+    from tela.loader import carregar_estilo
+    import demo.demo as _demo_mod
+
+    estado, modelo = _estado_h0050("h0050_controle_execucao_universal")
+    estado = dict(estado, estilo=carregar_estilo())
+    estado = processar_comando(estado, "\r", modelo)  # Todos
+    assert estado["selecoes"]["console_execucao"] == [
+        "item_01",
+        "item_02",
+        "item_03",
+        "item_04",
+    ]
+    estado = processar_comando(estado, "\r", modelo)  # Executar
+    assert estado["resultado_controle_execucao"]["lote_reconciliado"] == [
+        "item_01",
+        "item_02",
+        "item_03",
+        "item_04",
+    ]
+    assert estado["resultado_controle_execucao"]["modo"] == "executar"
+    assert "DRY_RUN" not in estado["resultado_controle_execucao"]["resultado"]
+    assert _demo_mod._resultado_controle_ativo(estado) is True
+    sessao = estado["_sessao_resultado_controle"]
+    assert sessao.apresentacao == "documento"
+    assert sessao.diagnostico is None
+    saida = _demo_mod.renderizar_estado(
+        estado,
+        _demo_mod._modelo_corrente(estado, modelo),
+        largura=100,
+        altura=48,
+    )
+    assert "modo: executar" in saida or "modo:executar" in saida.replace(" ", "")
+    assert "item_01" in saida and "item_04" in saida
+    assert "schema esperado" not in saida
+    assert "status: falha" not in saida
+
+
+def test_h0050_espaco_parcial_insert_nao_altera_selecao_nem_semantica_todos():
+    from tela import fluxo_execucao as fe
+    from tela.loader import carregar_estilo
+    import demo.demo as _demo_mod
+
+    estado, modelo = _estado_h0050("h0050_controle_execucao_universal")
+    estado = dict(estado, estilo=carregar_estilo())
+    estado = processar_comando(estado, " ", modelo)
+    assert estado["selecoes"]["console_execucao"] == ["item_01"]
+    estado = processar_comando(estado, fe.TECLA_INSERT, modelo)
+    assert estado["selecoes"]["console_execucao"] == ["item_01"]
+    assert estado["controle_execucao"].modo_atual == "dry_run"
+    estado = processar_comando(estado, "\x1b", modelo)  # limpa seleção
+    assert estado["selecoes"]["console_execucao"] == []
+    assert estado["controle_execucao"].modo_atual == "dry_run"
+    estado = processar_comando(estado, "\r", modelo)  # Todos em dry_run
+    assert estado["selecoes"]["console_execucao"] == [
+        "item_01",
+        "item_02",
+        "item_03",
+        "item_04",
+    ]
+    saida = _demo_mod.renderizar_estado(estado, modelo, largura=80, altura=24)
+    assert saida.count("●") == 4
+    assert "[Ins] Simulação" in saida
+    assert "[Ins] " + "Executar" not in saida
+    assert "[Ins] " + "Dry-Run" not in saida
+
+
+def test_h0050_execucao_parcial_dry_run_resultado_retorno_preserva_instancia():
+    from tela import fluxo_execucao as fe
+    from tela.loader import carregar_estilo
+    import demo.demo as _demo_mod
+
+    chamadas = []
+    controle_ref = []
+
+    def _registrar_e_executar(captura):
+        chamadas.append(captura)
+        return _demo_mod.executar_controle_execucao(
+            captura, _demo_mod._FIXTURE_H0050
+        )
+
+    estado, modelo = _estado_h0050("h0050_controle_execucao_universal")
+    # Substitui o executor da ação já anexada.
+    acao = estado["controle_execucao"].acao_processo
+    object.__setattr__(acao, "executor", _registrar_e_executar)
+    controle_ref.append(estado["controle_execucao"])
+    estado = dict(estado, estilo=carregar_estilo())
+    estado = processar_comando(estado, " ", modelo)
+    estado = processar_comando(estado, "\x1b[B", modelo)
+    estado = processar_comando(estado, " ", modelo)
+    estado = processar_comando(estado, fe.TECLA_INSERT, modelo)
+    assert estado["selecoes"]["console_execucao"] == ["item_01", "item_02"]
+    estado = processar_comando(estado, "\r", modelo)
+    assert len(chamadas) == 1
+    assert chamadas[0].lote_reconciliado == ("item_01", "item_02")
+    assert chamadas[0].modo_capturado == "dry_run"
+    resultado = estado["resultado_controle_execucao"]
+    assert resultado["modo"] == "dry_run"
+    assert resultado["lote_reconciliado"] == ["item_01", "item_02"]
+    assert resultado["resultado"] == "DRY_RUN"
+    assert _demo_mod._resultado_controle_ativo(estado) is True
+    sessao = estado["_sessao_resultado_controle"]
+    assert sessao.apresentacao == "documento"
+    assert sessao.diagnostico is None
+    saida_res = _demo_mod.renderizar_estado(
+        estado,
+        _demo_mod._modelo_corrente(estado, modelo),
+        largura=100,
+        altura=40,
+    )
+    assert "dry_run" in saida_res
+    assert "item_01" in saida_res and "item_02" in saida_res
+    assert "status: sucesso" in saida_res
+    assert "schema esperado" not in saida_res
+    assert "status: falha" not in saida_res
+
+    # Insert posterior nao retroage na captura ja iniciada.
+    estado_pos = dict(estado)
+    estado_pos["controle_execucao"].alternar()
+    assert chamadas[0].modo_capturado == "dry_run"
+    estado_pos["controle_execucao"].alternar()  # volta dry_run
+
+    estado = processar_comando(estado, "\x1b", modelo)  # retorno
+    assert _demo_mod._resultado_controle_ativo(estado) is False
+    assert estado["controle_execucao"] is controle_ref[0]
+    assert estado["controle_execucao"].modo_atual == "dry_run"
+    assert estado["selecoes"]["console_execucao"] == ["item_01", "item_02"]
+    modelo_origem = _demo_mod._modelo_corrente(estado, modelo)
+    assert modelo_origem is modelo or modelo_origem is estado.get(
+        "_modelo_origem_controle"
+    )
+
+
+def test_h0050_execucao_modo_real_sem_marcador_dry_run():
+    from tela.loader import carregar_estilo
+    import demo.demo as _demo_mod
+
+    estado, modelo = _estado_h0050("h0050_controle_execucao_universal")
+    estado = dict(estado, estilo=carregar_estilo())
+    assert estado["controle_execucao"].modo_atual == "executar"
+    estado = processar_comando(estado, " ", modelo)
+    estado = processar_comando(estado, "\r", modelo)
+    resultado = estado["resultado_controle_execucao"]
+    assert resultado["modo"] == "executar"
+    assert resultado["resultado"] == "EXECUTADO"
+    assert "DRY_RUN" not in resultado["resultado"]
+    sessao = estado["_sessao_resultado_controle"]
+    assert sessao.apresentacao == "documento"
+    saida = _demo_mod.renderizar_estado(
+        estado,
+        _demo_mod._modelo_corrente(estado, modelo),
+        largura=100,
+        altura=40,
+    )
+    assert "modo: executar" in saida
+    assert "DRY_RUN" not in saida
+    assert "status: falha" not in saida
+
+
+def test_h0050_acao_ausente_e_incompativel_falham_antes_da_execucao():
+    from tela.registro_acoes import RegistroAcoes, RegistroAcoesErro, validar_elegibilidade
+
+    registro = RegistroAcoes()
+    tela = {
+        "controle_execucao": {"modo_inicial": "executar"},
+        "referencias_de_acoes": {"acao_enter": "h0050.ausente"},
+    }
+    try:
+        validar_elegibilidade(tela, registro)
+        raise AssertionError("acao ausente deveria falhar")
+    except RegistroAcoesErro:
+        pass
+
+    registro.registrar("h0050.so.executar", "processo", ("executar",))
+    tela["referencias_de_acoes"]["acao_enter"] = "h0050.so.executar"
+    try:
+        validar_elegibilidade(tela, registro)
+        raise AssertionError("acao incompativel deveria falhar")
+    except RegistroAcoesErro:
+        pass
+
+
+def test_h0050_executor_nao_consulta_interface():
+    import demo.executor_controle_execucao as executor_mod
+    from tela.controle_execucao import ControleExecucao
+    from tela.registro_acoes import AcaoRegistrada
+
+    class _Captura:
+        lote_reconciliado = ("item_01",)
+        modo_capturado = "executar"
+
+    fonte = open(executor_mod.__file__, encoding="utf-8").read()
+    for proibido in (
+        "from tela",
+        "import tela",
+        "ModeloTela",
+        "processar_comando",
+        "renderizar",
+    ):
+        assert proibido not in fonte
+    resultado = executor_mod.executar(
+        _Captura(),
+        {
+            "itens": [
+                {"id": "item_01", "valor": "x"},
+            ]
+        },
+    )
+    assert resultado["modo"] == "executar"
+    assert isinstance(ControleExecucao, type)
+    assert isinstance(AcaoRegistrada, type)
+
+
+def test_h0050_preserva_instancia_em_retorno_e_reinicializa_em_nova_abertura():
+    estado, modelo = _estado_h0050("h0050_controle_execucao_universal")
+    controle = estado["controle_execucao"]
+    controle.alternar()
+    estado = dict(estado, pilha_telas=["origem"], selecoes={"console_execucao": []})
+    retornado = processar_comando(estado, "\x1b", modelo)
+    assert retornado["controle_execucao"] is controle
+    assert retornado["controle_execucao"].modo_atual == "dry_run"
+
+    nova_sessao, _ = _estado_h0050("h0050_controle_execucao_universal")
+    assert nova_sessao["controle_execucao"] is not controle
+    assert nova_sessao["controle_execucao"].modo_atual == "executar"
+
+
+def test_h0050_renderiza_chip_com_rotulo_corrente():
+    from tela.loader import carregar_estilo
+    import demo.demo as _demo_mod
+
+    estado, modelo = _estado_h0050(
+        "h0050_controle_execucao_universal_dry_run_inicial"
+    )
+    estado = dict(estado, estilo=carregar_estilo())
+    saida = _demo_mod.renderizar_estado(estado, modelo, largura=80, altura=24)
+    assert "[Ins] Simulação" in saida
+    assert "[Ins] " + "Executar" not in saida
+    assert "[Ins] " + "Dry-Run" not in saida
+    assert "[Insert]" not in saida
+
+
+def _saida_h0050(identidade, largura=80, altura=24, comando=None):
+    from tela.loader import carregar_estilo
+    import demo.demo as _demo_mod
+
+    estado, modelo = _estado_h0050(identidade)
+    estado = dict(estado, estilo=carregar_estilo())
+    if comando is not None:
+        for tecla in comando:
+            estado = processar_comando(estado, tecla, modelo)
+    saida = _demo_mod.renderizar_estado(
+        estado, modelo, largura=largura, altura=altura
+    )
+    return estado, modelo, saida
+
+
+def test_h0050_simbolos_unicode_e_ausencia_de_literais_espaco_enter():
+    for identidade in (
+        "h0050_controle_execucao_universal",
+        "h0050_controle_execucao_universal_dry_run_inicial",
+    ):
+        _, _, saida = _saida_h0050(identidade)
+        assert "[␣] Marcar" in saida
+        assert "[⏎]" in saida
+        assert "[Espaço]" not in saida
+        assert "[Enter]" not in saida
+        assert "[Ins]" in saida
+        assert "[Insert]" not in saida
+
+
+def test_h0050_barra_apresenta_verboso_ajuda_e_ordem_apos_ins():
+    _, _, saida = _saida_h0050("h0050_controle_execucao_universal")
+    assert "[V] Verboso" in saida
+    assert "[?] Ajuda" in saida
+    assert saida.index("[␣]") < saida.index("[⏎]")
+    assert saida.index("[⏎]") < saida.index("[Ins]")
+    assert saida.index("[Ins]") < saida.index("[V] Verboso")
+    assert saida.index("[Ins]") < saida.index("[?] Ajuda")
+    assert "[Ins] Real" in saida
+    _, _, estreita = _saida_h0050(
+        "h0050_controle_execucao_universal", largura=42
+    )
+    for fragmento in (
+        "[␣] Marcar",
+        "[⏎]",
+        "[Ins] Real",
+        "[V] Verboso",
+        "[?] Ajuda",
+    ):
+        assert fragmento in estreita
+
+
+def test_h0050_indicador_visual_de_selecao_e_chip_enter():
+    from tela.loader import carregar_estilo
+    import demo.demo as _demo_mod
+
+    estilo = carregar_estilo()
+    estado, modelo = _estado_h0050("h0050_controle_execucao_universal")
+    estado = dict(estado, estilo=estilo)
+    saida_inicial = _demo_mod.renderizar_estado(
+        estado, modelo, largura=80, altura=24
+    )
+    assert estilo.incluido_off in saida_inicial
+    assert estilo.incluido_on not in saida_inicial
+    assert "Todos" in saida_inicial
+    assert estilo.selecionado_simbolo in saida_inicial
+
+    estado = processar_comando(estado, " ", modelo)
+    saida_marcada = _demo_mod.renderizar_estado(
+        estado, modelo, largura=80, altura=24
+    )
+    assert estilo.incluido_on in saida_marcada
+    assert saida_marcada.count(estilo.incluido_on) == 1
+    assert "Executar" in saida_marcada
+    assert estilo.selecionado_simbolo in saida_marcada
+
+    estado = processar_comando(estado, " ", modelo)
+    saida_desmarcada = _demo_mod.renderizar_estado(
+        estado, modelo, largura=80, altura=24
+    )
+    assert estilo.incluido_on not in saida_desmarcada
+    assert "Todos" in saida_desmarcada
+    assert estilo.selecionado_simbolo in saida_desmarcada
+
+
+def test_h0050_corpus_dois_itens_resultado_retorno_e_reabertura():
+    from tela import fluxo_execucao as fe
+    from tela.loader import carregar_estilo
+    import demo.demo as _demo_mod
+
+    estado, modelo = _estado_h0050("h0050_controle_execucao_universal")
+    itens = modelo.corpo.elementos[0]._campos_inertes["itens"]
+    assert len(itens) >= 2
+    ids = [item["id"] for item in itens]
+    assert len(set(ids)) == len(ids)
+    estado = dict(estado, estilo=carregar_estilo())
+    saida = _demo_mod.renderizar_estado(estado, modelo, largura=80, altura=24)
+    assert "Item 01" in saida and "Item 02" in saida
+    assert "(console)" not in saida
+
+    estado = processar_comando(estado, " ", modelo)
+    estado = processar_comando(estado, "\x1b[B", modelo)
+    estado = processar_comando(estado, " ", modelo)
+    estado = processar_comando(estado, fe.TECLA_INSERT, modelo)
+    controle = estado["controle_execucao"]
+    assert controle.modo_atual == "dry_run"
+    estado = processar_comando(estado, "\r", modelo)
+    resultado = estado["resultado_controle_execucao"]
+    assert resultado["modo"] == "dry_run"
+    assert resultado["lote_reconciliado"] == ["item_01", "item_02"]
+    assert estado["controle_execucao"] is controle
+    assert estado["controle_execucao"].modo_atual == "dry_run"
+    assert _demo_mod._resultado_controle_ativo(estado) is True
+    saida_res = _demo_mod.renderizar_estado(
+        estado,
+        _demo_mod._modelo_corrente(estado, modelo),
+        largura=100,
+        altura=40,
+    )
+    assert "dry_run" in saida_res
+    assert "item_01" in saida_res
+
+    estado = processar_comando(estado, "\x1b", modelo)
+    assert _demo_mod._resultado_controle_ativo(estado) is False
+    assert estado["controle_execucao"] is controle
+    assert estado["controle_execucao"].modo_atual == "dry_run"
+    assert estado["selecoes"]["console_execucao"] == ["item_01", "item_02"]
+
+    nova, _ = _estado_h0050("h0050_controle_execucao_universal")
+    assert nova["controle_execucao"].modo_atual == "executar"
+    secundaria, _ = _estado_h0050(
+        "h0050_controle_execucao_universal_dry_run_inicial"
+    )
+    assert secundaria["controle_execucao"].modo_atual == "dry_run"
+
+
+def test_h0050_demonstracao_automatizada_ambas_configuracoes():
+    from tela import fluxo_execucao as fe
+    from tela.loader import carregar_estilo
+    import demo.demo as _demo_mod
+
+    for identidade, modo_inicial in (
+        ("h0050_controle_execucao_universal", "executar"),
+        ("h0050_controle_execucao_universal_dry_run_inicial", "dry_run"),
+    ):
+        estado, modelo = _estado_h0050(identidade)
+        estado = dict(estado, estilo=carregar_estilo())
+        assert estado["controle_execucao"].modo_atual == modo_inicial
+        estado = processar_comando(estado, "\r", modelo)
+        assert estado["selecoes"]["console_execucao"] == [
+            "item_01",
+            "item_02",
+            "item_03",
+            "item_04",
+        ]
+        estado = processar_comando(estado, "\x1b", modelo)
+        assert estado["selecoes"]["console_execucao"] == []
+        estado = processar_comando(estado, " ", modelo)
+        estado = processar_comando(estado, "\x1b[B", modelo)
+        estado = processar_comando(estado, " ", modelo)
+        if modo_inicial == "executar":
+            estado = processar_comando(estado, fe.TECLA_INSERT, modelo)
+            modo_esperado = "dry_run"
+        else:
+            modo_esperado = "dry_run"
+        controle = estado["controle_execucao"]
+        estado = processar_comando(estado, "\r", modelo)
+        assert estado["resultado_controle_execucao"]["modo"] == modo_esperado
+        assert estado["resultado_controle_execucao"]["lote_reconciliado"] == [
+            "item_01",
+            "item_02",
+        ]
+        saida = _demo_mod.renderizar_estado(
+            estado,
+            _demo_mod._modelo_corrente(estado, modelo),
+            largura=100,
+            altura=40,
+        )
+        assert modo_esperado in saida
+        assert "item_01" in saida
+        assert estado["_sessao_resultado_controle"].apresentacao == "documento"
+        assert "status: falha" not in saida
+        estado = processar_comando(estado, "\x1b", modelo)
+        assert estado["controle_execucao"] is controle
+        assert estado["controle_execucao"].modo_atual == modo_esperado
+        nova, _ = _estado_h0050(identidade)
+        assert nova["controle_execucao"].modo_atual == modo_inicial
+        assert nova["controle_execucao"] is not controle

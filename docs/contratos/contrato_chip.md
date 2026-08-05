@@ -20,6 +20,7 @@ metadata:
       - docs/adr/ADR-0031-navegacao-simples-e-selecao-unica-em-console-de-nivel-unico.md
       - docs/adr/ADR-0037-integracao-do-fluxo-focal-com-dry-run-e-restauracao-da-origem.md
       - docs/adr/ADR-0038-paginacao-interativa-limitada-em-console.md
+      - docs/adr/ADR-0040-padronizacao-universal-do-controle-de-execucao-real-e-dry-run.md
     reaproveitado_de_legado: false
   dependencias_nomenclatura:
     dependencias_obrigatorias:
@@ -233,6 +234,7 @@ console_com_colunas_ajustavel                       — existe se a instância d
 console_com_filtro_de_grupo                         — existe se a instância de console declara filtro_de_grupo: com
 console_com_selecao_multipla                        — existe se a instância de console declara seleção múltipla
 console_com_modo_verboso                            — existe se a instância de console permite modo verboso
+tela_com_controle_execucao_valido                   — existe se a raiz do tela.json declara controle_execucao válido e a tela satisfaz a compatibilidade integral das ações de processo relevantes
 tela_com_pelo_menos_dois_consoles_focalizaveis      — existe se a tela possui pelo menos dois consoles focalizáveis (ADR-0031 D14; substitui tela_com_multiplos_corpos)
 console_focado_com_mais_de_um_item_navegavel        — aparece quando o console focado possui mais de um item navegável (ADR-0031 D14; substitui tela_com_console_navegavel; existência dinâmica — ver nota)
 acao_especifica_declarada                           — existe se a classe de tela declara esta ação específica
@@ -326,6 +328,32 @@ desligado; nunca usa `cor_inativo`. Com `dry_run_ativo: true`, usa
 física da associação entre estado e apresentação será fechada no handoff —
 esta aplicação não cria novo campo de schema (`regra_destaque`,
 `estado_visual`, preset específico ou chave nova de `tela.json`).
+
+### 9.1 Controle universal de execução real e `dry-run` (ADR-0040)
+
+O controle universal é uma identidade reutilizável da classe `chip`, de
+categoria `especifico` e tipo conceitual `alternancia`; não é chip canônico.
+Sua existência é condicionada à declaração válida, na raiz do `tela.json`, do
+objeto opcional `controle_execucao` com o campo
+`controle_execucao.modo_inicial` obrigatório em `executar` ou `dry_run`, além
+da compatibilidade integral de todas as ações de
+processo relevantes com execução real e `dry-run`. Ações de navegação e simples
+visualização não entram nessa condição. Sem o objeto, com objeto inválido ou
+sem a compatibilidade exigida, o chip está ausente.
+
+Quando declarado, o chip usa `Insert` e alterna o rótulo entre `[Ins]
+Real` e `[Ins] Simulação` (D-DRY-12, rótulos vigentes que substituem `[Ins]
+Executar`/`[Ins] Dry-Run`, originalmente fixados por D-DRY-02 — histórico
+substituído). Ele não possui estado inativo enquanto declarado e permanece
+operável nos dois estados. Em `Real`, usa a aparência ativa normal; somente em
+`Simulação`, o texto usa `cor_alerta`. O texto é a indicação
+primária e a cor é apenas reforço. O modo corrente é único por instância de
+tela e pertence ao runtime; não é modo do console nem do item corrente. Essa
+identidade universal não substitui nem migra o `[Ins] Dry-Run` focal da
+ADR-0037. O rótulo reflete o modo corrente preservado enquanto a mesma
+instância existir. A inicialização e a reinicialização em nova abertura ou
+recarga pertencem ao ciclo de vida da tela, não a uma decisão autônoma do
+chip.
 
 ---
 
@@ -535,6 +563,14 @@ Critérios mínimos de validação de um chip:
 - [ ] `[␣]` declarado em tela sem `console` com seleção múltipla é inválido.
 - [ ] `[⏎]` declarado sem política de item em foco (ação por item/binding) é
       inválido.
+- [ ] O controle universal só existe quando `controle_execucao` é declarado
+      validamente na raiz do `tela.json`, com `modo_inicial` em `executar` ou
+      `dry_run`, e a compatibilidade integral das ações de processo relevantes
+      é satisfeita.
+- [ ] A ausência de `controle_execucao` não produz o chip universal.
+- [ ] O controle universal permanece ativo nos dois estados e usa
+      `cor_alerta` somente em `Simulação` (rótulo vigente de `dry_run`,
+      D-DRY-12); não usa `cor_inativo`.
 - [ ] Hardcoding de chip, tecla, texto, ação, `regra_existencia` ou
       `regra_ativo` pelo renderer é violação contratual.
 - [ ] Toda ação declarada em chip pertence ao registro de ações conhecidas.

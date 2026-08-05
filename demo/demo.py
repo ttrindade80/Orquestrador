@@ -135,6 +135,24 @@ from tela import paginacao
 from tela import selecao
 from tela import resultado_execucao as resultado_execucao_mod
 from tela import fluxo_execucao as fluxo_execucao_mod
+from tela.controle_execucao import (
+    ControleExecucao,
+    ControleExecucaoRepresentacao,
+)
+from tela.registro_acoes import RegistroAcoes, validar_elegibilidade
+import importlib.util as _importlib_util_executor
+
+_spec_executor = _importlib_util_executor.spec_from_file_location(
+    "demo_executor_controle_execucao",
+    os.path.join(
+        os.path.dirname(os.path.abspath(__file__)),
+        "executor_controle_execucao.py",
+    ),
+)
+_mod_executor = _importlib_util_executor.module_from_spec(_spec_executor)
+_spec_executor.loader.exec_module(_mod_executor)
+executar_controle_execucao = _mod_executor.executar
+documento_resultado_observavel = _mod_executor.documento_resultado_observavel
 
 # H-0045-P12: carrega o helper por caminho absoluto. ``python demo/demo.py``
 # registra este arquivo como modulo ``demo``, o que impede
@@ -190,6 +208,10 @@ _CATALOGO_CENARIOS_RESULTADO_EXECUCAO = {
 _ID_TELA_RESULTADO_EXECUCAO = "resultado_execucao"
 _DIR_FIXTURES_DEMO = os.path.join("demo", "fixtures")
 _ID_TELA_H0044 = fluxo_execucao_mod.ID_TELA_H0044
+_ID_ACAO_H0050 = "h0050.controle_execucao"
+_FIXTURE_H0050 = os.path.join(
+    _DIR_FIXTURES_DEMO, "h0050_execucao_universal_fixture.json"
+)
 
 
 def criar_estado_inicial():
@@ -227,6 +249,141 @@ def criar_estado_inicial():
         "selecoes": {},
         "pagina_atual": {},
     }
+
+
+def _registro_acoes_h0050():
+    """Cria o registro explícito da ação sintética da demonstração."""
+    registro = RegistroAcoes()
+    registro.registrar(
+        _ID_ACAO_H0050,
+        "processo",
+        modos_execucao_aceitos=("executar", "dry_run"),
+        executor=lambda captura: executar_controle_execucao(
+            captura, _FIXTURE_H0050
+        ),
+    )
+    return registro
+
+
+def _chip_controle_execucao_de(modelo):
+    raw = getattr(modelo, "_raw", {}) if modelo is not None else {}
+    barra = raw.get("barra_de_menus", {}) if isinstance(raw, dict) else {}
+    chips = barra.get("chips", []) if isinstance(barra, dict) else []
+    for chip in chips:
+        if (
+            isinstance(chip, dict)
+            and chip.get("forma_exibicao") == "controle_execucao"
+            and isinstance(chip.get("id"), str)
+        ):
+            return chip["id"]
+    return "chip_controle_execucao"
+
+
+def _anexar_controle_execucao(estado, modelo):
+    """Anexa uma instância nova somente na abertura de uma tela adotante."""
+    raw = getattr(modelo, "_raw", {}) if modelo is not None else {}
+    if not isinstance(raw, dict) or "controle_execucao" not in raw:
+        # Um controle suspenso permanece associado à origem até seu retorno;
+        # uma nova sessão começa com criar_estado_inicial(), sem esse campo.
+        return dict(estado)
+    if (
+        isinstance(estado.get("controle_execucao"), ControleExecucao)
+        and estado.get("_controle_execucao_tela") == getattr(modelo, "id", None)
+        and estado.get("_sessao_resultado_controle") is None
+    ):
+        return dict(estado)
+    registro = _registro_acoes_h0050()
+    acoes = validar_elegibilidade(raw, registro)
+    novo = dict(estado)
+    novo["controle_execucao"] = ControleExecucao(
+        raw["controle_execucao"],
+        acoes,
+        chip_id=_chip_controle_execucao_de(modelo),
+    )
+    novo["_controle_execucao_tela"] = getattr(modelo, "id", None)
+    lista = navegacao.lista_foco(modelo)
+    if lista and novo.get("foco_console") is None:
+        novo["foco_console"] = 0
+        novo["cursores"] = {lista[0].id: 0}
+        novo["selecoes"] = {lista[0].id: []}
+        novo["pagina_atual"] = {lista[0].id: 1}
+    novo.pop("resultado_controle_execucao", None)
+    novo.pop("_sessao_resultado_controle", None)
+    novo.pop("_modelo_origem_controle", None)
+    return novo
+
+
+def _controle_execucao_ativo(estado, modelo=None):
+    controle = estado.get("controle_execucao")
+    tela_corrente = (
+        getattr(modelo, "id", None)
+        if modelo is not None
+        else estado.get("tela_atual")
+    )
+    # Durante o resultado, o modelo corrente e o da tela de resultado; a
+    # autoridade do controle permanece na origem suspensa.
+    if estado.get("_sessao_resultado_controle") is not None:
+        return False
+    if estado.get("_modelo_origem_controle") is not None:
+        tela_corrente = getattr(
+            estado.get("_modelo_origem_controle"), "id", tela_corrente
+        )
+    return (
+        isinstance(controle, ControleExecucao)
+        and estado.get("_controle_execucao_tela") == tela_corrente
+    )
+
+
+def _resultado_controle_ativo(estado):
+    return estado.get("_sessao_resultado_controle") is not None
+
+
+def _abrir_resultado_controle(estado, modelo, resultado):
+    """Abre a tela vigente de resultado sem pilha paralela nem fluxo H-0044."""
+    origem = estado.get("_modelo_origem_controle") or modelo
+    tela_raw = carregar_tela(
+        None, _ID_TELA_RESULTADO_EXECUCAO, _RAIZ_TELAS_DEMO
+    )
+    ids = list(resultado.get("lote_reconciliado") or ())
+    modo = resultado.get("modo")
+    marcador = resultado.get("resultado")
+    stdout = "modo={0}\nids={1}\nresultado={2}\n".format(
+        modo,
+        ",".join(ids),
+        marcador,
+    )
+    # Documento observável no schema H-0042 (modo + IDs). A serialização
+    # permanece no executor sintético para respeitar o gate sem ``json`` aqui.
+    resultado_bruto = resultado.get("resultado_bruto")
+    if not isinstance(resultado_bruto, str) or not resultado_bruto:
+        resultado_bruto = documento_resultado_observavel(resultado)
+    documento = resultado_execucao_mod.DocumentoRuntime(
+        codigo_saida=0,
+        stdout=stdout,
+        stderr="",
+        resultado_bruto=resultado_bruto,
+    )
+    sessao = resultado_execucao_mod.construir_modelo_resultado(
+        tela_raw, documento
+    )
+    novo = dict(estado)
+    novo["resultado_controle_execucao"] = resultado
+    novo["_sessao_resultado_controle"] = sessao
+    novo["_modelo_origem_controle"] = origem
+    return novo
+
+
+def _retornar_de_resultado_controle(estado):
+    """Retorna à mesma instância de origem, preservando modo e seleção."""
+    novo = dict(estado)
+    origem = novo.get("_modelo_origem_controle")
+    novo.pop("_sessao_resultado_controle", None)
+    novo.pop("resultado_controle_execucao", None)
+    # Mantém a referência viva da origem para o loop reapresentar a mesma
+    # instância (espelha origem_ativa do mecanismo vigente H-0044).
+    if origem is not None:
+        novo["_modelo_origem_controle"] = origem
+    return novo
 
 
 def _modo_verboso_de_modelo(modelo):
@@ -381,6 +538,18 @@ def processar_comando(estado, comando, modelo=None):
         # comandos; nunca persiste em JSON (NC-005/D-SEL-01).
         "selecoes": dict(estado.get("selecoes", {})),
     }
+    if isinstance(estado.get("controle_execucao"), ControleExecucao):
+        # A instância é da tela aberta: suspensão e retorno carregam a mesma
+        # referência; nova abertura/reload chama _anexar_controle_execucao.
+        novo["controle_execucao"] = estado["controle_execucao"]
+        novo["_controle_execucao_tela"] = estado.get("_controle_execucao_tela")
+    if "resultado_controle_execucao" in estado:
+        novo["resultado_controle_execucao"] = estado["resultado_controle_execucao"]
+    if estado.get("_sessao_resultado_controle") is not None:
+        novo["_sessao_resultado_controle"] = estado["_sessao_resultado_controle"]
+    # Origem viva permanece após retorno do resultado (mesma instância).
+    if estado.get("_modelo_origem_controle") is not None:
+        novo["_modelo_origem_controle"] = estado["_modelo_origem_controle"]
     # QAI40-003 / patch pos-validacao manual: ``modo_verboso_forcado`` e
     # override de runtime (ex.: ``--verboso``) e deve permanecer no estado
     # durante toda a sessao. Nao persiste em JSON; ausente em chamadas sem
@@ -456,6 +625,43 @@ def processar_comando(estado, comando, modelo=None):
                         novo_estado[chave] = novo[chave]
                 novo_estado["fluxo_execucao"] = fluxo
                 return novo_estado
+
+    # H-0050: resultado observável usa a tela vigente; Esc retorna à origem.
+    if _resultado_controle_ativo(novo):
+        if comando == "\x1b":
+            return _retornar_de_resultado_controle(novo)
+        # Insert/Enter e demais teclas nao atuam no resultado.
+        return novo
+
+    controle = novo.get("controle_execucao")
+    if _controle_execucao_ativo(novo, modelo):
+        if comando == fluxo_execucao_mod.TECLA_INSERT:
+            controle.alternar()
+            return novo
+        if comando in ("\r", "\n") and modelo is not None:
+            console = navegacao.console_focado(dict(novo, modelo=modelo))
+            if console is not None and navegacao._console_declarou_selecao_multipla(
+                console
+            ):
+                # Mesmo acionamento semântico Enter: vazio→Todos; lote→executar.
+                # Não duplica caminho de teclado/chip; consome aqui o Enter da
+                # tela adotante (H-0041 permanece para telas sem controle).
+                selecao_bruta = selecao._selecao_do_console(novo, console)
+                reconciliado = selecao.reconciliar(novo, console)
+                lote = list(selecao.selecao(console, reconciliado))
+                novo["selecoes"] = dict(reconciliado.get("selecoes", {}))
+                if len(selecao_bruta) > 0 and not lote:
+                    # Resíduo inválido: só reconcilia; não aplica Todos.
+                    novo.pop("resultado_controle_execucao", None)
+                    return novo
+                if not lote:
+                    # Enter=Todos: seleção coletiva dos selecionáveis.
+                    novo = selecao.selecionar_todos(novo, console)
+                    return novo
+                resultado = controle.executar(lote)
+                if resultado is not None:
+                    return _abrir_resultado_controle(novo, modelo, resultado)
+                return novo
 
     if comando == "s" or comando == "\x1b":
         # H-0041 / ADR-0034 D-SEL-08: quando o console focado declara selecao
@@ -686,7 +892,10 @@ def renderizar_estado(estado, modelo, largura=None, altura=None):
     fluxo = estado.get("fluxo_execucao")
     chips_destacados = None
     executar_disponivel = None
-    if fluxo is not None and isinstance(fluxo, fluxo_execucao_mod.FluxoExecucao):
+    controle = estado.get("controle_execucao")
+    if _controle_execucao_ativo(estado, modelo):
+        chips_destacados, executar_disponivel = controle.contexto_renderizacao()
+    elif fluxo is not None and isinstance(fluxo, fluxo_execucao_mod.FluxoExecucao):
         chips_destacados = fluxo.chips_destacados()
         if not fluxo.resultado_ativo:
             executar_disponivel = fluxo.executar_disponivel(estado)
@@ -773,6 +982,9 @@ def _chips_destacados_e_executar(estado):
     calculada por ``tela.renderizador.geometria_console`` reproduza
     exatamente ``l_barra``.
     """
+    controle = estado.get("controle_execucao")
+    if _controle_execucao_ativo(estado):
+        return controle.contexto_renderizacao()
     fluxo = estado.get("fluxo_execucao")
     if fluxo is None or not isinstance(fluxo, fluxo_execucao_mod.FluxoExecucao):
         return None, None
@@ -953,7 +1165,13 @@ def _estabelecer_foco_paginacao_inicial(estado, modelo):
 
 
 def _modelo_corrente(estado, modelo):
-    """Resolve o modelo a apresentar (origem ou resultado H-0044)."""
+    """Resolve o modelo a apresentar (origem ou resultado H-0044/H-0050)."""
+    sessao_controle = estado.get("_sessao_resultado_controle")
+    if sessao_controle is not None:
+        return sessao_controle.modelo
+    origem_controle = estado.get("_modelo_origem_controle")
+    if origem_controle is not None:
+        return origem_controle
     fluxo = estado.get("fluxo_execucao")
     if fluxo is not None and isinstance(fluxo, fluxo_execucao_mod.FluxoExecucao):
         if fluxo.resultado_ativo:
@@ -1590,6 +1808,7 @@ def main(argv=None, estado_inicial=None):
         estado = _anexar_fluxo_h0044(estado, modelo)
     else:
         estado = _estabelecer_foco_paginacao_inicial(estado, modelo)
+        estado = _anexar_controle_execucao(estado, modelo)
     # Override ``--verboso`` (modo_verboso_forcado) tem precedencia sobre a
     # politica do modelo ao iniciar a sessao; sem override, restaura o modo
     # inicial da politica (comportamento anterior).
@@ -1678,12 +1897,17 @@ def main(argv=None, estado_inicial=None):
                     selecoes_antes = dict(estado.get("selecoes", {}))
                     paginas_antes = dict(estado.get("pagina_atual", {}))
                     fluxo_antes = estado.get("fluxo_execucao")
+                    controle_antes = estado.get("controle_execucao")
+                    modo_controle_antes = getattr(
+                        controle_antes, "modo_atual", None
+                    )
                     dry_antes = bool(
                         getattr(fluxo_antes, "dry_run_ativo", False)
                     )
                     resultado_antes = bool(
                         getattr(fluxo_antes, "resultado_ativo", False)
                     )
+                    resultado_controle_antes = _resultado_controle_ativo(estado)
                     estado = dict(
                         estado,
                         largura=largura,
@@ -1697,6 +1921,8 @@ def main(argv=None, estado_inicial=None):
                         modelo = _carregar_modelo_por_id(estado["tela_atual"])
                         if estado["tela_atual"] == _ID_TELA_H0044:
                             estado = _anexar_fluxo_h0044(estado, modelo)
+                        else:
+                            estado = _anexar_controle_execucao(estado, modelo)
                         if estado.get("modo_verboso_forcado") is True:
                             estado = dict(estado, modo_verboso=True)
                         else:
@@ -1712,6 +1938,14 @@ def main(argv=None, estado_inicial=None):
                     resultado_mudou = bool(
                         getattr(fluxo_depois, "resultado_ativo", False)
                     ) != resultado_antes
+                    resultado_controle_mudou = (
+                        _resultado_controle_ativo(estado)
+                        != resultado_controle_antes
+                    )
+                    controle_depois = estado.get("controle_execucao")
+                    controle_mudou = getattr(
+                        controle_depois, "modo_atual", None
+                    ) != modo_controle_antes
                     verboso_mudou = estado.get("modo_verboso", False) != verboso_antes
                     foco_mudou = estado.get("foco_console") != foco_antes
                     cursores_mudou = estado.get("cursores", {}) != cursores_antes
@@ -1726,6 +1960,8 @@ def main(argv=None, estado_inicial=None):
                         or paginas_mudou
                         or dry_mudou
                         or resultado_mudou
+                        or resultado_controle_mudou
+                        or controle_mudou
                     ):
                         _apresentar_quadro(
                             _resolver_conteudo(estado, modelo, largura, altura),
@@ -1770,10 +2006,13 @@ def main(argv=None, estado_inicial=None):
             selecoes_antes = dict(estado.get("selecoes", {}))
             paginas_antes = dict(estado.get("pagina_atual", {}))
             fluxo_antes = estado.get("fluxo_execucao")
+            controle_antes = estado.get("controle_execucao")
+            modo_controle_antes = getattr(controle_antes, "modo_atual", None)
             dry_antes = bool(getattr(fluxo_antes, "dry_run_ativo", False))
             resultado_antes = bool(
                 getattr(fluxo_antes, "resultado_ativo", False)
             )
+            resultado_controle_antes = _resultado_controle_ativo(estado)
             # Patch VM-11: reafirma geometria corrente antes de cada comando
             # (mesma autoridade do caminho TTY), para a primeira seta usar a
             # formacao atual mesmo apos mudancas de dimensao.
@@ -1790,6 +2029,8 @@ def main(argv=None, estado_inicial=None):
                 modelo = _carregar_modelo_por_id(estado["tela_atual"])
                 if estado["tela_atual"] == _ID_TELA_H0044:
                     estado = _anexar_fluxo_h0044(estado, modelo)
+                else:
+                    estado = _anexar_controle_execucao(estado, modelo)
                 if estado.get("modo_verboso_forcado") is True:
                     estado = dict(estado, modo_verboso=True)
                 else:
@@ -1805,6 +2046,13 @@ def main(argv=None, estado_inicial=None):
             resultado_mudou = bool(
                 getattr(fluxo_depois, "resultado_ativo", False)
             ) != resultado_antes
+            resultado_controle_mudou = (
+                _resultado_controle_ativo(estado) != resultado_controle_antes
+            )
+            controle_depois = estado.get("controle_execucao")
+            controle_mudou = getattr(
+                controle_depois, "modo_atual", None
+            ) != modo_controle_antes
             verboso_mudou = estado.get("modo_verboso", False) != verboso_antes
             foco_mudou = estado.get("foco_console") != foco_antes
             cursores_mudou = estado.get("cursores", {}) != cursores_antes
@@ -1819,6 +2067,8 @@ def main(argv=None, estado_inicial=None):
                 or paginas_mudou
                 or dry_mudou
                 or resultado_mudou
+                or resultado_controle_mudou
+                or controle_mudou
             ):
                 print(_resolver_conteudo(estado, modelo, largura, altura), end="")
     return 0

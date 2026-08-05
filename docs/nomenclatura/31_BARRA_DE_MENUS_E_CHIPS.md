@@ -47,6 +47,8 @@ Comportamento completo de cada comando permanece nos contratos
 - tipos de chip específico: toggle, múltiplo, aciona processo, aciona tela
 - rótulo dinâmico (`[⏎]` e `[Esc]`)
 - `[Ins] Dry-Run` (chip específico do fluxo focal; ADR-0037)
+- controle universal de execução real e `dry-run` (chip específico reutilizável; ADR-0040)
+- declaração `controle_execucao` e `controle_execucao.modo_inicial` do controle universal (ADR-0040)
 - ativo destacado (via `cor_alerta`; ADR-0037)
 - paginação limitada de `[<][>]` (ADR-0038)
 - entradas aceitas de página anterior/próxima página (ADR-0038)
@@ -70,7 +72,7 @@ ou símbolo acionável — ou informativo — exibido na região da tela.
 | Categoria | Definição |
 |---|---|
 | chip canônico | Chip pertencente à ordem fixa definida pelo sistema; sua existência é condicional à composição declarada pela tela |
-| chip específico | Chip próprio da classe de tela; posicionado entre `[␣]` e `[V]/[?]` na ordem |
+| chip específico | Chip próprio da classe de tela; posicionado entre `[⏎]` e `[V]/[?]` na ordem |
 
 ### 4.3 Ordem fixa dos chips canônicos
 
@@ -113,8 +115,8 @@ inativo: ou está presente e ativo, ou está ausente. Ver `contrato_chip.md` §8
 Chip específico da tela integrada do Handoff 4 — não é chip canônico
 universal. Tipo `alternancia`: toggle focal entre execução real e `dry-run`.
 Permanece ativo nos dois estados; ligado usa amarelo via `cor_alerta`; único
-eco é a cor do próprio texto. O `ITEM-0020` continua responsável pela futura
-padronização genérica dessa escolha.
+eco é a cor do próprio texto. O `ITEM-0020` continua aberto para a futura
+implementação e reconciliação dessa escolha com o padrão universal.
 
 ### 4.4.2 Paginação limitada de `[<][>]` (ADR-0038)
 
@@ -128,6 +130,31 @@ declarada, ambos ficam inativos; o acionamento não altera a página de outro
 console nem o foco corrente. Entradas aceitas: `,`/`<` para página anterior;
 `.`/`>` para próxima página. `[✥]` passa a considerar somente os itens
 navegáveis da página atual do console focado (ver §4.3).
+
+### 4.4.3 Controle universal de execução real e `dry-run` (ADR-0040)
+
+O **controle universal de execução real e `dry-run`** é um chip específico
+padronizado e reutilizável, fora da lista de chips canônicos. Sua existência
+está vinculada à declaração válida do objeto raiz `controle_execucao` no
+`tela.json`, com `controle_execucao.modo_inicial` obrigatório em `executar` ou
+`dry_run` e compatibilidade integral das ações de processo relevantes com os
+dois modos. A ausência do objeto ou uma declaração inválida significa ausência
+do chip. Usa `Insert` e tem rótulo dinâmico `[Ins] Real` ou `[Ins] Simulação`
+(D-DRY-12, rótulos vigentes que substituem `[Ins] Executar`/`[Ins] Dry-Run`,
+originalmente fixados por D-DRY-02 — histórico substituído). Permanece ativo
+nos dois estados; em `Real` usa aparência ativa normal e, somente em
+`Simulação`, o texto usa `cor_alerta`. O rótulo indica o modo corrente da
+futura execução — distinto do chip de ação `[⏎] Executar`, que inicia o
+processamento do lote atual. O rótulo é a indicação primária e a cor é
+reforço.
+
+O termo designa o padrão aplicável por instância de tela. Não é sinônimo do
+`[Ins] Dry-Run` focal da ADR-0037, que continua sendo a especialização do
+Handoff 4 do `ITEM-0006` e não é migrada por esta aplicação.
+O rótulo dinâmico representa o modo corrente preservado na mesma instância;
+o ciclo de vida desse modo — inclusive a preservação sob suspensão e a
+reinicialização em nova abertura ou recarga — é responsabilidade da tela e do
+runtime, não do chip.
 
 ### 4.5 Rótulo dinâmico — `[⏎]` e `[Esc]`
 
@@ -179,7 +206,7 @@ unicamente.
 | chip canônico × chip específico | Canônico: ordem fixa do sistema; específico: próprio da classe de tela |
 | existência × ativo/inativo | Existência: estática, declarada; ativo/inativo: dinâmico, recalculado |
 | ativo × ativo destacado | Ativo: operável; ativo destacado: operável com `cor_alerta` — não é inativo (ADR-0037) |
-| `[Ins] Dry-Run` × padrão universal real/`dry-run` | Especialização focal do Handoff 4; padronização genérica permanece no `ITEM-0020` |
+| `[Ins] Dry-Run` focal × controle universal real/`dry-run` | A especialização focal da ADR-0037 permanece vinculada ao Handoff 4; o controle universal da ADR-0040 é reutilizável por instância de tela e não migra a especialização |
 | `[⇆]` × `[✥]` | `[⇆]` muda o foco entre consoles focalizáveis; `[✥]` move o cursor entre itens do console focado |
 | `barra_de_menus.distribuicao = "horizontal"` × `corpo.arranjo = "horizontal"` | São termos diferentes em regiões diferentes — não colapsam |
 | paginação limitada (entre páginas) × navegação toroidal por eixo (dentro da página) | `[<][>]` não fazem wrap entre primeira e última página (ADR-0038); o toróide por eixo (ADR-0031) só se aplica ao cursor dentro de uma mesma página |
@@ -198,6 +225,7 @@ unicamente.
 - ADR-0031: condições de existência de `[⇆]` (≥2 consoles focalizáveis) e `[✥]` (console focado com >1 item navegável); existência dinâmica de `[✥]`.
 - ADR-0034: fecha, para `politica_selecao: multipla` (`ITEM-0006`), a condição de existência do chip `[␣]` e do rótulo dinâmico `Todos`/`Executar` de `[⏎]` já genéricos neste módulo (§4.3, §4.5); na tela padrão de resultado, `[Esc]` é o único chip declarado, com rótulo fixo `Voltar` (sem seleção ativa nessa tela).
 - ADR-0037: chip específico `[Ins] Dry-Run`; distinção ativo/inativo/ativo destacado; supersessão pontual da proibição de chip de `dry-run` (D-SEL-19); `ITEM-0020` permanece aberto para padronização genérica.
+- ADR-0040: controle universal de execução real e `dry-run`, distinto da especialização focal da ADR-0037.
 - ADR-0038: fecha, para `[<][>]`, a topologia limitada, a avaliação pelo console focado e as entradas aceitas; especializa, para `[✥]`, o universo de avaliação restrito à página atual do console focado.
 
 ## 8. Aliases ou termos descontinuados relacionados

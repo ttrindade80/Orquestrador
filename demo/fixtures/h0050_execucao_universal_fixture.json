@@ -1,0 +1,8 @@
+{
+  "itens": [
+    {"id": "item_01", "valor": "baseline-01"},
+    {"id": "item_02", "valor": "baseline-02"},
+    {"id": "item_03", "valor": "baseline-03"},
+    {"id": "item_04", "valor": "baseline-04"}
+  ]
+}

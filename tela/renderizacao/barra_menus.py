@@ -9,6 +9,7 @@ from tela.renderizacao.contexto_execucao import (
     _navegacao_atual,
     _pagina_atual_de_contexto,
 )
+from tela.controle_execucao import ControleExecucaoRepresentacao
 from tela.renderizacao.erros import RenderizadorErro
 from tela.renderizacao.texto_ansi import (
     _ANSI_POR_NOME_SEMANTICO,
@@ -524,7 +525,35 @@ def _garantir_esc_primeiro(chips):
     return [esc] + demais
 
 
-def _linhas_barra(barra_de_menus, estilo, content_w):
+def _posicionar_controle_execucao_apos_enter(chips):
+    """Mantem o chip de execucao imediatamente depois do chip Enter."""
+    indice_controle = next(
+        (
+            i for i, chip in enumerate(chips)
+            if chip.get("forma_exibicao") == "controle_execucao"
+        ),
+        None,
+    )
+    if indice_controle is None:
+        return list(chips)
+
+    controle = chips[indice_controle]
+    restantes = list(chips[:indice_controle]) + list(chips[indice_controle + 1:])
+    indice_enter = next(
+        (
+            i for i, chip in enumerate(restantes)
+            if chip.get("forma_exibicao") == "rotulo_dinamico_selecao"
+            or chip.get("tecla") in ("Enter", "⏎")
+        ),
+        None,
+    )
+    if indice_enter is None:
+        return list(chips)
+    restantes.insert(indice_enter + 1, controle)
+    return restantes
+
+
+def _linhas_barra(barra_de_menus, estilo, content_w, controle_execucao=None):
     """Linhas de conteudo para a caixa da barra de menus (H-0016).
 
     Renderiza os chips da ``barra_de_menus`` em distribuição horizontal
@@ -568,6 +597,25 @@ def _linhas_barra(barra_de_menus, estilo, content_w):
     chips = [c for c in chips_raw if isinstance(c, dict)]
     if not chips:
         return []
+
+    # H-0050: a barra apenas materializa a representação fornecida pelo
+    # controle por instância. A elegibilidade e a transição pertencem ao
+    # controle/registro; nenhum modo é inferido de ID, texto ou comportamento.
+    representacao = controle_execucao
+    if representacao is None:
+        candidato = _navegacao_atual.get("executar_disponivel")
+        if isinstance(candidato, ControleExecucaoRepresentacao):
+            representacao = candidato
+    if isinstance(representacao, ControleExecucaoRepresentacao):
+        chips = [
+            (
+                dict(chip, tecla="Ins", texto=representacao.rotulo)
+                if chip.get("forma_exibicao") == "controle_execucao"
+                and chip.get("id") == representacao.chip_id
+                else chip
+            )
+            for chip in chips
+        ]
 
     # H-0040 / ADR-0031 D14: regras dinamicas de existencia dos chips de
     # navegacao ``[⇆]`` (alternancia de foco) e ``[✥]`` (navegacao por setas).
@@ -791,6 +839,7 @@ def _linhas_barra(barra_de_menus, estilo, content_w):
     # A aplicação é centralizada na origem da ordenação da barra, valendo
     # para qualquer tela, sem condição específica por ID/JSON/cenário.
     chips = _garantir_esc_primeiro(chips)
+    chips = _posicionar_controle_execucao_apos_enter(chips)
 
     esp = distribuicao.get("espacamentos") or {}
     vao_ct = (esp.get("vao_chip_texto") or {}).get("minimo", 1)
@@ -798,7 +847,14 @@ def _linhas_barra(barra_de_menus, estilo, content_w):
     vao_entre_chips = (esp.get("vao_entre_chips") or {}).get("minimo", 2)
     vao_entre_colunas = (esp.get("vao_entre_colunas") or {}).get("minimo", 2)
 
-    chips_destacados = _navegacao_atual.get("chips_destacados") or frozenset()
+    chips_destacados = set(
+        _navegacao_atual.get("chips_destacados") or frozenset()
+    )
+    if (
+        isinstance(representacao, ControleExecucaoRepresentacao)
+        and representacao.destacado
+    ):
+        chips_destacados.add(representacao.chip_id)
     texto_chips = [
         _texto_chip_barra(
             c, estilo, vao=vao_ct,

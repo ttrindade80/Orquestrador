@@ -32,6 +32,8 @@ from tela.carregamento.validacao_matricial import _validar_distribuicao_matricia
 _ID_TELA_RAIZ = "orquestrador"
 
 _PERFIL_AUSENTE = object()
+_CONTROLE_EXECUCAO_AUSENTE = object()
+_MODOS_EXECUCAO_VALIDOS = frozenset(("executar", "dry_run"))
 
 _CAMPOS_CABECALHO = frozenset(("titulo", "descricao", "apresentacao"))
 _CAMPOS_APRESENTACAO_TITULO = frozenset(
@@ -75,6 +77,35 @@ def _exigir_string(valor, caminho):
     if not isinstance(valor, str):
         raise TelaEstruturaInvalida(
             "'{0}' deve ser string".format(caminho)
+        )
+
+
+def _validar_controle_execucao(controle):
+    """Valida a configuração fechada, sem criar estado de runtime."""
+    caminho = "controle_execucao"
+    if not isinstance(controle, dict):
+        raise TelaEstruturaInvalida(
+            "CONFIGURACAO_INVALIDA em {0}: esperado objeto".format(caminho)
+        )
+    desconhecidos = sorted(set(controle) - {"modo_inicial"})
+    if desconhecidos:
+        raise TelaEstruturaInvalida(
+            "CONFIGURACAO_INVALIDA em {0}: campo(s) desconhecido(s) {1!r}".format(
+                caminho, desconhecidos
+            )
+        )
+    if "modo_inicial" not in controle:
+        raise TelaEstruturaInvalida(
+            "CONFIGURACAO_INVALIDA em {0}.modo_inicial: campo ausente".format(
+                caminho
+            )
+        )
+    modo = controle["modo_inicial"]
+    if not isinstance(modo, str) or modo not in _MODOS_EXECUCAO_VALIDOS:
+        raise TelaEstruturaInvalida(
+            "CONFIGURACAO_INVALIDA em {0}.modo_inicial: valor {1!r}".format(
+                caminho, modo
+            )
         )
 
 
@@ -348,6 +379,14 @@ def carregar_tela(caminho_base, id_tela, raiz_telas=None):
     if "barra_de_menus" not in dados:
         raise TelaCampoObrigatorioAusente(campo="barra_de_menus")
 
+    controle_execucao = dados.get(
+        "controle_execucao", _CONTROLE_EXECUCAO_AUSENTE
+    )
+    if controle_execucao is not _CONTROLE_EXECUCAO_AUSENTE:
+        _validar_controle_execucao(controle_execucao)
+    else:
+        controle_execucao = None
+
     corpo = dados.get("corpo")
     if not isinstance(corpo, dict):
         raise TelaEstruturaInvalida(
@@ -468,6 +507,7 @@ def carregar_tela(caminho_base, id_tela, raiz_telas=None):
             "elementos": elementos_internos,
         },
         "barra_de_menus": dados.get("barra_de_menus"),
+        "controle_execucao": controle_execucao,
         "_raw": dados,
         "_config_lancador": config_lancador,
     }

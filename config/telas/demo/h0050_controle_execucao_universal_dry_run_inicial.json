@@ -1,0 +1,100 @@
+{
+  "schema": "tela.v1",
+  "id": "h0050_controle_execucao_universal_dry_run_inicial",
+  "cabecalho": {
+    "titulo": "Controle universal dry-run",
+    "descricao": "Escolha execução real ou dry-run",
+    "apresentacao": {
+      "titulo": {
+        "posicao": "esquerda",
+        "recuo_lateral": 0,
+        "capitalizacao": "maiusculas",
+        "formato_na_borda": "com_espacos_laterais"
+      },
+      "descricao": {
+        "max_caracteres": 200,
+        "alinhamento": "esquerda",
+        "recuo": 1,
+        "capitalizacao": "preservar"
+      }
+    }
+  },
+  "corpo": {
+    "arranjo": "vertical",
+    "elementos": [
+      {
+        "id": "console_execucao",
+        "tipo": "console",
+        "titulo": "Itens",
+        "itens": [
+          {"id": "item_01", "texto": "Item 01", "navegavel": true, "selecionavel": true},
+          {"id": "item_02", "texto": "Item 02", "navegavel": true, "selecionavel": true},
+          {"id": "item_03", "texto": "Item 03", "navegavel": true, "selecionavel": true},
+          {"id": "item_04", "texto": "Item 04", "navegavel": true, "selecionavel": true}
+        ],
+        "origem_dados": null,
+        "politica_composicao": {
+          "alinhamento": "esquerda",
+          "overflow_normal": "truncar_com_reticencias"
+        },
+        "politica_navegacao": {"navegavel": true},
+        "politica_selecao": "multipla",
+        "politica_paginacao": "sem",
+        "politica_exibicao": {"modo_inicial": "normal", "verboso": false},
+        "distribuicao_matricial": {
+          "formacao": {"politica": "preferencia_colunas", "colunas": {"minimo": 1, "maximo": 1}},
+          "ordem": "por_linha",
+          "dimensionamento": {"colunas": {"politica": "uniforme"}, "linhas": {"politica": "uniforme"}},
+          "espacamento": {
+            "margem_esquerda": {"minimo": 1},
+            "margem_direita": {"minimo": 1},
+            "margem_superior": {"minimo": 0},
+            "margem_inferior": {"minimo": 0},
+            "vao_horizontal": {"minimo": 1},
+            "vao_vertical": {"minimo": 0}
+          },
+          "distribuicao_horizontal": {"politica": "inicio"},
+          "distribuicao_vertical": {"politica": "inicio"},
+          "ordem_expansao": {"horizontal": "uniforme_margens_e_vaos", "vertical": "uniforme_margens_e_vaos"},
+          "politica_resto": {"horizontal": "ao_ultimo", "vertical": "ao_ultimo"},
+          "alinhamento_interno": {"horizontal": "inicio", "vertical": "topo"}
+        }
+      }
+    ]
+  },
+  "barra_de_menus": {
+    "distribuicao": {
+      "modo": "horizontal_responsiva",
+      "ordem": {"politica": "declaracao", "ancoras": {}},
+      "tentativa_inicial": "linha_unica",
+      "quebra": "multilinha_quando_nao_couber",
+      "preenchimento_multilinha": "coluna_a_coluna",
+      "preenchimentos_multilinha_suportados": ["coluna_a_coluna", "linha_a_linha"],
+      "linhas": {"minimo": 1, "maximo": 3, "preferir_menor_numero": true},
+      "alinhamento_linhas": "esquerda",
+      "espacamentos": {
+        "margem_horizontal": {"minimo": 1, "maximo": null},
+        "vao_chip_texto": {"minimo": 1, "maximo": 3},
+        "vao_entre_chips": {"minimo": 2, "maximo": 6},
+        "vao_entre_colunas": {"minimo": 2, "maximo": 8},
+        "vao_vertical_entre_linhas": {"minimo": 0, "maximo": 0}
+      },
+      "colunas": {"largura": "por_maior_item_da_coluna", "subcolunas": {"chip": {"alinhamento": "esquerda"}, "texto": {"alinhamento": "esquerda"}}},
+      "overflow": {"quando_nao_couber": "erro_layout", "nao_omitir_chips": true, "nao_truncar_texto": true, "nao_reordenar": true}
+    },
+    "chips": [
+      {"id": "chip_esc", "tipo": "acao", "tecla": "Esc", "texto": "Sair", "regra_existencia": "sempre", "regra_ativo": "sempre", "forma_exibicao": "rotulo_dinamico_esc"},
+      {"id": "chip_espaco", "tipo": "selecao", "tecla": "␣", "texto": "Marcar", "regra_existencia": "console_focado_com_selecao_multipla", "regra_ativo": "item_focalizado_selecionavel", "forma_exibicao": "visivel_ativo"},
+      {"id": "chip_enter", "tipo": "selecao", "tecla": "⏎", "texto": "Todos", "forma_exibicao": "rotulo_dinamico_selecao", "regra_existencia": "console_focado_com_selecao_multipla", "regra_ativo": "selecao_vazia"},
+      {"id": "chip_controle_execucao", "tipo": "alternancia", "tecla": "Ins", "texto": "Simulação", "forma_exibicao": "controle_execucao", "regra_existencia": "sempre", "regra_ativo": "sempre"},
+      {"id": "chip_verboso", "tipo": "acao", "tecla": "V", "texto": "Verboso", "regra_existencia": "sempre", "regra_ativo": "sempre", "forma_exibicao": "visivel_ativo"},
+      {"id": "chip_ajuda", "tipo": "acao", "tecla": "?", "texto": "Ajuda", "regra_existencia": "sempre", "regra_ativo": "sempre", "forma_exibicao": "visivel_ativo"}
+    ]
+  },
+  "referencias_de_acoes": {
+    "acao_enter": "h0050.controle_execucao"
+  },
+  "controle_execucao": {
+    "modo_inicial": "dry_run"
+  }
+}

@@ -18,6 +18,7 @@ metadata:
       - docs/adr/ADR-0031-navegacao-simples-e-selecao-unica-em-console-de-nivel-unico.md
       - docs/adr/ADR-0034-selecao-multipla-e-fluxo-focal-de-processamento.md
       - docs/adr/ADR-0036-carregamento-e-apresentacao-da-tela-padrao-de-resultado.md
+      - docs/adr/ADR-0040-padronizacao-universal-do-controle-de-execucao-real-e-dry-run.md
     reaproveitado_de_legado: false
   dependencias_nomenclatura:
     dependencias_obrigatorias:
@@ -198,9 +199,57 @@ O JSON pode declarar defaults:
 - modo verboso inicial;
 - página inicial;
 - foco inicial.
+- estado inicial do controle universal de execução, quando a tela declarar
+  essa capacidade, limitado semanticamente a `executar` ou `dry_run`.
 
 O estado de runtime pertence à execução e é recalculado ou atualizado enquanto
 a tela está aberta.
+
+Para o controle universal de execução real e `dry-run` (ADR-0040), a tela pode
+declarar, na raiz do `tela.json`, o objeto opcional `controle_execucao`:
+
+```json
+{
+  "controle_execucao": {
+    "modo_inicial": "executar"
+  }
+}
+```
+
+Quando `controle_execucao` estiver presente, ele é um campo raiz de tipo
+objeto e o campo condicionalmente obrigatório `controle_execucao.modo_inicial`
+aceita exatamente `executar` ou `dry_run`. Não existe default implícito. A
+ausência do objeto significa que a tela não adota o controle universal. O
+objeto é fechado e contém exatamente `modo_inicial`; qualquer propriedade
+interna adicional torna a configuração inválida. O objeto guarda somente a
+configuração concreta inicial; o modo corrente depois da abertura é estado de
+runtime, existe uma única vez por instância da tela e não é persistido de volta
+no `tela.json`. O fechamento é semântico e não exige tecnologia específica de
+schema.
+
+Na abertura, o runtime inicializa o modo pelo valor de
+`controle_execucao.modo_inicial`. A escolha corrente é preservada enquanto a
+mesma instância da tela existir: a suspensão por uma tela de resultado não
+reinicializa o modo, e o retorno à mesma instância preserva a escolha corrente.
+Uma nova abertura ou uma recarga da tela reinicializa o modo pelo valor
+declarado em `modo_inicial`, descartando o modo corrente anterior, mesmo quando
+o valor coincidir com o modo anterior. O
+encerramento da instância não persiste o modo no JSON.
+Essas regras do controle universal não alteram a especialização focal de
+retorno da ADR-0037.
+
+Uma tela só pode declarar `controle_execucao` quando todas as suas ações de
+processo relevantes aceitarem os dois modos. Ações de navegação e de simples
+visualização não entram nessa condição. `dry_run_ativo` permanece estado de
+runtime da especialização focal da ADR-0037 e não é promovido a configuração
+concreta. A tela não declara `categoria`, `modos_execucao_aceitos` nem
+metadado equivalente de compatibilidade, e não pode falsificar a autoridade da
+implementação registrada. Cada ação relevante deve resolver para o registro
+autoritativo; registro ausente, categoria ausente ou desconhecida, ou ação de
+processo sem declaração suficiente invalida a adoção de forma fechada. Ações
+legadas sem classificação permanecem inelegíveis para uma tela adotante. A
+resolução de ações de navegação e visualização não exige aceitação dos dois
+modos.
 
 ---
 
@@ -763,6 +812,37 @@ acao
 Este contrato não fecha o contrato completo de `chip`, mas exige que chips em
 `tela.json` sejam entidades declaradas, não hardcoded.
 
+### 19.1 Controle universal de execução real e `dry-run` (ADR-0040)
+
+Uma tela adota o controle universal somente pela declaração válida do objeto
+raiz opcional `controle_execucao`:
+
+```json
+{
+  "controle_execucao": {
+    "modo_inicial": "executar"
+  }
+}
+```
+
+O objeto é opcional. Se existir, `controle_execucao.modo_inicial` é obrigatório
+e sua enumeração é fechada em `executar` e `dry_run`; não há default implícito.
+A ausência do objeto significa não adoção da capacidade.
+
+Há um único modo corrente por instância da tela. Ele é estado de runtime e se
+aplica a todas as ações de processo relevantes compatíveis da tela. A tela só
+pode declarar o controle quando todas essas ações aceitarem os dois modos;
+ações de navegação e de simples visualização ficam fora dessa exigência.
+Nenhuma ação de processo pode ignorar silenciosamente o modo apresentado. O
+modo corrente não é persistido no JSON. `dry_run_ativo` continua pertencendo ao
+estado de runtime da especialização focal da ADR-0037. O ciclo de vida é
+explícito: a abertura inicializa pelo `modo_inicial`; suspensão por uma tela de
+resultado e retorno à mesma instância preservam o modo corrente; nova abertura
+ou recarga reinicializam pelo valor declarado, mesmo quando o valor coincidir
+com o modo anterior; o encerramento da instância não persiste o modo. Essas
+regras do controle universal não alteram a
+especialização focal de retorno da ADR-0037.
+
 ---
 
 ## 20. Ações
@@ -1081,6 +1161,13 @@ Critérios mínimos de validação:
 - bindings referenciam origens e campos existentes;
 - item navegável possui estrutura suficiente para navegação;
 - item selecionável só aparece em `console` com política compatível;
+- quando `controle_execucao` existe, `modo_inicial` existe e é exatamente
+  `executar` ou `dry_run`;
+- a ausência de `controle_execucao` não ativa o controle universal;
+- a tela com `controle_execucao` satisfaz a compatibilidade integral das ações
+  de processo relevantes com os dois modos;
+- o modo corrente permanece em runtime e não é persistido no `tela.json`;
+- `dry_run_ativo` não é tratado como configuração universal;
 - modo verboso só é ativável quando a instância permite;
 - não há comandos arbitrários no JSON.
 

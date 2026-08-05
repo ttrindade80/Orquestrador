@@ -24,6 +24,7 @@ metadata:
       - docs/adr/ADR-0036-carregamento-e-apresentacao-da-tela-padrao-de-resultado.md
       - docs/adr/ADR-0037-integracao-do-fluxo-focal-com-dry-run-e-restauracao-da-origem.md
       - docs/adr/ADR-0038-paginacao-interativa-limitada-em-console.md
+      - docs/adr/ADR-0040-padronizacao-universal-do-controle-de-execucao-real-e-dry-run.md
     reaproveitado_de_legado: false
   dependencias_nomenclatura:
     dependencias_obrigatorias:
@@ -307,8 +308,9 @@ Regras:
   estiver em foco;
 - item **com `acao_enter` válida** torna `[⏎]` **ativo** enquanto estiver em
   foco;
-- a ação deve ser **declarativa e registrada/whitelisted** no registro de ações
-  do `tela.json` — comando arbitrário é proibido;
+- a ação deve ser **declarativa e resolvida no registro autoritativo da
+  implementação** — comando arbitrário é proibido; o `tela.json` não é a
+  autoridade de categoria ou compatibilidade;
 - o renderer recalcula o estado de `[⏎]` a cada render com base no item em
   foco — não guarda estado entre renders.
 
@@ -1273,14 +1275,36 @@ handoff_3_fronteira_comportamental:
 A abertura da tela de resultado e a execução do retorno pertencem
 exclusivamente ao Handoff 4 (ADR-0036 D-H3-19) — ver §23.7.
 
+### 23.6.1 Transmissão do modo universal junto ao lote reconciliado (ADR-0040)
+
+Em operação baseada em seleção, a tela captura o modo corrente no instante do
+acionamento e transmite explicitamente `executar` ou `dry_run` na requisição;
+o modo capturado acompanha explicitamente o lote reconciliado quando aplicável.
+O modo não integra a identidade
+do lote, não altera a seleção nem a reconciliação e não é propriedade do
+console.
+
+O executor recebe o modo pela requisição já construída e não consulta
+diretamente o estado da interface. Alteração posterior do chip não modifica
+uma requisição iniciada. Foco, cursor, seleção e página continuam mecanismos
+independentes; a regra universal é da instância da tela, não do console.
+
+Antes dessa transmissão, a ação relevante deve ser resolvida no registro
+autoritativo da implementação. A categoria e os modos aceitos não podem ser
+declarados, contraditos ou falsificados pelo JSON ou pelo console. Ausência do
+registro, categoria ausente ou desconhecida e processo sem declaração suficiente
+falham de forma fechada antes da execução; navegação e visualização não
+participam da exigência de aceitar os dois modos. O console pode referenciar ou
+acionar a ação, mas não é proprietário de sua categoria ou compatibilidade.
+
 ### 23.7 Fronteiras deste contrato aplicado (ADR-0034 D-SEL-26; supersessões ADR-0036 D-H3-19 e ADR-0037 D-H4-04)
 
 Permanecem fora deste contrato aplicado: registry e dispatcher genéricos de
 ações (`ITEM-0004`); pilha genérica de telas (`ITEM-0005`); paginação
 interativa (`ITEM-0003` — especificação fechada pela ADR-0038, ver §24;
 implementação pendente); seleção compartilhada entre consoles compatíveis;
-padronização universal do toggle real/`dry-run` (`ITEM-0020`); colapso e
-expansão multinível (`ITEM-0007`).
+implementação do controle universal e futura reconciliação da instância focal
+(`ITEM-0020`); colapso e expansão multinível (`ITEM-0007`).
 
 A ADR-0036 substitui pontualmente, quanto à tela de resultado, a divisão
 original de D-SEL-21: a ativação do chip `Executar`, a abertura da tela de
@@ -1308,6 +1332,7 @@ Handoff 4 está em §23.9.
 - `docs/contratos/contrato_tela_json.md` — seção 34: perfil `resultado_execucao`;
 - `docs/contratos/contrato_composicao_corpo.md` — tela de resultado como composição;
 - `docs/nomenclatura/32_CONSOLE.md` — terminologia de seleção múltipla e reconciliação.
+- `docs/adr/ADR-0040-padronizacao-universal-do-controle-de-execucao-real-e-dry-run.md` — controle universal e transmissão explícita do modo.
 
 ### 23.9 Handoff 4 — integração focal, origem suspensa e retornos (ADR-0037)
 
