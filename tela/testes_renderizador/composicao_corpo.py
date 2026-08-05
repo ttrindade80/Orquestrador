@@ -102,7 +102,7 @@ def _modelo_horizontal(arranjo, elementos_spec, largura=42, titulo_cab="H",
     return ModeloTela(
         id="teste_h0019",
         schema="tela.v1",
-        cabecalho={"titulo": titulo_cab, "descricao": "teste h0019"},
+        cabecalho={"titulo": titulo_cab, "descricao": "teste h0019", "apresentacao": {"titulo": {"posicao": "esquerda", "recuo_lateral": 0, "capitalizacao": "maiusculas", "formato_na_borda": "com_espacos_laterais"}, "descricao": {"max_caracteres": 200, "alinhamento": "esquerda", "recuo": 1, "capitalizacao": "preservar"}}},
         corpo=Corpo(arranjo=arranjo, elementos=elementos, distribuicao=distribuicao),
         barra_de_menus={"chips": [{"id": "c1", "tecla": "k", "texto": "Ok"}]},
         _raw={},
@@ -1243,7 +1243,7 @@ class TestDistribuicaoVerticalH0025:
         return ModeloTela(
             id="teste_h0025",
             schema="tela.v1",
-            cabecalho={"titulo": "H0025", "descricao": "dist vertical"},
+            cabecalho={"titulo": "H0025", "descricao": "dist vertical", "apresentacao": {"titulo": {"posicao": "esquerda", "recuo_lateral": 0, "capitalizacao": "maiusculas", "formato_na_borda": "com_espacos_laterais"}, "descricao": {"max_caracteres": 200, "alinhamento": "esquerda", "recuo": 1, "capitalizacao": "preservar"}}},
             corpo=Corpo(
                 arranjo="vertical", elementos=elementos,
                 distribuicao=distribuicao,
@@ -1604,7 +1604,7 @@ class TestDistribuicaoVerticalH0025:
         modelo_h = ModeloTela(
             id="teste_h0025_h",
             schema="tela.v1",
-            cabecalho={"titulo": "H0025H", "descricao": "horizontal"},
+            cabecalho={"titulo": "H0025H", "descricao": "horizontal", "apresentacao": {"titulo": {"posicao": "esquerda", "recuo_lateral": 0, "capitalizacao": "maiusculas", "formato_na_borda": "com_espacos_laterais"}, "descricao": {"max_caracteres": 200, "alinhamento": "esquerda", "recuo": 1, "capitalizacao": "preservar"}}},
             corpo=Corpo(
                 arranjo="horizontal",
                 elementos=[
@@ -1713,7 +1713,7 @@ class TestDistribuicaoHorizontalH0026:
         return ModeloTela(
             id="teste_h0026",
             schema="tela.v1",
-            cabecalho={"titulo": "H0026", "descricao": "dist horizontal"},
+            cabecalho={"titulo": "H0026", "descricao": "dist horizontal", "apresentacao": {"titulo": {"posicao": "esquerda", "recuo_lateral": 0, "capitalizacao": "maiusculas", "formato_na_borda": "com_espacos_laterais"}, "descricao": {"max_caracteres": 200, "alinhamento": "esquerda", "recuo": 1, "capitalizacao": "preservar"}}},
             corpo=Corpo(
                 arranjo="horizontal", elementos=elementos,
                 distribuicao=distribuicao,
@@ -2053,7 +2053,7 @@ class TestDistribuicaoHorizontalH0026:
         def _tela_horizontal(id_tela, distribuicao):
             return {
                 "schema": "tela.v1", "id": id_tela,
-                "cabecalho": {"titulo": "T", "descricao": "D"},
+                "cabecalho": {"titulo": "T", "descricao": "D", "apresentacao": {"titulo": {"posicao": "esquerda", "recuo_lateral": 0, "capitalizacao": "maiusculas", "formato_na_borda": "com_espacos_laterais"}, "descricao": {"max_caracteres": 200, "alinhamento": "esquerda", "recuo": 1, "capitalizacao": "preservar"}}},
                 "corpo": {
                     "arranjo": "horizontal",
                     "elementos": [
@@ -2135,7 +2135,7 @@ def _modelo_hierarquico(corpo_arranjo, corpo_elementos, largura=42, titulo_cab="
     return ModeloTela(
         id="teste_h0027",
         schema="tela.v1",
-        cabecalho={"titulo": titulo_cab, "descricao": "teste hierarquia"},
+        cabecalho={"titulo": titulo_cab, "descricao": "teste hierarquia", "apresentacao": {"titulo": {"posicao": "esquerda", "recuo_lateral": 0, "capitalizacao": "maiusculas", "formato_na_borda": "com_espacos_laterais"}, "descricao": {"max_caracteres": 200, "alinhamento": "esquerda", "recuo": 1, "capitalizacao": "preservar"}}},
         corpo=Corpo(arranjo=corpo_arranjo, elementos=corpo_elementos,
                     distribuicao=corpo_distribuicao),
         barra_de_menus={"chips": [{"id": "c1", "tecla": "k", "texto": "Ok"}]},
@@ -2941,7 +2941,7 @@ class TestOcupacaoIntegralCorpoH0033:
         modelo = ModeloTela(
             id="teste_da04",
             schema="tela.v1",
-            cabecalho={"titulo": "DA04", "descricao": "sem visuais"},
+            cabecalho={"titulo": "DA04", "descricao": "sem visuais", "apresentacao": {"titulo": {"posicao": "esquerda", "recuo_lateral": 0, "capitalizacao": "maiusculas", "formato_na_borda": "com_espacos_laterais"}, "descricao": {"max_caracteres": 200, "alinhamento": "esquerda", "recuo": 1, "capitalizacao": "preservar"}}},
             corpo=Corpo(arranjo="vertical", elementos=[], distribuicao=None),
             barra_de_menus={"chips": [{"id": "e", "tecla": "Esc", "texto": "Sair"}]},
             _raw={},
@@ -3072,7 +3072,7 @@ class TestOcupacaoIntegralCorpoH0033:
         m = ModeloTela(
             id="teste_h0033_h",
             schema="tela.v1",
-            cabecalho={"titulo": "H0033H", "descricao": "h0033 horizontal"},
+            cabecalho={"titulo": "H0033H", "descricao": "h0033 horizontal", "apresentacao": {"titulo": {"posicao": "esquerda", "recuo_lateral": 0, "capitalizacao": "maiusculas", "formato_na_borda": "com_espacos_laterais"}, "descricao": {"max_caracteres": 200, "alinhamento": "esquerda", "recuo": 1, "capitalizacao": "preservar"}}},
             corpo=Corpo(arranjo="horizontal", elementos=elementos,
                         distribuicao=corpo_dist),
             barra_de_menus={"chips": [{"id": "esc", "tecla": "Esc", "texto": "Sair"}]},
@@ -3271,7 +3271,7 @@ class TestHelperHorizontalH0033Patch2:
         return ModeloTela(
             id="teste_patch2",
             schema="tela.v1",
-            cabecalho={"titulo": "P2", "descricao": "patch2"},
+            cabecalho={"titulo": "P2", "descricao": "patch2", "apresentacao": {"titulo": {"posicao": "esquerda", "recuo_lateral": 0, "capitalizacao": "maiusculas", "formato_na_borda": "com_espacos_laterais"}, "descricao": {"max_caracteres": 200, "alinhamento": "esquerda", "recuo": 1, "capitalizacao": "preservar"}}},
             corpo=Corpo(arranjo="horizontal", elementos=elementos,
                         distribuicao=corpo_dist),
             barra_de_menus={"chips": [{"id": "e", "tecla": "Esc", "texto": "Sair"}]},
@@ -3426,7 +3426,7 @@ class TestHelperHorizontalH0033Patch2:
         modelo = ModeloTela(
             id="teste_p10",
             schema="tela.v1",
-            cabecalho={"titulo": "P10", "descricao": "regressao vertical"},
+            cabecalho={"titulo": "P10", "descricao": "regressao vertical", "apresentacao": {"titulo": {"posicao": "esquerda", "recuo_lateral": 0, "capitalizacao": "maiusculas", "formato_na_borda": "com_espacos_laterais"}, "descricao": {"max_caracteres": 200, "alinhamento": "esquerda", "recuo": 1, "capitalizacao": "preservar"}}},
             corpo=Corpo(
                 arranjo="vertical",
                 elementos=[

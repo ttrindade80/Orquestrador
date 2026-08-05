@@ -3,7 +3,21 @@
   "id": "h0035_centralizado_h_colunas",
   "cabecalho": {
     "titulo": "H0035 Centro H",
-    "descricao": "12 partic. pref_colunas 3-4 cols — pol_h=centro"
+    "descricao": "12 partic. pref_colunas 3-4 cols — pol_h=centro",
+    "apresentacao":     {
+    "titulo": {
+      "posicao": "esquerda",
+      "recuo_lateral": 0,
+      "capitalizacao": "maiusculas",
+      "formato_na_borda": "com_espacos_laterais"
+    },
+    "descricao": {
+      "max_caracteres": 200,
+      "alinhamento": "esquerda",
+      "recuo": 1,
+      "capitalizacao": "preservar"
+    }
+  }
   },
   "corpo": {
     "arranjo": "vertical",

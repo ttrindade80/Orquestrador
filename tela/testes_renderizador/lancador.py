@@ -82,7 +82,7 @@ def _h0034_modelo_lancador(itens, largura=42, titulo_cab="T"):
     return ModeloTela(
         id="t_lancador",
         schema="tela.v1",
-        cabecalho={"titulo": titulo_cab, "descricao": "d"},
+        cabecalho={"titulo": titulo_cab, "descricao": "d", "apresentacao": {"titulo": {"posicao": "esquerda", "recuo_lateral": 0, "capitalizacao": "maiusculas", "formato_na_borda": "com_espacos_laterais"}, "descricao": {"max_caracteres": 200, "alinhamento": "esquerda", "recuo": 1, "capitalizacao": "preservar"}}},
         corpo=corpo,
         barra_de_menus={"chips": [{"id": "esc", "tecla": "Esc", "texto": "Sair"}]},
         _raw={},
@@ -124,7 +124,7 @@ def _h0034_modelo_isolado(area_lancador_w, terminal_w=80):
     return ModeloTela(
         id="teste_isolamento_lancador",
         schema="tela.v1",
-        cabecalho={"titulo": "TESTE", "descricao": "Isolamento"},
+        cabecalho={"titulo": "TESTE", "descricao": "Isolamento", "apresentacao": {"titulo": {"posicao": "esquerda", "recuo_lateral": 0, "capitalizacao": "maiusculas", "formato_na_borda": "com_espacos_laterais"}, "descricao": {"max_caracteres": 200, "alinhamento": "esquerda", "recuo": 1, "capitalizacao": "preservar"}}},
         corpo=corpo,
         barra_de_menus={"chips": [{"id": "esc", "tecla": "Esc", "texto": "Sair"}]},
         _raw={},
@@ -162,7 +162,7 @@ def _h0034_modelo_alinhamento(itens, alinhamento, largura):
     return ModeloTela(
         id="t_alin",
         schema="tela.v1",
-        cabecalho={"titulo": "T", "descricao": "d"},
+        cabecalho={"titulo": "T", "descricao": "d", "apresentacao": {"titulo": {"posicao": "esquerda", "recuo_lateral": 0, "capitalizacao": "maiusculas", "formato_na_borda": "com_espacos_laterais"}, "descricao": {"max_caracteres": 200, "alinhamento": "esquerda", "recuo": 1, "capitalizacao": "preservar"}}},
         corpo=corpo,
         barra_de_menus={"chips": [{"id": "esc", "tecla": "Esc", "texto": "Sair"}]},
         _raw={},
@@ -852,7 +852,7 @@ class TestDistribuicaoResponsivaH0034:
         modelo_sem_params = ModeloTela(
             id="sem_params",
             schema="tela.v1",
-            cabecalho={"titulo": "T", "descricao": "d"},
+        cabecalho={"titulo": "T", "descricao": "d", "apresentacao": {"titulo": {"posicao": "esquerda", "recuo_lateral": 0, "capitalizacao": "maiusculas", "formato_na_borda": "com_espacos_laterais"}, "descricao": {"max_caracteres": 200, "alinhamento": "esquerda", "recuo": 1, "capitalizacao": "preservar"}}},
             corpo=Corpo(
                 arranjo="vertical",
                 elementos=[
@@ -913,7 +913,7 @@ class TestDistribuicaoResponsivaH0034:
             return ModeloTela(
                 id="mc_t",
                 schema="tela.v1",
-                cabecalho={"titulo": "T", "descricao": "d"},
+        cabecalho={"titulo": "T", "descricao": "d", "apresentacao": {"titulo": {"posicao": "esquerda", "recuo_lateral": 0, "capitalizacao": "maiusculas", "formato_na_borda": "com_espacos_laterais"}, "descricao": {"max_caracteres": 200, "alinhamento": "esquerda", "recuo": 1, "capitalizacao": "preservar"}}},
                 corpo=Corpo(
                     arranjo="vertical",
                     elementos=[
@@ -1133,7 +1133,7 @@ class TestDistribuicaoResponsivaH0034:
         modelo_inv = ModeloTela(
             id="equiv_t",
             schema="tela.v1",
-            cabecalho={"titulo": "T", "descricao": "d"},
+        cabecalho={"titulo": "T", "descricao": "d", "apresentacao": {"titulo": {"posicao": "esquerda", "recuo_lateral": 0, "capitalizacao": "maiusculas", "formato_na_borda": "com_espacos_laterais"}, "descricao": {"max_caracteres": 200, "alinhamento": "esquerda", "recuo": 1, "capitalizacao": "preservar"}}},
             corpo=Corpo(
                 arranjo="vertical",
                 elementos=[

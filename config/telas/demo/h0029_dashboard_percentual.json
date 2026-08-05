@@ -3,7 +3,21 @@
   "id": "h0029_dashboard_percentual",
   "cabecalho": {
     "titulo": "H-0029 Dashboard Percentual",
-    "descricao": "Cardinalidade unitaria — corpo com modo percentual [100] e um dashboard direto"
+    "descricao": "Cardinalidade unitaria — corpo com modo percentual [100] e um dashboard direto",
+    "apresentacao":     {
+    "titulo": {
+      "posicao": "esquerda",
+      "recuo_lateral": 0,
+      "capitalizacao": "maiusculas",
+      "formato_na_borda": "com_espacos_laterais"
+    },
+    "descricao": {
+      "max_caracteres": 200,
+      "alinhamento": "esquerda",
+      "recuo": 1,
+      "capitalizacao": "preservar"
+    }
+  }
   },
   "corpo": {
     "arranjo": "vertical",

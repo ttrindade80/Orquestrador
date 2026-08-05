@@ -9,6 +9,7 @@ metadata:
   rastreabilidade:
     origem_especificacao: "docs/nomenclatura/10_ESTILO.md"
     adrs_aplicadas:
+      - docs/adr/ADR-0008-modelo-configuracao-por-tela.md
       - docs/adr/ADR-0021-separacao-demo-produto-politica-caminhos.md
       - docs/adr/ADR-0022-ponto-entrada-tela-inicial-orquestrador.md
       - docs/adr/ADR-0030-carregamento-global-e-materializacao-do-estilo.md
@@ -51,8 +52,9 @@ contrato e de sua aplicação documental.
 
 ## 2. Regra fundamental e autoridade global (formal, não observação)
 
-**`config/estilo.json` é a autoridade global exclusiva para a aparência
-compartilhada do terminal (ADR-0030 D1).** A escolha de aparência é global —
+**`config/estilo.json` é a biblioteca global de aparência compartilhada e a
+autoridade global exclusiva para a aparência do terminal (ADR-0008, ADR-0030
+D1).** A escolha de aparência é global —
 não é possível escolha diferente por tela neste modelo. Nenhuma classe de tela
 ou renderer pode hardcodar símbolo, cor ou caractere pertencente a esta
 especificação. Todo valor de aparência — incluindo os defaults listados abaixo
@@ -60,6 +62,21 @@ e os estados dinâmicos de cor da seção 3.5 (`cor_inativo` e `cor_alerta`,
 conforme ADR-0004) — deve vir do schema de estilo em tempo de execução, já
 resolvido pelo loader a partir de `config/estilo.json`.
 Hardcoding de qualquer campo desta seção é violação contratual.
+
+Como biblioteca global, `config/estilo.json` contém aparência compartilhada,
+incluindo bordas, forma visual de chips, indicadores, cores globais e demais
+campos universais vigentes. Não pertencem a `config/estilo.json`:
+
+- textos concretos de cabeçalho;
+- parâmetros locais de apresentação do cabeçalho;
+- composição de tela;
+- conteúdo de tela;
+- instâncias de `console`, `dashboard`, `lancador` ou `barra_de_menus`;
+- destinos, ações, bindings ou regras locais de uma tela.
+
+Esses elementos são configuração concreta da tela e pertencem ao JSON
+estrutural da respectiva tela. O estado vivo da execução também não pertence
+à biblioteca global de estilo.
 
 **Consumidores**: loader ou camada equivalente, renderer e demais componentes
 que precisem de valores de aparência. O loader carrega, valida e materializa

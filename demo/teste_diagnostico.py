@@ -387,7 +387,7 @@ def teste_telas_h0035_diagnostico():
         dir_telas.mkdir(parents=True, exist_ok=True)
         tela_inv = {
             "schema": "tela.v1", "id": "h0035_invalida",
-            "cabecalho": {"titulo": "T", "descricao": "D"},
+            "cabecalho": {"titulo": "T", "descricao": "D", "apresentacao": {"titulo": {"posicao": "esquerda", "recuo_lateral": 0, "capitalizacao": "maiusculas", "formato_na_borda": "com_espacos_laterais"}, "descricao": {"max_caracteres": 200, "alinhamento": "esquerda", "recuo": 1, "capitalizacao": "preservar"}}},
             "corpo": {"arranjo": "vertical", "distribuicao": {"modo": "igual"},
                       "elementos": [{
                           "id": "d", "tipo": "dashboard", "titulo": "G",

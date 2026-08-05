@@ -7,7 +7,21 @@
   },
   "cabecalho": {
     "titulo": "Matriz 26 Itens",
-    "descricao": "Formacao automatica de 1x26 a 26x1; preserva item logico e recalcula vizinhos apos redimensionamento."
+    "descricao": "Formacao automatica de 1x26 a 26x1; preserva item logico e recalcula vizinhos apos redimensionamento.",
+    "apresentacao":     {
+    "titulo": {
+      "posicao": "esquerda",
+      "recuo_lateral": 0,
+      "capitalizacao": "maiusculas",
+      "formato_na_borda": "com_espacos_laterais"
+    },
+    "descricao": {
+      "max_caracteres": 200,
+      "alinhamento": "esquerda",
+      "recuo": 1,
+      "capitalizacao": "preservar"
+    }
+  }
   },
   "corpo": {
     "arranjo": "vertical",

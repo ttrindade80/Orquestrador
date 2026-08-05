@@ -3,7 +3,21 @@
   "id": "h0035_quatro_centralizados",
   "cabecalho": {
     "titulo": "H0035 Quatro Centro",
-    "descricao": "Quatro participantes centralizados nos dois eixos, distribuicao uniforme"
+    "descricao": "Quatro participantes centralizados nos dois eixos, distribuicao uniforme",
+    "apresentacao":     {
+    "titulo": {
+      "posicao": "esquerda",
+      "recuo_lateral": 0,
+      "capitalizacao": "maiusculas",
+      "formato_na_borda": "com_espacos_laterais"
+    },
+    "descricao": {
+      "max_caracteres": 200,
+      "alinhamento": "esquerda",
+      "recuo": 1,
+      "capitalizacao": "preservar"
+    }
+  }
   },
   "corpo": {
     "arranjo": "vertical",

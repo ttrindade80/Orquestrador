@@ -140,14 +140,6 @@ esta lista.
 **Pre-requisitos:** Decisao do usuario sobre quebra, truncamento, reticencias, fallback e relacao com `max_caracteres`.
 **Proxima acao:** Apresentar alternativas visuais e obter decisao focal do usuario.
 
-### ITEM-0015 — Aplicar ADR-0008 aos contratos de cabeçalho e estilo
-**Tipo:** documentacao
-**Prioridade:** media
-**Status:** bloqueado
-**Descricao:** Verificar e materializar a aplicação documental remanescente da ADR-0008 nos contratos de cabeçalho e estilo.
-**Pre-requisitos:** Levantamento focal das alterações ainda ausentes e delimitação da aplicação necessária.
-**Proxima acao:** Verificar os contratos vigentes e definir o ciclo documental aplicável.
-
 ### ITEM-0016 — Reconciliar o comportamento de tx no console
 **Tipo:** documentacao
 **Prioridade:** media

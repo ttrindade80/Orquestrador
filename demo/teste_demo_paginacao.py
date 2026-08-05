@@ -1033,7 +1033,7 @@ def test_h0045_p06_sequencia_integrada_console_unico_e_dois_consoles():
     console_y = _console_paginado_selecionavel_h0045("console_y", "y", 40, "Y")
     modelo = ModeloTela(
         id="t4", schema="tela.v1",
-        cabecalho={"titulo": "Sequencia", "descricao": "d"},
+        cabecalho={"titulo": "Sequencia", "descricao": "d", "apresentacao": {"titulo": {"posicao": "esquerda", "recuo_lateral": 0, "capitalizacao": "maiusculas", "formato_na_borda": "com_espacos_laterais"}, "descricao": {"max_caracteres": 200, "alinhamento": "esquerda", "recuo": 1, "capitalizacao": "preservar"}}},
         corpo=Corpo(
             arranjo="horizontal", distribuicao={"modo": "igual"},
             elementos=[console_x, console_y],
@@ -1178,7 +1178,7 @@ def test_h0045_p07_sequencia_integrada_console_em_grupo():
     )
     modelo = ModeloTela(
         id="t7", schema="tela.v1",
-        cabecalho={"titulo": "Sequencia Grupo", "descricao": "d"},
+        cabecalho={"titulo": "Sequencia Grupo", "descricao": "d", "apresentacao": {"titulo": {"posicao": "esquerda", "recuo_lateral": 0, "capitalizacao": "maiusculas", "formato_na_borda": "com_espacos_laterais"}, "descricao": {"max_caracteres": 200, "alinhamento": "esquerda", "recuo": 1, "capitalizacao": "preservar"}}},
         corpo=Corpo(arranjo="vertical", elementos=[grupo]),
         barra_de_menus={"chips": []}, _raw={},
     )
@@ -3389,7 +3389,7 @@ def _p22_modelos_tela_aninhada():
     )
     modelo_aninhada = ModeloTela(
         id="tela_aninhada_p22", schema="tela.v1",
-        cabecalho={"titulo": "Aninhada P22", "descricao": "tela aninhada"},
+        cabecalho={"titulo": "Aninhada P22", "descricao": "tela aninhada", "apresentacao": {"titulo": {"posicao": "esquerda", "recuo_lateral": 0, "capitalizacao": "maiusculas", "formato_na_borda": "com_espacos_laterais"}, "descricao": {"max_caracteres": 200, "alinhamento": "esquerda", "recuo": 1, "capitalizacao": "preservar"}}},
         corpo=Corpo(arranjo="vertical", elementos=[console_aninhado]),
         barra_de_menus={
             "chips": [
@@ -3409,7 +3409,7 @@ def _p22_modelos_tela_aninhada():
     )
     modelo_raiz = ModeloTela(
         id="tela_raiz_p22", schema="tela.v1",
-        cabecalho={"titulo": "Raiz P22", "descricao": "tela anterior"},
+        cabecalho={"titulo": "Raiz P22", "descricao": "tela anterior", "apresentacao": {"titulo": {"posicao": "esquerda", "recuo_lateral": 0, "capitalizacao": "maiusculas", "formato_na_borda": "com_espacos_laterais"}, "descricao": {"max_caracteres": 200, "alinhamento": "esquerda", "recuo": 1, "capitalizacao": "preservar"}}},
         corpo=Corpo(arranjo="vertical", elementos=[lancador]),
         barra_de_menus={
             "chips": [{"id": "esc", "tipo": "acao", "tecla": "Esc", "texto": "Sair"}]

@@ -3,7 +3,21 @@
   "id": "h0030_matriz_2x2",
   "cabecalho": {
     "titulo": "H-0030 Matriz 2x2",
-    "descricao": "Catálogo — grupo matricial 2 linhas × 2 colunas"
+    "descricao": "Catálogo — grupo matricial 2 linhas × 2 colunas",
+    "apresentacao":     {
+    "titulo": {
+      "posicao": "esquerda",
+      "recuo_lateral": 0,
+      "capitalizacao": "maiusculas",
+      "formato_na_borda": "com_espacos_laterais"
+    },
+    "descricao": {
+      "max_caracteres": 200,
+      "alinhamento": "esquerda",
+      "recuo": 1,
+      "capitalizacao": "preservar"
+    }
+  }
   },
   "corpo": {
     "arranjo": "vertical",

@@ -3,7 +3,21 @@
   "id": "h0030_console_unico",
   "cabecalho": {
     "titulo": "H-0030 Console",
-    "descricao": "Catálogo — corpo com console único"
+    "descricao": "Catálogo — corpo com console único",
+    "apresentacao":     {
+    "titulo": {
+      "posicao": "esquerda",
+      "recuo_lateral": 0,
+      "capitalizacao": "maiusculas",
+      "formato_na_borda": "com_espacos_laterais"
+    },
+    "descricao": {
+      "max_caracteres": 200,
+      "alinhamento": "esquerda",
+      "recuo": 1,
+      "capitalizacao": "preservar"
+    }
+  }
   },
   "corpo": {
     "arranjo": "vertical",

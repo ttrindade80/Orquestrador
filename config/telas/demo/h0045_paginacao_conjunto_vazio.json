@@ -5,7 +5,24 @@
     "descricao": "H-0045: esqueleto de console paginado com zero itens reais (regressao controlada e base de H0045-VAL-VAZIO). Nao e prova universal de geometria.",
     "origem": "H-0045"
   },
-  "cabecalho": {"titulo": "Paginacao Vazia", "descricao": "Pagina visivel sem cursor navegavel (itens: [])."},
+  "cabecalho": {
+    "titulo": "Paginacao Vazia",
+    "descricao": "Pagina visivel sem cursor navegavel (itens: []).",
+    "apresentacao": {
+      "titulo": {
+        "posicao": "esquerda",
+        "recuo_lateral": 0,
+        "capitalizacao": "maiusculas",
+        "formato_na_borda": "com_espacos_laterais"
+      },
+      "descricao": {
+        "max_caracteres": 200,
+        "alinhamento": "esquerda",
+        "recuo": 1,
+        "capitalizacao": "preservar"
+      }
+    }
+  },
   "corpo": {"arranjo": "vertical", "elementos": [
     {"id": "console_vazio", "tipo": "console", "titulo": "Vazio", "origem_dados": null,
      "itens": [],

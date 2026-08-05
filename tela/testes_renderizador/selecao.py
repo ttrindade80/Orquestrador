@@ -832,7 +832,7 @@ class TestRotuloDinamicoEscP21:
         )
         modelo = ModeloTela(
             id="t_p21", schema="tela.v1",
-            cabecalho={"titulo": "T", "descricao": ""},
+        cabecalho={"titulo": "T", "descricao": "", "apresentacao": {"titulo": {"posicao": "esquerda", "recuo_lateral": 0, "capitalizacao": "maiusculas", "formato_na_borda": "com_espacos_laterais"}, "descricao": {"max_caracteres": 200, "alinhamento": "esquerda", "recuo": 1, "capitalizacao": "preservar"}}},
             corpo=Corpo(arranjo="vertical", elementos=[ca, cb]),
             barra_de_menus={
                 "distribuicao": "horizontal",

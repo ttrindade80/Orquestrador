@@ -3,7 +3,21 @@
   "id": "h0036_console_tabela",
   "cabecalho": {
     "titulo": "H0036 Tabela",
-    "descricao": "Console com conteudo externo multinivel (apresentacao tabela)"
+    "descricao": "Console com conteudo externo multinivel (apresentacao tabela)",
+    "apresentacao":     {
+    "titulo": {
+      "posicao": "esquerda",
+      "recuo_lateral": 0,
+      "capitalizacao": "maiusculas",
+      "formato_na_borda": "com_espacos_laterais"
+    },
+    "descricao": {
+      "max_caracteres": 200,
+      "alinhamento": "esquerda",
+      "recuo": 1,
+      "capitalizacao": "preservar"
+    }
+  }
   },
   "corpo": {
     "arranjo": "vertical",

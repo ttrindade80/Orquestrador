@@ -3,7 +3,21 @@
   "id": "h0037_console_verboso_dois_niveis",
   "cabecalho": {
     "titulo": "H0037 Verboso Dois Niveis",
-    "descricao": "Console somente verboso em dois niveis de hierarquia"
+    "descricao": "Console somente verboso em dois niveis de hierarquia",
+    "apresentacao":     {
+    "titulo": {
+      "posicao": "esquerda",
+      "recuo_lateral": 0,
+      "capitalizacao": "maiusculas",
+      "formato_na_borda": "com_espacos_laterais"
+    },
+    "descricao": {
+      "max_caracteres": 200,
+      "alinhamento": "esquerda",
+      "recuo": 1,
+      "capitalizacao": "preservar"
+    }
+  }
   },
   "corpo": {
     "arranjo": "vertical",

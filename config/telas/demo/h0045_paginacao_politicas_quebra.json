@@ -5,7 +5,24 @@
     "descricao": "H-0045: esqueleto/regressao controlada das tres politicas de quebra. Conteudo estatico serve apenas a geometria conhecida de regressao; nao e prova universal (capacidade fixa, 31 linhas ou N paginas). Validacao adaptativa: h0045_validacao_* + demo/casos_validacao_paginacao.py.",
     "origem": "H-0045"
   },
-  "cabecalho": {"titulo": "Politicas De Quebra", "descricao": "Esqueleto com as tres politicas; regressao controlada, nao prova universal."},
+  "cabecalho": {
+    "titulo": "Politicas De Quebra",
+    "descricao": "Esqueleto com as tres politicas; regressao controlada, nao prova universal.",
+    "apresentacao": {
+      "titulo": {
+        "posicao": "esquerda",
+        "recuo_lateral": 0,
+        "capitalizacao": "maiusculas",
+        "formato_na_borda": "com_espacos_laterais"
+      },
+      "descricao": {
+        "max_caracteres": 200,
+        "alinhamento": "esquerda",
+        "recuo": 1,
+        "capitalizacao": "preservar"
+      }
+    }
+  },
   "corpo": {"arranjo": "vertical", "elementos": [
     {"id": "console_politicas", "tipo": "console", "titulo": "Politicas", "origem_dados": null,
      "itens": [

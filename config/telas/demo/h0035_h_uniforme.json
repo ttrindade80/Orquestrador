@@ -3,7 +3,21 @@
   "id": "h0035_h_uniforme",
   "cabecalho": {
     "titulo": "H0035 H Uniforme",
-    "descricao": "12 partic. pref_linhas 3 linhas fixas — politica_horizontal=uniforme"
+    "descricao": "12 partic. pref_linhas 3 linhas fixas — politica_horizontal=uniforme",
+    "apresentacao":     {
+    "titulo": {
+      "posicao": "esquerda",
+      "recuo_lateral": 0,
+      "capitalizacao": "maiusculas",
+      "formato_na_borda": "com_espacos_laterais"
+    },
+    "descricao": {
+      "max_caracteres": 200,
+      "alinhamento": "esquerda",
+      "recuo": 1,
+      "capitalizacao": "preservar"
+    }
+  }
   },
   "corpo": {
     "arranjo": "vertical",

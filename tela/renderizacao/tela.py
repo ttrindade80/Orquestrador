@@ -109,10 +109,12 @@ def _geometria_por_console(
         paginas_atuais=paginas_atuais, modelo=modelo,
     )
 
-    titulo = modelo.cabecalho.get("titulo", "(ausente)")
-    descricao = modelo.cabecalho.get("descricao", "(ausente)")
+    titulo = modelo.cabecalho["titulo"]
+    descricao = modelo.cabecalho["descricao"]
+    apresentacao = modelo.cabecalho["apresentacao"]
     caixa_cab = _caixa(
-        titulo.upper(), [descricao], borda, inner_w, content_w, label_max
+        titulo, [descricao], borda, inner_w, content_w, label_max,
+        apresentacao=apresentacao,
     )
     l_cab = _contar_linhas(caixa_cab)
 
@@ -342,13 +344,14 @@ def renderizar_tela(
     content_w = total_w - 3
     label_max = total_w - 4
 
-    titulo = modelo.cabecalho.get("titulo", "(ausente)")
-    descricao = modelo.cabecalho.get("descricao", "(ausente)")
-    label_cabecalho = titulo.upper()
+    titulo = modelo.cabecalho["titulo"]
+    descricao = modelo.cabecalho["descricao"]
+    apresentacao = modelo.cabecalho["apresentacao"]
 
     partes = [
         _caixa(
-            label_cabecalho, [descricao], borda, inner_w, content_w, label_max
+            titulo, [descricao], borda, inner_w, content_w, label_max,
+            apresentacao=apresentacao,
         )
     ]
 

@@ -33,6 +33,160 @@ _ID_TELA_RAIZ = "orquestrador"
 
 _PERFIL_AUSENTE = object()
 
+_CAMPOS_CABECALHO = frozenset(("titulo", "descricao", "apresentacao"))
+_CAMPOS_APRESENTACAO_TITULO = frozenset(
+    ("posicao", "recuo_lateral", "capitalizacao", "formato_na_borda")
+)
+_CAMPOS_APRESENTACAO_DESCRICAO = frozenset(
+    ("max_caracteres", "alinhamento", "recuo", "capitalizacao")
+)
+_POSICOES_CABECALHO = frozenset(("esquerda", "centro", "direita"))
+_CAPITALIZACOES_CABECALHO = frozenset(("maiusculas", "inicio_de_frase"))
+_CAPITALIZACOES_DESCRICAO = frozenset(
+    ("maiusculas", "inicio_de_frase", "preservar")
+)
+_FORMATO_NA_BORDA_VALIDO = "com_espacos_laterais"
+
+
+def _validar_objeto_fechado(objeto, caminho, campos_esperados):
+    """Valida o tipo e a superfície fechada de um objeto declarativo."""
+    if not isinstance(objeto, dict):
+        raise TelaEstruturaInvalida(
+            "'{0}' nao e um objeto".format(caminho)
+        )
+    desconhecidos = sorted(set(objeto) - campos_esperados)
+    if desconhecidos:
+        raise TelaEstruturaInvalida(
+            "campo(s) desconhecido(s) em {0}: {1}".format(
+                caminho, ", ".join(repr(campo) for campo in desconhecidos)
+            )
+        )
+
+
+def _exigir_campo(objeto, campo, caminho):
+    if campo not in objeto:
+        raise TelaCampoObrigatorioAusente(
+            campo="{0}.{1}".format(caminho, campo)
+        )
+    return objeto[campo]
+
+
+def _exigir_string(valor, caminho):
+    if not isinstance(valor, str):
+        raise TelaEstruturaInvalida(
+            "'{0}' deve ser string".format(caminho)
+        )
+
+
+def _exigir_inteiro_nao_bool(valor, caminho, minimo=None, maximo=None):
+    if isinstance(valor, bool) or not isinstance(valor, int):
+        raise TelaEstruturaInvalida(
+            "'{0}' deve ser inteiro".format(caminho)
+        )
+    if minimo is not None and valor < minimo:
+        raise TelaEstruturaInvalida(
+            "'{0}' deve ser maior ou igual a {1}".format(caminho, minimo)
+        )
+    if maximo is not None and valor > maximo:
+        raise TelaEstruturaInvalida(
+            "'{0}' deve ser menor ou igual a {1}".format(caminho, maximo)
+        )
+
+
+def _exigir_enum(valor, caminho, valores):
+    if not isinstance(valor, str) or valor not in valores:
+        raise TelaEstruturaInvalida(
+            "'{0}' invalido: {1!r}; valores aceitos: {2}".format(
+                caminho, valor, ", ".join(sorted(valores))
+            )
+        )
+
+
+def _validar_cabecalho(cabecalho):
+    """Valida integralmente o schema fechado de ``cabecalho``."""
+    _validar_objeto_fechado(cabecalho, "cabecalho", _CAMPOS_CABECALHO)
+
+    titulo = _exigir_campo(cabecalho, "titulo", "cabecalho")
+    descricao = _exigir_campo(cabecalho, "descricao", "cabecalho")
+    apresentacao = _exigir_campo(cabecalho, "apresentacao", "cabecalho")
+    _exigir_string(titulo, "cabecalho.titulo")
+    _exigir_string(descricao, "cabecalho.descricao")
+    _validar_objeto_fechado(
+        apresentacao, "cabecalho.apresentacao",
+        frozenset(("titulo", "descricao")),
+    )
+
+    apresentacao_titulo = _exigir_campo(
+        apresentacao, "titulo", "cabecalho.apresentacao"
+    )
+    apresentacao_descricao = _exigir_campo(
+        apresentacao, "descricao", "cabecalho.apresentacao"
+    )
+    _validar_objeto_fechado(
+        apresentacao_titulo, "cabecalho.apresentacao.titulo",
+        _CAMPOS_APRESENTACAO_TITULO,
+    )
+    _validar_objeto_fechado(
+        apresentacao_descricao, "cabecalho.apresentacao.descricao",
+        _CAMPOS_APRESENTACAO_DESCRICAO,
+    )
+
+    caminho_titulo = "cabecalho.apresentacao.titulo"
+    posicao = _exigir_campo(apresentacao_titulo, "posicao", caminho_titulo)
+    recuo_lateral = _exigir_campo(
+        apresentacao_titulo, "recuo_lateral", caminho_titulo
+    )
+    capitalizacao_titulo = _exigir_campo(
+        apresentacao_titulo, "capitalizacao", caminho_titulo
+    )
+    formato_na_borda = _exigir_campo(
+        apresentacao_titulo, "formato_na_borda", caminho_titulo
+    )
+    _exigir_enum(posicao, caminho_titulo + ".posicao", _POSICOES_CABECALHO)
+    _exigir_inteiro_nao_bool(
+        recuo_lateral, caminho_titulo + ".recuo_lateral", minimo=0
+    )
+    _exigir_enum(
+        capitalizacao_titulo,
+        caminho_titulo + ".capitalizacao",
+        _CAPITALIZACOES_CABECALHO,
+    )
+    if formato_na_borda != _FORMATO_NA_BORDA_VALIDO:
+        raise TelaEstruturaInvalida(
+            "'{0}.formato_na_borda' invalido: {1!r}; valor aceito: {2}".format(
+                caminho_titulo, formato_na_borda, _FORMATO_NA_BORDA_VALIDO
+            )
+        )
+
+    caminho_descricao = "cabecalho.apresentacao.descricao"
+    max_caracteres = _exigir_campo(
+        apresentacao_descricao, "max_caracteres", caminho_descricao
+    )
+    alinhamento = _exigir_campo(
+        apresentacao_descricao, "alinhamento", caminho_descricao
+    )
+    recuo = _exigir_campo(apresentacao_descricao, "recuo", caminho_descricao)
+    capitalizacao_descricao = _exigir_campo(
+        apresentacao_descricao, "capitalizacao", caminho_descricao
+    )
+    _exigir_inteiro_nao_bool(
+        max_caracteres,
+        caminho_descricao + ".max_caracteres",
+        minimo=1,
+        maximo=200,
+    )
+    _exigir_enum(
+        alinhamento, caminho_descricao + ".alinhamento", _POSICOES_CABECALHO
+    )
+    _exigir_inteiro_nao_bool(
+        recuo, caminho_descricao + ".recuo", minimo=0
+    )
+    _exigir_enum(
+        capitalizacao_descricao,
+        caminho_descricao + ".capitalizacao",
+        _CAPITALIZACOES_DESCRICAO,
+    )
+
 def _tem_lancador_em_elementos(elementos):
     """Verifica recursivamente se algum elemento e do tipo 'lancador'."""
     for e in elementos:
@@ -186,6 +340,7 @@ def carregar_tela(caminho_base, id_tela, raiz_telas=None):
 
     if "cabecalho" not in dados:
         raise TelaCampoObrigatorioAusente(campo="cabecalho")
+    _validar_cabecalho(dados["cabecalho"])
 
     if "corpo" not in dados:
         raise TelaCampoObrigatorioAusente(campo="corpo")

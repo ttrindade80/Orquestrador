@@ -376,3 +376,11 @@ Nenhum item registrado.
 **Data:** 2026-08-03
 **Referências:** docs/adr/ADR-0038-paginacao-interativa-limitada-em-console.md; docs/handoff/H-0045-paginacao-interativa-limitada-em-console.md; docs/relatorios/RELATORIO_QA_POS_PATCH_IMPLEMENTACAO_H-0045_P25.md; docs/relatorios/RELATORIO_VALIDACAO_MANUAL_H-0045.md
 **Resumo:** Paginacao interativa limitada implementada com estado independente por console, comandos explicitos de pagina, indicador X/Y, reconciliacao de cursor por item logico, selecao persistente, tres politicas de quebra, conteudo multilinha, conjunto vazio e paginas somente de continuacao. O ciclo terminou com 970 testes aprovados, matriz tecnica de 60 dimensoes, validacao manual consolidada das etapas 6/17 a 17/17 e aprovacao das correcoes focais de Esc dinamico, largura horizontal e terminal insuficiente. O encerramento do ITEM-0003 removeu o bloqueio tecnico do ITEM-0018.
+
+### ITEM-0015 — Aplicar ADR-0008 aos contratos de cabeçalho e estilo
+
+**Resultado:** CONCLUIDO
+**Origem:** backlog
+**Data:** 2026-08-04
+**Referências:** docs/adr/ADR-0008-modelo-configuracao-por-tela.md; docs/handoff/H-0049-materializacao-local-dos-parametros-do-cabecalho.md; docs/relatorios/RELATORIO_QA_IMPLEMENTACAO_H-0049.md
+**Resumo:** A aplicação remanescente da ADR-0008 foi concluída. Os oito parâmetros de apresentação do cabeçalho passaram a pertencer ao JSON estrutural de cada tela; 72 telas foram migradas com baseline geométrico 0/1 e capitalização literal `preservar` para a descrição; oito conteúdos externos foram mantidos intactos; loader, modelo, renderer e geometria passaram a consumir o schema local fechado; 58 fixtures antigas foram adequadas; a configuração global obsoleta foi removida; e a suíte integral terminou com 998 testes aprovados.

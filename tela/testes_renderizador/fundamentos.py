@@ -1,5 +1,7 @@
 from pathlib import Path
 
+import pytest
+
 from tela.loader import carregar_tela, EstiloResolvido, carregar_conteudo_externo, carregar_estilo
 from tela.modelo import Corpo, ElementoCorpo, ModeloTela, construir_modelo, construir_conteudo_externo
 from tela.renderizador import (
@@ -56,6 +58,48 @@ __all__ = [
     'teste_largura_explicita',
     'teste_altura_explicita',
 ]
+
+
+def _cabecalho_h0049(titulo, descricao, **sobreposicoes):
+    cabecalho = {
+        "titulo": titulo,
+        "descricao": descricao,
+        "apresentacao": {
+            "titulo": {
+                "posicao": "esquerda",
+                "recuo_lateral": 0,
+                "capitalizacao": "maiusculas",
+                "formato_na_borda": "com_espacos_laterais",
+            },
+            "descricao": {
+                "max_caracteres": 200,
+                "alinhamento": "esquerda",
+                "recuo": 1,
+                "capitalizacao": "preservar",
+            },
+        },
+    }
+    for caminho, valor in sobreposicoes.items():
+        alvo = cabecalho
+        partes = caminho.split(".")
+        for parte in partes[:-1]:
+            alvo = alvo[parte]
+        alvo[partes[-1]] = valor
+    return cabecalho
+
+
+def _modelo_h0049(titulo="titulo", descricao="descricao", **sobreposicoes):
+    return ModeloTela(
+        id="h0049_renderer",
+        schema="tela.v1",
+        cabecalho=_cabecalho_h0049(titulo, descricao, **sobreposicoes),
+        corpo=Corpo(
+            arranjo="vertical",
+            elementos=[ElementoCorpo(id="console", tipo="console")],
+        ),
+        barra_de_menus={"chips": []},
+        _raw={},
+    )
 
 
 def teste_renderizador_orquestrador():
@@ -361,7 +405,7 @@ def teste_modelo_fabricado():
     modelo_fab = ModeloTela(
         id="teste_fabricado",
         schema="tela.v0",
-        cabecalho={"titulo": "Fab", "descricao": "desc fab"},
+        cabecalho=_cabecalho_h0049("Fab", "desc fab"),
         corpo=Corpo(
             arranjo="linear",
             elementos=[ElementoCorpo(id="e1", tipo="console")],
@@ -436,7 +480,7 @@ def teste_erros_renderizador():
     modelo_item_longo = ModeloTela(
         id="x",
         schema="tela.v1",
-        cabecalho={"titulo": "X", "descricao": "D"},
+        cabecalho=_cabecalho_h0049("X", "D"),
         corpo=Corpo(
             arranjo="sobreposto",
             elementos=[
@@ -486,7 +530,7 @@ def teste_erros_renderizador():
     modelo_item_limite = ModeloTela(
         id="y",
         schema="tela.v1",
-        cabecalho={"titulo": "Y", "descricao": "D"},
+        cabecalho=_cabecalho_h0049("Y", "D"),
         corpo=Corpo(
             arranjo="sobreposto",
             elementos=[
@@ -1141,3 +1185,193 @@ def teste_altura_explicita():
         renderizar_tela(modelo, _ESTILO_CURVA, largura=42, altura=n_minimo)
         == renderizar_tela(modelo, _ESTILO_CURVA, largura=42, altura=n_minimo),
     )
+
+
+def test_h0049_renderer_consumes_apresentacao_local():
+    esquerda = _modelo_h0049(
+        "titulo",
+        "descricao",
+        **{
+            "apresentacao.titulo.posicao": "esquerda",
+            "apresentacao.titulo.recuo_lateral": 0,
+        },
+    )
+    centro = _modelo_h0049(
+        "titulo",
+        "descricao",
+        **{
+            "apresentacao.titulo.posicao": "centro",
+            "apresentacao.titulo.recuo_lateral": 99,
+        },
+    )
+    direita = _modelo_h0049(
+        "titulo",
+        "descricao",
+        **{
+            "apresentacao.titulo.posicao": "direita",
+            "apresentacao.titulo.recuo_lateral": 2,
+        },
+    )
+    linhas = [
+        renderizar_tela(modelo, _ESTILO_CURVA, largura=30).splitlines()[0]
+        for modelo in (esquerda, centro, direita)
+    ]
+    assert len({linha for linha in linhas}) == 3
+    assert all(len(linha) == 30 for linha in linhas)
+    assert linhas[0].startswith("╭ TITULO ")
+    assert " TITULO " in linhas[1]
+    assert linhas[2].endswith("──╮")
+    assert linhas[0].count(" TITULO ") == 1
+    assert linhas[1].count(" TITULO ") == 1
+    assert linhas[2].count(" TITULO ") == 1
+
+
+def test_h0049_renderer_ordem_capitalizacao_truncamento_alinhamento_unicode():
+    modelo = _modelo_h0049(
+        "ßeta",
+        "  ßeta REST. segunda frase.",
+        **{
+            "apresentacao.titulo.capitalizacao": "inicio_de_frase",
+            "apresentacao.descricao.max_caracteres": 6,
+            "apresentacao.descricao.capitalizacao": "inicio_de_frase",
+            "apresentacao.descricao.alinhamento": "direita",
+            "apresentacao.descricao.recuo": 2,
+        },
+    )
+    linhas = renderizar_tela(modelo, _ESTILO_CURVA, largura=30).splitlines()
+    assert linhas[0].startswith("╭ SSeta ")
+    assert "SSeta" in linhas[1]
+    assert "REST" not in linhas[1]
+    assert "segunda" not in linhas[1]
+
+    vazio = _modelo_h0049(
+        "sem letras",
+        "123 --",
+        **{
+            "apresentacao.titulo.capitalizacao": "inicio_de_frase",
+            "apresentacao.descricao.capitalizacao": "inicio_de_frase",
+        },
+    )
+    vazias = renderizar_tela(vazio, _ESTILO_CURVA, largura=30).splitlines()
+    assert "123 --" in vazias[1]
+
+    casos_preservar = (
+        ("desc fab", "desc fab"),
+        ("Desc fab", "Desc fab"),
+        ("  execução da API REST", "  execução da API REST"),
+        ("123 - execução", "123 - execução"),
+        ("ßeta", "ßeta"),
+    )
+    for entrada, esperado in casos_preservar:
+        modelo = _modelo_h0049(
+            "t",
+            entrada,
+            **{"apresentacao.descricao.capitalizacao": "preservar"},
+        )
+        linha = renderizar_tela(modelo, _ESTILO_CURVA, largura=42).splitlines()[1]
+        assert esperado in linha
+
+    vazio = _modelo_h0049(
+        "t",
+        "",
+        **{"apresentacao.descricao.capitalizacao": "preservar"},
+    )
+    linha_vazia = renderizar_tela(vazio, _ESTILO_CURVA, largura=42).splitlines()[1]
+    assert linha_vazia == "│" + (" " * 40) + "│"
+
+    maiusculas = _modelo_h0049(
+        "t",
+        "desc fab",
+        **{"apresentacao.descricao.capitalizacao": "maiusculas"},
+    )
+    linha_maiusculas = renderizar_tela(
+        maiusculas, _ESTILO_CURVA, largura=42
+    ).splitlines()[1]
+    assert "DESC FAB" in linha_maiusculas
+    assert "desc fab" not in linha_maiusculas
+
+
+def test_h0049_renderer_alinhamentos_recuos_formato_borda_e_borda_global():
+    for alinhamento, recuo in (
+        ("esquerda", 1),
+        ("centro", 20),
+        ("direita", 2),
+    ):
+        modelo = _modelo_h0049(
+            "titulo",
+            "abc",
+            **{
+                "apresentacao.descricao.alinhamento": alinhamento,
+                "apresentacao.descricao.recuo": recuo,
+            },
+        )
+        saida = renderizar_tela(modelo, _ESTILO_CURVA, largura=30)
+        assert all(len(linha) == 30 for linha in saida.splitlines())
+        assert " titulo " not in saida.splitlines()[0]
+        assert " TITULO " in saida.splitlines()[0]
+
+    modelo = _modelo_h0049(
+        "titulo",
+        "texto",
+        **{
+            "apresentacao.descricao.alinhamento": "centro",
+            "apresentacao.descricao.recuo": 99,
+            "apresentacao.descricao.capitalizacao": "inicio_de_frase",
+        },
+    )
+    saida_reta = renderizar_tela(modelo, _ESTILO_RETA, largura=30)
+    assert saida_reta.startswith("┌ TITULO ")
+    assert "Texto" in saida_reta.splitlines()[1]
+
+
+def test_h0049_renderer_largura_reduzida_e_impossibilidade_geometrica():
+    modelo = _modelo_h0049(
+        "titulo muito comprido",
+        "uma descrição suficientemente longa",
+        **{"apresentacao.descricao.max_caracteres": 200},
+    )
+    saida = renderizar_tela(modelo, _ESTILO_CURVA, largura=14)
+    assert all(len(linha) == 14 for linha in saida.splitlines())
+
+    titulo_impossivel = _modelo_h0049(
+        "x", "d", **{"apresentacao.titulo.recuo_lateral": 100}
+    )
+    with pytest.raises(RenderizadorErro):
+        renderizar_tela(titulo_impossivel, _ESTILO_CURVA, largura=14)
+
+    descricao_impossivel = _modelo_h0049(
+        "x", "d", **{"apresentacao.descricao.recuo": 100}
+    )
+    with pytest.raises(RenderizadorErro):
+        renderizar_tela(descricao_impossivel, _ESTILO_CURVA, largura=14)
+
+
+def test_h0049_renderer_baseline_e_variacoes_locais_tem_geometrias_coerentes():
+    baseline = _modelo_h0049("mesmo titulo", "mesma descricao")
+    variante = _modelo_h0049(
+        "mesmo titulo",
+        "mesma descricao",
+        **{
+            "apresentacao.titulo.posicao": "direita",
+            "apresentacao.titulo.recuo_lateral": 1,
+            "apresentacao.descricao.alinhamento": "centro",
+            "apresentacao.descricao.recuo": 17,
+        },
+    )
+    saida_baseline = renderizar_tela(baseline, _ESTILO_CURVA, largura=30)
+    saida_variante = renderizar_tela(variante, _ESTILO_CURVA, largura=30)
+    assert saida_baseline.splitlines()[0] != saida_variante.splitlines()[0]
+    assert saida_baseline.splitlines()[1] != saida_variante.splitlines()[1]
+    assert len(saida_baseline.splitlines()) == len(saida_variante.splitlines())
+    assert all(len(linha) == 30 for linha in saida_baseline.splitlines())
+    assert all(len(linha) == 30 for linha in saida_variante.splitlines())
+    assert "titulo" not in saida_baseline.splitlines()[0]
+    assert "TITULO" in saida_baseline.splitlines()[0]
+
+
+def test_h0049_renderer_remove_upper_incondicional_do_cabecalho():
+    fonte = (_BASE_PADRAO / "tela" / "renderizacao" / "tela.py").read_text(
+        encoding="utf-8"
+    )
+    assert "label_cabecalho = titulo.upper()" not in fonte
+    assert "titulo.upper()" not in fonte

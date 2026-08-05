@@ -455,7 +455,7 @@ def teste_grade_navegacao_equivale_grade_visual_vigente():
         c = _console("c", itens, distribuicao=distribuicao, titulo="C")
         modelo = ModeloTela(
             id="t", schema="tela.v1",
-            cabecalho={"titulo": "T", "descricao": "d"},
+            cabecalho={"titulo": "T", "descricao": "d", "apresentacao": {"titulo": {"posicao": "esquerda", "recuo_lateral": 0, "capitalizacao": "maiusculas", "formato_na_borda": "com_espacos_laterais"}, "descricao": {"max_caracteres": 200, "alinhamento": "esquerda", "recuo": 1, "capitalizacao": "preservar"}}},
             corpo=Corpo(arranjo="vertical", elementos=[c]),
             barra_de_menus={"chips": []}, _raw={},
         )
@@ -883,7 +883,7 @@ def teste_mudanca_modo_preserva_item_logico():
     )
     modelo = ModeloTela(
         id="t", schema="tela.v1",
-        cabecalho={"titulo": "T", "descricao": "d"},
+        cabecalho={"titulo": "T", "descricao": "d", "apresentacao": {"titulo": {"posicao": "esquerda", "recuo_lateral": 0, "capitalizacao": "maiusculas", "formato_na_borda": "com_espacos_laterais"}, "descricao": {"max_caracteres": 200, "alinhamento": "esquerda", "recuo": 1, "capitalizacao": "preservar"}}},
         corpo=Corpo(arranjo="vertical", elementos=[c]),
         barra_de_menus={"chips": []}, _raw={},
     )
@@ -962,7 +962,7 @@ def teste_mudanca_modo_recalcula_grade_atual():
     )
     modelo = ModeloTela(
         id="t", schema="tela.v1",
-        cabecalho={"titulo": "T", "descricao": "d"},
+        cabecalho={"titulo": "T", "descricao": "d", "apresentacao": {"titulo": {"posicao": "esquerda", "recuo_lateral": 0, "capitalizacao": "maiusculas", "formato_na_borda": "com_espacos_laterais"}, "descricao": {"max_caracteres": 200, "alinhamento": "esquerda", "recuo": 1, "capitalizacao": "preservar"}}},
         corpo=Corpo(arranjo="vertical", elementos=[c]),
         barra_de_menus={"chips": []}, _raw={},
     )
@@ -1036,7 +1036,7 @@ def teste_indicador_apenas_console_focado():
     )
     modelo = ModeloTela(
         id="t", schema="tela.v1",
-        cabecalho={"titulo": "T", "descricao": "d"},
+        cabecalho={"titulo": "T", "descricao": "d", "apresentacao": {"titulo": {"posicao": "esquerda", "recuo_lateral": 0, "capitalizacao": "maiusculas", "formato_na_borda": "com_espacos_laterais"}, "descricao": {"max_caracteres": 200, "alinhamento": "esquerda", "recuo": 1, "capitalizacao": "preservar"}}},
         corpo=Corpo(arranjo="vertical", elementos=[c]),
         barra_de_menus={"chips": []}, _raw={},
     )
@@ -1103,7 +1103,7 @@ def teste_indicador_simbolo_do_estilo_coluna_estavel():
     )
     modelo = ModeloTela(
         id="t", schema="tela.v1",
-        cabecalho={"titulo": "T", "descricao": "d"},
+        cabecalho={"titulo": "T", "descricao": "d", "apresentacao": {"titulo": {"posicao": "esquerda", "recuo_lateral": 0, "capitalizacao": "maiusculas", "formato_na_borda": "com_espacos_laterais"}, "descricao": {"max_caracteres": 200, "alinhamento": "esquerda", "recuo": 1, "capitalizacao": "preservar"}}},
         corpo=Corpo(arranjo="vertical", elementos=[c]),
         barra_de_menus={"chips": []}, _raw={},
     )
@@ -1194,7 +1194,7 @@ def teste_continuacoes_recebem_selecionado_off():
     )
     modelo = ModeloTela(
         id="t", schema="tela.v1",
-        cabecalho={"titulo": "T", "descricao": "d"},
+        cabecalho={"titulo": "T", "descricao": "d", "apresentacao": {"titulo": {"posicao": "esquerda", "recuo_lateral": 0, "capitalizacao": "maiusculas", "formato_na_borda": "com_espacos_laterais"}, "descricao": {"max_caracteres": 200, "alinhamento": "esquerda", "recuo": 1, "capitalizacao": "preservar"}}},
         corpo=Corpo(arranjo="vertical", elementos=[c]),
         barra_de_menus={"chips": []}, _raw={},
     )

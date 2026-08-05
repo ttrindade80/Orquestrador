@@ -3,7 +3,21 @@
   "id": "h0029_grupo_igual",
   "cabecalho": {
     "titulo": "H-0029 Grupo Igual",
-    "descricao": "Cardinalidade unitaria — corpo igual com grupo igual e um dashboard interno"
+    "descricao": "Cardinalidade unitaria — corpo igual com grupo igual e um dashboard interno",
+    "apresentacao":     {
+    "titulo": {
+      "posicao": "esquerda",
+      "recuo_lateral": 0,
+      "capitalizacao": "maiusculas",
+      "formato_na_borda": "com_espacos_laterais"
+    },
+    "descricao": {
+      "max_caracteres": 200,
+      "alinhamento": "esquerda",
+      "recuo": 1,
+      "capitalizacao": "preservar"
+    }
+  }
   },
   "corpo": {
     "arranjo": "vertical",

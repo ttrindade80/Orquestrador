@@ -298,7 +298,7 @@ def _modelo_h0029(elementos, corpo_dist=None, largura=42):
     return ModeloTela(
         id="teste_h0029",
         schema="tela.v1",
-        cabecalho={"titulo": "H0029", "descricao": "h0029"},
+        cabecalho={"titulo": "H0029", "descricao": "h0029", "apresentacao": {"titulo": {"posicao": "esquerda", "recuo_lateral": 0, "capitalizacao": "maiusculas", "formato_na_borda": "com_espacos_laterais"}, "descricao": {"max_caracteres": 200, "alinhamento": "esquerda", "recuo": 1, "capitalizacao": "preservar"}}},
         corpo=Corpo(arranjo="vertical", elementos=elementos, distribuicao=corpo_dist),
         barra_de_menus={"chips": [{"id": "esc", "tecla": "Esc", "texto": "Voltar"}]},
         _raw={},

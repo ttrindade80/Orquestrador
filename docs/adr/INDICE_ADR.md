@@ -37,7 +37,7 @@ Este indice registra as ADRs aceitas do projeto.
 | ADR-0005 | lancador não é corpo navegável por [✥] | aceita | 2026-07-06 |
 | ADR-0006 | renomeação `dado` para `console` e `Info` para `dashboard` | aceita | 2026-07-06 |
 | ADR-0007 | tela de processamento é composição de tipos existentes | aceita | 2026-07-06 |
-| ADR-0008 | modelo de configuração por tela | aceita | 2026-07-07 |
+| ADR-0008 | modelo de configuração por tela | aceita; aplicação remanescente concluída; ITEM-0015 concluído em 2026-08-04; H-0049 implementado; QA da implementação aprovado; 998 testes aprovados; configuração global do cabeçalho removida; parâmetros materializados localmente nas telas | 2026-07-07 |
 | ADR-0009 | caminho, nomenclatura e formato dos JSONs de tela | aceita | 2026-07-07 |
 | ADR-0010 | composição hierárquica do corpo e dashboard como elemento funcional | aceita | 2026-07-08 |
 | ADR-0011 | terminologia de arranjo: `vertical`/`horizontal` (aliases transicionais `sobreposto`/`lado_a_lado`) | aceita | 2026-07-08 |

@@ -3,7 +3,21 @@
   "id": "h0035_pref_linhas",
   "cabecalho": {
     "titulo": "H0035 Pref Linhas",
-    "descricao": "12 partic. pref_linhas min=1 — ordem por_linha pol_h=inicio"
+    "descricao": "12 partic. pref_linhas min=1 — ordem por_linha pol_h=inicio",
+    "apresentacao":     {
+    "titulo": {
+      "posicao": "esquerda",
+      "recuo_lateral": 0,
+      "capitalizacao": "maiusculas",
+      "formato_na_borda": "com_espacos_laterais"
+    },
+    "descricao": {
+      "max_caracteres": 200,
+      "alinhamento": "esquerda",
+      "recuo": 1,
+      "capitalizacao": "preservar"
+    }
+  }
   },
   "corpo": {
     "arranjo": "vertical",

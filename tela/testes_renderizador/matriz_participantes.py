@@ -58,7 +58,7 @@ def _modelo_matriz_render_h0028(elementos, arranjo="vertical", distribuicao=None
     return ModeloTela(
         id="teste_h0028",
         schema="tela.v1",
-        cabecalho={"titulo": "H28", "descricao": "matriz"},
+        cabecalho={"titulo": "H28", "descricao": "matriz", "apresentacao": {"titulo": {"posicao": "esquerda", "recuo_lateral": 0, "capitalizacao": "maiusculas", "formato_na_borda": "com_espacos_laterais"}, "descricao": {"max_caracteres": 200, "alinhamento": "esquerda", "recuo": 1, "capitalizacao": "preservar"}}},
         corpo=Corpo(arranjo=arranjo, elementos=elementos, distribuicao=distribuicao),
         barra_de_menus={"chips": [{"id": "ok", "tecla": "k", "texto": "Ok"}]},
         _raw={},
@@ -2332,7 +2332,7 @@ class TestDistribuicaoMatricialH0035:
                       distribuicao={"modo": "igual"})
         return ModeloTela(
             id="t", schema="tela.v1",
-            cabecalho={"titulo": "T", "descricao": "D"},
+        cabecalho={"titulo": "T", "descricao": "D", "apresentacao": {"titulo": {"posicao": "esquerda", "recuo_lateral": 0, "capitalizacao": "maiusculas", "formato_na_borda": "com_espacos_laterais"}, "descricao": {"max_caracteres": 200, "alinhamento": "esquerda", "recuo": 1, "capitalizacao": "preservar"}}},
             corpo=corpo,
             barra_de_menus={"chips": [
                 {"id": "e", "tipo": "acao", "tecla": "Esc", "texto": "Sair"}]},
@@ -2404,7 +2404,7 @@ class TestDistribuicaoMatricialH0035:
         corpo = Corpo(arranjo="vertical", elementos=[el],
                       distribuicao={"modo": "igual"})
         m = ModeloTela(id="t", schema="tela.v1",
-                       cabecalho={"titulo": "T", "descricao": "D"},
+        cabecalho={"titulo": "T", "descricao": "D", "apresentacao": {"titulo": {"posicao": "esquerda", "recuo_lateral": 0, "capitalizacao": "maiusculas", "formato_na_borda": "com_espacos_laterais"}, "descricao": {"max_caracteres": 200, "alinhamento": "esquerda", "recuo": 1, "capitalizacao": "preservar"}}},
                        corpo=corpo,
                        barra_de_menus={"chips": [
                            {"id": "e", "tipo": "acao", "tecla": "Esc",
@@ -2428,7 +2428,7 @@ class TestDistribuicaoMatricialH0035:
         )
         corpo = Corpo(arranjo="vertical", elementos=[el], distribuicao=None)
         m = ModeloTela(id="t", schema="tela.v1",
-                       cabecalho={"titulo": "T", "descricao": "D"},
+        cabecalho={"titulo": "T", "descricao": "D", "apresentacao": {"titulo": {"posicao": "esquerda", "recuo_lateral": 0, "capitalizacao": "maiusculas", "formato_na_borda": "com_espacos_laterais"}, "descricao": {"max_caracteres": 200, "alinhamento": "esquerda", "recuo": 1, "capitalizacao": "preservar"}}},
                        corpo=corpo,
                        barra_de_menus={"chips": [
                            {"id": "e", "tipo": "acao", "tecla": "Esc",
@@ -2466,7 +2466,7 @@ class TestDistribuicaoMatricialH0035:
         corpo = Corpo(arranjo="vertical", elementos=[el],
                       distribuicao={"modo": "igual"})
         return ModeloTela(id="t", schema="tela.v1",
-                          cabecalho={"titulo": "T", "descricao": "D"},
+        cabecalho={"titulo": "T", "descricao": "D", "apresentacao": {"titulo": {"posicao": "esquerda", "recuo_lateral": 0, "capitalizacao": "maiusculas", "formato_na_borda": "com_espacos_laterais"}, "descricao": {"max_caracteres": 200, "alinhamento": "esquerda", "recuo": 1, "capitalizacao": "preservar"}}},
                           corpo=corpo,
                           barra_de_menus={"chips": [
                               {"id": "e", "tipo": "acao", "tecla": "Esc",
@@ -2516,7 +2516,7 @@ class TestDistribuicaoMatricialH0035:
         corpo = Corpo(arranjo="vertical", elementos=[el],
                       distribuicao={"modo": "igual"})
         m = ModeloTela(id="t", schema="tela.v1",
-                       cabecalho={"titulo": "T", "descricao": "D"},
+        cabecalho={"titulo": "T", "descricao": "D", "apresentacao": {"titulo": {"posicao": "esquerda", "recuo_lateral": 0, "capitalizacao": "maiusculas", "formato_na_borda": "com_espacos_laterais"}, "descricao": {"max_caracteres": 200, "alinhamento": "esquerda", "recuo": 1, "capitalizacao": "preservar"}}},
                        corpo=corpo,
                        barra_de_menus={"chips": [
                            {"id": "e", "tipo": "acao", "tecla": "Esc",
@@ -2589,7 +2589,7 @@ class TestDistribuicaoMatricialH0035:
             corpo = Corpo(arranjo="vertical", elementos=[el],
                           distribuicao={"modo": "igual"})
             m = ModeloTela(id="t", schema="tela.v1",
-                           cabecalho={"titulo": "T", "descricao": "D"},
+        cabecalho={"titulo": "T", "descricao": "D", "apresentacao": {"titulo": {"posicao": "esquerda", "recuo_lateral": 0, "capitalizacao": "maiusculas", "formato_na_borda": "com_espacos_laterais"}, "descricao": {"max_caracteres": 200, "alinhamento": "esquerda", "recuo": 1, "capitalizacao": "preservar"}}},
                            corpo=corpo,
                            barra_de_menus={"chips": [
                                {"id": "e", "tipo": "acao", "tecla": "Esc",

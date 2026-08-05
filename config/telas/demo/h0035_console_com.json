@@ -3,7 +3,21 @@
   "id": "h0035_console_com",
   "cabecalho": {
     "titulo": "H0035 Console Com",
-    "descricao": "12 itens console com distribuicao_matricial pref_colunas 2 cols"
+    "descricao": "12 itens console com distribuicao_matricial pref_colunas 2 cols",
+    "apresentacao":     {
+    "titulo": {
+      "posicao": "esquerda",
+      "recuo_lateral": 0,
+      "capitalizacao": "maiusculas",
+      "formato_na_borda": "com_espacos_laterais"
+    },
+    "descricao": {
+      "max_caracteres": 200,
+      "alinhamento": "esquerda",
+      "recuo": 1,
+      "capitalizacao": "preservar"
+    }
+  }
   },
   "corpo": {
     "arranjo": "vertical",

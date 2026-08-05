@@ -271,7 +271,7 @@ def test_h0045_p06_distribuicao_vertical_geometria_por_console_e_renderer_concor
     console_y = _console_paginado("console_y", "y", 12, "Y")
     modelo = ModeloTela(
         id="t5", schema="tela.v1",
-        cabecalho={"titulo": "Vertical", "descricao": "d"},
+        cabecalho={"titulo": "Vertical", "descricao": "d", "apresentacao": {"titulo": {"posicao": "esquerda", "recuo_lateral": 0, "capitalizacao": "maiusculas", "formato_na_borda": "com_espacos_laterais"}, "descricao": {"max_caracteres": 200, "alinhamento": "esquerda", "recuo": 1, "capitalizacao": "preservar"}}},
         corpo=Corpo(
             arranjo="vertical",
             distribuicao={"modo": "fracao", "valores": [2, 1]},
@@ -352,7 +352,7 @@ def test_h0045_p04_ids_duplicados_impedem_qualquer_renderizacao(tmp_path):
     dados = {
         "schema": "tela.v1",
         "id": id_tela,
-        "cabecalho": {"titulo": "X", "descricao": "Y"},
+        "cabecalho": {"titulo": "X", "descricao": "Y", "apresentacao": {"titulo": {"posicao": "esquerda", "recuo_lateral": 0, "capitalizacao": "maiusculas", "formato_na_borda": "com_espacos_laterais"}, "descricao": {"max_caracteres": 200, "alinhamento": "esquerda", "recuo": 1, "capitalizacao": "preservar"}}},
         "corpo": {
             "arranjo": "horizontal",
             "distribuicao": {"modo": "igual"},
@@ -447,7 +447,7 @@ def test_h0045_p07_console_dentro_de_grupo_geometria_real():
     grupo = _grupo_h0045p07("grupo_unico", [console_interno])
     modelo = ModeloTela(
         id="t2", schema="tela.v1",
-        cabecalho={"titulo": "Grupo", "descricao": "d"},
+        cabecalho={"titulo": "Grupo", "descricao": "d", "apresentacao": {"titulo": {"posicao": "esquerda", "recuo_lateral": 0, "capitalizacao": "maiusculas", "formato_na_borda": "com_espacos_laterais"}, "descricao": {"max_caracteres": 200, "alinhamento": "esquerda", "recuo": 1, "capitalizacao": "preservar"}}},
         corpo=Corpo(arranjo="vertical", elementos=[grupo]),
         barra_de_menus={"chips": []}, _raw={},
     )
@@ -504,7 +504,7 @@ def test_h0045_p07_dois_consoles_mesmo_grupo_geometrias_independentes():
     )
     modelo = ModeloTela(
         id="t3", schema="tela.v1",
-        cabecalho={"titulo": "Par", "descricao": "d"},
+        cabecalho={"titulo": "Par", "descricao": "d", "apresentacao": {"titulo": {"posicao": "esquerda", "recuo_lateral": 0, "capitalizacao": "maiusculas", "formato_na_borda": "com_espacos_laterais"}, "descricao": {"max_caracteres": 200, "alinhamento": "esquerda", "recuo": 1, "capitalizacao": "preservar"}}},
         corpo=Corpo(arranjo="vertical", elementos=[grupo]),
         barra_de_menus={"chips": []}, _raw={},
     )
@@ -572,7 +572,7 @@ def test_h0045_p07_grupo_aninhado_geometria_considera_ancestrais():
     )
     modelo = ModeloTela(
         id="t4", schema="tela.v1",
-        cabecalho={"titulo": "Aninhado", "descricao": "d"},
+        cabecalho={"titulo": "Aninhado", "descricao": "d", "apresentacao": {"titulo": {"posicao": "esquerda", "recuo_lateral": 0, "capitalizacao": "maiusculas", "formato_na_borda": "com_espacos_laterais"}, "descricao": {"max_caracteres": 200, "alinhamento": "esquerda", "recuo": 1, "capitalizacao": "preservar"}}},
         corpo=Corpo(arranjo="vertical", elementos=[grupo_externo]),
         barra_de_menus={"chips": []}, _raw={},
     )
@@ -629,7 +629,7 @@ def test_h0045_p07_console_ausente_retorna_none_sem_fallback():
     console_real = _console_paginado_h0045p07("console_real", "r", 5, "R")
     modelo = ModeloTela(
         id="t5", schema="tela.v1",
-        cabecalho={"titulo": "Ausente", "descricao": "d"},
+        cabecalho={"titulo": "Ausente", "descricao": "d", "apresentacao": {"titulo": {"posicao": "esquerda", "recuo_lateral": 0, "capitalizacao": "maiusculas", "formato_na_borda": "com_espacos_laterais"}, "descricao": {"max_caracteres": 200, "alinhamento": "esquerda", "recuo": 1, "capitalizacao": "preservar"}}},
         corpo=Corpo(arranjo="vertical", elementos=[console_real]),
         barra_de_menus={"chips": []}, _raw={},
     )
@@ -681,7 +681,7 @@ def test_h0045_p07_estrutura_matriz_geometria_por_celula():
     )
     modelo = ModeloTela(
         id="t6", schema="tela.v1",
-        cabecalho={"titulo": "Matriz", "descricao": "d"},
+        cabecalho={"titulo": "Matriz", "descricao": "d", "apresentacao": {"titulo": {"posicao": "esquerda", "recuo_lateral": 0, "capitalizacao": "maiusculas", "formato_na_borda": "com_espacos_laterais"}, "descricao": {"max_caracteres": 200, "alinhamento": "esquerda", "recuo": 1, "capitalizacao": "preservar"}}},
         corpo=Corpo(arranjo="vertical", elementos=[grupo_matriz]),
         barra_de_menus={"chips": []}, _raw={},
     )
@@ -1108,7 +1108,7 @@ def test_h0045_ph07_coerencia_renderer_mapa_fisico():
     )
     modelo = ModeloTela(
         id="t_ph07_coerencia", schema="tela.v1",
-        cabecalho={"titulo": "T", "descricao": "D"},
+        cabecalho={"titulo": "T", "descricao": "D", "apresentacao": {"titulo": {"posicao": "esquerda", "recuo_lateral": 0, "capitalizacao": "maiusculas", "formato_na_borda": "com_espacos_laterais"}, "descricao": {"max_caracteres": 200, "alinhamento": "esquerda", "recuo": 1, "capitalizacao": "preservar"}}},
         corpo=Corpo(arranjo="vertical", elementos=[console]),
         barra_de_menus={"chips": [
             {"id": "e", "tipo": "acao", "tecla": "Esc", "texto": "Sair"}]},
@@ -1194,7 +1194,7 @@ def test_h0045_ph07_distribuicao_matricial_multiplas_celulas_preservada():
     )
     modelo = ModeloTela(
         id="t_ph07_multi", schema="tela.v1",
-        cabecalho={"titulo": "T", "descricao": "D"},
+        cabecalho={"titulo": "T", "descricao": "D", "apresentacao": {"titulo": {"posicao": "esquerda", "recuo_lateral": 0, "capitalizacao": "maiusculas", "formato_na_borda": "com_espacos_laterais"}, "descricao": {"max_caracteres": 200, "alinhamento": "esquerda", "recuo": 1, "capitalizacao": "preservar"}}},
         corpo=Corpo(arranjo="vertical", elementos=[console]),
         barra_de_menus={"chips": [
             {"id": "e", "tipo": "acao", "tecla": "Esc", "texto": "Sair"}]},

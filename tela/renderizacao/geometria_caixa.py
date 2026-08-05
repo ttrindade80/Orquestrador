@@ -32,12 +32,88 @@ def _borda_de_estilo(estilo):
     }
 
 
-def _linha_topo(label, borda, label_max):
+def _capitalizar_inicio_de_frase(texto):
+    """Capitaliza somente o primeiro caractere alfabético de ``texto``."""
+    for indice, caractere in enumerate(texto):
+        if caractere.isalpha():
+            return texto[:indice] + caractere.upper() + texto[indice + 1:]
+    return texto
+
+
+def _capitalizar_cabecalho(texto, capitalizacao):
+    if capitalizacao == "maiusculas":
+        return texto.upper()
+    if capitalizacao == "inicio_de_frase":
+        return _capitalizar_inicio_de_frase(texto)
+    if capitalizacao == "preservar":
+        return texto
+    raise RenderizadorErro(
+        "capitalizacao de cabecalho desconhecida: {0!r}".format(
+            capitalizacao
+        )
+    )
+
+
+def _linha_topo(label, borda, label_max, apresentacao=None):
     """Monta a borda superior com label.
 
     Formato: {tl} {LABEL} {h x (label_max-len(LABEL))}{tr}
     Comprimento total: label_max + 4 == total_w.
     """
+    if apresentacao is not None:
+        configuracao = apresentacao["titulo"]
+        titulo = _capitalizar_cabecalho(
+            label, configuracao["capitalizacao"]
+        )
+        if configuracao["formato_na_borda"] != "com_espacos_laterais":
+            raise RenderizadorErro(
+                "formato_na_borda de cabecalho nao suportado: {0!r}".format(
+                    configuracao["formato_na_borda"]
+                )
+            )
+
+        largura_interna = label_max + 2
+        posicao = configuracao["posicao"]
+        recuo = configuracao["recuo_lateral"]
+        if largura_interna < 2:
+            raise RenderizadorErro(
+                "geometria impossivel para bloco do titulo do cabecalho"
+            )
+        if posicao == "centro":
+            limite_titulo = largura_interna - 2
+            titulo = titulo[:limite_titulo]
+            bloco = " " + titulo + " "
+            espaco = largura_interna - len(bloco)
+            esquerda = espaco // 2
+            direita = espaco - esquerda
+        else:
+            limite_titulo = largura_interna - recuo - 2
+            if limite_titulo < 0:
+                raise RenderizadorErro(
+                    "geometria impossivel para recuo_lateral do cabecalho"
+                )
+            titulo = titulo[:limite_titulo]
+            bloco = " " + titulo + " "
+            if posicao == "esquerda":
+                esquerda = recuo
+                direita = largura_interna - len(bloco) - esquerda
+            elif posicao == "direita":
+                direita = recuo
+                esquerda = largura_interna - len(bloco) - direita
+            else:
+                raise RenderizadorErro(
+                    "posicao de titulo de cabecalho desconhecida: {0!r}".format(
+                        posicao
+                    )
+                )
+        return "{tl}{0}{1}{2}{tr}".format(
+            borda["h_superior"] * esquerda,
+            bloco,
+            borda["h_superior"] * direita,
+            tl=borda["tl"],
+            tr=borda["tr"],
+        )
+
     label_trunc = label[:label_max]
     dashes = label_max - len(label_trunc)
     return "{tl} {0} {1}{tr}".format(
@@ -59,7 +135,7 @@ def _linha_base(borda, inner_w, texto_direita=None):
     return "{bl}{0}{br}".format(miolo, bl=borda["bl"], br=borda["br"])
 
 
-def _linha_conteudo(texto, borda, content_w):
+def _linha_conteudo(texto, borda, content_w, apresentacao=None):
     """Monta uma linha de conteudo: {v} {text:<content_w}{v}.
 
     Comprimento total VISUAL: content_w + 3 == total_w.
@@ -67,6 +143,43 @@ def _linha_conteudo(texto, borda, content_w):
     ``cor_inativo``/destaque nao deslocam a borda direita nem encurtam
     a moldura — H-0045-P02 / VM-H0045-R02-002).
     """
+    if apresentacao is not None:
+        configuracao = apresentacao["descricao"]
+        texto = texto[:configuracao["max_caracteres"]]
+        texto = _capitalizar_cabecalho(
+            texto, configuracao["capitalizacao"]
+        )
+        largura_interna = content_w + 1
+        alinhamento = configuracao["alinhamento"]
+        recuo = configuracao["recuo"]
+
+        if alinhamento == "centro":
+            texto = _cortar_sem_ansi(texto, largura_interna)
+            espaco = largura_interna - len(texto)
+            esquerda = espaco // 2
+            direita = espaco - esquerda
+        else:
+            limite_texto = largura_interna - recuo
+            if limite_texto < 0:
+                raise RenderizadorErro(
+                    "geometria impossivel para recuo da descricao do cabecalho"
+                )
+            texto = _cortar_sem_ansi(texto, limite_texto)
+            if alinhamento == "esquerda":
+                esquerda = recuo
+                direita = largura_interna - esquerda - len(texto)
+            elif alinhamento == "direita":
+                direita = recuo
+                esquerda = largura_interna - direita - len(texto)
+            else:
+                raise RenderizadorErro(
+                    "alinhamento de descricao de cabecalho desconhecido: {0!r}".format(
+                        alinhamento
+                    )
+                )
+        miolo = " " * esquerda + texto + " " * direita
+        return "{v}{0}{v}".format(miolo, v=borda["v"])
+
     txt = _cortar_sem_ansi(texto, content_w)
     miolo = _ljust_sem_ansi(txt, content_w)
     return "{v} {0}{v}".format(miolo, v=borda["v"])
@@ -81,6 +194,7 @@ def _caixa(
     label_max,
     altura_alvo=None,
     texto_base=None,
+    apresentacao=None,
 ):
     """Monta uma caixa bordeada com label no topo e linhas de conteudo.
 
@@ -89,9 +203,13 @@ def _caixa(
     inseridas entre o conteudo e a base ate que a caixa tenha altura_alvo linhas.
     Quando None, comportamento atual preservado (topo + conteudo + base).
     """
-    partes = [_linha_topo(label, borda, label_max)]
+    partes = [_linha_topo(label, borda, label_max, apresentacao=apresentacao)]
     for texto in linhas_conteudo:
-        partes.append(_linha_conteudo(texto, borda, content_w))
+        partes.append(
+            _linha_conteudo(
+                texto, borda, content_w, apresentacao=apresentacao
+            )
+        )
     if altura_alvo is not None:
         linha_fill = borda["v"] + " " * inner_w + borda["v"]
         while len(partes) < altura_alvo - 1:

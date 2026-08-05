@@ -44,7 +44,7 @@ Antes de mover este padrao para outro projeto, verificar:
    `contrato_barra_de_menus.md`, `contrato_cabecalho.md`,
    `contrato_lancador.md`, `contrato_tela_json.md`, `contrato_chip.md`,
    `contrato_console.md`; contratos incrementais de JSON:
-   `contrato_json_tela_minima.md`, `contrato_json_cabecalho.md`,
+   `contrato_json_tela_minima.md`,
    `contrato_json_barra_de_menus.md`, `contrato_json_lancador.md`,
    `contrato_json_dashboard.md`, `contrato_json_console.md`)
 6. `docs/handoff/README.md`
@@ -70,8 +70,7 @@ config/
     layout_console.json
     layout_dado.json       # obsoleto/transicional; nao canonico
     layout_menu.json       # obsoleto/transicional; nao canonico
-  elementos/               # futuro; parametros por elemento
-    cabecalho.json
+  elementos/               # futuro; parametros por elemento; sem configuracao vigente do cabecalho
     barra_de_menus.json
     lancador.json
 docs/
@@ -138,7 +137,7 @@ Fica na raiz do Orquestrador, irmã de `docs/`, nunca dentro de `docs/`.
 | Histórico (`docs/HISTORICO.md`) | Registro compacto de itens encerrados | Não é autoridade nem evidência detalhada; agrupa Concluídos, Cancelados, Substituídos e Incompatíveis (ADR-0033) |
 | Arquivo (`docs/arquivo/`) | Área de documentos históricos preservados integralmente | Sem autoridade normativa vigente; não orienta trabalho atual; não é carregada por padrão; leitura restrita a pesquisa histórica autorizada (ADR-0033) |
 | Nomenclatura modular (`docs/nomenclatura/`) | Base terminológica modular — 17 módulos proprietários por domínio | Leitura seletiva por contrato; `docs/NOMENCLATURA.md` é fachada de navegação; definições vivem nos módulos proprietários (ADR-0029) |
-| Config (`config/*.json`) | Valores concretos que o renderer lê | Modelo em migração pela ADR-0008 e organizado pela ADR-0021/ADR-0022: `config/estilo.json` permanece biblioteca global de estilo; telas do produto real ficam em `config/telas/<id>.json`; `config/telas/orquestrador.json` fica reservado à tela inicial real com `id: "orquestrador"`; telas demonstrativas ficam na futura raiz `config/telas/demo/<id>.json`; parâmetros gerais futuros ficam em `config/layouts/` e `config/elementos/`. |
+| Config (`config/*.json`) | Valores concretos que o renderer lê | Modelo por tela aplicado pela ADR-0008 e organizado pela ADR-0021/ADR-0022: `config/estilo.json` permanece biblioteca global de estilo; telas do produto real ficam em `config/telas/<id>.json`; `config/telas/orquestrador.json` fica reservado à tela inicial real com `id: "orquestrador"`; telas demonstrativas ficam em `config/telas/demo/<id>.json`; parâmetros gerais futuros ficam em `config/layouts/` e `config/elementos/`. |
 | Contrato | Define comportamento esperado | Deve ser aprovado antes da implementacao |
 | ADR | Registra decisao arquitetural | Nao substitui contrato; contratos afetados devem ser atualizados |
 | RFC | Propoe mudanca | Nao autoriza implementacao |

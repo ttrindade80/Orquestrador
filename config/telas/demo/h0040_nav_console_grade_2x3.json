@@ -7,7 +7,21 @@
   },
   "cabecalho": {
     "titulo": "Grade 2x3",
-    "descricao": "Matriz incompleta 2x3 em janela comum; redistribui ao estreitar a janela."
+    "descricao": "Matriz incompleta 2x3 em janela comum; redistribui ao estreitar a janela.",
+    "apresentacao":     {
+    "titulo": {
+      "posicao": "esquerda",
+      "recuo_lateral": 0,
+      "capitalizacao": "maiusculas",
+      "formato_na_borda": "com_espacos_laterais"
+    },
+    "descricao": {
+      "max_caracteres": 200,
+      "alinhamento": "esquerda",
+      "recuo": 1,
+      "capitalizacao": "preservar"
+    }
+  }
   },
   "corpo": {
     "arranjo": "vertical",

@@ -74,6 +74,20 @@ def _tela_base(**overrides):
         "cabecalho": {
             "titulo": "Resultado da execução",
             "descricao": "Resultado estruturado da operação realizada.",
+            "apresentacao": {
+                "titulo": {
+                    "posicao": "esquerda",
+                    "recuo_lateral": 0,
+                    "capitalizacao": "maiusculas",
+                    "formato_na_borda": "com_espacos_laterais",
+                },
+                "descricao": {
+                    "max_caracteres": 200,
+                    "alinhamento": "esquerda",
+                    "recuo": 1,
+                    "capitalizacao": "preservar",
+                },
+            },
         },
         "corpo": {
             "arranjo": "vertical",

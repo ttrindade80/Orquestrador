@@ -3,7 +3,21 @@
   "id": "h0035_lancador_sem",
   "cabecalho": {
     "titulo": "H0035 Lancador Sem",
-    "descricao": "Lancador sem distribuicao_matricial (ADR-0001/0002/0003 preservados)"
+    "descricao": "Lancador sem distribuicao_matricial (ADR-0001/0002/0003 preservados)",
+    "apresentacao":     {
+    "titulo": {
+      "posicao": "esquerda",
+      "recuo_lateral": 0,
+      "capitalizacao": "maiusculas",
+      "formato_na_borda": "com_espacos_laterais"
+    },
+    "descricao": {
+      "max_caracteres": 200,
+      "alinhamento": "esquerda",
+      "recuo": 1,
+      "capitalizacao": "preservar"
+    }
+  }
   },
   "corpo": {
     "arranjo": "vertical",

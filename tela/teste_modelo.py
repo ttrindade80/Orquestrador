@@ -50,6 +50,34 @@ _RESULTADOS = []
 _RAIZ_TELAS_DEMO = os.path.join("config", "telas", "demo")
 
 
+def _cabecalho_h0049(titulo="Titulo", descricao="Descricao", **sobreposicoes):
+    cabecalho = {
+        "titulo": titulo,
+        "descricao": descricao,
+        "apresentacao": {
+            "titulo": {
+                "posicao": "esquerda",
+                "recuo_lateral": 0,
+                "capitalizacao": "maiusculas",
+                "formato_na_borda": "com_espacos_laterais",
+            },
+            "descricao": {
+                "max_caracteres": 200,
+                "alinhamento": "esquerda",
+                "recuo": 1,
+                "capitalizacao": "preservar",
+            },
+        },
+    }
+    for caminho, valor in sobreposicoes.items():
+        alvo = cabecalho
+        partes = caminho.split(".")
+        for parte in partes[:-1]:
+            alvo = alvo[parte]
+        alvo[partes[-1]] = valor
+    return cabecalho
+
+
 def _registrar(nome, passou, detalhe=""):
     status = "PASSOU" if passou else "FALHOU"
     linha = "[{0}] {1}".format(status, nome)
@@ -504,7 +532,7 @@ def _raw_tela(id_tela, corpo):
     """Constroi o dict minimo que carregar_tela retornaria para uso direto em construir_modelo."""
     raw_json = {
         "schema": "tela.v1", "id": id_tela,
-        "cabecalho": {"titulo": "T", "descricao": "D"},
+        "cabecalho": _cabecalho_h0049("T", "D"),
         "corpo": corpo,
         "barra_de_menus": {"distribuicao": "horizontal", "chips": []},
     }
@@ -1066,7 +1094,7 @@ def teste_parametros_tipo_h0034():
     # Ponto 4: propagação direta (lancador no nível raiz do corpo)
     raw_direto = {
         "schema": "tela.v1", "id": "h34_direto",
-        "cabecalho": {"titulo": "T", "descricao": "d"},
+        "cabecalho": _cabecalho_h0049("T", "d"),
         "corpo": {"elementos": [{"id": "l1", "tipo": "lancador", "itens": []}]},
         "barra_de_menus": {"chips": []},
         "_raw": {},
@@ -1085,7 +1113,7 @@ def teste_parametros_tipo_h0034():
     # Ponto 5: propagação recursiva (lancador dentro de grupo)
     raw_rec = {
         "schema": "tela.v1", "id": "h34_rec",
-        "cabecalho": {"titulo": "T", "descricao": "d"},
+        "cabecalho": _cabecalho_h0049("T", "d"),
         "corpo": {"elementos": [
             {"id": "g1", "tipo": "grupo", "arranjo": "vertical",
              "elementos": [{"id": "l1", "tipo": "lancador", "itens": []}]},
@@ -1108,7 +1136,7 @@ def teste_parametros_tipo_h0034():
     # Ponto 6: ausência em outros tipos (console, dashboard)
     raw_misto = {
         "schema": "tela.v1", "id": "h34_misto",
-        "cabecalho": {"titulo": "T", "descricao": "d"},
+        "cabecalho": _cabecalho_h0049("T", "d"),
         "corpo": {"elementos": [
             {"id": "c1", "tipo": "console"},
             {"id": "d1", "tipo": "dashboard"},
@@ -1173,7 +1201,7 @@ def teste_parametros_tipo_h0034():
     }
     raw_alt = {
         "schema": "tela.v1", "id": "h34_alt",
-        "cabecalho": {"titulo": "T", "descricao": "d"},
+        "cabecalho": _cabecalho_h0049("T", "d"),
         "corpo": {"elementos": [{"id": "l1", "tipo": "lancador", "itens": []}]},
         "barra_de_menus": {"chips": []},
         "_raw": {},
@@ -1197,7 +1225,7 @@ def teste_parametros_tipo_h0034():
     # Ponto 9: identidade (parametros_tipo e o mesmo dict de _config_lancador)
     raw_id = {
         "schema": "tela.v1", "id": "h34_id",
-        "cabecalho": {"titulo": "T", "descricao": "d"},
+        "cabecalho": _cabecalho_h0049("T", "d"),
         "corpo": {"elementos": [{"id": "l1", "tipo": "lancador", "itens": []}]},
         "barra_de_menus": {"chips": []},
         "_raw": {},
@@ -1215,7 +1243,7 @@ def teste_parametros_tipo_h0034():
     # Ponto 10: retrocompatibilidade — raw sem _config_lancador nao levanta erro
     raw_sem = {
         "schema": "tela.v1", "id": "h34_sem",
-        "cabecalho": {"titulo": "T", "descricao": "d"},
+        "cabecalho": _cabecalho_h0049("T", "d"),
         "corpo": {"elementos": [{"id": "l1", "tipo": "lancador", "itens": []}]},
         "barra_de_menus": {"chips": []},
         "_raw": {},
@@ -1232,6 +1260,74 @@ def teste_parametros_tipo_h0034():
             "H-0034: construir_modelo sem _config_lancador nao levanta erro (parametros_tipo=None)",
             False, str(exc),
         )
+
+
+def test_h0049_modelo_transporta_textos_e_apresentacao_integralmente():
+    cabecalho = _cabecalho_h0049(
+        "Titulo MiX",
+        "  execução da API REST",
+        **{
+            "apresentacao.titulo.posicao": "direita",
+            "apresentacao.titulo.recuo_lateral": 2,
+            "apresentacao.descricao.max_caracteres": 17,
+            "apresentacao.descricao.alinhamento": "centro",
+            "apresentacao.descricao.recuo": 8,
+        },
+    )
+    raw = {
+        "id": "h0049_modelo",
+        "schema": "tela.v1",
+        "cabecalho": cabecalho,
+        "corpo": {"arranjo": "vertical", "elementos": []},
+        "barra_de_menus": {"chips": []},
+        "_raw": {"cabecalho": cabecalho},
+    }
+    modelo = construir_modelo(raw)
+    assert modelo.cabecalho is cabecalho
+    assert modelo.cabecalho == cabecalho
+    assert modelo.cabecalho["titulo"] == "Titulo MiX"
+    assert modelo.cabecalho["descricao"] == "  execução da API REST"
+    assert modelo.cabecalho["apresentacao"]["titulo"]["posicao"] == "direita"
+    assert modelo.cabecalho["apresentacao"]["descricao"]["max_caracteres"] == 17
+
+
+def test_h0049_modelo_nao_transformar_textos_e_preservar_variacoes_locais():
+    import copy
+
+    cabecalho_a = _cabecalho_h0049("primeiro", "segunda frase. terceira")
+    cabecalho_b = _cabecalho_h0049(
+        "segundo",
+        "ßeta",
+        **{
+            "apresentacao.titulo.capitalizacao": "inicio_de_frase",
+            "apresentacao.descricao.capitalizacao": "maiusculas",
+            "apresentacao.descricao.recuo": 0,
+        },
+    )
+    raw_a = {
+        "id": "h0049_modelo_a",
+        "schema": "tela.v1",
+        "cabecalho": cabecalho_a,
+        "corpo": {"arranjo": "vertical", "elementos": []},
+        "barra_de_menus": {"chips": []},
+        "_raw": {"cabecalho": copy.deepcopy(cabecalho_a)},
+    }
+    raw_b = copy.deepcopy(raw_a)
+    raw_b["id"] = "h0049_modelo_b"
+    raw_b["cabecalho"] = cabecalho_b
+    raw_antes_a = copy.deepcopy(raw_a)
+    raw_antes_b = copy.deepcopy(raw_b)
+
+    modelo_a = construir_modelo(raw_a)
+    modelo_b = construir_modelo(raw_b)
+
+    assert modelo_a.cabecalho["titulo"] == "primeiro"
+    assert modelo_a.cabecalho["descricao"] == "segunda frase. terceira"
+    assert modelo_b.cabecalho["titulo"] == "segundo"
+    assert modelo_b.cabecalho["descricao"] == "ßeta"
+    assert modelo_a.cabecalho["apresentacao"] != modelo_b.cabecalho["apresentacao"]
+    assert raw_a == raw_antes_a
+    assert raw_b == raw_antes_b
 
 
 def _dm_modelo():

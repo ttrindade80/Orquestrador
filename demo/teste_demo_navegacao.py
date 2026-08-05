@@ -312,7 +312,7 @@ def teste_prova_indicador_nao_aparece_em_linha_de_continuacao():
     )
     modelo = ModeloTela(
         id="t", schema="tela.v1",
-        cabecalho={"titulo": "T", "descricao": "d"},
+        cabecalho={"titulo": "T", "descricao": "d", "apresentacao": {"titulo": {"posicao": "esquerda", "recuo_lateral": 0, "capitalizacao": "maiusculas", "formato_na_borda": "com_espacos_laterais"}, "descricao": {"max_caracteres": 200, "alinhamento": "esquerda", "recuo": 1, "capitalizacao": "preservar"}}},
         corpo=Corpo(arranjo="vertical", elementos=[c]),
         barra_de_menus={"chips": []}, _raw={},
     )
@@ -663,7 +663,7 @@ def teste_prova_indicador_nao_hardcoded():
     )
     modelo = ModeloTela(
         id="t", schema="tela.v1",
-        cabecalho={"titulo": "T", "descricao": "d"},
+        cabecalho={"titulo": "T", "descricao": "d", "apresentacao": {"titulo": {"posicao": "esquerda", "recuo_lateral": 0, "capitalizacao": "maiusculas", "formato_na_borda": "com_espacos_laterais"}, "descricao": {"max_caracteres": 200, "alinhamento": "esquerda", "recuo": 1, "capitalizacao": "preservar"}}},
         corpo=Corpo(arranjo="vertical", elementos=[c]),
         barra_de_menus={"chips": []}, _raw={},
     )

@@ -65,6 +65,28 @@ _RESULTADOS = []
 _RAIZ_TELAS_DEMO = os.path.join("config", "telas", "demo")
 
 
+def _cabecalho_valido(titulo="T", descricao="D"):
+    """Declara um cabeçalho H-0049 válido para documentos em memória."""
+    return {
+        "titulo": titulo,
+        "descricao": descricao,
+        "apresentacao": {
+            "titulo": {
+                "posicao": "esquerda",
+                "recuo_lateral": 0,
+                "capitalizacao": "maiusculas",
+                "formato_na_borda": "com_espacos_laterais",
+            },
+            "descricao": {
+                "max_caracteres": 200,
+                "alinhamento": "esquerda",
+                "recuo": 1,
+                "capitalizacao": "preservar",
+            },
+        },
+    }
+
+
 def _registrar(nome, passou, detalhe=""):
     status = "PASSOU" if passou else "FALHOU"
     linha = "[{0}] {1}".format(status, nome)
@@ -155,7 +177,7 @@ def _tela_minima(id_tela="teste", id_interno=None, **sobreposicooes):
     base = {
         "schema": "tela.v1",
         "id": id_interno,
-        "cabecalho": {"titulo": "T", "descricao": "D"},
+        "cabecalho": _cabecalho_valido(),
         "corpo": {
             "arranjo": "sobreposto",
             "elementos": [
@@ -468,7 +490,7 @@ def _run_erros(tmp_base):
     )
 
     _escrever_tela(tmp_base, "sem_schema", {"id": "sem_schema",
-                                            "cabecalho": {},
+                                            "cabecalho": _cabecalho_valido(),
                                             "corpo": {"elementos": []},
                                             "barra_de_menus": {}})
     _espera_excecao(
@@ -478,7 +500,7 @@ def _run_erros(tmp_base):
     )
 
     _escrever_tela(tmp_base, "sem_id", {"schema": "tela.v1",
-                                        "cabecalho": {},
+                                        "cabecalho": _cabecalho_valido(),
                                         "corpo": {"elementos": []},
                                         "barra_de_menus": {}})
     _espera_excecao(
@@ -530,7 +552,7 @@ def _run_erros(tmp_base):
 
     _escrever_tela(tmp_base, "sem_elementos",
                    {"schema": "tela.v1", "id": "sem_elementos",
-                    "cabecalho": {}, "corpo": {"arranjo": "sobreposto"},
+                    "cabecalho": _cabecalho_valido(), "corpo": {"arranjo": "sobreposto"},
                     "barra_de_menus": {}})
     _espera_excecao(
         "sem corpo.elementos -> TelaCampoObrigatorioAusente(corpo.elementos)",
@@ -540,7 +562,7 @@ def _run_erros(tmp_base):
 
     _escrever_tela(tmp_base, "elementos_nao_lista",
                    {"schema": "tela.v1", "id": "elementos_nao_lista",
-                    "cabecalho": {}, "corpo": {"elementos": "nao_lista"},
+                    "cabecalho": _cabecalho_valido(), "corpo": {"elementos": "nao_lista"},
                     "barra_de_menus": {}})
     _espera_excecao(
         "corpo.elementos nao e lista -> TelaEstruturaInvalida",
@@ -550,7 +572,7 @@ def _run_erros(tmp_base):
 
     _escrever_tela(tmp_base, "elem_sem_id",
                    {"schema": "tela.v1", "id": "elem_sem_id",
-                    "cabecalho": {}, "barra_de_menus": {},
+                    "cabecalho": _cabecalho_valido(), "barra_de_menus": {},
                     "corpo": {"elementos": [{"tipo": "console"}]}})
     _espera_excecao(
         "elemento sem id -> TelaElementoSemId",
@@ -560,7 +582,7 @@ def _run_erros(tmp_base):
 
     _escrever_tela(tmp_base, "elem_sem_tipo",
                    {"schema": "tela.v1", "id": "elem_sem_tipo",
-                    "cabecalho": {}, "barra_de_menus": {},
+                    "cabecalho": _cabecalho_valido(), "barra_de_menus": {},
                     "corpo": {"elementos": [{"id": "x"}]}})
     _espera_excecao(
         "elemento sem tipo -> TelaElementoSemTipo",
@@ -570,7 +592,7 @@ def _run_erros(tmp_base):
 
     _escrever_tela(tmp_base, "tipo_desconhecido",
                    {"schema": "tela.v1", "id": "tipo_desconhecido",
-                    "cabecalho": {}, "barra_de_menus": {},
+                    "cabecalho": _cabecalho_valido(), "barra_de_menus": {},
                     "corpo": {"elementos": [
                         {"id": "x", "tipo": "tabela"}
                     ]}})
@@ -582,7 +604,7 @@ def _run_erros(tmp_base):
 
     _escrever_tela(tmp_base, "tipo_nao_string",
                    {"schema": "tela.v1", "id": "tipo_nao_string",
-                    "cabecalho": {}, "barra_de_menus": {},
+                    "cabecalho": _cabecalho_valido(), "barra_de_menus": {},
                     "corpo": {"elementos": [
                         {"id": "x", "tipo": 123}
                     ]}})
@@ -608,7 +630,7 @@ def _run_tipos_validos(tmp_base):
             elem.update(_ENVELOPE_CONSOLE_COMPLETO)
         _escrever_tela(tmp_base, nome_arquivo,
                        {"schema": "tela.v1", "id": nome_arquivo,
-                        "cabecalho": {}, "barra_de_menus": {},
+                        "cabecalho": _cabecalho_valido(), "barra_de_menus": {},
                         "corpo": {"elementos": [elem]}})
         try:
             carregar_tela(tmp_base, nome_arquivo)
@@ -933,7 +955,7 @@ def _run_distribuicao_corpo_h0025(tmp_base):
         if distribuicao is not None:
             corpo["distribuicao"] = distribuicao
         return {
-            "schema": "tela.v1", "id": id_tela, "cabecalho": {},
+            "schema": "tela.v1", "id": id_tela, "cabecalho": _cabecalho_valido(),
             "corpo": corpo, "barra_de_menus": {},
         }
 
@@ -1095,7 +1117,7 @@ def _run_hierarquia_grupos_adr0019(tmp_base):
     def _tela_com_corpo(id_tela, corpo):
         return {
             "schema": "tela.v1", "id": id_tela,
-            "cabecalho": {"titulo": "T", "descricao": "D"},
+            "cabecalho": _cabecalho_valido(),
             "corpo": corpo,
             "barra_de_menus": {"distribuicao": "horizontal", "chips": []},
         }
@@ -1528,7 +1550,7 @@ def _tela_com_grupo_matriz_h0028(id_tela, grupo):
     return {
         "schema": "tela.v1",
         "id": id_tela,
-        "cabecalho": {"titulo": "T", "descricao": "D"},
+        "cabecalho": _cabecalho_valido(),
         "corpo": {"arranjo": "vertical", "elementos": [grupo]},
         "barra_de_menus": {"distribuicao": "horizontal", "chips": []},
     }
@@ -2087,7 +2109,7 @@ def teste_raiz_telas_h0032():
         conteudo = {
             "schema": "tela.v1",
             "id": "outro_id",
-            "cabecalho": {"titulo": "T"},
+            "cabecalho": _cabecalho_valido(),
             "barra_de_menus": {
                 "chips": [],
                 "distribuicao": {
@@ -2197,7 +2219,7 @@ def _run_config_lancador_h0034(tmp_base):
     # Ponto 10: tela sem lancador retorna _config_lancador == None
     _escrever_tela(tmp_base, "h34_sem_lanc", {
         "schema": "tela.v1", "id": "h34_sem_lanc",
-        "cabecalho": {"titulo": "T", "descricao": "d"},
+        "cabecalho": _cabecalho_valido(),
         "corpo": {"elementos": [{"id": "c1", "tipo": "console", "itens": [], "origem_dados": None, "politica_composicao": {"alinhamento": "esquerda", "overflow_normal": "truncar_com_reticencias"}, "politica_navegacao": {"navegavel": False}, "politica_selecao": "nenhuma", "politica_paginacao": "sem", "politica_exibicao": {"modo_inicial": "normal", "verboso": False}}]},
         "barra_de_menus": {"chips": []},
     })
@@ -2214,7 +2236,7 @@ def _run_config_lancador_h0034(tmp_base):
     try:
         _escrever_tela(tmp_erro, "h34_com_lanc", {
             "schema": "tela.v1", "id": "h34_com_lanc",
-            "cabecalho": {"titulo": "T", "descricao": "d"},
+            "cabecalho": _cabecalho_valido(),
             "corpo": {"elementos": [{"id": "l1", "tipo": "lancador", "itens": []}]},
             "barra_de_menus": {"chips": []},
         })
@@ -2504,7 +2526,7 @@ def _tela_com_dm(tmp_base, id_tela, dm):
     tela = {
         "schema": "tela.v1",
         "id": id_tela,
-        "cabecalho": {"titulo": "T", "descricao": "D"},
+        "cabecalho": _cabecalho_valido(),
         "corpo": {
             "arranjo": "vertical",
             "distribuicao": {"modo": "igual"},
@@ -2539,7 +2561,7 @@ def _run_distribuicao_matricial_h0035(tmp_base):
     # 2) Ausencia do campo preserva o carregamento (compatibilidade).
     tela_sem = {
         "schema": "tela.v1", "id": "dm_ausente",
-        "cabecalho": {"titulo": "T", "descricao": "D"},
+        "cabecalho": _cabecalho_valido(),
         "corpo": {"arranjo": "vertical", "distribuicao": {"modo": "igual"},
                   "elementos": [{"id": "d", "tipo": "dashboard", "titulo": "G",
                                  "campos": []}]},
@@ -2637,7 +2659,7 @@ def _run_distribuicao_matricial_h0035(tmp_base):
     # 16) valido em grupo (elemento funcional interno).
     tela_grupo = {
         "schema": "tela.v1", "id": "dm_grupo",
-        "cabecalho": {"titulo": "T", "descricao": "D"},
+        "cabecalho": _cabecalho_valido(),
         "corpo": {"arranjo": "vertical", "distribuicao": {"modo": "igual"},
                   "elementos": [{
                       "id": "g1", "tipo": "grupo", "estrutura": "livre",
@@ -3407,7 +3429,7 @@ def teste_d23_estrutural():
         elem = {"id": "con", "tipo": "console", "titulo": "Console"}
         elem.update(sobrepos)
         return {
-            "schema": "tela.v1", "id": id_tela, "cabecalho": {},
+            "schema": "tela.v1", "id": id_tela, "cabecalho": _cabecalho_valido(),
             "corpo": {"arranjo": "vertical", "elementos": [elem]},
             "barra_de_menus": {"chips": []},
         }
@@ -3497,7 +3519,7 @@ def teste_d23_estrutural():
     _carrega_em_tmp(
         "D23-06: console de envelope pre-ADR-0028 completo preserva comportamento anterior",
         {
-            "schema": "tela.v1", "id": "d23_envelope_06", "cabecalho": {},
+            "schema": "tela.v1", "id": "d23_envelope_06", "cabecalho": _cabecalho_valido(),
             "corpo": {"arranjo": "vertical", "elementos": [
                 {"id": "con", "tipo": "console", "titulo": "Console",
                  "itens": [], "origem_dados": None, "politica_composicao": {"alinhamento": "esquerda", "overflow_normal": "truncar_com_reticencias"}, "politica_navegacao": {"navegavel": False}, "politica_selecao": "nenhuma", "politica_paginacao": "sem", "politica_exibicao": {"modo_inicial": "normal", "verboso": False},
@@ -3539,7 +3561,7 @@ def teste_d23_estrutural():
         elem = {"id": "con", "tipo": "console", "titulo": "Console"}
         elem.update(extra)
         return {
-            "schema": "tela.v1", "id": id_tela, "cabecalho": {},
+            "schema": "tela.v1", "id": id_tela, "cabecalho": _cabecalho_valido(),
             "corpo": {"arranjo": "vertical", "elementos": [elem]},
             "barra_de_menus": {"chips": []},
         }
@@ -3550,7 +3572,7 @@ def teste_d23_estrutural():
         elem.update(_ENVELOPE_COMPLETO)
         elem.update(extra)
         return {
-            "schema": "tela.v1", "id": id_tela, "cabecalho": {},
+            "schema": "tela.v1", "id": id_tela, "cabecalho": _cabecalho_valido(),
             "corpo": {"arranjo": "vertical", "elementos": [elem]},
             "barra_de_menus": {"chips": []},
         }
@@ -3603,7 +3625,7 @@ def teste_d23_estrutural():
     _rejeita_carrega_em_tmp(
         "D23-P3-09: envelope variante 1 incompleto (6 de 7 campos) rejeitado",
         {
-            "schema": "tela.v1", "id": "d23_envelope_incompleto_09", "cabecalho": {},
+            "schema": "tela.v1", "id": "d23_envelope_incompleto_09", "cabecalho": _cabecalho_valido(),
             "corpo": {"arranjo": "vertical", "elementos": [_elem_incompleto]},
             "barra_de_menus": {"chips": []},
         },
@@ -3705,7 +3727,7 @@ def teste_d23_estrutural():
     _rejeita_carrega_em_tmp(
         "D23-P4-01: envelope com todos os campos null rejeitado",
         {
-            "schema": "tela.v1", "id": "d23_p4_01", "cabecalho": {},
+            "schema": "tela.v1", "id": "d23_p4_01", "cabecalho": _cabecalho_valido(),
             "corpo": {"arranjo": "vertical", "elementos": [{
                 "id": "con", "tipo": "console", "titulo": "Console",
                 "itens": None, "origem_dados": None,
@@ -3721,7 +3743,7 @@ def teste_d23_estrutural():
     _rejeita_carrega_em_tmp(
         "D23-P4-02: envelope com 'itens' tipo errado rejeitado",
         {
-            "schema": "tela.v1", "id": "d23_p4_02", "cabecalho": {},
+            "schema": "tela.v1", "id": "d23_p4_02", "cabecalho": _cabecalho_valido(),
             "corpo": {"arranjo": "vertical", "elementos": [
                 dict({"id": "con", "tipo": "console", "titulo": "Console"},
                      **dict(_ENVELOPE_COMPLETO, itens="nao_e_lista")),
@@ -3734,7 +3756,7 @@ def teste_d23_estrutural():
     _rejeita_carrega_em_tmp(
         "D23-P4-03: envelope com 'politica_selecao' invalida rejeitado",
         {
-            "schema": "tela.v1", "id": "d23_p4_03", "cabecalho": {},
+            "schema": "tela.v1", "id": "d23_p4_03", "cabecalho": _cabecalho_valido(),
             "corpo": {"arranjo": "vertical", "elementos": [
                 dict({"id": "con", "tipo": "console", "titulo": "Console"},
                      **dict(_ENVELOPE_COMPLETO, politica_selecao="invalida")),
@@ -3749,7 +3771,7 @@ def teste_d23_estrutural():
     _rejeita_carrega_em_tmp(
         "D23-P4-04: envelope com 'politica_paginacao' dict em vez de string rejeitado",
         {
-            "schema": "tela.v1", "id": "d23_p4_04", "cabecalho": {},
+            "schema": "tela.v1", "id": "d23_p4_04", "cabecalho": _cabecalho_valido(),
             "corpo": {"arranjo": "vertical", "elementos": [
                 dict({"id": "con", "tipo": "console", "titulo": "Console"},
                      **dict(_ENVELOPE_COMPLETO,
@@ -3771,7 +3793,7 @@ def teste_d23_estrutural():
             {
                 "schema": "tela.v1",
                 "id": "d23_p4_05_{0}".format(_campo_env.replace("_", "")),
-                "cabecalho": {},
+                "cabecalho": _cabecalho_valido(),
                 "corpo": {"arranjo": "vertical", "elementos": [{
                     "id": "con", "tipo": "console", "titulo": "Console",
                     _campo_env: _val_env,
@@ -3786,7 +3808,7 @@ def teste_d23_estrutural():
     _rejeita_carrega_em_tmp(
         "D23-P4-06: hibrido 6 campos de envelope + politica_modo rejeitado",
         {
-            "schema": "tela.v1", "id": "d23_p4_06", "cabecalho": {},
+            "schema": "tela.v1", "id": "d23_p4_06", "cabecalho": _cabecalho_valido(),
             "corpo": {"arranjo": "vertical", "elementos": [
                 dict(
                     {"id": "con", "tipo": "console", "titulo": "Console",
@@ -3846,7 +3868,7 @@ def teste_d23_estrutural():
                 "regra_geracao_itens": valor_regra}
         elem.update(extra)
         return {
-            "schema": "tela.v1", "id": id_tela, "cabecalho": {},
+            "schema": "tela.v1", "id": id_tela, "cabecalho": _cabecalho_valido(),
             "corpo": {"arranjo": "vertical", "elementos": [elem]},
             "barra_de_menus": {"chips": []},
         }
@@ -3858,7 +3880,7 @@ def teste_d23_estrutural():
         elem["regra_geracao_itens"] = {"tipo": "estatica", "ids": []}
         elem.update(extra)
         return {
-            "schema": "tela.v1", "id": id_tela, "cabecalho": {},
+            "schema": "tela.v1", "id": id_tela, "cabecalho": _cabecalho_valido(),
             "corpo": {"arranjo": "vertical", "elementos": [elem]},
             "barra_de_menus": {"chips": []},
         }
@@ -3888,7 +3910,7 @@ def teste_d23_estrutural():
     _rejeita_carrega_em_tmp(
         "RGI-P6-02: copia estrutural de demo.json com outro ID rejeitada (variante 2 nao legada)",
         {
-            "schema": "tela.v1", "id": "rgi_p6_02_copia", "cabecalho": {},
+            "schema": "tela.v1", "id": "rgi_p6_02_copia", "cabecalho": _cabecalho_valido(),
             "corpo": {"arranjo": "vertical", "elementos": [_copia_demo]},
             "barra_de_menus": {"chips": []},
         },
@@ -3936,7 +3958,7 @@ def teste_d23_estrutural():
     _rejeita_carrega_em_tmp(
         "RGI-P6-07: itens + regra_geracao_itens rejeitado (duas fontes concorrentes)",
         {
-            "schema": "tela.v1", "id": "rgi_p6_07", "cabecalho": {},
+            "schema": "tela.v1", "id": "rgi_p6_07", "cabecalho": _cabecalho_valido(),
             "corpo": {"arranjo": "vertical", "elementos": [
                 dict({"id": "con", "tipo": "console", "titulo": "Console",
                       "regra_geracao_itens": {"tipo": "estatica"}},
@@ -3953,7 +3975,7 @@ def teste_d23_estrutural():
     _rejeita_carrega_em_tmp(
         "RGI-P6-08: regra_geracao_itens + origem_dados (variante 2 incompleta) rejeitado",
         {
-            "schema": "tela.v1", "id": "rgi_p6_08", "cabecalho": {},
+            "schema": "tela.v1", "id": "rgi_p6_08", "cabecalho": _cabecalho_valido(),
             "corpo": {"arranjo": "vertical", "elementos": [{
                 "id": "con", "tipo": "console", "titulo": "Console",
                 "origem_dados": None, "regra_geracao_itens": {},
@@ -3967,7 +3989,7 @@ def teste_d23_estrutural():
     _rejeita_carrega_em_tmp(
         "RGI-P6-09: regra_geracao_itens + campos parciais (variante 2 incompleta) rejeitado",
         {
-            "schema": "tela.v1", "id": "rgi_p6_09", "cabecalho": {},
+            "schema": "tela.v1", "id": "rgi_p6_09", "cabecalho": _cabecalho_valido(),
             "corpo": {"arranjo": "vertical", "elementos": [{
                 "id": "con", "tipo": "console", "titulo": "Console",
                 "politica_selecao": "nenhuma",
@@ -4025,7 +4047,7 @@ def teste_d23_estrutural():
     _rejeita_carrega_em_tmp(
         "RGI-P6-12: envelope variante 1 incompleto (6/7) sem regra rejeitado",
         {
-            "schema": "tela.v1", "id": "rgi_p6_12", "cabecalho": {},
+            "schema": "tela.v1", "id": "rgi_p6_12", "cabecalho": _cabecalho_valido(),
             "corpo": {"arranjo": "vertical", "elementos": [_elem_incompleto_rgi]},
             "barra_de_menus": {"chips": []},
         },
@@ -4552,7 +4574,7 @@ def test_h0043_perfil_desconhecido_rejeitado(tmp_path):
         "schema": "tela.v1",
         "id": "perfil_desconhecido_h43",
         "perfil": "outro",
-        "cabecalho": {"titulo": "X", "descricao": "Y"},
+        "cabecalho": _cabecalho_valido("X", "Y"),
         "corpo": {
             "arranjo": "vertical",
             "elementos": [
@@ -4677,7 +4699,7 @@ def _h0045_p04_escrever_tela(tmp_path, id_tela, elementos):
     dados = {
         "schema": "tela.v1",
         "id": id_tela,
-        "cabecalho": {"titulo": "P04", "descricao": "unicidade"},
+        "cabecalho": _cabecalho_valido("P04", "unicidade"),
         "corpo": {
             "arranjo": "horizontal",
             "distribuicao": {"modo": "igual"},
@@ -4771,3 +4793,184 @@ def test_h0045_p04_loader_rejeita_duplicidade_em_grupo_aninhado(tmp_path):
         carregar_tela(base, "h0045_p04_dup_grupo", "config/telas/demo")
     assert "id de console duplicado" in str(exc.value)
     assert "compartilhado" in str(exc.value)
+
+
+def _h0049_telas_nominais():
+    """Lê a lista nominal do manifesto aprovado, sem reclassificar JSONs."""
+    caminho = _BASE_PADRAO / "docs" / "handoff" / (
+        "H-0049-materializacao-local-dos-parametros-do-cabecalho.md"
+    )
+    texto = caminho.read_text(encoding="utf-8")
+    secao = texto.split(
+        "### JSONs estruturais de tela — 72 alterações nominais", 1
+    )[1].split("### Critério executivo de classificação", 1)[0]
+    return [
+        linha[2:].strip().strip("`")
+        for linha in secao.splitlines()
+        if linha.startswith("- `config/telas/")
+    ]
+
+
+def test_h0049_loader_schema_completo_e_preservacao_integral(tmp_path):
+    import copy
+
+    base = _tela_minima("h0049_schema")
+    _escrever_tela(tmp_path, "h0049_schema", base)
+    carregada = carregar_tela(tmp_path, "h0049_schema")
+    assert carregada["cabecalho"] == base["cabecalho"]
+    assert carregada["_raw"]["cabecalho"] == base["cabecalho"]
+
+    ausencias = [
+        ("cabecalho",),
+        ("cabecalho", "titulo"),
+        ("cabecalho", "descricao"),
+        ("cabecalho", "apresentacao"),
+        ("cabecalho", "apresentacao", "titulo"),
+        ("cabecalho", "apresentacao", "descricao"),
+    ]
+    for indice, caminho in enumerate(ausencias):
+        documento = copy.deepcopy(base)
+        alvo = documento
+        for campo in caminho[:-1]:
+            alvo = alvo[campo]
+        del alvo[caminho[-1]]
+        nome = "h0049_ausente_{0}".format(indice)
+        documento["id"] = nome
+        _escrever_tela(tmp_path, nome, documento)
+        with pytest.raises(TelaCampoObrigatorioAusente) as exc:
+            carregar_tela(tmp_path, nome)
+        assert ".".join(caminho) in str(exc.value)
+
+    objetos_fechados = [
+        ("cabecalho", "extra"),
+        ("cabecalho.apresentacao", "extra"),
+        ("cabecalho.apresentacao.titulo", "extra"),
+        ("cabecalho.apresentacao.descricao", "extra"),
+    ]
+    for indice, (caminho, campo) in enumerate(objetos_fechados):
+        documento = copy.deepcopy(base)
+        alvo = documento
+        for parte in caminho.split("."):
+            alvo = alvo[parte]
+        alvo[campo] = True
+        nome = "h0049_extra_{0}".format(indice)
+        documento["id"] = nome
+        _escrever_tela(tmp_path, nome, documento)
+        with pytest.raises(TelaEstruturaInvalida) as exc:
+            carregar_tela(tmp_path, nome)
+        assert caminho in str(exc.value)
+
+
+@pytest.mark.parametrize(
+    "caminho,valor",
+    [
+        ("cabecalho.titulo", 1),
+        ("cabecalho.descricao", None),
+        ("cabecalho.apresentacao", []),
+        ("cabecalho.apresentacao.titulo", "x"),
+        ("cabecalho.apresentacao.descricao", None),
+        ("cabecalho.apresentacao.titulo.posicao", "diagonal"),
+        ("cabecalho.apresentacao.titulo.capitalizacao", "lower"),
+        ("cabecalho.apresentacao.titulo.capitalizacao", "preservar"),
+        ("cabecalho.apresentacao.titulo.formato_na_borda", "sem_espacos"),
+        ("cabecalho.apresentacao.descricao.alinhamento", "diagonal"),
+        ("cabecalho.apresentacao.descricao.capitalizacao", "lower"),
+        ("cabecalho.apresentacao.descricao.capitalizacao", None),
+        ("cabecalho.apresentacao.descricao.capitalizacao", 1),
+        ("cabecalho.apresentacao.descricao.capitalizacao", []),
+        ("cabecalho.apresentacao.descricao.capitalizacao", {}),
+    ],
+)
+def test_h0049_loader_tipos_e_enumeracoes_rejeitados(tmp_path, caminho, valor):
+    import copy
+
+    documento = copy.deepcopy(_tela_minima("h0049_tipo"))
+    alvo = documento
+    partes = caminho.split(".")
+    for parte in partes[:-1]:
+        alvo = alvo[parte]
+    alvo[partes[-1]] = valor
+    _escrever_tela(tmp_path, "h0049_tipo", documento)
+    with pytest.raises(TelaEstruturaInvalida) as exc:
+        carregar_tela(tmp_path, "h0049_tipo")
+    assert caminho in str(exc.value)
+
+
+@pytest.mark.parametrize("valor", [0, -1, 201, 1.5, "200", None, True])
+def test_h0049_loader_max_caracteres_rejeita_fora_do_dominio(tmp_path, valor):
+    import copy
+
+    documento = copy.deepcopy(_tela_minima("h0049_limite"))
+    documento["cabecalho"]["apresentacao"]["descricao"]["max_caracteres"] = valor
+    _escrever_tela(tmp_path, "h0049_limite", documento)
+    with pytest.raises(TelaEstruturaInvalida) as exc:
+        carregar_tela(tmp_path, "h0049_limite")
+    assert "max_caracteres" in str(exc.value)
+
+
+def test_h0049_loader_limites_inclusivos_recuos_zero_e_sem_fallback(tmp_path):
+    import copy
+
+    for indice, valor in enumerate((1, 200)):
+        nome = "h0049_limite_ok_{0}".format(indice)
+        documento = copy.deepcopy(_tela_minima(nome))
+        apresentacao = documento["cabecalho"]["apresentacao"]
+        apresentacao["titulo"]["recuo_lateral"] = 0
+        apresentacao["descricao"]["recuo"] = 0
+        apresentacao["descricao"]["max_caracteres"] = valor
+        _escrever_tela(tmp_path, nome, documento)
+        assert carregar_tela(tmp_path, nome)["cabecalho"] == documento["cabecalho"]
+
+    sem_apresentacao = _tela_minima("h0049_sem_fallback")
+    del sem_apresentacao["cabecalho"]["apresentacao"]
+    _escrever_tela(tmp_path, "h0049_sem_fallback", sem_apresentacao)
+    with pytest.raises(TelaCampoObrigatorioAusente) as exc:
+        carregar_tela(tmp_path, "h0049_sem_fallback")
+    assert str(exc.value) == (
+        "Campo obrigatorio ausente: cabecalho.apresentacao"
+    )
+
+    for caminho in (
+        "cabecalho.apresentacao.titulo.recuo_lateral",
+        "cabecalho.apresentacao.descricao.recuo",
+    ):
+        documento = copy.deepcopy(_tela_minima("h0049_recuo"))
+        alvo = documento
+        partes = caminho.split(".")
+        for parte in partes[:-1]:
+            alvo = alvo[parte]
+        alvo[partes[-1]] = -1
+        _escrever_tela(tmp_path, "h0049_recuo", documento)
+        with pytest.raises(TelaEstruturaInvalida):
+            carregar_tela(tmp_path, "h0049_recuo")
+
+
+def test_h0049_carrega_exatamente_72_telas_nominais():
+    caminhos = _h0049_telas_nominais()
+    assert len(caminhos) == 72
+    for caminho in caminhos:
+        arquivo = Path(caminho)
+        tela = carregar_tela(None, arquivo.stem, str(arquivo.parent))
+        assert set(tela["cabecalho"]["apresentacao"]) == {"titulo", "descricao"}
+
+
+def test_h0049_preserva_e_carrega_os_oito_conteudos_externos():
+    caminhos = [
+        "config/telas/demo/h0035_console_com_conteudo.json",
+        "config/telas/demo/h0035_console_sem_conteudo.json",
+        "config/telas/demo/h0036_conjuntos_conteudo.json",
+        "config/telas/demo/h0036_hierarquia_conteudo.json",
+        "config/telas/demo/h0036_tabela_conteudo.json",
+        "config/telas/demo/h0037_dois_niveis_conteudo.json",
+        "config/telas/demo/h0037_tabela_conteudo.json",
+        "config/telas/demo/h0037_tres_niveis_conteudo.json",
+    ]
+    for caminho in caminhos:
+        arquivo = Path(caminho)
+        with pytest.raises(TelaCampoObrigatorioAusente):
+            carregar_tela(None, arquivo.stem, str(arquivo.parent))
+        documento = carregar_conteudo_externo(
+            None, arquivo.stem, str(arquivo.parent)
+        )
+        assert set(documento) == {"dados", "formato", "tipo"}
+        assert "cabecalho" not in documento

@@ -3,7 +3,21 @@
   "id": "h0035_console_sem",
   "cabecalho": {
     "titulo": "H0035 Console Sem",
-    "descricao": "Console sem distribuicao_matricial (comportamento anterior preservado)"
+    "descricao": "Console sem distribuicao_matricial (comportamento anterior preservado)",
+    "apresentacao":     {
+    "titulo": {
+      "posicao": "esquerda",
+      "recuo_lateral": 0,
+      "capitalizacao": "maiusculas",
+      "formato_na_borda": "com_espacos_laterais"
+    },
+    "descricao": {
+      "max_caracteres": 200,
+      "alinhamento": "esquerda",
+      "recuo": 1,
+      "capitalizacao": "preservar"
+    }
+  }
   },
   "corpo": {
     "arranjo": "vertical",
