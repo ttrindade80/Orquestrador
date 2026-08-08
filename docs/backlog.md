@@ -79,10 +79,10 @@ esta lista.
 ### ITEM-0007 — Navegacao multinivel do console
 **Tipo:** implementacao
 **Prioridade:** media
-**Status:** planejado
+**Status:** em_andamento
 **Descricao:** Implementar as politicas de navegacao multinivel do console com foco estrito em cursor, percurso e semantica de Espaco: preservar `nivel_unico`; manter `tabela` nao navegavel; implementar `arvore_colapsavel`; implementar `selecao_multinivel` com uma unica navegacao reunindo todos os niveis e selecao recursiva dos descendentes; implementar `dois_niveis_por_foco` com toroide dos pais e toroide proprio de filhos por pai, usando a apresentacao de selecao ja existente. O ciclo deve ser decomposto em quatro handoffs sequenciais e nao pode reaproveitar a tentativa defeituosa preservada em branch de erro.
-**Pre-requisitos:** Ciclo universal de paginacao por `PageUp`/`PageDown` e chips `[PgUp]`/`[PgDn]` concluido pela ADR-0041 e pelo H-0051, com QA tecnico e validacao manual aprovados. Especificacao fechada preservada externamente em `ESPECIFICACAO_CICLO_B_NAVEGACAO_MULTINIVEL.md`, a ser fornecida pelo usuario ao gerente responsavel.
-**Proxima acao:** Iniciar novo gerente para o Ciclo B usando a especificacao externa fechada; nao reabrir apresentacao de filho ativo, distribuicao geometrica de grupos, Enter, execucao, confirmacao ou persistencia neste item.
+**Pre-requisitos:** Ciclo universal de paginacao por `PageUp`/`PageDown` e chips `[PgUp]`/`[PgDn]` concluido pela ADR-0041 e pelo H-0051, com QA tecnico e validacao manual aprovados. ADR-0042 aceita (`ADR-0042_ACEITA`) e aplicada (`APLICACAO_DOCUMENTAL: CONCLUIDA`), QA da aplicacao aprovado (`QA_DA_APLICACAO: ADR_APPLICATION_APPROVED`), H-0052 implementado com QA resolvido por validacao manual (`IMPLEMENTACAO: IMPLEMENTED`, `VALIDACAO_MANUAL: MANUAL_VALIDATION_APPROVED`). Especificacao fechada preservada externamente em `ESPECIFICACAO_CICLO_B_NAVEGACAO_MULTINIVEL.md`, a ser fornecida ao gerente responsavel.
+**Proxima acao:** Em ciclo futuro, iniciar H-0053 (`arvore_colapsavel`); manter H-0054 (`selecao_multinivel`) e H-0055 (`dois_niveis_por_foco`) futuros. Nao reabrir apresentacao de filho ativo, distribuicao geometrica de grupos, Enter, execucao, confirmacao ou persistencia neste item.
 
 ### ITEM-0023 — Apresentacao de filho ativo em grupos multinivel
 **Tipo:** implementacao

@@ -26,6 +26,7 @@ metadata:
       - docs/adr/ADR-0038-paginacao-interativa-limitada-em-console.md
       - docs/adr/ADR-0040-padronizacao-universal-do-controle-de-execucao-real-e-dry-run.md
       - docs/adr/ADR-0041-paginacao-universal-por-pageup-e-pagedown.md
+      - docs/adr/ADR-0042-navegacao-multinivel-do-console.md
     reaproveitado_de_legado: false
   dependencias_nomenclatura:
     dependencias_obrigatorias:
@@ -1103,9 +1104,10 @@ declarados navegáveis sem itens. Não se inventa chip novo neste ciclo.
 
 Permanecem fora deste contrato aplicado (ADR-0031 D15):
 
-- Paginação interativa por `<` e `>` (ITEM-0003) — a especificação foi
-  fechada pela ADR-0038; ver §24. A implementação permanece pendente e não é
-  antecipada por esta seção.
+- Paginação interativa por `PageUp` e `PageDown` (ITEM-0003) — a
+  especificação foi fechada pela ADR-0038 e especializada universalmente pela
+  ADR-0041; ver §24. A implementação permanece pendente e não é antecipada
+  por esta seção.
 - Catálogo e dispatcher de ações (ITEM-0004 / DOC-B009).
 - Abertura e retorno entre telas (ITEM-0005).
 - Seleção múltipla (ITEM-0006).
@@ -1120,6 +1122,109 @@ neste contrato — classificadas como futuras ou fora deste ciclo.
 - `docs/nomenclatura/32_CONSOLE.md` — terminologia canônica;
 - `docs/nomenclatura/31_BARRA_DE_MENUS_E_CHIPS.md` — condições dos chips;
 - `docs/contratos/contrato_barra_de_menus.md` — regras da barra e dos chips.
+
+### 22.11 Política declarada e regras transversais da navegação multinível
+(ADR-0042, D-MULTI-01, D-MULTI-02, D-MULTI-12, D-MULTI-13)
+
+A navegação multinível é uma política declarada explicitamente na instância do
+`console`. `politica_navegacao` permanece um objeto, com `navegavel` mantendo
+sua semântica vigente e `tipo` como único discriminador canônico:
+
+```json
+"politica_navegacao": {
+  "navegavel": true,
+  "tipo": "dois_niveis_por_foco"
+}
+```
+
+Os únicos valores de `tipo` são `nivel_unico`, `tabela`,
+`arvore_colapsavel`, `selecao_multinivel` e `dois_niveis_por_foco`. Quando o
+campo estiver ausente, o tipo efetivo será `nivel_unico`; a ausência não
+invalida a configuração por si só. Não existe segunda forma declarativa e não
+se infere `tipo` da estrutura dos dados, da apresentação, do nome da fixture
+ou de qualquer outro campo. Não se cria matriz geral de validade entre
+`navegavel` e `tipo`.
+
+Tab e Shift+Tab continuam movimentando o foco entre consoles. As setas
+movimentam o cursor dentro do console focalizado somente quando a política
+permitir. `[✥]` continua sendo indicador de disponibilidade das setas, não
+comando. Foco, cursor e seleção permanecem mecanismos distintos; item visível
+não navegável não recebe cursor; o nome da fixture não produz comportamento
+especial; e políticas com seleção reutilizam a apresentação visual já vigente,
+sem nova linguagem visual de seleção.
+
+### 22.12 Política `nivel_unico` (ADR-0042, D-MULTI-03)
+
+`nivel_unico` preserva integralmente o comportamento vigente desta seção: as
+quatro setas, a navegação toroidal por eixo, a exclusão de células vazias, a
+troca de foco por Tab/Shift+Tab e as demais regras de nível único não são
+redesenhadas por ADR-0042.
+
+### 22.13 Política `tabela` (ADR-0042, D-MULTI-04)
+
+`tabela`, quando usada como política de navegação, é passiva: não participa do
+foco, não possui cursor entre linhas, não é percorrida pelas setas e não exibe
+`[✥]`. Não há fallback para `nivel_unico`. Uma declaração incompatível de
+`tabela` como navegável produz falha focal; esta ADR não determina o momento,
+a camada ou o mecanismo dessa falha.
+
+### 22.14 Política `arvore_colapsavel` (ADR-0042, D-MULTI-05)
+
+`arvore_colapsavel` é uma árvore hierárquica navegável sem seleção. ↑ e ↓
+percorrem a sequência hierárquica atualmente visível. Ao fechar um ramo, seus
+descendentes deixam o percurso, mas o próprio ramo permanece item corrente.
+Espaço abre ou fecha o ramo. A política não possui seleção, `Todos` ou
+semântica nova de Enter.
+
+### 22.15 Política `selecao_multinivel` (ADR-0042, D-MULTI-06)
+
+`selecao_multinivel` admite profundidade arbitrária e reúne todos os níveis em
+uma única topologia de navegação. Não há toroide independente por pai, nível
+ou ramo. A apresentação pode ocupar múltiplas colunas somente quando a
+geometria vigente já permitir; esta política não cria geometria nova.
+
+Espaço sobre folha alterna sua seleção. Sobre pai, atua recursivamente sobre
+todos os descendentes selecionáveis, em qualquer profundidade: inclui todos
+ou remove todos conforme o estado da ação. Itens não selecionáveis permanecem
+inalterados. A apresentação de seleção vigente é reutilizada.
+
+### 22.16 Política `dois_niveis_por_foco` (ADR-0042, D-MULTI-07 a D-MULTI-09)
+
+Esta política possui exatamente dois níveis: nível 1 de pais e nível 2 de
+filhos diretos de cada pai. Um terceiro nível é inválido. Todos os pais
+navegáveis formam um único toroide; cada pai tem seu próprio toroide de
+filhos; filhos de pais distintos nunca compartilham toroide; e o toroide de
+filhos ativo é determinado pelo pai corrente.
+
+Espaço no nível dos pais entra no toroide de filhos do pai corrente. As setas
+operam somente no toroide atualmente ativo. Esc no toroide de filhos retorna
+ao toroide dos pais, preserva o filho escolhido, não limpa a escolha e não
+possui semântica de cancelamento. Essa precedência é contextual e não altera
+as demais políticas.
+
+Cada pai mantém exatamente um filho escolhido: Espaço sobre outro filho
+transfere a escolha; Espaço sobre o filho já escolhido mantém a escolha; e
+mover o cursor não a transfere. O mecanismo é denominado **seleção exclusiva
+obrigatória de filho por pai** e é distinto de `seleção única` da ADR-0031,
+que continua designando o item sob cursor.
+
+### 22.17 Paginação das políticas multinível (ADR-0042, D-MULTI-10)
+
+Toda paginação multinível consome integralmente a autoridade da ADR-0041 e a
+seção 24 deste contrato: somente `PageUp` e `PageDown`, com `[PgUp][PgDn]`.
+Não se cria tecla, chip ou regra concorrente; não há wrap entre páginas; e o
+cursor não troca de página implicitamente.
+
+### 22.18 Critério futuro de demonstração (ADR-0042, D-MULTI-11)
+
+Aplicação e handoffs futuros devem demonstrar, para cada política navegável,
+console focalizado, cursor visível, item corrente distinguível, movimento
+efetivo pelas teclas previstas e `[✥]` quando as setas estiverem disponíveis.
+Quando houver mais de um eixo, a geometria existente da fixture deve
+demonstrar esses eixos; uma única coluna não demonstra navegação horizontal.
+Para `tabela`, a demonstração deve confirmar a ausência de cursor e de
+`[✥]`. Esta seção não cria execução, confirmação, cancelamento, persistência,
+prévia ou ação posterior à seleção.
 
 ---
 

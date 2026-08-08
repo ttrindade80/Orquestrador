@@ -71,6 +71,13 @@ _CAMPOS_ENVELOPE_BASE_PRE_ADR_0028 = frozenset({
 
 _POLITICA_SELECAO_VALIDOS = frozenset({"nenhuma", "unica", "multipla"})
 _POLITICA_PAGINACAO_VALIDOS = frozenset({"sem", "com"})
+_TIPOS_POLITICA_NAVEGACAO_VALIDOS = frozenset({
+    "nivel_unico",
+    "tabela",
+    "arvore_colapsavel",
+    "selecao_multinivel",
+    "dois_niveis_por_foco",
+})
 
 
 def _validar_valores_envelope_pre_adr_0028(elemento):
@@ -133,6 +140,25 @@ def _validar_valores_envelope_pre_adr_0028(elemento):
             "{0}: envelope pre-ADR-0028: 'politica_navegacao' deve ser "
             "objeto; recebido: {1!r}".format(orig, type(pol_nav).__name__)
         )
+
+    if "tipo" in pol_nav:
+        tipo_navegacao = pol_nav.get("tipo")
+        if (not isinstance(tipo_navegacao, str)
+                or tipo_navegacao not in _TIPOS_POLITICA_NAVEGACAO_VALIDOS):
+            raise TelaEstruturaInvalida(
+                "{0}: envelope pre-ADR-0028: 'politica_navegacao.tipo' "
+                "deve ser um dos cinco literais {1}; recebido: {2!r}".format(
+                    orig,
+                    ", ".join(sorted(_TIPOS_POLITICA_NAVEGACAO_VALIDOS)),
+                    tipo_navegacao,
+                )
+            )
+        if (tipo_navegacao == "tabela"
+                and pol_nav.get("navegavel")):
+            raise TelaEstruturaInvalida(
+                "{0}: envelope pre-ADR-0028: politica_navegacao.tipo "
+                "'tabela' e incompativel com navegavel=true".format(orig)
+            )
 
     pol_sel = elemento.get("politica_selecao")
     if not isinstance(pol_sel, str) or pol_sel not in _POLITICA_SELECAO_VALIDOS:

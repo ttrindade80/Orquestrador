@@ -150,6 +150,7 @@ def teste_catalogo():
         "h0036_console_hierarquia": "h0036_hierarquia_conteudo",
         "h0036_console_tabela": "h0036_tabela_conteudo",
         "h0036_console_conjuntos": "h0036_conjuntos_conteudo",
+        "h0052_tabela_passiva": "h0036_tabela_conteudo",
         "h0035_console_com": "h0035_console_com_conteudo",
         "h0035_console_sem": "h0035_console_sem_conteudo",
         "h0037_console_nao_verboso": "h0037_dois_niveis_conteudo",
@@ -157,7 +158,7 @@ def teste_catalogo():
         "h0037_console_alternavel_tres_niveis": "h0037_tres_niveis_conteudo",
         "h0037_console_tabela_alternavel": "h0037_tabela_conteudo",
     }
-    _registrar("catalogo associa exatamente os 9 cenarios com conteudo",
+    _registrar("catalogo associa exatamente os 10 cenarios com conteudo",
                _CATALOGO_CONTEUDO_EXTERNO == esperado,
                "obtido={0}".format(_CATALOGO_CONTEUDO_EXTERNO))
     _registrar("cenario com conteudo: associacao correta (hierarquia)",

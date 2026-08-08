@@ -188,6 +188,8 @@ _CATALOGO_CONTEUDO_EXTERNO = {
     "h0036_console_hierarquia": "h0036_hierarquia_conteudo",
     "h0036_console_tabela": "h0036_tabela_conteudo",
     "h0036_console_conjuntos": "h0036_conjuntos_conteudo",
+    # H-0052: a fixture envelope passiva reutiliza a tabela canônica H-0036.
+    "h0052_tabela_passiva": "h0036_tabela_conteudo",
     "h0035_console_com": "h0035_console_com_conteudo",
     "h0035_console_sem": "h0035_console_sem_conteudo",
     # H-0037 / ADR-0028: cenarios de politica de modo por tela.

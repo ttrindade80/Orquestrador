@@ -1,0 +1,147 @@
+{
+  "schema": "tela.v1",
+  "id": "h0052_nivel_unico_explicito",
+  "cabecalho": {
+    "titulo": "H-0052 Nivel Unico",
+    "descricao": "Politica de navegacao nivel_unico explicita.",
+    "apresentacao": {
+      "titulo": {
+        "posicao": "esquerda",
+        "recuo_lateral": 0,
+        "capitalizacao": "maiusculas",
+        "formato_na_borda": "com_espacos_laterais"
+      },
+      "descricao": {
+        "max_caracteres": 200,
+        "alinhamento": "esquerda",
+        "recuo": 1,
+        "capitalizacao": "preservar"
+      }
+    }
+  },
+  "corpo": {
+    "arranjo": "vertical",
+    "distribuicao": {"modo": "igual"},
+    "elementos": [
+      {
+        "id": "console_h0052_nivel_unico",
+        "tipo": "console",
+        "titulo": "Nivel unico",
+        "origem_dados": null,
+        "itens": [
+          {
+            "id": "item_a",
+            "texto": "Item A conteudo horizontal",
+            "navegavel": true
+          },
+          {
+            "id": "item_b",
+            "texto": "Item B conteudo horizontal",
+            "navegavel": true
+          },
+          {
+            "id": "item_c",
+            "texto": "Item C conteudo horizontal",
+            "navegavel": true
+          },
+          {
+            "id": "item_d",
+            "texto": "Item D conteudo horizontal",
+            "navegavel": true
+          },
+          {
+            "id": "item_e",
+            "texto": "Item E conteudo horizontal",
+            "navegavel": true
+          }
+        ],
+        "politica_composicao": {
+          "alinhamento": "esquerda",
+          "overflow_normal": "truncar_com_reticencias"
+        },
+        "politica_navegacao": {
+          "navegavel": true,
+          "tipo": "nivel_unico"
+        },
+        "politica_selecao": "unica",
+        "politica_paginacao": "sem",
+        "politica_exibicao": {
+          "modo_inicial": "normal",
+          "verboso": false
+        },
+        "distribuicao_matricial": {
+          "formacao": {
+            "politica": "preferencia_linhas",
+            "linhas": {
+              "minimo": 1,
+              "maximo": 5
+            }
+          },
+          "ordem": "por_linha",
+          "dimensionamento": {
+            "colunas": {
+              "politica": "uniforme"
+            },
+            "linhas": {
+              "politica": "uniforme"
+            }
+          },
+          "espacamento": {
+            "margem_esquerda": {
+              "minimo": 1
+            },
+            "margem_direita": {
+              "minimo": 1
+            },
+            "margem_superior": {
+              "minimo": 0
+            },
+            "margem_inferior": {
+              "minimo": 0
+            },
+            "vao_horizontal": {
+              "minimo": 1
+            },
+            "vao_vertical": {
+              "minimo": 0
+            }
+          },
+          "distribuicao_horizontal": {
+            "politica": "inicio"
+          },
+          "distribuicao_vertical": {
+            "politica": "inicio"
+          },
+          "ordem_expansao": {
+            "horizontal": "uniforme_margens_e_vaos",
+            "vertical": "uniforme_margens_e_vaos"
+          },
+          "politica_resto": {
+            "horizontal": "ao_ultimo",
+            "vertical": "ao_ultimo"
+          },
+          "alinhamento_interno": {
+            "horizontal": "inicio",
+            "vertical": "topo"
+          }
+        }
+      }
+    ]
+  },
+  "barra_de_menus": {
+    "distribuicao": "horizontal",
+    "chips": [
+      {"id": "chip_esc", "tipo": "acao", "tecla": "Esc", "texto": "Sair"},
+      {
+        "id": "chip_navegar",
+        "tipo": "navegacao",
+        "tecla": "✥",
+        "texto": "Navegar",
+        "regra_existencia": "console_focado_com_mais_de_um_item_navegavel",
+        "regra_ativo": "sempre",
+        "forma_exibicao": "visivel_ativo"
+      },
+      {"id": "chip_ajuda", "tipo": "acao", "tecla": "?", "texto": "Ajuda"}
+    ]
+  }
+}

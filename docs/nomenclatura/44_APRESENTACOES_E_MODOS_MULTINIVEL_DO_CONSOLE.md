@@ -45,6 +45,7 @@ nova ADR.
 - modo por tela
 - modo padrão da tela
 - modo configurável
+- navegação multinível como fronteira referenciada (ADR-0042)
 
 ## 4. Definições
 
@@ -121,7 +122,8 @@ Ao encontrar `modo não verboso`, não reescrever como `modo normal`.
 - ADR-0028: apresentações multinível; D23; política de modo por tela.
 - ADR-0026: dado externo que alimenta as apresentações (parcial — dado em si no módulo 42).
 - ADR-0027: carregamento conjunto que precede as apresentações (parcial — carregamento no módulo 43).
-- ADR-0031: D10 (mudança de modo preserva item lógico); linhas de continuação não recebem indicador; navegação multinível fora de escopo.
+- ADR-0031: D10 (mudança de modo preserva item lógico); linhas de continuação não recebem indicador; navegação multinível fora do escopo comportamental desta ADR.
+- ADR-0042: autoridade comportamental referenciada para navegação multinível do console.
 
 ## 8. Aliases ou termos descontinuados relacionados
 
@@ -154,9 +156,15 @@ Autoridade comportamental completa em `contrato_console.md` §§21–22.
 - **Linhas de continuação não recebem indicador de cursor**: em modo verboso,
   somente a primeira linha física do item sob cursor recebe o símbolo indicador;
   as linhas de continuação do mesmo item não recebem marcador de posição de cursor.
-- **Navegação multinível está fora da ADR-0031**: a ADR-0031 cobre somente a
-  navegação simples entre itens de nível único já expandidos. Colapsamento,
-  expansão e travessia entre níveis pertencem ao ITEM-0007.
+- **Apresentação e navegação multinível permanecem fronteiras distintas**:
+  apresentação multinível continua pertencendo a este módulo; a navegação
+  multinível, incluindo colapsamento, expansão, travessia, cursor e Espaço,
+  passa a referenciar a ADR-0042 e o contrato comportamental do console.
+  Este módulo não duplica as políticas de navegação.
+- A divergência `modo normal` × `modo não verboso` permanece preservada e não
+  é resolvida pela ADR-0042.
+- `Pai: filho_ativo`, promoção visual de filho, nova geometria e nova
+  distribuição não são antecipados por esta fronteira.
 
 ## 9. Conteúdo que não pertence a este módulo
 

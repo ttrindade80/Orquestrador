@@ -23,6 +23,8 @@ metadata:
       - docs/adr/ADR-0035-protocolo-focal-execucao-sintetica-reversivel.md
       - docs/adr/ADR-0036-carregamento-e-apresentacao-da-tela-padrao-de-resultado.md
       - docs/adr/ADR-0040-padronizacao-universal-do-controle-de-execucao-real-e-dry-run.md
+      - docs/adr/ADR-0041-paginacao-universal-por-pageup-e-pagedown.md
+      - docs/adr/ADR-0042-navegacao-multinivel-do-console.md
     reaproveitado_de_legado: false
   dependencias_nomenclatura:
     dependencias_obrigatorias:
@@ -122,7 +124,8 @@ O envelope mínimo de um elemento `console` em `corpo.elementos[]` é:
     "overflow_normal": "truncar_com_reticencias"
   },
   "politica_navegacao": {
-    "navegavel": false
+    "navegavel": false,
+    "tipo": "nivel_unico"
   },
   "politica_selecao": "nenhuma",
   "politica_paginacao": "sem",
@@ -141,6 +144,8 @@ Observações sobre o envelope mínimo:
 - `politica_navegacao.navegavel: false` indica `console` não navegável no
   estado mínimo — deve ser declarado `true` e incluir itens navegáveis para
   habilitar `[✥]`;
+- `politica_navegacao.tipo` é o discriminador da política. A ausência do campo
+  é compatível e equivale a `nivel_unico`;
 - `politica_selecao: "nenhuma"` indica ausência de seleção — valores
   alternativos: `"unica"` ou `"multipla"`;
 - `politica_paginacao: "sem"` indica sem paginação — valor alternativo:
@@ -163,7 +168,7 @@ Observações sobre o envelope mínimo:
 | `origem_dados` | objeto ou null | Fonte dos dados dos itens. `null` quando não há dados vinculados. Instância sem `origem_dados`, `binding` ou regra de geração de itens é inválida semanticamente. |
 | `itens` | array | Lista de itens declarados ou vazia. Itens concretos pertencem ao JSON da tela. |
 | `politica_composicao` | objeto | Define organização visual dos itens. Campos mínimos: `alinhamento` e `overflow_normal`. |
-| `politica_navegacao` | objeto | Define se o `console` é navegável e como o cursor se move. Campo mínimo: `navegavel` (booleano). |
+| `politica_navegacao` | objeto | Define se o `console` é navegável e como o cursor se move. `navegavel` (booleano) preserva sua semântica vigente; `tipo` é o discriminador opcional compatível com ausência. |
 | `politica_selecao` | string | `"nenhuma"`, `"unica"` ou `"multipla"`. Valor desconhecido é erro de validação. |
 | `politica_paginacao` | string | `"sem"` ou `"com"`. Quando `"com"`, a instância deve declarar política de paginação adicional. |
 | `politica_exibicao` | objeto | Define modo inicial e se verboso é permitido. Campos mínimos: `modo_inicial` e `verboso`. |
@@ -228,6 +233,43 @@ O renderer percorre as listas e objetos declarados. Nenhum item, filtro,
 ação, política de paginação, regra de coluna, composição ou navegação pode
 estar hardcoded no código.
 
+### 7.1 Política de navegação declarada (ADR-0042)
+
+`politica_navegacao` permanece exclusivamente um objeto. A forma canônica é:
+
+```json
+{
+  "politica_navegacao": {
+    "navegavel": true,
+    "tipo": "dois_niveis_por_foco"
+  }
+}
+```
+
+O campo `navegavel` mantém sua semântica vigente. O campo `tipo`, quando
+presente, aceita exatamente:
+
+```text
+nivel_unico
+tabela
+arvore_colapsavel
+selecao_multinivel
+dois_niveis_por_foco
+```
+
+Quando `tipo` estiver ausente, o tipo efetivo é `nivel_unico`; a ausência não
+invalida a configuração. Não existe string alternativa para
+`politica_navegacao`, segunda forma declarativa, inferência por dados,
+apresentação, nome da fixture ou outro campo, nem matriz geral de validade
+entre `navegavel` e `tipo`. O comportamento completo de cada política pertence
+ao `contrato_console.md` §§22.11–22.18.
+
+`tipo: tabela` é passivo, sem fallback para `nivel_unico`; declaração
+incompatível de `tabela` como navegável é falha focal. O momento, a camada e o
+mecanismo dessa falha não são definidos por este contrato. Um terceiro nível
+em `dois_niveis_por_foco` é inválido; as demais restrições comportamentais das
+políticas estão no contrato comportamental.
+
 ---
 
 ## 8. Fora de escopo
@@ -240,7 +282,8 @@ Os itens abaixo são explicitamente fora do escopo deste contrato:
 - implementação de cursor, paginação, filtros, colunas — pertencem à
   implementação futura;
 - chips de `barra_de_menus` que refletem capacidades de `console` (`[✥]`,
-  `[␣]`, `[V]`, `[<][>]`, `[-][+]`) — regidos por `contrato_barra_de_menus.md`;
+  `[␣]`, `[V]`, `[PgUp][PgDn]`, `[-][+]`) — regidos por
+  `contrato_barra_de_menus.md` e pela ADR-0041;
 - modo verboso: lógica interna de cada tipo de item em modo verboso pertence
   ao contrato do tipo de item.
 

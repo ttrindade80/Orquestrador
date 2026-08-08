@@ -23,13 +23,16 @@ from tela import navegacao
 # ---------------------------------------------------------------------------
 
 
-def _console(idc, itens, navegavel=True, distribuicao=None, titulo="C"):
+def _console(idc, itens, navegavel=True, distribuicao=None, titulo="C",
+             tipo_navegacao=None):
     """Constroi um ElementoCorpo do tipo console com itens inertes."""
     inertes = {
         "titulo": titulo,
         "itens": itens,
         "politica_navegacao": {"navegavel": navegavel},
     }
+    if tipo_navegacao is not None:
+        inertes["politica_navegacao"]["tipo"] = tipo_navegacao
     return ElementoCorpo(
         id=idc,
         tipo="console",
@@ -1280,6 +1283,208 @@ def teste_chip_navegar_presente_mais_de_um_item_ausente_um_item():
     # Sem foco -> nao exibir
     est3 = _estado([c_multi], foco=None)
     assert navegacao.exibir_chip_navegar(est3) is False
+
+
+# H-0052 -- fundacao e compatibilidade das politicas de navegacao
+def teste_h0052_politica_legada_resolve_nivel_unico():
+    c = _console("c", [_item("a", "A"), _item("b", "B")])
+    assert navegacao.tipo_navegacao_efetivo(c) == "nivel_unico"
+    assert navegacao.console_e_focalizavel(c) is True
+
+
+def teste_h0052_nivel_unico_explicito_e_legado_sao_equivalentes():
+    legado = _console(
+        "legado", [_item("a", "A"), _item("b", "B")],
+        distribuicao=_DISTRIBUICAO_UMA_COLUNA,
+    )
+    explicito = _console(
+        "explicito", [_item("a", "A"), _item("b", "B")],
+        distribuicao=_DISTRIBUICAO_UMA_COLUNA,
+        tipo_navegacao="nivel_unico",
+    )
+    assert navegacao.tipo_navegacao_efetivo(explicito) == "nivel_unico"
+    assert navegacao.console_e_focalizavel(legado) is True
+    assert navegacao.console_e_focalizavel(explicito) is True
+    estado_legado = _estado([legado], foco=0, cursores={"legado": 0})
+    estado_explicito = _estado([explicito], foco=0, cursores={"explicito": 0})
+    for mover in (
+        navegacao.mover_direita,
+        navegacao.mover_esquerda,
+        navegacao.mover_baixo,
+        navegacao.mover_cima,
+    ):
+        estado_legado = mover(estado_legado, legado)
+        estado_explicito = mover(estado_explicito, explicito)
+    assert estado_legado["cursores"]["legado"] == estado_explicito["cursores"]["explicito"]
+
+
+def teste_h0052_fixture_nivel_unico_explicito_exibe_chip_navegar():
+    from tela.loader import carregar_tela
+    from tela.modelo import construir_modelo
+    from tela.renderizador import renderizar_tela
+
+    modelo = construir_modelo(
+        carregar_tela(None, "h0052_nivel_unico_explicito", "config/telas/demo")
+    )
+    lista = navegacao.lista_foco(modelo)
+    assert len(lista) == 1
+    console = lista[0]
+    assert navegacao.tipo_navegacao_efetivo(console) == "nivel_unico"
+    assert console._campos_inertes["politica_navegacao"] == {
+        "navegavel": True,
+        "tipo": "nivel_unico",
+    }
+    itens = navegacao.itens_navegaveis(console)
+    assert len(itens) >= 5
+    ids = {item["id"] for item in itens}
+
+    grades = []
+    for largura in range(20, 81):
+        grade = navegacao.grade_de_itens(
+            console,
+            largura=largura,
+            altura_interna=16,
+            desconto_estrutural=3,
+        )
+        ocupados = [
+            item for linha in grade for item in linha if item is not None
+        ]
+        assert {item["id"] for item in ocupados} == ids
+        grades.append((largura, grade))
+
+    colunas = {len(grade[0]) for _largura, grade in grades if grade}
+    assert max(colunas) > 1
+    assert min(colunas) < max(colunas)
+
+    grade_largura_reduzida = navegacao.grade_de_itens(
+        console,
+        largura=31,
+        altura_interna=16,
+        desconto_estrutural=3,
+    )
+    assert len(grade_largura_reduzida) == 5
+    assert all(len(linha) == 1 for linha in grade_largura_reduzida)
+    assert [linha[0]["id"] for linha in grade_largura_reduzida] == [
+        "item_a",
+        "item_b",
+        "item_c",
+        "item_d",
+        "item_e",
+    ]
+
+    largura_bidimensional, grade_bidimensional = next(
+        (largura, grade)
+        for largura, grade in grades
+        if len(grade) > 1
+        and any(len(linha) > 1 for linha in grade)
+        and any(
+            celula is None
+            for linha in grade
+            for celula in linha
+        )
+    )
+    assert all(
+        navegacao.item_logico_de_posicao(grade_bidimensional, linha, coluna)
+        is None
+        for linha in range(len(grade_bidimensional))
+        for coluna in range(len(grade_bidimensional[linha]))
+        if grade_bidimensional[linha][coluna] is None
+    )
+
+    estado = _estado(
+        modelo,
+        foco=0,
+        cursores={console.id: 0},
+        largura=largura_bidimensional,
+        altura_interna=16,
+        desconto_estrutural=3,
+    )
+    assert navegacao.exibir_chip_navegar(estado) is True
+
+    for mover in (
+        navegacao.mover_direita,
+        navegacao.mover_esquerda,
+        navegacao.mover_baixo,
+        navegacao.mover_cima,
+    ):
+        estado_movido = mover(estado, console)
+        assert estado_movido["cursores"][console.id] != 0
+        assert navegacao.item_selecionado(console, estado_movido)["id"] in ids
+        assert navegacao.exibir_chip_navegar(estado_movido) is True
+
+    estado_direita = navegacao.mover_direita(estado, console)
+    assert navegacao.mover_esquerda(estado_direita, console)["cursores"][console.id] == 0
+    estado_baixo = navegacao.mover_baixo(estado, console)
+    assert navegacao.mover_cima(estado_baixo, console)["cursores"][console.id] == 0
+
+    estado_seguinte = estado_baixo
+    assert navegacao.exibir_chip_navegar(estado_seguinte) is True
+
+    saida = renderizar_tela(
+        modelo,
+        _estilo_padrao(),
+        largura=80,
+        altura=24,
+        foco_console=0,
+        cursores=estado_seguinte["cursores"],
+        lista_foco=lista,
+        largura_navegacao=80,
+    )
+    assert "[✥] Navegar" in saida
+    assert "[?] Ajuda" in saida
+
+    chips_renderizados = ("[Esc] Sair", "[✥] Navegar", "[?] Ajuda")
+    linha_barra = next(
+        linha for linha in saida.splitlines()
+        if all(chip in linha for chip in chips_renderizados)
+    )
+    posicoes = [linha_barra.index(chip) for chip in chips_renderizados]
+    assert posicoes == sorted(posicoes)
+    assert linha_barra.strip("│ ").endswith("[?] Ajuda")
+
+
+def teste_h0052_politica_nao_objeto_nao_recebe_fallback():
+    c = _console("c", [_item("a", "A")])
+    c._campos_inertes["politica_navegacao"] = "navegavel"
+    assert navegacao.tipo_navegacao_efetivo(c) != "nivel_unico"
+    assert navegacao.console_e_focalizavel(c) is False
+
+
+@pytest.mark.parametrize(
+    "tipo",
+    [
+        "nivel_unico",
+        "tabela",
+        "arvore_colapsavel",
+        "selecao_multinivel",
+        "dois_niveis_por_foco",
+    ],
+)
+def teste_h0052_transporta_os_cinco_literais_sem_fallback(tipo):
+    c = _console(
+        "c", [_item("a", "A"), _item("b", "B")], navegavel=(tipo != "tabela"),
+        tipo_navegacao=tipo,
+    )
+    assert navegacao.tipo_navegacao_efetivo(c) == tipo
+    assert navegacao.console_e_focalizavel(c) is (tipo == "nivel_unico")
+
+
+def teste_h0052_tabela_eh_passiva_no_foco_chip_e_movimento_direto():
+    tabela = _console(
+        "tabela", [_item("a", "A"), _item("b", "B")], navegavel=False,
+        tipo_navegacao="tabela", distribuicao=_DISTRIBUICAO_UMA_COLUNA,
+    )
+    estado = _estado([tabela], foco=None, cursores={"tabela": 1})
+    assert navegacao.lista_foco([tabela]) == []
+    assert navegacao.exibir_chip_navegar(estado) is False
+    for mover in (
+        navegacao.mover_direita,
+        navegacao.mover_esquerda,
+        navegacao.mover_baixo,
+        navegacao.mover_cima,
+    ):
+        novo = mover(estado, tabela)
+        assert novo["cursores"] == {"tabela": 1}
 def test_h0045_setas_restritas_aos_itens_navegaveis_da_pagina_atual():
     from tela.loader import carregar_tela
     from tela.modelo import construir_modelo

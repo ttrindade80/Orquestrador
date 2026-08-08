@@ -5028,3 +5028,204 @@ def test_h0050_modo_inicial_tipo_nao_hashable_gera_diagnostico_controlado(
     assert "CONFIGURACAO_INVALIDA" in mensagem
     assert "controle_execucao.modo_inicial" in mensagem
     assert not isinstance(erro.value, (TypeError, KeyError))
+
+
+def _h0052_documento_com_politica(id_tela, politica, itens=None):
+    """Constroi documento de envelope console para os testes H-0052."""
+    documento = _tela_minima(id_tela)
+    console = documento["corpo"]["elementos"][0]
+    console["itens"] = itens or [
+        {"id": "item_a", "texto": "A", "navegavel": True},
+        {"id": "item_b", "texto": "B", "navegavel": True},
+    ]
+    console["politica_navegacao"] = politica
+    return documento
+
+
+@pytest.mark.parametrize(
+    "tipo",
+    [
+        "nivel_unico",
+        "tabela",
+        "arvore_colapsavel",
+        "selecao_multinivel",
+        "dois_niveis_por_foco",
+    ],
+)
+def test_h0052_loader_aceita_os_cinco_tipos_fechados(tmp_path, tipo):
+    nome = "h0052_tipo_" + tipo
+    navegavel = tipo != "tabela"
+    documento = _h0052_documento_com_politica(
+        nome, {"navegavel": navegavel, "tipo": tipo}
+    )
+    _escrever_tela(tmp_path, nome, documento)
+    carregada = carregar_tela(tmp_path, nome)
+    assert carregada["id"] == nome
+
+
+@pytest.mark.parametrize("tipo", ["grade_livre", 1, None, [], {}])
+def test_h0052_loader_rejeita_tipo_desconhecido_ou_nao_textual(tmp_path, tipo):
+    nome = "h0052_tipo_invalido"
+    documento = _h0052_documento_com_politica(
+        nome, {"navegavel": True, "tipo": tipo}
+    )
+    _escrever_tela(tmp_path, nome, documento)
+    with pytest.raises(TelaEstruturaInvalida, match="politica_navegacao.tipo"):
+        carregar_tela(tmp_path, nome)
+
+
+def test_h0052_loader_rejeita_politica_navegacao_nao_objeto(tmp_path):
+    nome = "h0052_politica_nao_objeto"
+    documento = _h0052_documento_com_politica(nome, "navegavel")
+    _escrever_tela(tmp_path, nome, documento)
+    with pytest.raises(TelaEstruturaInvalida, match="politica_navegacao"):
+        carregar_tela(tmp_path, nome)
+
+
+def test_h0052_loader_rejeita_tabela_navegavel(tmp_path):
+    nome = "h0052_tabela_navegavel"
+    documento = _h0052_documento_com_politica(
+        nome, {"navegavel": True, "tipo": "tabela"}
+    )
+    _escrever_tela(tmp_path, nome, documento)
+    with pytest.raises(TelaEstruturaInvalida, match="tabela.*navegavel"):
+        carregar_tela(tmp_path, nome)
+
+
+def test_h0052_fixtures_de_demonstracao_carregam():
+    from demo.demo_navegacao import carregar_modelo_por_caminho
+    from tela import navegacao
+
+    for nome in ("h0052_nivel_unico_explicito", "h0052_tabela_passiva"):
+        carregada = carregar_tela(None, nome, _RAIZ_TELAS_DEMO)
+        assert carregada["id"] == nome
+        if nome == "h0052_nivel_unico_explicito":
+            modelo = carregar_modelo_por_caminho(
+                str(_BASE_PADRAO / _RAIZ_TELAS_DEMO / (nome + ".json"))
+            )
+            consoles = navegacao.lista_foco(modelo)
+            assert len(consoles) == 1
+            console = consoles[0]
+
+            itens = navegacao.itens_navegaveis(console)
+            assert console._campos_inertes["politica_navegacao"]["tipo"] == "nivel_unico"
+            assert len(itens) >= 5
+            ids = [item["id"] for item in itens]
+            assert len(set(ids)) == len(ids)
+
+            largura_bidimensional = None
+            grade = None
+            for largura_teste in range(20, 81):
+                grade_teste = navegacao.grade_de_itens(
+                    console,
+                    largura=largura_teste,
+                    altura_interna=16,
+                    desconto_estrutural=3,
+                )
+                if (
+                    len(grade_teste) > 1
+                    and any(len(linha) > 1 for linha in grade_teste)
+                    and any(
+                        celula is None
+                        for linha in grade_teste
+                        for celula in linha
+                    )
+                ):
+                    largura_bidimensional = largura_teste
+                    grade = grade_teste
+                    break
+            assert largura_bidimensional is not None
+            assert grade is not None
+            itens_na_grade = [
+                item for linha in grade for item in linha if item is not None
+            ]
+            assert len(itens_na_grade) >= 5
+            assert {item["id"] for item in itens_na_grade} == set(ids)
+            assert any(
+                celula is None
+                for linha in grade
+                for celula in linha
+            )
+
+            estado = {
+                "modelo": modelo,
+                "foco_console": 0,
+                "cursores": {console.id: 0},
+                "largura": largura_bidimensional,
+                "altura_interna": 16,
+                "desconto_estrutural": 3,
+            }
+            item_inicial = navegacao.item_selecionado(console, estado)
+            estado_seguinte = navegacao.mover_baixo(estado, console)
+            assert estado_seguinte["cursores"][console.id] != 0
+            assert navegacao.item_selecionado(console, estado_seguinte)["id"] != item_inicial["id"]
+
+            estado_restaurado = navegacao.mover_cima(estado_seguinte, console)
+            assert estado_restaurado["cursores"][console.id] == 0
+            assert navegacao.item_selecionado(console, estado_restaurado)["id"] == item_inicial["id"]
+        else:
+            from demo.demo import id_conteudo_externo_de
+            from tela.renderizador import renderizar_tela
+
+            modelo = carregar_modelo_por_caminho(
+                str(_BASE_PADRAO / _RAIZ_TELAS_DEMO / (nome + ".json"))
+            )
+            referencia = carregar_conteudo_externo(
+                None, "h0036_tabela_conteudo", _RAIZ_TELAS_DEMO
+            )
+
+            assert id_conteudo_externo_de(nome) == "h0036_tabela_conteudo"
+            assert modelo.conteudo_externo is not None
+            assert modelo.conteudo_externo._raw == referencia
+            assert modelo.conteudo_externo.apresentacao == "tabela"
+
+            consoles = [
+                elemento
+                for elemento in modelo.corpo.elementos
+                if elemento.tipo == "console"
+            ]
+            assert len(consoles) == 1
+            console = consoles[0]
+            assert console._campos_inertes["politica_navegacao"]["tipo"] == "tabela"
+            assert console._campos_inertes["politica_navegacao"]["navegavel"] is False
+            assert navegacao.lista_foco(modelo) == []
+            assert navegacao.itens_navegaveis(console) == []
+
+            estado = {
+                "modelo": modelo,
+                "foco_console": None,
+                "cursores": {console.id: 0},
+            }
+            assert navegacao.exibir_chip_navegar(estado) is False
+            for mover in (
+                navegacao.mover_direita,
+                navegacao.mover_esquerda,
+                navegacao.mover_baixo,
+                navegacao.mover_cima,
+            ):
+                estado_movido = mover(estado, console)
+                assert estado_movido["foco_console"] is None
+                assert estado_movido["cursores"] == estado["cursores"]
+
+            saida = renderizar_tela(
+                modelo,
+                carregar_estilo(),
+                largura=100,
+                altura=30,
+                foco_console=None,
+                cursores={},
+                lista_foco=[],
+            )
+            assert "Grupo" in saida and "Campo" in saida and "Valor" in saida
+            assert "Entradas" in saida and "Estrutural" in saida
+            assert "Saidas" in saida and "Sem conteudo" in saida
+            assert "(console)" not in saida
+            assert "[✥] Navegar" not in saida
+            assert "[Esc] Sair" in saida
+            assert "[?] Ajuda" in saida
+            linha_barra = next(
+                linha for linha in saida.splitlines()
+                if "[Esc] Sair" in linha and "[?] Ajuda" in linha
+            )
+            assert linha_barra.strip("│ ").endswith("[?] Ajuda")
+            assert "✥" not in saida

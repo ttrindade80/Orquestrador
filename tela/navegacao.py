@@ -55,6 +55,20 @@ def itens_navegaveis(elemento):
     return [i for i in itens if _item_eh_navegavel(i)]
 
 
+def tipo_navegacao_efetivo(elemento):
+    """Resolve o tipo declarado da politica de navegacao.
+
+    A ausencia de ``tipo`` em uma politica valida preserva a compatibilidade
+    legada com ``nivel_unico``. Uma politica que nao seja objeto nao recebe
+    esse fallback; o loader a rejeita como estrutura invalida.
+    """
+    campos = getattr(elemento, "_campos_inertes", {})
+    politica = campos.get("politica_navegacao") if isinstance(campos, dict) else None
+    if not isinstance(politica, dict):
+        return None
+    return politica.get("tipo", "nivel_unico")
+
+
 def console_e_focalizavel(elemento):
     """True quando ``elemento`` satisfaz D2: tipo ``console`` com
     ``politica_navegacao.navegavel == True`` E ao menos um item navegavel.
@@ -67,6 +81,9 @@ def console_e_focalizavel(elemento):
     if elemento is None:
         return False
     if getattr(elemento, "tipo", None) != "console":
+        return False
+    tipo = tipo_navegacao_efetivo(elemento)
+    if tipo != "nivel_unico":
         return False
     politica = elemento._campos_inertes.get("politica_navegacao")
     if not isinstance(politica, dict) or not politica.get("navegavel"):
@@ -445,6 +462,8 @@ def mover_esquerda(estado, console, itens_permitidos=None):
 
 def _mover_horizontal(estado, console, passo, itens_permitidos=None):
     """Nucleo do movimento horizontal toroidal (D8/D9)."""
+    if tipo_navegacao_efetivo(console) != "nivel_unico":
+        return estado
     largura = estado.get("largura", 0)
     altura_interna = estado.get("altura_interna")
     desconto = estado.get("desconto_estrutural", 0)
@@ -497,6 +516,8 @@ def mover_cima(estado, console, itens_permitidos=None):
 
 def _mover_vertical(estado, console, passo, itens_permitidos=None):
     """Nucleo do movimento vertical toroidal (D8/D9)."""
+    if tipo_navegacao_efetivo(console) != "nivel_unico":
+        return estado
     largura = estado.get("largura", 0)
     altura_interna = estado.get("altura_interna")
     desconto = estado.get("desconto_estrutural", 0)

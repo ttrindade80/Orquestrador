@@ -299,12 +299,17 @@ variam conforme o contexto da tela e o estado da seleção:
 | Contexto | Rótulo documental | Ação |
 |---|---|---|
 | Há seleção ativa no corpo em foco | Limpar | Limpa a seleção; permanece na tela; só volta ao comportamento Sair/Voltar depois que a seleção for limpa |
+| Toroide de filhos ativo em `dois_niveis_por_foco` | Retornar aos pais | Retorna ao toroide dos pais, preserva o filho escolhido, não limpa a escolha e não possui semântica de cancelamento (precedência contextual da ADR-0042) |
 | Sem seleção ativa, tela raiz (Orquestrador) | Sair | Encerra a sessão |
 | Sem seleção ativa, qualquer outra tela | Voltar | Retorna à tela anterior |
 
 A condição de "seleção ativa" é derivada do estado do corpo em foco — o renderer
 consulta esse estado a cada render. A camada de limpeza tem precedência sobre a
-de navegação: enquanto houver seleção, `[Esc]` sempre limpa, nunca navega.
+de navegação fora da exceção contextual de `dois_niveis_por_foco`: enquanto o
+toroide de filhos estiver ativo, a precedência de Esc definida pela ADR-0042
+retorna aos pais e preserva a escolha do filho; não limpa a escolha e não
+possui semântica de cancelamento. Essa exceção não altera a semântica geral de
+Esc das demais políticas.
 
 ---
 
@@ -670,9 +675,12 @@ O renderer consulta `cor_inativo` e `cor_alerta` do objeto de estilo ativo.
 Não define valores de cor próprios para a `barra_de_menus`.
 
 **R-8. Rótulo dinâmico de `[Esc]` tem precedência da seleção.**
-Enquanto houver seleção ativa no corpo em foco, `[Esc]` sempre limpa a seleção
-— nunca navega. O comportamento Sair/Voltar só se aplica depois que a seleção
-for limpa ou quando não há seleção.
+Enquanto houver seleção ativa no corpo em foco, `[Esc]` limpa a seleção — nunca
+navega — salvo no toroide de filhos ativo de `dois_niveis_por_foco`, onde a
+precedência contextual da ADR-0042 retorna aos pais, preserva a escolha do
+filho, não limpa a escolha e não possui semântica de cancelamento. O
+comportamento Sair/Voltar só se aplica depois que a seleção for limpa ou
+quando não há seleção.
 
 **R-9. Estado e rótulo de `[⏎]` são recalculados a cada render.**
 O renderer determina o estado e o rótulo de `[⏎]` a cada render com base no
@@ -726,7 +734,11 @@ nem de ativação de `[✥]` (ADR-0005).
 - [ ] `cor_inativo` e `cor_alerta` aplicadas ao chip vêm exclusivamente do schema
       de estilo ativo — nenhum valor de cor está hardcoded no renderer.
 - [ ] `[Esc]` aplica a semântica de "Limpar" quando há seleção ativa no corpo
-      em foco — independente do tipo de tela.
+      em foco, exceto no toroide de filhos ativo de `dois_niveis_por_foco`, que
+      segue a precedência contextual da ADR-0042.
+- [ ] `[Esc]` no toroide de filhos de `dois_niveis_por_foco` retorna ao toroide
+      dos pais, preserva a escolha do filho, não limpa a escolha e não possui
+      semântica de cancelamento.
 - [ ] `[Esc]` aplica "Sair" apenas na tela raiz sem seleção ativa; "Voltar"
       em qualquer outra tela sem seleção ativa.
 - [ ] `[⏎]` fica inativo (usa `cor_inativo`) quando não há alvo válido ou

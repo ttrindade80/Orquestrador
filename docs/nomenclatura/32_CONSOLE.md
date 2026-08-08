@@ -68,6 +68,14 @@ Não redefinir `grupo` como nó estrutural; esse sentido pertence ao módulo `40
 - paginação limitada (ADR-0038)
 - página lógica vazia (ADR-0038)
 - repaginação (ADR-0038)
+- política de navegação declarada (ADR-0042)
+- `politica_navegacao.tipo` (ADR-0042)
+- `nivel_unico` (ADR-0042)
+- `tabela` como política de navegação (ADR-0042)
+- `arvore_colapsavel` (ADR-0042)
+- `selecao_multinivel` (ADR-0042)
+- `dois_niveis_por_foco` (ADR-0042)
+- seleção exclusiva obrigatória de filho por pai (ADR-0042)
 
 ## 4. Definições
 
@@ -260,6 +268,24 @@ aparência da configuração não os define. Incompatibilidade ou resolução
 insuficiente deve falhar de forma fechada antes da execução. O modo acompanha a
 requisição, mas não pertence ao console nem ao lote.
 
+### 4.10 Vocabulário de navegação multinível (ADR-0042)
+
+| Termo | Definição |
+|---|---|
+| **política de navegação declarada** | Política informada explicitamente no objeto `politica_navegacao` da instância do `console`; não é inferida da estrutura dos dados, da apresentação, do nome da fixture ou de outro campo. |
+| **`politica_navegacao.tipo`** | Campo discriminador canônico da política de navegação. Aceita somente `nivel_unico`, `tabela`, `arvore_colapsavel`, `selecao_multinivel` e `dois_niveis_por_foco`; quando ausente, equivale a `nivel_unico`. |
+| **`nivel_unico`** | Política que preserva integralmente o comportamento vigente de nível único, sem redesenho. |
+| **`tabela` como política de navegação** | Política passiva: não participa do foco, não recebe cursor entre linhas, não é percorrida pelas setas, não exibe `[✥]` e não tem fallback para `nivel_unico`. Não é propriedade terminológica da apresentação `tabela`; uma declaração incompatível como navegável é falha focal. |
+| **`arvore_colapsavel`** | Política de árvore hierárquica navegável sem seleção; ↑/↓ percorrem o que está visível e Espaço abre ou fecha o ramo corrente. |
+| **`selecao_multinivel`** | Política de profundidade arbitrária que reúne todos os níveis em uma única topologia de navegação e usa Espaço para alternância em folhas ou alcance recursivo nos descendentes de um pai. |
+| **`dois_niveis_por_foco`** | Política com exatamente dois níveis — pais e filhos diretos —, um toroide único de pais e um toroide próprio de filhos para cada pai. |
+| **seleção exclusiva obrigatória de filho por pai** | Mecanismo de `dois_niveis_por_foco` em que cada pai mantém exatamente um filho escolhido; Espaço transfere a escolha para outro filho, mas mover o cursor não a transfere. |
+
+`seleção exclusiva obrigatória de filho por pai` não é `seleção única`: esta
+última continua designando, na ADR-0031, o item sob cursor que muda com o
+cursor. Também não é seleção múltipla. Foco, cursor, seleção e escolha do
+filho permanecem mecanismos distintos.
+
 ## 5. Distinções obrigatórias
 
 | Par | Distinção normativa |
@@ -271,6 +297,10 @@ requisição, mas não pertence ao console nem ao lote.
 | página × seleção | Página é estado de runtime independente por console que delimita o subconjunto de itens acessível às setas; seleção é conjunto de IDs independente de página e persistente entre páginas (ADR-0034) — não se confundem |
 | modo universal da tela × console | O modo universal pode acompanhar o lote reconciliado na requisição, mas não pertence ao lote nem ao console; `controle_execucao` pertence à declaração e ao runtime da tela (ADR-0040) |
 | repaginação (D-PAG-10) × reconciliação especializada por ID (ADR-0037) | Repaginação genérica é regra padrão do `ITEM-0003` para atualização de dados; a reconciliação por ID do retorno pós-execução real do Handoff 4 é especialização exclusiva da ADR-0037 e tem precedência onde as duas poderiam se sobrepor |
+| `tabela` como política × `tabela` como apresentação | A política `tabela` é passiva e define navegabilidade; a apresentação `tabela` pertence ao vocabulário de apresentação e não recebe propriedade da política por homonímia |
+| cursor × escolha do filho | Cursor indica o item corrente; em `dois_niveis_por_foco`, a escolha do filho só muda por Espaço e permanece independente do movimento do cursor |
+| seleção única × seleção exclusiva obrigatória de filho por pai | Seleção única é o item sob cursor da ADR-0031; seleção exclusiva obrigatória de filho por pai mantém uma escolha persistente e exclusiva por pai em `dois_niveis_por_foco` |
+| navegação × paginação | Navegação move o cursor conforme a política ativa; paginação permanece independente e subordinada à ADR-0041, sem troca implícita de página pelo cursor |
 
 ## 6. Relação com contratos
 
@@ -287,6 +317,7 @@ requisição, mas não pertence ao console nem ao lote.
 - ADR-0037: preservação/restauração da origem no retorno; reconciliação de foco; preservação e fallback de cursor.
 - ADR-0038: paginação interativa limitada e independência de página por console; terminologia de página atual, página de destino, página sem item navegável e repaginação; precedência da reconciliação especializada por ID da ADR-0037 sobre a regra genérica de atualização de dados.
 - ADR-0040: transmissão explícita do modo universal junto ao lote reconciliado, sem atribuir o modo ao console.
+- ADR-0042: política de navegação declarada, cinco valores fechados de `tipo`, políticas multinível, precedência contextual de Esc e seleção exclusiva obrigatória de filho por pai.
 
 ## 8. Aliases ou termos descontinuados relacionados
 
@@ -296,7 +327,7 @@ requisição, mas não pertence ao console nem ao lote.
 
 - `grupo` como nó estrutural de composição do corpo → módulo `40`.
 - Regras comportamentais completas de navegação → `contrato_console.md`.
-- Apresentações multinível e modos verboso/não verboso → módulo `44`.
+- Apresentações multinível e modos verboso/não verboso → módulo `44`; a navegação multinível comportamental pertence à ADR-0042 e ao contrato do console.
 - Carregamento e associação de conteúdo externo → módulo `43`.
 - Dados externos e envelope declarativo → módulo `42`.
 - Pendência `tx` (regras de ajuste quando texto não cabe) → classificada como pendência
