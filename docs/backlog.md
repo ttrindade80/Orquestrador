@@ -76,13 +76,29 @@ esta lista.
 **Pre-requisitos:** Registrado pela ADR-0034 (D-SEL-24); `ITEM-0006` concluido em 2026-07-29.
 **Proxima acao:** Realizar levantamento focal e criar ADR propria para as politicas e transicoes de modo das telas de resultado.
 
-### ITEM-0007 — Conteudo multinivel colapsavel no console
+### ITEM-0007 — Navegacao multinivel do console
 **Tipo:** implementacao
 **Prioridade:** media
 **Status:** planejado
-**Descricao:** Implementar conteudo multinivel com nos expansiveis e recolhiveis no console.
-**Pre-requisitos:** Definicao documental do conteudo colapsavel e da navegacao entre niveis.
-**Proxima acao:** Realizar levantamento focal e criar ADR propria.
+**Descricao:** Implementar as politicas de navegacao multinivel do console com foco estrito em cursor, percurso e semantica de Espaco: preservar `nivel_unico`; manter `tabela` nao navegavel; implementar `arvore_colapsavel`; implementar `selecao_multinivel` com uma unica navegacao reunindo todos os niveis e selecao recursiva dos descendentes; implementar `dois_niveis_por_foco` com toroide dos pais e toroide proprio de filhos por pai, usando a apresentacao de selecao ja existente. O ciclo deve ser decomposto em quatro handoffs sequenciais e nao pode reaproveitar a tentativa defeituosa preservada em branch de erro.
+**Pre-requisitos:** Ciclo universal de paginacao por `PageUp`/`PageDown` e chips `[PgUp]`/`[PgDn]` concluido pela ADR-0041 e pelo H-0051, com QA tecnico e validacao manual aprovados. Especificacao fechada preservada externamente em `ESPECIFICACAO_CICLO_B_NAVEGACAO_MULTINIVEL.md`, a ser fornecida pelo usuario ao gerente responsavel.
+**Proxima acao:** Iniciar novo gerente para o Ciclo B usando a especificacao externa fechada; nao reabrir apresentacao de filho ativo, distribuicao geometrica de grupos, Enter, execucao, confirmacao ou persistencia neste item.
+
+### ITEM-0023 — Apresentacao de filho ativo em grupos multinivel
+**Tipo:** implementacao
+**Prioridade:** media
+**Status:** bloqueado
+**Descricao:** Implementar em ciclo futuro a apresentacao `Pai: filho_ativo`, preservando o filho ativo como filho logico e estrutural, promovendo-o somente visualmente e sem duplica-lo na lista inferior; quando outro filho se tornar ativo, recompor a apresentacao conforme as definicoes fechadas. Este item nao define Enter, execucao, confirmacao, cancelamento, previa ou persistencia.
+**Pre-requisitos:** ITEM-0007 concluido. Definicoes fechadas preservadas externamente em `DEFINICOES_DIFERIDAS_MULTINIVEL_PARA_CICLOS_FUTUROS.md`, a ser fornecido pelo usuario ao futuro gerente.
+**Proxima acao:** Apos ITEM-0007, iniciar especificacao propria somente para as partes ainda abertas desta capacidade, preservando as definicoes ja fechadas.
+
+### ITEM-0024 — Distribuicao geometrica de grupos multinivel
+**Tipo:** implementacao
+**Prioridade:** media
+**Status:** bloqueado
+**Descricao:** Definir e implementar em ciclo futuro a distribuicao visual dos blocos de pais e filhos multinivel, incluindo multiplas colunas e linhas, preservacao da ordem, quebra horizontal, margens, espacamentos, compactacao local de um unico grupo e continuidade entre paginas, sem alterar a semantica dos toroides de navegacao.
+**Pre-requisitos:** ITEM-0007 concluido. Definicoes fechadas preservadas externamente em `DEFINICOES_DIFERIDAS_MULTINIVEL_PARA_CICLOS_FUTUROS.md`, a ser fornecido pelo usuario ao futuro gerente.
+**Proxima acao:** Apos ITEM-0007, iniciar ciclo proprio de especificacao de geometria e layout, preservando as definicoes ja fechadas e sem incorporar apresentacao de filho ativo.
 
 ### ITEM-0008 — Conteudo composto e heterogeneo no console
 **Tipo:** implementacao

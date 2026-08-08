@@ -51,6 +51,8 @@ Grandezas exclusivas do lançador (`area_lancador_w`, `lancador_caixa_min_w`,
 - página lógica vazia (ADR-0038)
 - repaginação (ADR-0038)
 - página de destino (ADR-0038)
+- teclas universais de paginação `PageUp`/`PageDown` (ADR-0041)
+- representação canônica `[PgUp][PgDn] Páginas` (ADR-0041)
 
 ## 4. Definições
 
@@ -112,9 +114,10 @@ e à paginação. Autoridade comportamental completa em `contrato_console.md` §
   da página atual do console; cruzar a borda toroidal não avança nem recua a
   paginação.
 - **Paginação interativa pertence ao ITEM-0003**: toda a capacidade de paginação
-  interativa do console (chips `[<][>]`, avanço de página por ação) é escopo do
-  ITEM-0003 e estava fora da ADR-0031. A especificação foi fechada pela
-  ADR-0038 (ver §4.7); a implementação permanece pendente.
+  interativa do console (chips `[PgUp][PgDn]`, avanço de página por ação) é
+  escopo do ITEM-0003 e estava fora da ADR-0031. A especificação foi fechada
+  pela ADR-0038 (ver §4.7); a tecla e a representação visual foram
+  especializadas pela ADR-0041 (ver §4.8) e implementadas pelo H-0051.
 
 ### 4.7 Paginação interativa limitada (ADR-0038)
 
@@ -137,6 +140,23 @@ os controles de página inativos (D-PAG-11, D-PAG-12).
 **Filtros antes da paginação**: a ordem entre filtro e paginação já fixada
 por `contrato_console.md` §11/§12 é preservada; a repaginação por filtro
 (D-PAG-07 a D-PAG-09) opera sobre o conjunto já filtrado.
+
+### 4.8 Teclas e representação universais de paginação (ADR-0041)
+
+A ADR-0041 especializa, para toda paginação comum do Orquestrador — presente
+ou futura, não restrita a consoles multinível —, a tecla de acionamento e a
+representação visual da paginação interativa fechada pela ADR-0038, sem
+alterar os conceitos de página, página atual, página de destino, repaginação
+ou paginação limitada definidos em §4.7.
+
+| Termo | Definição |
+|---|---|
+| `PageUp`/`PageDown` (paginação universal) | Teclas físicas exclusivas de acionamento de página anterior (`PageUp`) e próxima página (`PageDown`), aplicáveis a toda paginação comum do Orquestrador, presente ou futura (D-PGU-01, D-PGU-02, D-PGU-05). |
+| `[PgUp][PgDn] Páginas` | Representação canônica dos controles de paginação na barra de menus, associada às teclas `PageUp`/`PageDown`; substitui a notação `[<][>]` em todos os documentos normativos (D-PGU-03). |
+
+Os caracteres `,`, `<`, `.` e `>` deixam de possuir qualquer função de
+paginação — não são alias, atalho nem fallback de `PageUp`/`PageDown`
+(D-PGU-04).
 
 ## 5. Distinções obrigatórias
 
@@ -171,6 +191,10 @@ por `contrato_console.md` §11/§12 é preservada; a repaginação por filtro
 - ADR-0038: paginação limitada; página atual; repaginação por redimensionamento,
   mudança de modo, filtro e atualização genérica; indicador `página 1/1` para
   conjunto vazio e para página única; ausência de `0/0`.
+- ADR-0041: especializa, para toda paginação comum do Orquestrador, a tecla
+  de acionamento (`PageUp`/`PageDown`) e a representação visual
+  (`[PgUp][PgDn] Páginas`) já fixadas pela ADR-0038, sem reabrir os conceitos
+  de página, repaginação ou paginação limitada.
 
 ## 8. Aliases ou termos descontinuados relacionados
 
@@ -202,6 +226,7 @@ adrs_relacionadas:
   - ADR-0025
   - ADR-0031
   - ADR-0038
+  - ADR-0041
 tratamento:
   - PRESERVADO
   - SEPARADO_DE_REGRA_COMPORTAMENTAL

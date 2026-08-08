@@ -848,7 +848,10 @@ def teste_h0045_p23_setas_e_pagina_preservam_cursor_em_geometria_invalida():
     cursor_antes = estado_inv["cursores"][console.id]
     foco_antes = estado_inv["foco_console"]
     pagina_antes = dict(estado_inv["pagina_atual"])
-    for cmd in ("\x1b[B", "\x1b[A", "\x1b[C", "\x1b[D", ".", ">", ",", "<"):
+    for cmd in (
+        "\x1b[B", "\x1b[A", "\x1b[C", "\x1b[D",
+        _demo.TECLA_PAGE_UP, _demo.TECLA_PAGE_DOWN,
+    ):
         e2 = _demo.processar_comando(estado_inv, cmd, modelo)
         assert e2["cursores"][console.id] == cursor_antes, cmd
         assert e2["foco_console"] == foco_antes, cmd

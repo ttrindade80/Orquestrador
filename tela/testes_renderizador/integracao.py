@@ -761,7 +761,7 @@ def test_h0045_p11_conjunto_vazio_chips_pagina_visiveis_e_inativos():
     """VM-H0045-R07-003: console paginado com ``itens: []`` real nao e
     focalizavel (ADR-0031 D2 exige >= 1 item navegavel para entrar em
     ``navegacao.lista_foco``), mas ainda declara ``politica_paginacao:
-    "com"`` -- ``contrato_console.md`` §12 exige que ``[<]``/``[>]``
+    "com"`` -- ``contrato_console.md`` §12 exige que ``[PgUp]``/``[PgDn]``
     "existem quando a instancia declara paginacao: com", nao apenas quando o
     console e focalizavel. Antes deste patch, a existencia dos chips era
     derivada de ``lista_foco`` (somente consoles focalizaveis), omitindo os
@@ -788,11 +788,11 @@ def test_h0045_p11_conjunto_vazio_chips_pagina_visiveis_e_inativos():
         paginas_atuais={},
     )
     assert "página 1/1" in saida
-    assert "[<]" in saida
-    assert "[>]" in saida
+    assert "[PgUp]" in saida
+    assert "[PgDn]" in saida
     codigo_inativo = _rend._codigo_ansi_de_cor(_ESTILO_CURVA.cor_inativo)
-    assert codigo_inativo + "[<]" in saida
-    assert codigo_inativo + "[>]" in saida
+    assert codigo_inativo + "[PgUp]" in saida
+    assert codigo_inativo + "[PgDn]" in saida
     estados = _rend._navegacao_atual.get("estado_ativo_chips") or {}
     assert estados.get("chip_pagina_anterior") is False
     assert estados.get("chip_pagina_proxima") is False
@@ -866,7 +866,7 @@ def test_h0045_p12_quebra_textual_por_largura_marcadores_unicos():
 def test_h0045_p12_continuacao_sem_cursor_regular_e_alta():
     """Pagina de continuacao sem cursor em geometria regular e alta."""
     from tela import paginacao
-    from demo.demo import processar_comando, renderizar_estado
+    from demo.demo import processar_comando, renderizar_estado, TECLA_PAGE_DOWN
 
     for largura, altura in ((80, 24), (80, 40)):
         estado, modelo, caso = _p12_montar_caso_render(
@@ -889,7 +889,7 @@ def test_h0045_p12_continuacao_sem_cursor_regular_e_alta():
                 break
         assert alvo is not None
         while estado["pagina_atual"].get(console.id, 1) < alvo:
-            estado = processar_comando(estado, ".", modelo)
+            estado = processar_comando(estado, TECLA_PAGE_DOWN, modelo)
         saida = renderizar_estado(estado, modelo, largura, altura)
         assert saida.count(_ESTILO_CURVA.selecionado_simbolo) == 0
         assert "CONT_" in saida
@@ -910,7 +910,7 @@ def test_h0045_p12_vazio_chips_visiveis_inativos_e_autoridade_geometrica():
         assert console._campos_inertes.get("itens") == []
         saida = renderizar_estado(estado, modelo, largura, altura)
         assert "página 1/1" in saida
-        assert "[<]" in saida and "[>]" in saida
+        assert "[PgUp]" in saida and "[PgDn]" in saida
         assert _ESTILO_CURVA.selecionado_simbolo not in saida
         estados = _rend._navegacao_atual.get("estado_ativo_chips") or {}
         assert estados.get("chip_pagina_anterior") is False

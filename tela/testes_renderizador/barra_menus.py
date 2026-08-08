@@ -1215,11 +1215,17 @@ class TestH0045P23BarraCincoLinhas:
         linhas = _linhas_barra(modelo.barra_de_menus, _ESTILO_CURVA, 41 - 3)
         assert len(linhas) == 2
 
-    def test_barra_usa_tres_linhas_em_29_colunas(self):
-        """Caso 4: tres linhas em ~29 colunas."""
+    def test_barra_usa_tres_linhas_em_36_colunas(self):
+        """Caso 4: tres linhas em ~36 colunas.
+
+        H-0051: o agrupamento visual indivisivel ``[PgUp][PgDn] Páginas``
+        reduz a largura total dos chips; a largura que produz exatamente
+        tres linhas desloca de ~29 para ~36 colunas (recalibrado, sem
+        alterar o mecanismo de distribuicao).
+        """
         modelo = _modelo_fluxo_paginado_p23()
         _preparar_ctx_p23(modelo)
-        linhas = _linhas_barra(modelo.barra_de_menus, _ESTILO_CURVA, 29 - 3)
+        linhas = _linhas_barra(modelo.barra_de_menus, _ESTILO_CURVA, 36 - 3)
         assert len(linhas) == 3
 
     def test_barra_usa_quatro_linhas_em_28_colunas(self):
@@ -1229,18 +1235,31 @@ class TestH0045P23BarraCincoLinhas:
         linhas = _linhas_barra(modelo.barra_de_menus, _ESTILO_CURVA, 28 - 3)
         assert len(linhas) == 4
 
-    def test_barra_usa_cinco_linhas_em_17_colunas(self):
-        """Caso 6: ate cinco linhas quando a altura permitir (~17 colunas)."""
+    def test_barra_grupo_paginacao_reduz_arranjo_maximo_pratico_para_quatro(self):
+        """H-0051: nenhuma largura chega a exigir a quinta linha.
+
+        ``chip_pagina_anterior``/``chip_pagina_proxima`` viram um grupo
+        visual indivisivel (``[PgUp][PgDn] Páginas``), reduzindo de 5 para
+        4 os grupos independentes da barra desta fixture. O teto declarado
+        (``linhas.maximo == 5``) permanece intacto no JSON (teste
+        ``test_config_declarou_objeto_canonico_com_maximo_cinco``), mas a
+        menor largura que ainda comporta os chips ja usa 4 linhas (uma por
+        grupo); abaixo dela, o layout falha diretamente com
+        ``erro_layout``, sem nunca passar por um arranjo de 5 linhas.
+        """
         modelo = _modelo_fluxo_paginado_p23()
         _preparar_ctx_p23(modelo)
-        linhas = _linhas_barra(modelo.barra_de_menus, _ESTILO_CURVA, 17 - 3)
-        assert len(linhas) == 5
+        linhas = _linhas_barra(modelo.barra_de_menus, _ESTILO_CURVA, 25 - 3)
+        assert len(linhas) == 4
+        import pytest as _pytest_p23b
+        with _pytest_p23b.raises(RenderizadorErro):
+            _linhas_barra(modelo.barra_de_menus, _ESTILO_CURVA, 24 - 3)
 
     def test_barra_nao_excede_cinco_linhas(self):
         """O maximo declarado (5) e respeitado em larguras intermediarias."""
         modelo = _modelo_fluxo_paginado_p23()
         _preparar_ctx_p23(modelo)
-        for w in (40, 35, 30, 20, 18, 17):
+        for w in (40, 36, 35, 30, 25):
             linhas = _linhas_barra(modelo.barra_de_menus, _ESTILO_CURVA, w - 3)
             assert 1 <= len(linhas) <= 5
 
@@ -1258,17 +1277,17 @@ class TestH0045P23BarraCincoLinhas:
         """Casos 23/24: ausencia de truncamento/reordenacao em multilinha."""
         modelo = _modelo_fluxo_paginado_p23()
         _preparar_ctx_p23(modelo)
-        # Em 28 colunas (4 linhas), todos os 5 chips aparecem, na ordem declarada.
+        # Em 28 colunas (4 linhas), todos os chips aparecem, na ordem declarada.
+        import re
         linhas = _linhas_barra(modelo.barra_de_menus, _ESTILO_CURVA, 28 - 3)
-        joined = " ".join(linhas)
+        joined = re.sub(r"\x1b\[[0-9;]*m", "", " ".join(linhas))
         # [Esc] e sempre primeiro (regra contratual); os demais seguem a ordem.
         assert "[Esc]" in joined
-        assert "[<]" in joined
-        assert "[>]" in joined
+        assert "[PgUp][PgDn] Páginas" in joined
         assert "[␣]" in joined
         assert "[⏎]" in joined
         # Esc precede os demais chips de paginacao (contrato §8.2).
-        assert joined.index("[Esc]") < joined.index("[<]")
+        assert joined.index("[Esc]") < joined.index("[PgUp]")
 
 
 class TestH0045P23RegressaoDuasLinhas:
@@ -1401,7 +1420,7 @@ def test_h0045_renderiza_apenas_fragmentos_da_pagina_atual_com_indicador():
 
 
 def test_h0045_p01_chips_pagina_visiveis_na_pagina_1_com_anterior_inativo():
-    """VM-H0045-01: na pagina 1, ``[<]`` visivel/inativo e ``[>]`` ativo."""
+    """VM-H0045-01: na pagina 1, ``[PgUp]`` visivel/inativo e ``[PgDn]`` ativo."""
     from tela.loader import carregar_tela, carregar_estilo
     from tela.modelo import construir_modelo
     from tela import navegacao
@@ -1427,10 +1446,11 @@ def test_h0045_p01_chips_pagina_visiveis_na_pagina_1_com_anterior_inativo():
         paginas_atuais={console.id: 1},
     )
 
+    import re
+    saida_sem_ansi = re.sub(r"\x1b\[[0-9;]*m", "", saida)
     assert "página 1/3" in saida
-    assert "[<]" in saida
-    assert "[>]" in saida
-    assert "\x1b[90m[<]" in saida
+    assert "[PgUp][PgDn] Páginas" in saida_sem_ansi
+    assert "\x1b[90m[PgUp]" in saida
     estados = _rend._navegacao_atual.get("estado_ativo_chips") or {}
     assert estados.get("chip_pagina_anterior") is False
     assert estados.get("chip_pagina_proxima") is True
@@ -1446,7 +1466,8 @@ def _h0045_linha_barra_menus(saida):
         linhas = linhas[:-1]
     candidatas = [
         ln for ln in linhas
-        if "[Esc]" in ln and "[<]" in ln and "[>]" in ln
+        if "[Esc]" in re.sub(r"\x1b\[[0-9;]*m", "", ln)
+        and "[PgUp][PgDn] Páginas" in re.sub(r"\x1b\[[0-9;]*m", "", ln)
     ]
     assert candidatas, "linha da barra com chips nao encontrada"
     linha = candidatas[0]
@@ -1504,8 +1525,7 @@ def test_h0045_p02_barra_alinhada_na_sequencia_de_larguras():
         )
         assert "││" not in plain, "sequencia artificial de │ presente"
         assert "[Esc]" in plain
-        assert "[<]" in plain
-        assert "[>]" in plain
+        assert "[PgUp][PgDn] Páginas" in plain
         assert "[✥]" in plain
         assert "página 1/3" in saida
         # Nenhuma linha do quadro deve ser visualmente mais curta que largura
@@ -1516,7 +1536,7 @@ def test_h0045_p02_barra_alinhada_na_sequencia_de_larguras():
             from tela.renderizador import _largura_sem_ansi
             assert _largura_sem_ansi(ln) == largura
 
-    # Pagina 1: [<] inativo permanece (cor_inativo), sem regressao P01.
+    # Pagina 1: [PgUp] inativo permanece (cor_inativo), sem regressao P01.
     saida_final = renderizar_tela(
         modelo,
         estilo,
@@ -1528,7 +1548,7 @@ def test_h0045_p02_barra_alinhada_na_sequencia_de_larguras():
         paginas_atuais={console.id: 1},
         largura_navegacao=100,
     )
-    assert "\x1b[90m[<]" in saida_final
+    assert "\x1b[90m[PgUp]" in saida_final
 
 
 def _modelo_fluxo_paginado_p23():
@@ -1540,7 +1560,7 @@ def _modelo_fluxo_paginado_p23():
 def _preparar_ctx_p23(modelo):
     """Prepara o contexto de navegacao para ``_linhas_barra`` (P23).
 
-    Os chips ``[<]``/``[>]`` da fixture usam ``regra_existencia:
+    Os chips ``[PgUp]``/``[PgDn]`` da fixture usam ``regra_existencia:
     console_com_paginacao`` e os chips ``[␣]``/``[⏎]`` usam
     ``console_focado_com_selecao_multipla`` -- ambos avaliados a partir do
     contexto de modulo ``_navegacao_atual``. Sem preparar o contexto (como

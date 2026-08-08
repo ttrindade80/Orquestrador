@@ -25,6 +25,7 @@ metadata:
       - docs/adr/ADR-0037-integracao-do-fluxo-focal-com-dry-run-e-restauracao-da-origem.md
       - docs/adr/ADR-0038-paginacao-interativa-limitada-em-console.md
       - docs/adr/ADR-0040-padronizacao-universal-do-controle-de-execucao-real-e-dry-run.md
+      - docs/adr/ADR-0041-paginacao-universal-por-pageup-e-pagedown.md
     reaproveitado_de_legado: false
   dependencias_nomenclatura:
     dependencias_obrigatorias:
@@ -125,7 +126,7 @@ Semântica de cada campo:
 | `politica_composicao` | Define como os itens são organizados visualmente — alinhamento, fluxo, espaçamento e regras de overflow. Ver seção 5. |
 | `politica_navegacao` | Define se o `console` é navegável, como o cursor se move entre itens e o comportamento de wrap. Ver seção 7. |
 | `politica_selecao` | Define a política de seleção: `nenhuma`, `unica` ou `multipla`. Ver seção 8. |
-| `politica_paginacao` | Define se a instância pagina, o que ocorre quando o conteúdo não cabe e como os chips `[<][>]` são acionados. Ver seção 12. |
+| `politica_paginacao` | Define se a instância pagina, o que ocorre quando o conteúdo não cabe e como os chips `[PgUp][PgDn]` são acionados. Ver seção 12. |
 | `politica_exibicao` | Define se a instância aceita modo verboso, qual é o modo inicial e as regras de overflow em modo normal. Ver seção 6. |
 
 ---
@@ -381,7 +382,7 @@ anterior — sempre inicia em página nova, mesmo havendo espaço suficiente;
 página atual sempre que o item cabe inteiro nele, só adiando o início para
 a página seguinte quando não cabe no espaço restante.
 
-- chips `[<][>]` **refletem o estado de paginação** — existem quando a
+- chips `[PgUp][PgDn]` **refletem o estado de paginação** — existem quando a
   instância declara `paginacao: com`; ficam inativos quando há apenas uma
   página;
 - **página atual é estado de runtime** — não pertence ao JSON; não é
@@ -425,7 +426,7 @@ decisão.
 | `[␣]` | Existe quando a instância de `console` declara seleção múltipla |
 | `[⏎]` | Ativo quando o item em foco tem `acao_enter` válida; inativo caso contrário |
 | `[V]` | Existe quando a instância de `console` declara que permite modo verboso |
-| `[<][>]` | Existe quando a instância de `console` declara `paginacao: com` |
+| `[PgUp][PgDn]` | Existe quando a instância de `console` declara `paginacao: com` |
 | `[-][+]` | Existe quando a instância de `console` declara `colunas_ajustavel: com` |
 
 Chips continuam sendo **entidades da `barra_de_menus`** — não do `console`.
@@ -1406,7 +1407,7 @@ interrupção `130`:
 
 ---
 
-## 24. Paginação interativa limitada (ADR-0038)
+## 24. Paginação interativa limitada (ADR-0038; tecla e notação especializadas pela ADR-0041)
 
 A ADR-0038 (2026-07-29) fecha a paginação interativa do `console`, deferida
 pela ADR-0031 (D15) para o `ITEM-0003`. Esta seção propaga as 14 decisões
@@ -1414,6 +1415,13 @@ fechadas (D-PAG-01 a D-PAG-14) para o contrato do `console`, especializando
 a paginação já prevista em §12 e as seções 22 (navegação e foco, ADR-0031) e
 23 (seleção múltipla e fluxo focal, ADR-0034/0035/0036/0037) quanto à
 interação com página.
+
+A ADR-0041 (2026-08-07) especializa pontualmente D-PAG-14 desta seção
+(§24.11): a tecla de acionamento passa a ser exclusivamente `PageUp`/
+`PageDown` e a representação visual passa a ser `[PgUp][PgDn] Páginas`,
+substituindo `,`/`<`/`.`/`>` e a notação `[<][>]` em todos os documentos
+normativos. Nenhuma outra decisão D-PAG-01 a D-PAG-13 é reaberta ou alterada
+por esta especialização.
 
 ### 24.1 Topologia limitada entre páginas (D-PAG-01)
 
@@ -1463,9 +1471,9 @@ reorganizar_conteudo: false
 
 Uma página pode conter conteúdo visível e nenhum item navegável. A página
 permanece acessível e normalmente exibida; o console permanece focado; as
-setas não produzem movimento; os controles `[<][>]` continuam operáveis
-conforme sua própria condição; não há salto automático de página nem
-reorganização de conteúdo para introduzir item navegável artificial.
+setas não produzem movimento; os controles `[PgUp][PgDn]` continuam
+operáveis conforme sua própria condição; não há salto automático de página
+nem reorganização de conteúdo para introduzir item navegável artificial.
 
 ### 24.4 Universo do chip `[✥]` restrito à página atual (D-PAG-04)
 
@@ -1624,21 +1632,25 @@ independência já fixado para foco (ADR-0031) e para seleção múltipla
 exclusivamente ao console focado, sem alterar o estado de página de nenhum
 outro console nem o foco corrente.
 
-### 24.11 Entradas aceitas (D-PAG-14)
+### 24.11 Entradas aceitas (D-PAG-14, especializada por ADR-0041 D-PGU-01 a D-PGU-04)
 
 ```yaml
 pagina_anterior:
-  entradas_aceitas: [",", "<"]
+  entradas_aceitas: ["PageUp"]
 proxima_pagina:
-  entradas_aceitas: [".", ">"]
+  entradas_aceitas: ["PageDown"]
 chips_exibidos:
-  anterior: "[<]"
-  proxima: "[>]"
+  anterior: "[PgUp]"
+  proxima: "[PgDn]"
+representacao_canonica: "[PgUp][PgDn] Páginas"
+caracteres_sem_funcao_de_paginacao: ["<", ">", ",", "."]
 ```
 
 Esta decisão não define leitura por scan code, keycode físico nem dependência
-de layout de teclado — a fronteira de captura e tradução de tecla física
-permanece de implementação.
+de layout de teclado — a fronteira de captura e tradução de tecla física para
+`PageUp`/`PageDown` permanece de implementação. Os caracteres `<`, `>`, `,`
+e `.` deixam de possuir qualquer função de paginação — não são alias,
+atalho nem fallback de `PageUp`/`PageDown` (ADR-0041 D-PGU-04).
 
 ### 24.12 Relação com seleção múltipla e persistência entre páginas
 
@@ -1652,10 +1664,11 @@ sobre cursor e página, nunca sobre a seleção.
 ### 24.13 Remissões
 
 - `docs/adr/ADR-0038-paginacao-interativa-limitada-em-console.md` — decisões D-PAG-01 a D-PAG-14;
+- `docs/adr/ADR-0041-paginacao-universal-por-pageup-e-pagedown.md` — decisões D-PGU-01 a D-PGU-08, especialização de tecla e representação visual de `[<][>]`;
 - `docs/adr/ADR-0031-navegacao-simples-e-selecao-unica-em-console-de-nivel-unico.md` — D6, D8, D9, D10, D14, D15, especializados por esta seção;
 - `docs/adr/ADR-0034-selecao-multipla-e-fluxo-focal-de-processamento.md` — D-SEL-01, D-SEL-02, D-SEL-10, preservados sem alteração;
 - `docs/adr/ADR-0037-integracao-do-fluxo-focal-com-dry-run-e-restauracao-da-origem.md` — D-H4-09, cuja precedência sobre §24.8 é explícita;
 - `docs/contratos/contrato_barra_de_menus.md` — seção 24: paginação limitada e independência por console;
-- `docs/contratos/contrato_chip.md` — regras de existência e ativo/inativo de `[<][>]`, entradas aceitas;
+- `docs/contratos/contrato_chip.md` — regras de existência e ativo/inativo de `[PgUp][PgDn]`, entradas aceitas;
 - `docs/nomenclatura/21_LAYOUT_REDIMENSIONAMENTO_E_PAGINACAO.md` — terminologia de paginação limitada e repaginação;
 - `docs/nomenclatura/32_CONSOLE.md` — terminologia de página como estado independente por console.

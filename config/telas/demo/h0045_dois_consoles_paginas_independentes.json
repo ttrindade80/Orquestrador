@@ -353,8 +353,8 @@
       {
         "id": "chip_pagina_anterior",
         "tipo": "navegacao",
-        "tecla": "<",
-        "texto": "Anterior",
+        "tecla": "PgUp",
+        "texto": "",
         "regra_existencia": "console_com_paginacao",
         "regra_ativo": "pagina_nao_e_primeira",
         "forma_exibicao": "visivel_ativo"
@@ -362,8 +362,8 @@
       {
         "id": "chip_pagina_proxima",
         "tipo": "navegacao",
-        "tecla": ">",
-        "texto": "Proxima",
+        "tecla": "PgDn",
+        "texto": "Páginas",
         "regra_existencia": "console_com_paginacao",
         "regra_ativo": "pagina_nao_e_ultima",
         "forma_exibicao": "visivel_ativo"

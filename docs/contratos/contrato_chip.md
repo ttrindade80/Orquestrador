@@ -21,6 +21,7 @@ metadata:
       - docs/adr/ADR-0037-integracao-do-fluxo-focal-com-dry-run-e-restauracao-da-origem.md
       - docs/adr/ADR-0038-paginacao-interativa-limitada-em-console.md
       - docs/adr/ADR-0040-padronizacao-universal-do-controle-de-execucao-real-e-dry-run.md
+      - docs/adr/ADR-0041-paginacao-universal-por-pageup-e-pagedown.md
     reaproveitado_de_legado: false
   dependencias_nomenclatura:
     dependencias_obrigatorias:
@@ -158,7 +159,7 @@ Mapeamento conceitual:
 | `acao` | Executa ação declarada e registrada no whitelist de ações. O chip aponta para a ação; a lógica pertence ao registro. |
 | `filtro` | Altera o filtro ativo da instância de `console`. Atua sobre o conjunto exibido, antes da paginação. Referencia filtro declarado no `tela.json`. |
 | `alternancia` | Liga ou desliga estado de exibição, como modo verboso (`[V]`), ou alterna foco entre consoles focalizáveis (`[⇆]`). |
-| `navegacao` | Representa navegação ou cursor quando aplicável — ex.: `[✥]` como dica de navegação por setas, ou `[<][>]` como paginação. Não executa lógica arbitrária. |
+| `navegacao` | Representa navegação ou cursor quando aplicável — ex.: `[✥]` como dica de navegação por setas, ou `[PgUp][PgDn]` como paginação. Não executa lógica arbitrária. |
 | `informativo` | Exibe estado ou dica sem ação direta, se explicitamente permitido pela declaração da instância. |
 | `especifico` | Chip próprio de uma tela ou processo, com ação declarada e registrada. Declarado pela classe de tela; posicionado na faixa canônica de específicos (entre `[⏎]` e `[V]`/`[?]`). |
 
@@ -179,7 +180,7 @@ granular para uso nos campos do chip:
 
 - Chips canônicos de existência sempre presente (`[Esc]`, `[⏎]`, `[?]`) são
   instâncias de tipo `acao` ou `alternancia`, com `regra_existencia: sempre`.
-- Chips canônicos de existência condicional (`[<][>]`, `[-][+]`, `[#]`,
+- Chips canônicos de existência condicional (`[PgUp][PgDn]`, `[-][+]`, `[#]`,
   `[⇆]`, `[✥]`, `[␣]`, `[V]`) são instâncias de tipos como `navegacao`,
   `filtro`, `alternancia` ou `acao`, com `regra_existencia` condicionada.
 - A semântica de "canônico" como invariante contratual permanece definida no
@@ -203,7 +204,7 @@ da instância e do estilo ativo.
 
 ```text
 [Esc]    — Sair / Voltar / Limpar (ver contrato_barra_de_menus.md seção 9)
-[<][>]   — Páginas (paginação de console)
+[PgUp][PgDn] — Páginas (paginação de console)
 [-][+]   — Colunas (ajuste de colunas de console)
 [#]      — Grupos (filtro de grupo)
 [⇆]      — Alternar (foco entre consoles focalizáveis)
@@ -283,8 +284,8 @@ Exemplos de regras de ativo/inativo:
 
 | Chip (notação documental) | Condição de inativo |
 |---|---|
-| `[<]` (página anterior) | Página atual é a primeira |
-| `[>]` (próxima página) | Página atual é a última |
+| `[PgUp]` (página anterior) | Página atual é a primeira |
+| `[PgDn]` (próxima página) | Página atual é a última |
 | `[-]` (menos colunas) | `n_col` está no mínimo (1) |
 | `[+]` (mais colunas) | `n_col` está no máximo que a largura atual comporta |
 | `[⏎]` | Item em foco não tem ação válida declarada ou não há alvo válido |
@@ -304,21 +305,25 @@ aos itens navegáveis da **página atual** do console focado — itens
 navegáveis presentes apenas em outras páginas não fazem `[✥]` aparecer nem
 permanecer (ADR-0038 D-PAG-04).
 
-**Nota sobre `[<][>]` (ADR-0038)**: chips de tipo `navegacao`, existência
-condicionada a `paginacao: com` (§8). A topologia entre páginas é **limitada**,
-não circular: `[<]` fica inativo na primeira página e `[>]` fica inativo na
+**Nota sobre `[PgUp][PgDn]` (ADR-0038; tecla e notação especializadas pela
+ADR-0041)**: chips de tipo `navegacao`, existência condicionada a
+`paginacao: com` (§8). A topologia entre páginas é **limitada**, não
+circular: `[PgUp]` fica inativo na primeira página e `[PgDn]` fica inativo na
 última; ambos ficam inativos quando há apenas uma página (`página 1/1`),
 inclusive quando o conjunto de itens visíveis é vazio. O estado ativo/inativo
 de ambos é calculado a partir da página do console focado; sem console
 focado, ou com o console focado sem `paginacao: com` declarada, ambos ficam
 inativos (D-PAG-13) — a mesma distinção desta seção entre existência estática
-e ativo/inativo dinâmico se aplica: a existência de `[<][>]` depende da
+e ativo/inativo dinâmico se aplica: a existência de `[PgUp][PgDn]` depende da
 declaração da instância; o estado ativo/inativo depende da página corrente do
-console focado no momento do render. As entradas de teclado aceitas para
-acioná-los são `,`/`<` (página anterior) e `.`/`>` (próxima página) —
-tradução de tecla física para esses caracteres permanece de implementação
-(D-PAG-14). A apresentação visual permanece `[<]` e `[>]`, sem alteração de
-notação.
+console focado no momento do render. A entrada de teclado aceita para página
+anterior é exclusivamente `PageUp`; para próxima página, exclusivamente
+`PageDown` (ADR-0041 D-PGU-01, D-PGU-02) — tradução de tecla física para
+esses valores permanece de implementação. Os caracteres `,`, `<`, `.` e `>`
+deixam de ter qualquer função de paginação — não são alias, atalho nem
+fallback (ADR-0041 D-PGU-04). A apresentação visual passa a ser `[PgUp]` e
+`[PgDn]`, representação canônica `[PgUp][PgDn] Páginas` (ADR-0041 D-PGU-03),
+em substituição a `[<][>]`.
 
 **Nota sobre `[Ins] Dry-Run` (ADR-0037)**: chip específico do fluxo focal do
 Handoff 4 — tipo `alternancia`. Permanece ativo nos estados ligado e
@@ -370,7 +375,7 @@ Aspectos cobertos pelo campo:
 - texto/rótulo dinâmico (quando o rótulo muda conforme estado — ex.: `[⏎]`
   alternando entre `Todos`, `Executar` e `Visualizar`);
 - agrupamento visual (quando dois ou mais chips aparecem juntos — ex.:
-  `[-][+]` e `[<][>]`);
+  `[-][+]` e `[PgUp][PgDn]`);
 - posição relativa conforme distribuição canônica da `barra_de_menus`.
 
 O layout final detalhado da `barra_de_menus` não é fechado por este contrato.
@@ -463,7 +468,7 @@ Chips podem refletir capacidades declaradas por uma instância de `console`:
   `contrato_console.md`);
 - `[␣]` depende de `console` com seleção múltipla declarada;
 - `[⏎]` depende da ação declarada pelo item em foco no `console` atual;
-- `[<][>]`, `[-][+]` dependem das capacidades declaradas pela instância de
+- `[PgUp][PgDn]`, `[-][+]` dependem das capacidades declaradas pela instância de
   `console` (paginação, colunas ajustáveis);
 - filtros atuam sobre dados vinculados ao `console` — o chip de filtro
   referencia o filtro declarado no `tela.json` para aquela instância;

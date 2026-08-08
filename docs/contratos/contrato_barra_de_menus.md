@@ -20,6 +20,7 @@ metadata:
       - docs/adr/ADR-0037-integracao-do-fluxo-focal-com-dry-run-e-restauracao-da-origem.md
       - docs/adr/ADR-0038-paginacao-interativa-limitada-em-console.md
       - docs/adr/ADR-0040-padronizacao-universal-do-controle-de-execucao-real-e-dry-run.md
+      - docs/adr/ADR-0041-paginacao-universal-por-pageup-e-pagedown.md
     reaproveitado_de_legado: false
   dependencias_nomenclatura:
     dependencias_obrigatorias:
@@ -161,7 +162,7 @@ existência, regras de ativo/inativo e forma de exibição — também pertencem
 | `config/estilo.json` | Valores globais de aparência dos chips (presets de chip, `cor_inativo`, `cor_alerta`) |
 | `config/elementos/barra_de_menus.json` | Futuro caminho do artefato **ativo transicional** — a reavaliar/migrar conforme ADR-0008 e ADR-0021; não é mais a fonte universal definitiva dos valores concretos da instância |
 
-As notações entre colchetes usadas neste contrato, como `[Esc]`, `[<][>]`,
+As notações entre colchetes usadas neste contrato, como `[Esc]`, `[PgUp][PgDn]`,
 `[-][+]`, `[#]`, `[⇆]`, `[✥]`, `[␣]`, `[⏎]`, `[V]` e `[?]`, são
 **identificadores semânticos/canônicos** dos chips — **notação documental, não
 normativa**. O renderer deve ler os valores renderizáveis concretos, rótulos
@@ -216,7 +217,7 @@ A sequência abaixo define a posição relativa de cada chip ou grupo na
 chips da instância é declarada no `tela.json`.
 
 ```
-[Esc] → [<][>] → [-][+] → [#] → [⇆] → [✥] → [␣] → [⏎] → específicos → [V] → [?]
+[Esc] → [PgUp][PgDn] → [-][+] → [#] → [⇆] → [✥] → [␣] → [⏎] → específicos → [V] → [?]
 ```
 
 A ordem é invariante: um chip condicional ausente na instância simplesmente
@@ -265,7 +266,7 @@ configuração da tela declara a capacidade correspondente no `tela.json`.
 
 | Chip canônico / notação documental | Rótulo documental | Condição de existência | Notas de estado dinâmico |
 |---|---|---|---|
-| `[<][>]` | Páginas | instância de `console` declara `paginacao: com` | Topologia limitada, sem wrap entre primeira e última página (ADR-0038 D-PAG-01); inativo quando há apenas 1 página no momento, inclusive com conjunto vazio (`página 1/1`); estado calculado pela página do console focado — ver seção 24 |
+| `[PgUp][PgDn]` | Páginas | instância de `console` declara `paginacao: com` | Topologia limitada, sem wrap entre primeira e última página (ADR-0038 D-PAG-01); inativo quando há apenas 1 página no momento, inclusive com conjunto vazio (`página 1/1`); estado calculado pela página do console focado; tecla e representação canônica especializadas pela ADR-0041 — ver seção 24 |
 | `[-][+]` | Colunas | instância de `console` declara `colunas_ajustavel: com` | `[-]` inativo em `n_col` mínimo; `[+]` inativo em `n_col` máximo pela largura atual |
 | `[#]` | Grupos | instância de `console` declara `filtro_de_grupo: com` | Chip de filtro declarativo — ver seção 13 |
 | `[⇆]` | Alternar | tela possui pelo menos dois consoles focalizáveis (ADR-0031 D14) | Move foco entre consoles focalizáveis — não confundir com `[✥]` (ver nota abaixo e seção 20) |
@@ -730,7 +731,7 @@ nem de ativação de `[✥]` (ADR-0005).
       em qualquer outra tela sem seleção ativa.
 - [ ] `[⏎]` fica inativo (usa `cor_inativo`) quando não há alvo válido ou
       quando o item em foco não tem ação declarada.
-- [ ] `[<][>]` só existe quando a instância de `console` declara `paginacao:
+- [ ] `[PgUp][PgDn]` só existe quando a instância de `console` declara `paginacao:
       com`; fica inativo quando o número de páginas é 1.
 - [ ] `[-][+]` só existe quando a instância de `console` declara
       `colunas_ajustavel: com`; `[-]` inativo em `n_col` mínimo; `[+]`
@@ -744,16 +745,18 @@ nem de ativação de `[✥]` (ADR-0005).
       navegável; `lancador` e `dashboard` não entram na condição. Em console
       paginado, a condição considera somente os itens navegáveis da página
       atual (ADR-0038 D-PAG-04).
-- [ ] `[<]` fica inativo na primeira página e `[>]` fica inativo na última;
+- [ ] `[PgUp]` fica inativo na primeira página e `[PgDn]` fica inativo na última;
       ambos ficam inativos quando há somente uma página (`página 1/1`),
       inclusive com conjunto vazio; não há paginação circular entre primeira
       e última página (ADR-0038 D-PAG-01, D-PAG-11, D-PAG-12).
-- [ ] O estado de `[<][>]` é calculado a partir da página do console focado;
+- [ ] O estado de `[PgUp][PgDn]` é calculado a partir da página do console focado;
       sem console focado, ou com o console focado sem `paginacao: com`
       declarada, ambos ficam inativos; os comandos de página não alteram a
       página de nenhum outro console nem o foco corrente (ADR-0038 D-PAG-13).
-- [ ] As entradas aceitas para página anterior são `,` e `<`; para próxima
-      página, `.` e `>` (ADR-0038 D-PAG-14).
+- [ ] A entrada aceita para página anterior é exclusivamente `PageUp`; para
+      próxima página, exclusivamente `PageDown` (ADR-0041 D-PGU-01,
+      D-PGU-02); os caracteres `,`, `<`, `.` e `>` não acionam paginação sob
+      nenhuma condição (ADR-0041 D-PGU-04).
 - [ ] `[␣]` só existe quando a instância de `console` declara seleção múltipla;
       atua somente sobre itens que declararem `selecionavel: true`.
 - [ ] `[V]` só existe quando a instância de `console` declara que permite modo
@@ -1024,51 +1027,62 @@ divisão original de D-SEL-21 da ADR-0034).
 
 ---
 
-## 24. Paginação interativa limitada — `[<][>]` (ADR-0038)
+## 24. Paginação interativa limitada — `[PgUp][PgDn]` (ADR-0038; tecla e notação especializadas pela ADR-0041)
 
 A ADR-0038 (2026-07-29) fecha a paginação interativa do `console`, deferida
-pela ADR-0031 (D15) para o `ITEM-0003`. Esta seção propaga as decisões que
-afetam a `barra_de_menus`; a semântica comportamental completa da página
-pertence a `contrato_console.md` seção 24.
+pela ADR-0031 (D15) para o `ITEM-0003`. A ADR-0041 (2026-08-07) especializa
+pontualmente, para toda paginação comum do Orquestrador, a tecla de
+acionamento e a representação visual dos controles fixados pela ADR-0038,
+substituindo `,`/`<`/`.`/`>` e a notação `[<][>]` por `PageUp`/`PageDown` e
+`[PgUp][PgDn] Páginas`. Esta seção propaga as decisões que afetam a
+`barra_de_menus`; a semântica comportamental completa da página pertence a
+`contrato_console.md` seção 24.
 
 ### 24.1 Topologia limitada
 
-`[<][>]` pertencem à `barra_de_menus`, com existência declarativa
+`[PgUp][PgDn]` pertencem à `barra_de_menus`, com existência declarativa
 (`paginacao: com`, §8.3) e ativação dinâmica recalculada a cada render. A
-topologia entre páginas é limitada, não circular: `[<]` fica inativo na
-primeira página; `[>]` fica inativo na última; ambos ficam inativos quando há
-apenas uma página (`página 1/1`), inclusive quando o conjunto de itens
+topologia entre páginas é limitada, não circular: `[PgUp]` fica inativo na
+primeira página; `[PgDn]` fica inativo na última; ambos ficam inativos quando
+há apenas uma página (`página 1/1`), inclusive quando o conjunto de itens
 visíveis é vazio. Não existe estado visual `página 0/0`.
 
 ### 24.2 Alvo dos comandos — console focado
 
-Os controles `[<][>]` avaliam e afetam exclusivamente a página do console
-focado. Sem console focado, ou com o console focado sem `paginacao: com`
-declarada, ambos ficam inativos. O acionamento de `[<][>]` não altera a
-página de nenhum outro console nem o foco corrente — o estado de página é
-independente por console (ADR-0038 D-PAG-13), mesmo princípio de
-independência já aplicado à seleção múltipla (ADR-0034 D-SEL-01).
+Os controles `[PgUp][PgDn]` avaliam e afetam exclusivamente a página do
+console focado. Sem console focado, ou com o console focado sem
+`paginacao: com` declarada, ambos ficam inativos. O acionamento de
+`[PgUp][PgDn]` não altera a página de nenhum outro console nem o foco
+corrente — o estado de página é independente por console (ADR-0038
+D-PAG-13), mesmo princípio de independência já aplicado à seleção múltipla
+(ADR-0034 D-SEL-01).
 
 ### 24.3 Indicador de página não é chip
 
 O indicador `página X/Y` é elemento textual da borda do corpo paginado
 (`docs/nomenclatura/21_LAYOUT_REDIMENSIONAMENTO_E_PAGINACAO.md` §4.4), não
-um chip da `barra_de_menus`. `[<][>]` são os chips que acionam a troca de
-página; o indicador é exibido independentemente da existência desses chips.
+um chip da `barra_de_menus`. `[PgUp][PgDn]` são os chips que acionam a troca
+de página; o indicador é exibido independentemente da existência desses
+chips.
 
-### 24.4 Entradas aceitas
+### 24.4 Entradas aceitas (ADR-0041 D-PGU-01 a D-PGU-04)
 
 ```yaml
 pagina_anterior:
-  entradas_aceitas: [",", "<"]
+  entradas_aceitas: ["PageUp"]
 proxima_pagina:
-  entradas_aceitas: [".", ">"]
+  entradas_aceitas: ["PageDown"]
 chips_exibidos:
-  anterior: "[<]"
-  proxima: "[>]"
+  anterior: "[PgUp]"
+  proxima: "[PgDn]"
+representacao_canonica: "[PgUp][PgDn] Páginas"
+caracteres_sem_funcao_de_paginacao: ["<", ">", ",", "."]
 ```
 
-A tradução de tecla física para esses caracteres permanece de implementação.
+A tradução de tecla física para `PageUp`/`PageDown` permanece de
+implementação. Os caracteres `,`, `<`, `.` e `>` deixam de ter qualquer
+função de paginação — não são alias, atalho nem fallback (ADR-0041
+D-PGU-04).
 
 ### 24.5 `[✥]` restrito à página atual
 
@@ -1082,7 +1096,8 @@ fixada na seção 8.3.
 ### 24.6 Remissões
 
 - `docs/adr/ADR-0038-paginacao-interativa-limitada-em-console.md` — decisões D-PAG-01 a D-PAG-14;
+- `docs/adr/ADR-0041-paginacao-universal-por-pageup-e-pagedown.md` — decisões D-PGU-01 a D-PGU-08, especialização de tecla e representação visual;
 - `docs/contratos/contrato_console.md` — seção 24: comportamento completo da paginação;
-- `docs/contratos/contrato_chip.md` — regras de existência e ativo/inativo de `[<][>]` e `[✥]`;
+- `docs/contratos/contrato_chip.md` — regras de existência e ativo/inativo de `[PgUp][PgDn]` e `[✥]`;
 - `docs/nomenclatura/21_LAYOUT_REDIMENSIONAMENTO_E_PAGINACAO.md` — indicador de paginação e termos de página;
-- `docs/nomenclatura/31_BARRA_DE_MENUS_E_CHIPS.md` — terminologia de `[<][>]` e `[✥]`.
+- `docs/nomenclatura/31_BARRA_DE_MENUS_E_CHIPS.md` — terminologia de `[PgUp][PgDn]` e `[✥]`.

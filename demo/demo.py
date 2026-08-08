@@ -169,6 +169,12 @@ _spec_casos.loader.exec_module(casos_val)
 LARGURA_MINIMA_TELA = 10
 ALTURA_MINIMA_TELA = 6
 
+# H-0051 / ADR-0041: sequencias fisicas de PageUp/PageDown (CSI 5~/6~),
+# unicas entradas de teclado que acionam paginacao. Substituem integralmente
+# ","/"<"/"."/">" (H-0045), sem alias nem fallback residual desses caracteres.
+TECLA_PAGE_UP = "\x1b[5~"
+TECLA_PAGE_DOWN = "\x1b[6~"
+
 _RAIZ_TELAS_DEMO = os.path.join("config", "telas", "demo")
 
 # H-0036 / ADR-0026 / ADR-0027: catalogo interno de associacao entre cenario e
@@ -698,7 +704,7 @@ def processar_comando(estado, comando, modelo=None):
         or navegacao.e_shift_tab(comando)
         or comando in (
             "\x1b[A", "\x1b[B", "\x1b[C", "\x1b[D",
-            " ", "\r", "\n", ",", "<", ".", ">",
+            " ", "\r", "\n", TECLA_PAGE_UP, TECLA_PAGE_DOWN,
         )
     ):
         nav_estado = dict(novo)
@@ -725,7 +731,7 @@ def processar_comando(estado, comando, modelo=None):
                     nav_estado = paginacao.ir_para_pagina(
                         nav_estado, console, paginacao.pagina_atual(nav_estado, console)
                     )
-        elif comando in (",", "<", ".", ">"):
+        elif comando in (TECLA_PAGE_UP, TECLA_PAGE_DOWN):
             console = navegacao.console_focado(nav_estado)
             if console is not None and console._campos_inertes.get("politica_paginacao") == "com":
                 # QA-H0045-P05-002: geometria REAL do console focado (largura
@@ -735,7 +741,7 @@ def processar_comando(estado, comando, modelo=None):
                 # invalidas; preserva pagina/cursor sem deslocar.
                 nav_estado, geo = _com_geometria_real_do_console(nav_estado, modelo, console)
                 if geo is not None:
-                    if comando in (",", "<"):
+                    if comando == TECLA_PAGE_UP:
                         nav_estado = paginacao.pagina_anterior(nav_estado, console)
                     else:
                         nav_estado = paginacao.pagina_proxima(nav_estado, console)
@@ -1136,9 +1142,10 @@ def _estabelecer_foco_paginacao_inicial(estado, modelo):
     """H-0045-P01: materializa foco no primeiro console paginado ao abrir.
 
     VM-H0045-01: ``python demo/demo.py h0045_paginacao_console_unico`` partia
-    com ``foco_console=None``. Sem foco, ``[<]``/``[>]`` nao apareciam na
-    barra (existencia avaliada so no console focado) e ``,``/``.``/``<``/``>``
-    nao alteravam pagina (``console_focado`` ausente). Espelha o padrao de
+    com ``foco_console=None``. Sem foco, ``[PgUp]``/``[PgDn]`` nao apareciam
+    na barra (existencia avaliada so no console focado) e ``PageUp``/
+    ``PageDown`` nao alteravam pagina (``console_focado`` ausente). Espelha
+    o padrao de
     ``demo_navegacao``/``demo_selecao`` apenas para consoles com
     ``politica_paginacao: "com"``. Nao sobrescreve foco ja estabelecido via
     ``estado_inicial``.

@@ -173,8 +173,8 @@ def teste_renderizador_orquestrador():
         "[Esc] Sair" in saida,
     )
     _registrar(
-        "saida NAO contem '[<>] Paginas' (chip removido do Orquestrador)",
-        "[<>] Páginas" not in saida,
+        "saida NAO contem '[PgUp][PgDn] Paginas' (chip removido do Orquestrador)",
+        "[PgUp][PgDn] Páginas" not in saida,
     )
     _registrar(
         "saida contem '[?] Ajuda' (chip do JSON)",

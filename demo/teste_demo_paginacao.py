@@ -57,6 +57,17 @@ def _estado_inicial_paginado(modelo):
     return _estabelecer_foco_paginacao_inicial(estado, modelo)
 
 
+def _sem_ansi(texto):
+    """Remove sequencias ANSI de cor (H-0051): o agrupamento contiguo
+    ``[PgUp][PgDn] Páginas`` (D-PGU-01 a D-PGU-03) e uma propriedade do
+    conteudo VISIVEL; cada chip mantem seu proprio envelope de cor
+    inativo/ativo, o que insere codigos ANSI entre os dois quando um deles
+    esta inativo. Comparar o literal exige ignorar esses codigos.
+    """
+    import re
+    return re.sub(r"\x1b\[[0-9;]*m", "", texto)
+
+
 def _ler_caractere_tty(byte_unico):
     """Espelha a leitura TTY: um byte no pipe → ``_ler_tecla_sessao``."""
     fd_r, fd_w = os.pipe()
@@ -109,7 +120,7 @@ def test_demo_h0045_comando_proxima_pagina_atualiza_pagina_e_cursor():
         }
     )
 
-    novo = processar_comando(estado, ">", modelo)
+    novo = processar_comando(estado, _demo.TECLA_PAGE_DOWN, modelo)
 
     assert novo["pagina_atual"][console.id] == 2
     assert novo["cursores"][console.id] == 16
@@ -136,7 +147,7 @@ def test_demo_h0045_renderizar_estado_repassa_paginas_atuais():
 
 
 def test_demo_h0045_p01_cadeia_tty_quatro_caracteres_e_chips_pagina_1():
-    """VM-H0045-01: cadeia TTY real para ``,`` ``<`` ``.`` ``>``.
+    """VM-H0045-01: cadeia TTY real para ``PageUp``/``PageDown``.
 
     Percorre leitura via ``_ler_tecla_sessao``, ``processar_comando``,
     substituicao de estado e ``renderizar_estado`` — nao chama isoladamente
@@ -151,16 +162,15 @@ def test_demo_h0045_p01_cadeia_tty_quatro_caracteres_e_chips_pagina_1():
 
     saida_inicial = renderizar_estado(estado, modelo, largura=80, altura=24)
     assert "página 1/3" in saida_inicial
-    assert "[<]" in saida_inicial
-    assert "[>]" in saida_inicial
+    assert "[PgUp][PgDn] Páginas" in _sem_ansi(saida_inicial)
     estados_chips = _rend._navegacao_atual.get("estado_ativo_chips") or {}
     assert estados_chips.get("chip_pagina_anterior") is False
     assert estados_chips.get("chip_pagina_proxima") is True
     # Inativo permanece visivel com cor_inativo (nao removido).
-    assert "\x1b[90m[<]" in saida_inicial
+    assert "\x1b[90m[PgUp]" in saida_inicial
 
-    ch_ponto, estado, saida = _passo_tty(estado, modelo, b".")
-    assert ch_ponto == "."
+    ch_pgdn, estado, saida = _passo_tty(estado, modelo, b"\x1b[6~")
+    assert ch_pgdn == _demo.TECLA_PAGE_DOWN
     assert estado["pagina_atual"][console.id] == 2
     assert "página 2/3" in saida
     assert estado["cursores"][console.id] == 16
@@ -168,51 +178,51 @@ def test_demo_h0045_p01_cadeia_tty_quatro_caracteres_e_chips_pagina_1():
     assert estados.get("chip_pagina_anterior") is True
     assert estados.get("chip_pagina_proxima") is True
 
-    ch_maior, estado, saida = _passo_tty(estado, modelo, b">")
-    assert ch_maior == ">"
+    ch_pgdn2, estado, saida = _passo_tty(estado, modelo, b"\x1b[6~")
+    assert ch_pgdn2 == _demo.TECLA_PAGE_DOWN
     assert estado["pagina_atual"][console.id] == 3
     assert "página 3/3" in saida
     estados = _rend._navegacao_atual.get("estado_ativo_chips") or {}
     assert estados.get("chip_pagina_anterior") is True
     assert estados.get("chip_pagina_proxima") is False
-    assert "\x1b[90m[>]" in saida
+    assert "\x1b[90m[PgDn]" in saida
 
-    # Extremo: ``.``/``>`` sem wrap.
-    ch_ponto2, estado, _saida = _passo_tty(estado, modelo, b".")
-    assert ch_ponto2 == "."
+    # Extremo: ``PageDown`` sem wrap.
+    ch_pgdn3, estado, _saida = _passo_tty(estado, modelo, b"\x1b[6~")
+    assert ch_pgdn3 == _demo.TECLA_PAGE_DOWN
     assert estado["pagina_atual"][console.id] == 3
-    ch_maior2, estado, _saida = _passo_tty(estado, modelo, b">")
-    assert ch_maior2 == ">"
+    ch_pgdn4, estado, _saida = _passo_tty(estado, modelo, b"\x1b[6~")
+    assert ch_pgdn4 == _demo.TECLA_PAGE_DOWN
     assert estado["pagina_atual"][console.id] == 3
 
-    ch_virgula, estado, saida = _passo_tty(estado, modelo, b",")
-    assert ch_virgula == ","
+    ch_pgup, estado, saida = _passo_tty(estado, modelo, b"\x1b[5~")
+    assert ch_pgup == _demo.TECLA_PAGE_UP
     assert estado["pagina_atual"][console.id] == 2
     assert "página 2/3" in saida
 
-    ch_menor, estado, saida = _passo_tty(estado, modelo, b"<")
-    assert ch_menor == "<"
+    ch_pgup2, estado, saida = _passo_tty(estado, modelo, b"\x1b[5~")
+    assert ch_pgup2 == _demo.TECLA_PAGE_UP
     assert estado["pagina_atual"][console.id] == 1
     assert "página 1/3" in saida
     estados = _rend._navegacao_atual.get("estado_ativo_chips") or {}
     assert estados.get("chip_pagina_anterior") is False
     assert estados.get("chip_pagina_proxima") is True
 
-    # Extremo: ``,``/``<`` sem efeito na primeira pagina.
-    ch_virgula2, estado, _saida = _passo_tty(estado, modelo, b",")
-    assert ch_virgula2 == ","
+    # Extremo: ``PageUp`` sem efeito na primeira pagina.
+    ch_pgup3, estado, _saida = _passo_tty(estado, modelo, b"\x1b[5~")
+    assert ch_pgup3 == _demo.TECLA_PAGE_UP
     assert estado["pagina_atual"][console.id] == 1
-    ch_menor2, estado, saida = _passo_tty(estado, modelo, b"<")
-    assert ch_menor2 == "<"
+    ch_pgup4, estado, saida = _passo_tty(estado, modelo, b"\x1b[5~")
+    assert ch_pgup4 == _demo.TECLA_PAGE_UP
     assert estado["pagina_atual"][console.id] == 1
-    assert "[<]" in saida
+    assert "[PgUp]" in saida
     assert _rend._navegacao_atual.get("estado_ativo_chips", {}).get(
         "chip_pagina_anterior"
     ) is False
 
 
 def test_demo_h0045_p01_chips_visiveis_sem_foco_ambos_inativos():
-    """D-TEC-12/D-PAG-13: sem foco, ``[<]``/``[>]`` existem e ficam inativos."""
+    """D-TEC-12/D-PAG-13: sem foco, ``[PgUp]``/``[PgDn]`` existem e ficam inativos."""
     modelo = _modelo()
     estado = criar_estado_inicial()
     estado.update({"estilo": carregar_estilo(), "largura": 80, "altura": 24})
@@ -220,8 +230,7 @@ def test_demo_h0045_p01_chips_visiveis_sem_foco_ambos_inativos():
 
     saida = renderizar_estado(estado, modelo, largura=80, altura=24)
     assert "página 1/3" in saida
-    assert "[<]" in saida
-    assert "[>]" in saida
+    assert "[PgUp][PgDn] Páginas" in _sem_ansi(saida)
     estados = _rend._navegacao_atual.get("estado_ativo_chips") or {}
     assert estados.get("chip_pagina_anterior") is False
     assert estados.get("chip_pagina_proxima") is False
@@ -246,15 +255,17 @@ def test_demo_h0045_p02_sequencia_resize_barra_sem_residuo():
         linhas = [ln for ln in saida.split("\n") if ln]
         bar = next(
             ln for ln in linhas
-            if "[Esc]" in ln and "[<]" in ln and "[>]" in ln
+            if "[Esc]" in ln and "[PgUp][PgDn] Páginas" in re.sub(
+                r"\x1b\[[0-9;]*m", "", ln
+            )
         )
         plain = re.sub(r"\x1b\[[0-9;]*m", "", bar)
         assert _largura_sem_ansi(bar) == largura
         assert plain.startswith("│") and plain.endswith("│")
         assert plain.count("│") == 2
         assert "││" not in plain
-        assert "[Esc]" in plain and "[<]" in plain
-        assert "[>]" in plain and "[✥]" in plain
+        assert "[Esc]" in plain and "[PgUp][PgDn] Páginas" in plain
+        assert "[✥]" in plain
         assert "página 1/3" in saida
         for ln in linhas:
             assert _largura_sem_ansi(ln) == largura
@@ -264,10 +275,10 @@ def test_demo_h0045_p02_sequencia_resize_barra_sem_residuo():
     _, saida_reduzida = saidas[1]
     _, saida_max = saidas[2]
     assert _largura_sem_ansi(
-        next(ln for ln in saida_reduzida.split("\n") if "[Esc]" in ln and "[<]" in ln)
+        next(ln for ln in saida_reduzida.split("\n") if "[Esc]" in ln and "[PgUp]" in ln)
     ) == 60
     assert _largura_sem_ansi(
-        next(ln for ln in saida_max.split("\n") if "[Esc]" in ln and "[<]" in ln)
+        next(ln for ln in saida_max.split("\n") if "[Esc]" in ln and "[PgUp]" in ln)
     ) == 100
 
 
@@ -284,7 +295,7 @@ def test_demo_h0045_p02_apresentar_quadro_limpa_residuo_apos_reducao():
     ansi = "\x1b[90m"
     # Linha visualmente curta se pad usasse len() bruto (bug pre-P02).
     linha_ansi = (
-        "│  [Esc] Sair  {0}[<] Anterior{1}  [>] Proxima  [✥] Navegar".format(
+        "│  [Esc] Sair  {0}[PgUp]{1}[PgDn] Páginas  [✥] Navegar".format(
             ansi, _ANSI_RESET_FG
         )
     )
@@ -359,7 +370,7 @@ def test_demo_h0045_p03_cursor_visivel_ao_longo_do_ciclo_de_navegacao_e_resize()
     (``_estabelecer_foco_paginacao_inicial``), sem fixar ``altura_interna``
     (derivada de ``altura`` como no runtime real). Verifica o QUADRO
     renderizado -- nunca apenas ``estado["cursores"]`` -- em cada etapa:
-    abertura, mudanca de pagina (``.``/``,``), movimento de seta dentro da
+    abertura, mudanca de pagina (``PageDown``/``PageUp``), movimento de seta dentro da
     pagina e redimensionamento (1, 3 e muitas paginas).
     """
     modelo = _modelo()
@@ -390,9 +401,9 @@ def test_demo_h0045_p03_cursor_visivel_ao_longo_do_ciclo_de_navegacao_e_resize()
     assert chip_navegar_visivel is True
     assert cursor_visivel is True
 
-    # 3) "." avanca pagina.
-    ch, estado, saida = _passo_tty(estado, modelo, b".")
-    assert ch == "."
+    # 3) PageDown avanca pagina.
+    ch, estado, saida = _passo_tty(estado, modelo, b"\x1b[6~")
+    assert ch == _demo.TECLA_PAGE_DOWN
     assert estado["pagina_atual"][console.id] == 2
     assert "página 2/3" in saida
 
@@ -408,9 +419,9 @@ def test_demo_h0045_p03_cursor_visivel_ao_longo_do_ciclo_de_navegacao_e_resize()
     assert _cursor_visivel_no_item(saida, simbolo, "item_18")
     assert not _cursor_visivel_no_item(saida, simbolo, "item_17")
 
-    # 6) "," retorna.
-    ch, estado, saida = _passo_tty(estado, modelo, b",")
-    assert ch == ","
+    # 6) PageUp retorna.
+    ch, estado, saida = _passo_tty(estado, modelo, b"\x1b[5~")
+    assert ch == _demo.TECLA_PAGE_UP
     assert estado["pagina_atual"][console.id] == 1
     assert "página 1/3" in saida
 
@@ -421,7 +432,7 @@ def test_demo_h0045_p03_cursor_visivel_ao_longo_do_ciclo_de_navegacao_e_resize()
 
     # Reposiciona em item_17 (pagina 2) para testar preservacao de um item
     # NAO trivial (nao o primeiro) atraves de resize.
-    ch, estado, saida = _passo_tty(estado, modelo, b".")
+    ch, estado, saida = _passo_tty(estado, modelo, b"\x1b[6~")
     assert estado["cursores"][console.id] == 16
     assert _cursor_visivel_no_item(saida, simbolo, "item_17")
 
@@ -478,7 +489,7 @@ def _modelo_com_pagina_intermediaria_sem_navegaveis():
 def test_demo_h0045_p03_pagina_sem_navegaveis_e_a_unica_sem_cursor():
     """VM-H0045-R03-003: dentro de um console FOCALIZAVEL e paginado (com
     itens navegaveis nas demais paginas), a UNICA pagina cujos itens sao
-    todos nao-navegaveis nao exibe cursor -- mas os controles ``[<]``/``[>]``
+    todos nao-navegaveis nao exibe cursor -- mas os controles ``[PgUp]``/``[PgDn]``
     e o chip ``[✥]`` permanecem, pois o console como um todo tem itens
     navegaveis (D-TEC-12/D-PAG-13, propriedade estatica do console)."""
     modelo = _modelo_com_pagina_intermediaria_sem_navegaveis()
@@ -501,7 +512,7 @@ def test_demo_h0045_p03_pagina_sem_navegaveis_e_a_unica_sem_cursor():
     saida1 = renderizar_estado(estado, modelo, largura=80, altura=10)
     assert "página 1/18" in saida1
     assert "[✥]" in saida1
-    assert "[<]" in saida1 and "[>]" in saida1
+    assert "[PgUp][PgDn] Páginas" in _sem_ansi(saida1)
     assert _cursor_visivel_no_item(saida1, simbolo, "item_01")
 
     # Pagina 9 (info_a/info_b): a unica sem navegavel -- sem cursor, sem
@@ -512,14 +523,15 @@ def test_demo_h0045_p03_pagina_sem_navegaveis_e_a_unica_sem_cursor():
     assert "página 9/18" in saida_vazia
     assert "info_a" in saida_vazia and "info_b" in saida_vazia
     assert simbolo not in saida_vazia
-    assert "[<]" in saida_vazia and "[>]" in saida_vazia
+    assert "[PgUp][PgDn] Páginas" in _sem_ansi(saida_vazia)
     # "[✥]" exige > 1 item navegavel NA PAGINA CORRENTE (D14); nesta pagina
-    # (0 navegaveis) ele corretamente nao aparece -- distinto de "[<]"/"[>]",
-    # que sao propriedade ESTATICA do console (D-TEC-12/D-PAG-13).
+    # (0 navegaveis) ele corretamente nao aparece -- distinto de
+    # "[PgUp]"/"[PgDn]", que sao propriedade ESTATICA do console
+    # (D-TEC-12/D-PAG-13).
     assert "[✥]" not in saida_vazia
 
     # Pagina seguinte (item_17/item_18): cursor volta a aparecer.
-    novo = processar_comando(estado_vazia, ">", modelo)
+    novo = processar_comando(estado_vazia, _demo.TECLA_PAGE_DOWN, modelo)
     saida_seguinte = renderizar_estado(novo, modelo, largura=80, altura=10)
     assert "página 10/18" in saida_seguinte
     assert _cursor_visivel_no_item(saida_seguinte, simbolo, "item_17")
@@ -585,9 +597,9 @@ def test_demo_h0045_p05_repaginacao_preserva_item_cursor_e_selecao_em_sequencia_
     estado = _estabelecer_foco_paginacao_inicial(estado, modelo)
     assert estado["cursores"][console.id] == 0
 
-    # 2) posiciona o cursor em item distante do inicio ("." real via TTY).
-    ch, estado, saida = _passo_tty(estado, modelo, b".")
-    assert ch == "."
+    # 2) posiciona o cursor em item distante do inicio (PageDown real via TTY).
+    ch, estado, saida = _passo_tty(estado, modelo, b"\x1b[6~")
+    assert ch == _demo.TECLA_PAGE_DOWN
     item_logico_alvo = estado["cursores"][console.id]
     assert item_logico_alvo > 0, "cursor deve estar longe do primeiro item"
     id_item_alvo = "item_{0:02d}".format(item_logico_alvo + 1)
@@ -699,7 +711,7 @@ def test_demo_h0045_p05_caso_limite_um_item_por_pagina():
     )
     estado = _estabelecer_foco_paginacao_inicial(estado, modelo)
     # item_intermediario: nem o primeiro nem o ultimo (posicao 11 de 18).
-    _ch, estado, _saida = _passo_tty(estado, modelo, b".")
+    _ch, estado, _saida = _passo_tty(estado, modelo, b"\x1b[6~")
     item_logico_alvo = estado["cursores"][console.id]
     assert 0 < item_logico_alvo < 17
 
@@ -767,10 +779,10 @@ def test_demo_h0045_p04_dois_consoles_ids_unicos_foco_e_paginas_independentes():
     assert re.search(re.escape(simbolo) + r"\s*" + re.escape("b01"), saida)
     assert not re.search(re.escape(simbolo) + r"\s*" + re.escape("a01"), saida)
 
-    # Console B (focado) avanca pagina via comando real ">"; A permanece na
-    # pagina 1 com chave de estado propria (paginas independentes por id).
+    # Console B (focado) avanca pagina via comando real PageDown; A permanece
+    # na pagina 1 com chave de estado propria (paginas independentes por id).
     estado = dict(estado, largura=largura, altura=altura, desconto_estrutural=3)
-    estado_pag = processar_comando(estado, ">", modelo)
+    estado_pag = processar_comando(estado, _demo.TECLA_PAGE_DOWN, modelo)
     assert estado_pag["pagina_atual"][console_a.id] == 1
     assert estado_pag["pagina_atual"][console_b.id] == 2
     assert console_a.id != console_b.id
@@ -785,7 +797,7 @@ def test_demo_h0045_p04_dois_consoles_ids_unicos_foco_e_paginas_independentes():
     assert "b01" not in saida2
     assert not re.search(re.escape(simbolo) + r"\s*" + re.escape("a01"), saida2)
     # Cursor de B aponta para o primeiro navegavel da pagina 2 (mesma regra
-    # de "." usada em outros testes H-0045).
+    # de PageDown usada em outros testes H-0045).
     primeiro_b_pag2 = estado_pag["cursores"][console_b.id]
     id_item_b = "b{0:02d}".format(primeiro_b_pag2 + 1)
     assert re.search(re.escape(simbolo) + r"\s*" + re.escape(id_item_b), saida2)
@@ -911,9 +923,9 @@ def test_h0045_p06_seta_com_um_item_por_pagina():
     assert "item_18" not in saida_apos_seta
     assert saida_apos_seta.count(simbolo) == 1
 
-    # "." avanca exatamente uma pagina: cursor vai para o primeiro
+    # PageDown avanca exatamente uma pagina: cursor vai para o primeiro
     # navegavel da pagina destino (item_18).
-    apos_ponto = processar_comando(apos_seta, ".", modelo)
+    apos_ponto = processar_comando(apos_seta, _demo.TECLA_PAGE_DOWN, modelo)
     saida_apos_ponto = renderizar_estado(apos_ponto, modelo, largura=largura, altura=altura)
     assert apos_ponto["cursores"][console.id] == 17
     pagina_item18 = paginacao.pagina_do_item_logico(
@@ -953,22 +965,22 @@ def test_h0045_p06_comandos_de_pagina_avancam_e_recuam_exatamente_uma_pagina():
     assert pag1 == 1 and total1 == total_autoridade
     assert estado["pagina_atual"][console.id] == pag1
 
-    estado = processar_comando(estado, ".", modelo)
+    estado = processar_comando(estado, _demo.TECLA_PAGE_DOWN, modelo)
     assert estado["pagina_atual"][console.id] == 2
     pag2, total2, saida2 = _pagina_total_saida(estado)
     assert pag2 == 2 and total2 == total_autoridade
     assert estado["pagina_atual"][console.id] == pag2
     assert simbolo in saida2  # cursor pertence a pagina visivel
 
-    estado = processar_comando(estado, ">", modelo)
+    estado = processar_comando(estado, _demo.TECLA_PAGE_DOWN, modelo)
     assert estado["pagina_atual"][console.id] == 3
     pag3, total3, saida3 = _pagina_total_saida(estado)
     assert pag3 == 3 and total3 == total_autoridade
     assert simbolo in saida3
 
-    estado = processar_comando(estado, ",", modelo)
+    estado = processar_comando(estado, _demo.TECLA_PAGE_UP, modelo)
     assert estado["pagina_atual"][console.id] == 2
-    estado = processar_comando(estado, "<", modelo)
+    estado = processar_comando(estado, _demo.TECLA_PAGE_UP, modelo)
     assert estado["pagina_atual"][console.id] == 1
     pag_final, total_final, saida_final = _pagina_total_saida(estado)
     assert pag_final == 1 and total_final == total_autoridade
@@ -1028,7 +1040,7 @@ def test_h0045_p06_sequencia_integrada_console_unico_e_dois_consoles():
     from tela.modelo import ModeloTela, Corpo
 
     # 40 itens: mesmo na geometria de abertura (80x24, capacidade ~16),
-    # exige mais de 1 pagina -- "." precisa ter efeito ja no passo 2.
+    # exige mais de 1 pagina -- PageDown precisa ter efeito ja no passo 2.
     console_x = _console_paginado_selecionavel_h0045("console_x", "x", 40, "X")
     console_y = _console_paginado_selecionavel_h0045("console_y", "y", 40, "Y")
     modelo = ModeloTela(
@@ -1070,8 +1082,8 @@ def test_h0045_p06_sequencia_integrada_console_unico_e_dois_consoles():
     assert estado["foco_console"] == 0
     _registrar("abrir", estado, largura, altura)
 
-    # 2) cursor em item distante (".").
-    estado = processar_comando(estado, ".", modelo)
+    # 2) cursor em item distante (PageDown).
+    estado = processar_comando(estado, _demo.TECLA_PAGE_DOWN, modelo)
     _registrar("cursor_distante", estado, largura, altura)
     item_alvo_x = estado["cursores"][console_x.id]
     assert item_alvo_x > 0
@@ -1101,12 +1113,12 @@ def test_h0045_p06_sequencia_integrada_console_unico_e_dois_consoles():
     assert estado["cursores"][console_x.id] == item_alvo_x
 
     # 6) avancar pagina.
-    estado = processar_comando(estado, ".", modelo)
+    estado = processar_comando(estado, _demo.TECLA_PAGE_DOWN, modelo)
     _registrar("avancar_pagina", estado, largura, altura)
     assert estado["cursores"][console_x.id] == item_alvo_x + 1
 
     # 7) recuar pagina.
-    estado = processar_comando(estado, ",", modelo)
+    estado = processar_comando(estado, _demo.TECLA_PAGE_UP, modelo)
     _registrar("recuar_pagina", estado, largura, altura)
     assert estado["cursores"][console_x.id] == item_alvo_x
 
@@ -1126,7 +1138,7 @@ def test_h0045_p06_sequencia_integrada_console_unico_e_dois_consoles():
     assert estado["cursores"][console_y.id] == 0
 
     # 10) repetir paginacao no segundo console.
-    estado = processar_comando(estado, ".", modelo)
+    estado = processar_comando(estado, _demo.TECLA_PAGE_DOWN, modelo)
     _registrar("paginar_console_y", estado, largura, altura)
     assert estado["cursores"][console_y.id] > 0
 
@@ -1226,7 +1238,7 @@ def test_h0045_p07_sequencia_integrada_console_em_grupo():
     assert log[0]["geometria_do_console"]["largura"] == 40
 
     # 2) posicionar cursor em item distante.
-    estado = processar_comando(estado, ".", modelo)
+    estado = processar_comando(estado, _demo.TECLA_PAGE_DOWN, modelo)
     _registrar("cursor_distante", estado, largura, altura)
     item_alvo_x = estado["cursores"][console_x.id]
     assert item_alvo_x > 0
@@ -1246,8 +1258,8 @@ def test_h0045_p07_sequencia_integrada_console_em_grupo():
     assert estado["selecoes"][console_x.id] == [id_selecionado_x]  # selecao preservada
     assert log[-1]["geometria_do_console"]["largura"] == 40
 
-    # 5) paginar (".").
-    estado = processar_comando(estado, ".", modelo)
+    # 5) paginar (PageDown).
+    estado = processar_comando(estado, _demo.TECLA_PAGE_DOWN, modelo)
     _registrar("paginar", estado, largura, altura)
 
     # 6) usar seta numa pagina com varios navegaveis.
@@ -1271,7 +1283,7 @@ def test_h0045_p07_sequencia_integrada_console_em_grupo():
     assert log[-1]["geometria_do_console"]["largura"] == 40
 
     # 9) paginar o segundo console.
-    estado = processar_comando(estado, ".", modelo)
+    estado = processar_comando(estado, _demo.TECLA_PAGE_DOWN, modelo)
     _registrar("paginar_console_y", estado, largura, altura)
     assert estado["cursores"][console_y.id] > 0
 
@@ -1410,10 +1422,10 @@ def test_demo_h0045_p09_pty_selecao_multipla_em_console_paginado_ponto_de_entrad
         assert "Executar" in texto_apos_espaco
         assert codigo_inativo and codigo_inativo in texto_apos_espaco
 
-        # 6)-7) muda de pagina (".") -- item_01 sai do quadro; a selecao
+        # 6)-7) muda de pagina (PageDown) -- item_01 sai do quadro; a selecao
         # persiste no estado (confirmado ao retornar, abaixo) por ID, nao por
         # posicao fisica.
-        os.write(master_fd, b".")
+        os.write(master_fd, b"\x1b[6~")
         pagina2 = _ler_ate(
             4.0, 0.35,
             predicado=lambda b: b"item_17" in b and b"p\xc3\xa1gina 2/2" in b,
@@ -1422,8 +1434,8 @@ def test_demo_h0045_p09_pty_selecao_multipla_em_console_paginado_ponto_de_entrad
         assert b"item_01" not in pagina2
         assert b"p\xc3\xa1gina 2/2" in pagina2
 
-        # retorna a pagina 1 (",") -- o MESMO item continua marcado.
-        os.write(master_fd, b",")
+        # retorna a pagina 1 (PageUp) -- o MESMO item continua marcado.
+        os.write(master_fd, b"\x1b[5~")
         volta_pagina1 = _ler_ate(
             4.0, 0.35,
             predicado=lambda b: SEL in b and b"p\xc3\xa1gina 1/2" in b,
@@ -1483,7 +1495,7 @@ def test_demo_h0045_p09_pty_selecao_multipla_em_console_paginado_ponto_de_entrad
         # 13) percorre a pagina 2: os dois itens restantes (item_17/18,
         # tambem selecionaveis) TAMBEM estao marcados -- Todos abrange todas
         # as paginas, nao apenas a pagina corrente.
-        os.write(master_fd, b".")
+        os.write(master_fd, b"\x1b[6~")
         pagina2_apos_todos = _ler_ate(
             4.0, 0.35,
             predicado=lambda b: b"item_18" in b and SEL in b,
@@ -1607,7 +1619,7 @@ def test_demo_h0045_p10_fixture_real_verbosa_multilinha_paginada_sem_perdas():
         assert "[V]" not in saida
         saidas.append(saida)
         if indice < plano["total_paginas"] - 1:
-            estado = processar_comando(estado, ">", modelo)
+            estado = processar_comando(estado, _demo.TECLA_PAGE_DOWN, modelo)
 
     assert estado["pagina_atual"][console.id] == 2
     assert estado["cursores"][console.id] == 1  # longo_02 inicia a pagina 2
@@ -1618,7 +1630,7 @@ def test_demo_h0045_p10_fixture_real_verbosa_multilinha_paginada_sem_perdas():
     assert carregar_estilo().selecionado_simbolo in saidas[0]
     assert carregar_estilo().selecionado_simbolo in saidas[1]
 
-    estado = processar_comando(estado, "<", modelo)
+    estado = processar_comando(estado, _demo.TECLA_PAGE_UP, modelo)
     assert estado["pagina_atual"][console.id] == 1
     assert estado["cursores"][console.id] == 0
     assert renderizar_estado(estado, modelo, largura=80, altura=24).count(
@@ -1680,7 +1692,7 @@ def test_demo_h0045_p10_dimensao_menor_repagina_sem_perda_e_cursor_correto():
         assert saida.count(carregar_estilo().selecionado_simbolo) <= 1
         saidas.append(saida)
         if indice < plano["total_paginas"] - 1:
-            estado = processar_comando(estado, ">", modelo)
+            estado = processar_comando(estado, _demo.TECLA_PAGE_DOWN, modelo)
 
     assert estado["pagina_atual"][console.id] == 4
     assert estado["cursores"][console.id] == 3  # curto_04 inicia a pagina 4
@@ -1702,7 +1714,7 @@ def test_demo_h0045_p10_dimensao_menor_repagina_sem_perda_e_cursor_correto():
     # esperado é fixado antes da execução (não derivado da saída observada).
     assert produzidas == esperadas
     assert len(produzidas) == len(set(produzidas))
-    estado = processar_comando(estado, "<", modelo)
+    estado = processar_comando(estado, _demo.TECLA_PAGE_UP, modelo)
     assert estado["pagina_atual"][console.id] == 3
 
 
@@ -1811,7 +1823,7 @@ def test_demo_h0045_p11_politicas_quebra_fixture_real_seis_paginas_sem_perdas():
         cursores_por_pagina[pagina_idx] = saida.count(simbolo)
         if pagina_idx < 2:
             # 7) comandos de pagina continuam operando.
-            estado = processar_comando(estado, ">", modelo)
+            estado = processar_comando(estado, _demo.TECLA_PAGE_DOWN, modelo)
             assert estado["pagina_atual"][console.id] == pagina_idx + 1
 
     # mapa recalculado apos o laco de renders para refletir o mesmo estado
@@ -1851,7 +1863,7 @@ def test_demo_h0045_p11_politicas_quebra_fixture_real_seis_paginas_sem_perdas():
     assert estado["cursores"][console.id] == 1  # evitar_quebra_02 inicia a pagina 2
 
     # retorno a pagina 1 reconcilia o cursor no primeiro item navegavel.
-    estado = processar_comando(estado, "<", modelo)
+    estado = processar_comando(estado, _demo.TECLA_PAGE_UP, modelo)
     assert estado["pagina_atual"][console.id] == 1
     assert estado["cursores"][console.id] == 0
 
@@ -1961,7 +1973,7 @@ def test_demo_h0045_p11_politicas_quebra_dimensao_menor_deriva_da_politica():
     estado_render = _estado_politicas_quebra(modelo, altura=15)
     estado_render = _reconciliar_paginacao_apos_resize(estado_render, modelo)
     for _ in range(num_pagina_cont - 1):
-        estado_render = processar_comando(estado_render, ">", modelo)
+        estado_render = processar_comando(estado_render, _demo.TECLA_PAGE_DOWN, modelo)
     # 1) a página é efetivamente renderizada; 8) o indicador mostra a página
     #    correta.
     saida_cont = renderizar_estado(estado_render, modelo, largura=80, altura=15)
@@ -1997,11 +2009,11 @@ def test_demo_h0045_p11_politicas_quebra_dimensao_menor_deriva_da_politica():
     assert linhas_visiveis_cont == linhas_continuacao_plano
     # 6) a navegação pode chegar à página e permanecer nela; 7) o runtime não
     #    salta automaticamente para outra página: após chegar, um comando de
-    #    recuo (",") retorna à página anterior e um novo avanço (".") volta
-    #    exatamente à página de continuação, sem desvio.
-    _estado_antes = processar_comando(estado_render, ",", modelo)
+    #    recuo (PageUp) retorna à página anterior e um novo avanço (PageDown)
+    #    volta exatamente à página de continuação, sem desvio.
+    _estado_antes = processar_comando(estado_render, _demo.TECLA_PAGE_UP, modelo)
     assert _estado_antes["pagina_atual"][console.id] == num_pagina_cont - 1
-    _estado_volta = processar_comando(_estado_antes, ".", modelo)
+    _estado_volta = processar_comando(_estado_antes, _demo.TECLA_PAGE_DOWN, modelo)
     assert _estado_volta["pagina_atual"][console.id] == num_pagina_cont
     _saida_volta = renderizar_estado(_estado_volta, modelo, largura=80, altura=15)
     assert "página {0}/{1}".format(
@@ -2011,7 +2023,7 @@ def test_demo_h0045_p11_politicas_quebra_dimensao_menor_deriva_da_politica():
     # Comandos de pagina continuam operando ate a ultima pagina sob a nova
     # capacidade.
     for _ in range(plano["total_paginas"] - 1):
-        estado = processar_comando(estado, ">", modelo)
+        estado = processar_comando(estado, _demo.TECLA_PAGE_DOWN, modelo)
     assert estado["pagina_atual"][console.id] == plano["total_paginas"]
     saida = renderizar_estado(estado, modelo, largura=80, altura=15)
     assert "página {0}/{0}".format(plano["total_paginas"]) in saida
@@ -2030,7 +2042,7 @@ def _modelo_conjunto_vazio():
 def test_demo_h0045_p11_conjunto_vazio_zero_itens_pagina_unica_chips_inativos_e_resize():
     """P11 / VM-H0045-R07-003 (retoma teste manual 16/17): ``itens: []``
     real via o mesmo ponto de entrada da demo -- zero itens navegaveis,
-    pagina 1/1, sem cursor, ``[<]``/``[>]`` visiveis e INATIVOS (nunca
+    pagina 1/1, sem cursor, ``[PgUp]``/``[PgDn]`` visiveis e INATIVOS (nunca
     omitidos), comandos de pagina/setas sem efeito, resize preserva o
     estado, nenhum conteudo default introduzido."""
     modelo = _modelo_conjunto_vazio()
@@ -2060,14 +2072,14 @@ def test_demo_h0045_p11_conjunto_vazio_zero_itens_pagina_unica_chips_inativos_e_
     assert "página 1/1" in saida
     # 4) nenhum cursor.
     assert carregar_estilo().selecionado_simbolo not in saida
-    # 5/6) [<]/[>] visiveis e inativos.
-    assert "[<]" in saida and "[>]" in saida
+    # 5/6) [PgUp]/[PgDn] visiveis e inativos.
+    assert "[PgUp]" in saida and "[PgDn]" in saida
     estados_chips = _rend._navegacao_atual.get("estado_ativo_chips") or {}
     assert estados_chips.get("chip_pagina_anterior") is False
     assert estados_chips.get("chip_pagina_proxima") is False
     codigo_inativo = _rend._codigo_ansi_de_cor(carregar_estilo().cor_inativo)
-    assert codigo_inativo + "[<]" in saida
-    assert codigo_inativo + "[>]" in saida
+    assert codigo_inativo + "[PgUp]" in saida
+    assert codigo_inativo + "[PgDn]" in saida
     # 10) nenhum conteudo default/sintetico (os quatro itens "aviso_NN"
     # observados na validacao manual anterior nao podem reaparecer).
     assert "aviso_" not in saida
@@ -2088,7 +2100,7 @@ def test_demo_h0045_p11_conjunto_vazio_zero_itens_pagina_unica_chips_inativos_e_
     assert estado_redim["cursores"] == {}
     saida_redim = renderizar_estado(estado_redim, modelo, largura=100, altura=30)
     assert "página 1/1" in saida_redim
-    assert "[<]" in saida_redim and "[>]" in saida_redim
+    assert "[PgUp]" in saida_redim and "[PgDn]" in saida_redim
     estados_chips_redim = _rend._navegacao_atual.get("estado_ativo_chips") or {}
     assert estados_chips_redim.get("chip_pagina_anterior") is False
     assert estados_chips_redim.get("chip_pagina_proxima") is False
@@ -2220,7 +2232,7 @@ def test_demo_h0045_p12_seis_casos_caminho_real_multiplas_geometrias():
                     )
                 )
                 while estado["pagina_atual"].get(console.id, 1) < alvo:
-                    estado = processar_comando(estado, ".", modelo)
+                    estado = processar_comando(estado, _demo.TECLA_PAGE_DOWN, modelo)
                 saida2 = renderizar_estado(estado, modelo, largura, altura)
                 assert "Trecho" in saida2 or "CONT_" in saida2
                 assert cv.hash_modelo_logico(console) == hash0
@@ -2228,9 +2240,9 @@ def test_demo_h0045_p12_seis_casos_caminho_real_multiplas_geometrias():
             elif entrada.endswith("vazio"):
                 assert console._campos_inertes["itens"] == []
                 assert "página 1/1" in saida
-                assert "[<]" in saida and "[>]" in saida
+                assert "[PgUp]" in saida and "[PgDn]" in saida
                 assert carregar_estilo().selecionado_simbolo not in saida
-                for cmd in (",", ".", "\x1b[A"):
+                for cmd in (_demo.TECLA_PAGE_UP, _demo.TECLA_PAGE_DOWN, "\x1b[A"):
                     novo = processar_comando(estado, cmd, modelo)
                     assert novo["cursores"] == {}
 
@@ -2345,7 +2357,7 @@ def test_demo_h0045_p12_pty_continuacao_e_vazio_ponto_de_entrada_real():
         assert b"CONT_INICIO" in inicial
 
         # Avanca para pagina intermediaria (continuacao).
-        os.write(master_fd, b".")
+        os.write(master_fd, b"\x1b[6~")
         pagina2 = _ler_ate(
             4.0, 0.35,
             predicado=lambda b: b"p\xc3\xa1gina 2/" in b,
@@ -2361,14 +2373,14 @@ def test_demo_h0045_p12_pty_continuacao_e_vazio_ponto_de_entrada_real():
         time.sleep(0.15)
 
         # Comandos de pagina operam.
-        os.write(master_fd, b".")
+        os.write(master_fd, b"\x1b[6~")
         pagina3 = _ler_ate(
             4.0, 0.35,
             predicado=lambda b: b"p\xc3\xa1gina 3/" in b or b"CONT_FIM" in b,
         )
         assert proc.poll() is None
         assert b"p\xc3\xa1gina 3/" in pagina3 or b"CONT_FIM" in pagina3
-        os.write(master_fd, b",")
+        os.write(master_fd, b"\x1b[5~")
         volta2 = _ler_ate(
             4.0, 0.35,
             predicado=lambda b: b"p\xc3\xa1gina 2/" in b,
@@ -2425,15 +2437,15 @@ def test_demo_h0045_p12_pty_continuacao_e_vazio_ponto_de_entrada_real():
 
         vazio = _ler_ate(
             5.0, 0.4,
-            predicado=lambda b: b"p\xc3\xa1gina 1/1" in b and b"[<]" in b,
+            predicado=lambda b: b"p\xc3\xa1gina 1/1" in b and b"[PgUp]" in b,
         )
         assert proc.poll() is None
         assert b"p\xc3\xa1gina 1/1" in vazio
-        assert b"[<]" in vazio and b"[>]" in vazio
+        assert b"[PgUp]" in vazio and b"[PgDn]" in vazio
         assert b"\xe2\x86\x92" not in vazio
         # Comando de pagina sem efeito: sem redesenho; o quadro inicial
         # ja comprovou 1/1 e chips presentes.
-        os.write(master_fd, b".")
+        os.write(master_fd, b"\x1b[6~")
         time.sleep(0.15)
 
         os.write(master_fd, b"\x1b")
@@ -2959,7 +2971,7 @@ def test_demo_h0045_p16_tres_telas_ponto_de_entrada_real():
         # Em nova_pagina, o item 1 comeca em pagina nova apos o texto inicial.
         if entrada.endswith("nova_pagina"):
             assert "Texto inicial" in saida or "referencia" in saida
-            estado_pag = processar_comando(estado, ".", modelo)
+            estado_pag = processar_comando(estado, _demo.TECLA_PAGE_DOWN, modelo)
             saida = renderizar_estado(estado_pag, modelo, 80, 24)
         assert m1 in saida
         assert any(m4 in (i.get("texto") or "") for i in avaliados)
@@ -3121,7 +3133,7 @@ class TestRotuloDinamicoEscP21:
         # Marca todos (Enter=Todos) e avanca para a pagina 2: a selecao
         # persiste entre paginas; o chip Esc deve continuar ``Limpar``.
         estado = processar_comando(estado, "\r", modelo)
-        estado = processar_comando(estado, ".", modelo)
+        estado = processar_comando(estado, _demo.TECLA_PAGE_DOWN, modelo)
         assert estado["pagina_atual"][console.id] > 1
         saida = renderizar_estado(estado, modelo, largura=80, altura=24)
         barra = _barra_esc_p21(saida)
@@ -3184,7 +3196,7 @@ class TestRotuloDinamicoEscP21:
         console = modelo.corpo.elementos[0]
         estado = _estado_fluxo_paginado_p21(modelo)
         # Sem selecao: ``Sair`` em qualquer pagina.
-        estado = processar_comando(estado, ".", modelo)
+        estado = processar_comando(estado, _demo.TECLA_PAGE_DOWN, modelo)
         saida = renderizar_estado(estado, modelo, largura=80, altura=24)
         assert "[Esc] Sair" in _barra_esc_p21(saida)
         # Com selecao (marcar na pagina 2): ``Limpar``.
@@ -3216,7 +3228,7 @@ class TestRotuloDinamicoEscP21:
         console = modelo.corpo.elementos[0]
         estado = _estado_fluxo_paginado_p21(modelo)
         # Avanca para pagina 2 e marca um item la.
-        estado = processar_comando(estado, ".", modelo)
+        estado = processar_comando(estado, _demo.TECLA_PAGE_DOWN, modelo)
         estado = processar_comando(estado, " ", modelo)
         cursor_antes = estado["cursores"][console.id]
         pagina_antes = estado["pagina_atual"][console.id]
@@ -3238,9 +3250,9 @@ class TestRotuloDinamicoEscP21:
         # Enter com selecao => INATIVO (reconcilia, nao executa nem marca).
         estado = processar_comando(estado, "\r", modelo)
         # Paginacao continua funcional.
-        estado = processar_comando(estado, ".", modelo)
+        estado = processar_comando(estado, _demo.TECLA_PAGE_DOWN, modelo)
         assert estado["pagina_atual"][console.id] > 1
-        estado = processar_comando(estado, ",", modelo)
+        estado = processar_comando(estado, _demo.TECLA_PAGE_UP, modelo)
         # Setas continuam funcionais.
         estado = processar_comando(estado, "\x1b[B", modelo)
         assert estado["cursores"][console.id] is not None
@@ -3600,13 +3612,16 @@ def test_p23_comandos_que_consultam_geometria_nao_escapam_em_geometria_invalida(
     estado, modelo = _abrir_fluxo_p23(80, 24)
     console = modelo.corpo.elementos[0]
     # Posiciona em pagina 2 e marca item para ter estado nao trivial.
-    estado = processar_comando(estado, ">", modelo)
+    estado = processar_comando(estado, _demo.TECLA_PAGE_DOWN, modelo)
     estado = processar_comando(estado, " ", modelo)
     # Entra em geometria invalida.
     estado = dict(estado, largura=14, altura=24, desconto_estrutural=3)
     estado = _reconciliar_paginacao_apos_resize(estado, modelo)
     # Cada comando dependente de geometria deve ser processado sem excecao.
-    for cmd in (".", ">", ",", "<", "\x1b[C", "\x1b[D", "\x1b[B", "\x1b[A"):
+    for cmd in (
+        _demo.TECLA_PAGE_DOWN, _demo.TECLA_PAGE_UP,
+        "\x1b[C", "\x1b[D", "\x1b[B", "\x1b[A",
+    ):
         estado = processar_comando(estado, cmd, modelo)
 
 
@@ -3642,7 +3657,7 @@ def test_p23_preservacao_selecao_foco_cursor_item_pagina_pilha():
     """Casos 14-19: geometria invalida preserva todo o estado logico."""
     estado, modelo = _abrir_fluxo_p23(80, 24)
     console = modelo.corpo.elementos[0]
-    estado = processar_comando(estado, ">", modelo)
+    estado = processar_comando(estado, _demo.TECLA_PAGE_DOWN, modelo)
     estado = processar_comando(estado, " ", modelo)
     estado = processar_comando(estado, "\x1b[B", modelo)
     snap_antes = _snap_estado_p23(estado, console)
@@ -3666,13 +3681,16 @@ def test_p23_comandos_durante_geometria_invalida_preservam_estado():
     """Casos 11/14-18: comandos durante geometria invalida nao alteram estado."""
     estado, modelo = _abrir_fluxo_p23(80, 24)
     console = modelo.corpo.elementos[0]
-    estado = processar_comando(estado, ">", modelo)
+    estado = processar_comando(estado, _demo.TECLA_PAGE_DOWN, modelo)
     estado = processar_comando(estado, " ", modelo)
     estado = dict(estado, largura=14, altura=24, desconto_estrutural=3)
     estado = _reconciliar_paginacao_apos_resize(estado, modelo)
     snap_antes = _snap_estado_p23(estado, console)
 
-    for cmd in (".", ">", ",", "<", "\x1b[C", "\x1b[D", "\x1b[B", "\x1b[A"):
+    for cmd in (
+        _demo.TECLA_PAGE_DOWN, _demo.TECLA_PAGE_UP,
+        "\x1b[C", "\x1b[D", "\x1b[B", "\x1b[A",
+    ):
         e2 = processar_comando(estado, cmd, modelo)
         snap_depois = _snap_estado_p23(e2, console)
         assert snap_depois["foco"] == snap_antes["foco"]
@@ -3685,7 +3703,7 @@ def test_p23_recuperacao_automatica_apos_ampliar():
     """Casos 20/22: ao ampliar, a tela normal volta automaticamente."""
     estado, modelo = _abrir_fluxo_p23(80, 24)
     console = modelo.corpo.elementos[0]
-    estado = processar_comando(estado, ">", modelo)
+    estado = processar_comando(estado, _demo.TECLA_PAGE_DOWN, modelo)
     estado = processar_comando(estado, " ", modelo)
     item_logico = estado["cursores"][console.id]
     id_marcado = estado["selecoes"][console.id]
@@ -3708,7 +3726,7 @@ def test_p23_recuperacao_preserva_selecao_cursor_item_sem_perda_repeticao():
     """Casos 14-19/21/22: recuperacao preserva estado sem perda/repeticao."""
     estado, modelo = _abrir_fluxo_p23(80, 24)
     console = modelo.corpo.elementos[0]
-    estado = processar_comando(estado, ">", modelo)
+    estado = processar_comando(estado, _demo.TECLA_PAGE_DOWN, modelo)
     estado = processar_comando(estado, " ", modelo)
     item_antes = estado["cursores"][console.id]
     sel_antes = list(estado["selecoes"][console.id])
@@ -3731,11 +3749,10 @@ def test_p23_ausencia_truncamento_reordenacao_chips_na_barra_normal():
     saida = _resolver_conteudo_p23(estado, modelo, 80, 24)
     # Todos os chips presentes, [Esc] primeiro.
     assert "[Esc]" in saida
-    assert "[<]" in saida
-    assert "[>]" in saida
+    assert "[PgUp][PgDn] Páginas" in _sem_ansi(saida)
     assert "[␣]" in saida
     assert "[⏎]" in saida
-    assert saida.index("[Esc]") < saida.index("[<]")
+    assert saida.index("[Esc]") < saida.index("[PgUp]")
 
 
 def test_p23_preservacao_rotulo_dinamico_esc():

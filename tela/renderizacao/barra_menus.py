@@ -855,15 +855,48 @@ def _linhas_barra(barra_de_menus, estilo, content_w, controle_execucao=None):
         and representacao.destacado
     ):
         chips_destacados.add(representacao.chip_id)
-    texto_chips = [
-        _texto_chip_barra(
-            c, estilo, vao=vao_ct,
-            # Estado visual inativo = consequencia de regra_ativo == False.
-            inativo=not estado_ativo_chips.get(c.get("id"), True),
-            destacado=(c.get("id") in chips_destacados),
+    # H-0051 / D-PGU-01 a D-PGU-03: agrupamento focal exclusivo de
+    # ``chip_pagina_anterior`` + ``chip_pagina_proxima`` (contiguos na
+    # ordem declarada) como sequencia visual unica "[PgUp][PgDn] Páginas",
+    # sem separador entre os dois. Cada chip preserva id, regra_existencia
+    # e regra_ativo proprios (avaliados acima, em ``estado_ativo_chips``);
+    # apenas a concatenacao textual dos dois e alterada aqui. Nenhum outro
+    # par de chips e afetado.
+    texto_chips = []
+    pular_proximo = False
+    for idx, c in enumerate(chips):
+        if pular_proximo:
+            pular_proximo = False
+            continue
+        chip_id = c.get("id")
+        proximo = chips[idx + 1] if idx + 1 < len(chips) else None
+        if (
+            chip_id == "chip_pagina_anterior"
+            and proximo is not None
+            and proximo.get("id") == "chip_pagina_proxima"
+        ):
+            texto_ant = _texto_chip_barra(
+                c, estilo, vao=0,
+                inativo=not estado_ativo_chips.get(chip_id, True),
+                destacado=(chip_id in chips_destacados),
+            )
+            prox_id = proximo.get("id")
+            texto_prox = _texto_chip_barra(
+                proximo, estilo, vao=vao_ct,
+                inativo=not estado_ativo_chips.get(prox_id, True),
+                destacado=(prox_id in chips_destacados),
+            )
+            texto_chips.append(texto_ant + texto_prox)
+            pular_proximo = True
+            continue
+        texto_chips.append(
+            _texto_chip_barra(
+                c, estilo, vao=vao_ct,
+                # Estado visual inativo = consequencia de regra_ativo == False.
+                inativo=not estado_ativo_chips.get(chip_id, True),
+                destacado=(chip_id in chips_destacados),
+            )
         )
-        for c in chips
-    ]
     prefixo = " " * margem
     largura_util = content_w - 2 * margem
 

@@ -28,7 +28,7 @@ Este módulo é proprietário dos termos de:
 - estado ativo e inativo de chip;
 - distribuição visual da barra;
 - indicadores e comandos visuais da barra;
-- chips `[Esc]`, `[✥]`, `[V]`, `[⏎]`, `[<][>]`, `[-][+]`, `[#]`, `[⇆]`, `[␣]`, `[?]` enquanto termos de interface.
+- chips `[Esc]`, `[✥]`, `[V]`, `[⏎]`, `[PgUp][PgDn]`, `[-][+]`, `[#]`, `[⇆]`, `[␣]`, `[?]` enquanto termos de interface.
 
 Comportamento completo de cada comando permanece nos contratos
 `contrato_barra_de_menus.md` e `contrato_chip.md`.
@@ -50,8 +50,9 @@ Comportamento completo de cada comando permanece nos contratos
 - controle universal de execução real e `dry-run` (chip específico reutilizável; ADR-0040)
 - declaração `controle_execucao` e `controle_execucao.modo_inicial` do controle universal (ADR-0040)
 - ativo destacado (via `cor_alerta`; ADR-0037)
-- paginação limitada de `[<][>]` (ADR-0038)
-- entradas aceitas de página anterior/próxima página (ADR-0038)
+- paginação limitada de `[PgUp][PgDn]` (ADR-0038; tecla e notação especializadas pela ADR-0041)
+- teclas universais de paginação `PageUp`/`PageDown` (ADR-0041)
+- representação canônica `[PgUp][PgDn] Páginas` (ADR-0041)
 
 ## 4. Definições
 
@@ -77,13 +78,13 @@ ou símbolo acionável — ou informativo — exibido na região da tela.
 ### 4.3 Ordem fixa dos chips canônicos
 
 ```
-[Esc] → [<][>] → [-][+] → [#] → [⇆] → [✥] → [␣] → [⏎] → específicos → [V] → [?]
+[Esc] → [PgUp][PgDn] → [-][+] → [#] → [⇆] → [✥] → [␣] → [⏎] → específicos → [V] → [?]
 ```
 
 | Chip | Rótulo | Condição de existência |
 |---|---|---|
 | `[Esc]` | Sair / Voltar / Limpar | declarativa por tela |
-| `[<][>]` | Páginas | classe declara `paginacao: com`; topologia limitada, sem wrap entre primeira e última página (ADR-0038) |
+| `[PgUp][PgDn]` | Páginas | classe declara `paginacao: com`; topologia limitada, sem wrap entre primeira e última página (ADR-0038); tecla e representação canônica fixadas pela ADR-0041 |
 | `[-][+]` | Colunas | classe declara `colunas_ajustavel: com` (tipo `console`) |
 | `[#]` | Grupos | classe declara filtro por grupo |
 | `[⇆]` | Alternar | tela possui pelo menos dois consoles focalizáveis (ADR-0031 D14) |
@@ -118,18 +119,22 @@ Permanece ativo nos dois estados; ligado usa amarelo via `cor_alerta`; único
 eco é a cor do próprio texto. O `ITEM-0020` continua aberto para a futura
 implementação e reconciliação dessa escolha com o padrão universal.
 
-### 4.4.2 Paginação limitada de `[<][>]` (ADR-0038)
+### 4.4.2 Paginação limitada de `[PgUp][PgDn]` (ADR-0038; especializada pela ADR-0041)
 
-`[<][>]` são chips canônicos de tipo `navegacao` (existência declarativa via
-`paginacao: com`). A topologia entre páginas é limitada, não circular: `[<]`
-inativo na primeira página; `[>]` inativo na última; ambos inativos com uma
-única página (`página 1/1`), inclusive com conjunto vazio de itens visíveis.
-O estado ativo/inativo é avaliado exclusivamente pela página do console
-focado — sem console focado, ou com o console focado sem paginação
-declarada, ambos ficam inativos; o acionamento não altera a página de outro
-console nem o foco corrente. Entradas aceitas: `,`/`<` para página anterior;
-`.`/`>` para próxima página. `[✥]` passa a considerar somente os itens
-navegáveis da página atual do console focado (ver §4.3).
+`[PgUp][PgDn]` são chips canônicos de tipo `navegacao` (existência
+declarativa via `paginacao: com`), representação canônica fixada pela
+ADR-0041 em substituição a `[<][>]`. A topologia entre páginas é limitada,
+não circular: `[PgUp]` inativo na primeira página; `[PgDn]` inativo na
+última; ambos inativos com uma única página (`página 1/1`), inclusive com
+conjunto vazio de itens visíveis. O estado ativo/inativo é avaliado
+exclusivamente pela página do console focado — sem console focado, ou com o
+console focado sem paginação declarada, ambos ficam inativos; o acionamento
+não altera a página de outro console nem o foco corrente. Entrada aceita:
+`PageUp` para página anterior; `PageDown` para próxima página (ADR-0041
+D-PGU-01, D-PGU-02); os caracteres `,`, `<`, `.` e `>` deixam de ter
+qualquer função de paginação — não são alias, atalho nem fallback (ADR-0041
+D-PGU-04). `[✥]` passa a considerar somente os itens navegáveis da página
+atual do console focado (ver §4.3).
 
 ### 4.4.3 Controle universal de execução real e `dry-run` (ADR-0040)
 
@@ -209,7 +214,7 @@ unicamente.
 | `[Ins] Dry-Run` focal × controle universal real/`dry-run` | A especialização focal da ADR-0037 permanece vinculada ao Handoff 4; o controle universal da ADR-0040 é reutilizável por instância de tela e não migra a especialização |
 | `[⇆]` × `[✥]` | `[⇆]` muda o foco entre consoles focalizáveis; `[✥]` move o cursor entre itens do console focado |
 | `barra_de_menus.distribuicao = "horizontal"` × `corpo.arranjo = "horizontal"` | São termos diferentes em regiões diferentes — não colapsam |
-| paginação limitada (entre páginas) × navegação toroidal por eixo (dentro da página) | `[<][>]` não fazem wrap entre primeira e última página (ADR-0038); o toróide por eixo (ADR-0031) só se aplica ao cursor dentro de uma mesma página |
+| paginação limitada (entre páginas) × navegação toroidal por eixo (dentro da página) | `[PgUp][PgDn]` não fazem wrap entre primeira e última página (ADR-0038); o toróide por eixo (ADR-0031) só se aplica ao cursor dentro de uma mesma página |
 
 ## 6. Relação com contratos
 
@@ -226,7 +231,8 @@ unicamente.
 - ADR-0034: fecha, para `politica_selecao: multipla` (`ITEM-0006`), a condição de existência do chip `[␣]` e do rótulo dinâmico `Todos`/`Executar` de `[⏎]` já genéricos neste módulo (§4.3, §4.5); na tela padrão de resultado, `[Esc]` é o único chip declarado, com rótulo fixo `Voltar` (sem seleção ativa nessa tela).
 - ADR-0037: chip específico `[Ins] Dry-Run`; distinção ativo/inativo/ativo destacado; supersessão pontual da proibição de chip de `dry-run` (D-SEL-19); `ITEM-0020` permanece aberto para padronização genérica.
 - ADR-0040: controle universal de execução real e `dry-run`, distinto da especialização focal da ADR-0037.
-- ADR-0038: fecha, para `[<][>]`, a topologia limitada, a avaliação pelo console focado e as entradas aceitas; especializa, para `[✥]`, o universo de avaliação restrito à página atual do console focado.
+- ADR-0038: fecha, para `[PgUp][PgDn]`, a topologia limitada e a avaliação pelo console focado; especializa, para `[✥]`, o universo de avaliação restrito à página atual do console focado.
+- ADR-0041: especializa, para toda paginação comum do Orquestrador, a tecla de acionamento (`PageUp`/`PageDown`) e a representação canônica (`[PgUp][PgDn] Páginas`), substituindo `,`/`<`/`.`/`>` e `[<][>]` em todos os documentos normativos; nenhuma outra decisão D-PAG-01 a D-PAG-13 é reaberta.
 
 ## 8. Aliases ou termos descontinuados relacionados
 
@@ -257,6 +263,7 @@ adrs_relacionadas:
   - ADR-0028
   - ADR-0031
   - ADR-0038
+  - ADR-0041
 tratamento:
   - PRESERVADO
   - SEPARADO_DE_REGRA_COMPORTAMENTAL
