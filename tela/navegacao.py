@@ -82,11 +82,14 @@ def console_e_focalizavel(elemento):
         return False
     if getattr(elemento, "tipo", None) != "console":
         return False
-    tipo = tipo_navegacao_efetivo(elemento)
-    if tipo != "nivel_unico":
-        return False
     politica = elemento._campos_inertes.get("politica_navegacao")
     if not isinstance(politica, dict) or not politica.get("navegavel"):
+        return False
+    tipo = tipo_navegacao_efetivo(elemento)
+    if tipo == "arvore_colapsavel":
+        conteudo = getattr(elemento, "conteudo_externo", None)
+        return conteudo is not None and bool(getattr(conteudo, "nos", None))
+    if tipo != "nivel_unico":
         return False
     return len(itens_navegaveis(elemento)) > 0
 
@@ -490,6 +493,127 @@ def _mover_horizontal(estado, console, passo, itens_permitidos=None):
     return novo
 
 
+def _ramos_fechados_do_console(estado, console):
+    todos = estado.get("ramos_fechados", {}) or {}
+    fechados = todos.get(console.id, ()) if isinstance(todos, dict) else ()
+    return set(fechados or ())
+
+
+def _sequencia_estrutural_arvore(elemento, estado):
+    """Deriva a pre-ordem visivel da hierarquia canonica do console."""
+    conteudo = getattr(elemento, "conteudo_externo", None)
+    if conteudo is None or not getattr(conteudo, "nos", None):
+        return []
+    fechados = _ramos_fechados_do_console(estado, elemento)
+    resultado = []
+
+    def recorrer(nos):
+        for no in nos:
+            resultado.append(no)
+            if no.id not in fechados and no.filhos:
+                recorrer(no.filhos)
+
+    recorrer(conteudo.nos)
+    return resultado
+
+
+def _itens_permitidos_da_pagina(estado, console):
+    """Obtém a projeção de paginação já calculada pela infraestrutura vigente."""
+    declarados = estado.get("itens_permitidos")
+    if isinstance(declarados, dict) and console.id in declarados:
+        return declarados[console.id]
+    if console._campos_inertes.get("politica_paginacao") != "com":
+        return None
+    from tela import paginacao
+
+    return paginacao.linhas_logicas_navegaveis_da_pagina(estado, console)
+
+
+def _sequencia_com_indices_arvore(elemento, estado, itens_permitidos=None):
+    estrutural = _sequencia_estrutural_arvore(elemento, estado)
+    if itens_permitidos is None:
+        itens_permitidos = _itens_permitidos_da_pagina(estado, elemento)
+    if itens_permitidos is None:
+        return list(enumerate(estrutural))
+    permitidos = set(itens_permitidos)
+    return [
+        (indice, no)
+        for indice, no in enumerate(estrutural)
+        if indice in permitidos
+    ]
+
+
+def sequencia_visivel_arvore(elemento, estado, itens_permitidos=None):
+    """Retorna a projeção linear navegável da árvore na página corrente.
+
+    A hierarquia continua sendo exclusivamente ``conteudo_externo``. O
+    resultado é uma lista transitória em pré-ordem, filtrada pela projeção de
+    página fornecida pela paginação existente quando aplicável.
+    """
+    return [
+        no for _indice, no in
+        _sequencia_com_indices_arvore(elemento, estado, itens_permitidos)
+    ]
+
+
+def reconciliar_cursor_arvore(estado, console=None):
+    """Reconcilia o cursor da árvore focalizada com a projeção visível.
+
+    A entrada normal na navegação já posiciona o cursor no primeiro item. Este
+    boundary aplica a mesma regra quando o foco chega acompanhado de um mapa
+    de cursores ainda vazio ou inválido, antes de qualquer projeção contextual.
+    Uma projeção vazia não recebe cursor sintético.
+    """
+    if console is None:
+        console = console_focado(estado)
+    if console is None or tipo_navegacao_efetivo(console) != "arvore_colapsavel":
+        return dict(estado)
+
+    acessiveis = _sequencia_com_indices_arvore(console, estado)
+    cursores = dict(estado.get("cursores", {}) or {})
+    if not acessiveis:
+        cursores.pop(console.id, None)
+    else:
+        indices = [indice for indice, _no in acessiveis]
+        if cursores.get(console.id) not in indices:
+            cursores[console.id] = indices[0]
+
+    novo = dict(estado)
+    novo["cursores"] = cursores
+    return novo
+
+
+def alternar_ramo(estado, console):
+    """Alterna o ramo corrente sem criar seleção ou ação para folhas."""
+    if tipo_navegacao_efetivo(console) != "arvore_colapsavel":
+        return dict(estado)
+    estrutural = _sequencia_estrutural_arvore(console, estado)
+    cursor = (estado.get("cursores", {}) or {}).get(console.id, 0)
+    if cursor < 0 or cursor >= len(estrutural):
+        return dict(estado)
+    corrente = estrutural[cursor]
+    if not corrente.filhos:
+        return dict(estado)
+
+    fechados_por_console = dict(estado.get("ramos_fechados", {}) or {})
+    fechados = set(fechados_por_console.get(console.id, ()) or ())
+    if corrente.id in fechados:
+        fechados.remove(corrente.id)
+    else:
+        fechados.add(corrente.id)
+    fechados_por_console[console.id] = frozenset(fechados)
+
+    novo = dict(estado)
+    novo["ramos_fechados"] = fechados_por_console
+    nova_sequencia = _sequencia_estrutural_arvore(console, novo)
+    por_id = {no.id: indice for indice, no in enumerate(nova_sequencia)}
+    cursores = dict(estado.get("cursores", {}) or {})
+    if corrente.id in por_id:
+        cursores[console.id] = por_id[corrente.id]
+    novo["cursores"] = cursores
+    return novo
+
+
 def mover_baixo(estado, console, itens_permitidos=None):
     """Move o cursor para baixo com toroide na mesma coluna (D8).
 
@@ -499,6 +623,8 @@ def mover_baixo(estado, console, itens_permitidos=None):
     Retorna novo estado com o item logico atualizado. Quando nao ha outro item
     ocupado na mesma coluna, produz SEM_MOVIMENTO (D9).
     """
+    if tipo_navegacao_efetivo(console) == "arvore_colapsavel":
+        return _mover_arvore(estado, console, +1, itens_permitidos)
     return _mover_vertical(estado, console, +1, itens_permitidos=itens_permitidos)
 
 
@@ -511,7 +637,31 @@ def mover_cima(estado, console, itens_permitidos=None):
     Retorna novo estado com o item logico atualizado. Quando nao ha outro item
     ocupado na mesma coluna, produz SEM_MOVIMENTO (D9).
     """
+    if tipo_navegacao_efetivo(console) == "arvore_colapsavel":
+        return _mover_arvore(estado, console, -1, itens_permitidos)
     return _mover_vertical(estado, console, -1, itens_permitidos=itens_permitidos)
+
+
+def _mover_arvore(estado, console, passo, itens_permitidos=None):
+    """Move pelo índice estrutural da projeção visível corrente."""
+    acessiveis = _sequencia_com_indices_arvore(
+        console, estado, itens_permitidos
+    )
+    if len(acessiveis) < 2:
+        return dict(estado)
+    cursor = (estado.get("cursores", {}) or {}).get(console.id, 0)
+    indices = [indice for indice, _no in acessiveis]
+    if cursor not in indices:
+        return dict(estado)
+    posicao = indices.index(cursor)
+    novo_posicao = posicao + passo
+    if novo_posicao < 0 or novo_posicao >= len(acessiveis):
+        return dict(estado)
+    novo = dict(estado)
+    cursores = dict(estado.get("cursores", {}) or {})
+    cursores[console.id] = acessiveis[novo_posicao][0]
+    novo["cursores"] = cursores
+    return novo
 
 
 def _mover_vertical(estado, console, passo, itens_permitidos=None):
@@ -646,11 +796,41 @@ def exibir_chip_navegar(estado):
     if foco is None:
         return False
     console = lista[foco]
+    if tipo_navegacao_efetivo(console) == "arvore_colapsavel":
+        return len(sequencia_visivel_arvore(console, estado)) > 1
     if console._campos_inertes.get("politica_paginacao") == "com":
         from tela import paginacao
 
         return len(paginacao.linhas_logicas_navegaveis_da_pagina(estado, console)) > 1
     return len(itens_navegaveis(console)) > 1
+
+
+def estado_chip_arvore(estado):
+    """Deriva o rótulo e a atividade do Espaço pelo item corrente da árvore.
+
+    A projeção usa o mesmo universo visível consumido pelos movimentos. Se o
+    console não estiver focalizado ou o cursor não apontar para um item dessa
+    projeção, não há estado válido a materializar.
+    """
+    console = console_focado(estado)
+    if console is None or tipo_navegacao_efetivo(console) != "arvore_colapsavel":
+        return None
+    acessiveis = _sequencia_com_indices_arvore(console, estado)
+    cursor = (estado.get("cursores", {}) or {}).get(console.id)
+    corrente = next(
+        (no for indice, no in acessiveis if indice == cursor),
+        None,
+    )
+    if corrente is None:
+        return None
+    fechados = _ramos_fechados_do_console(estado, console)
+    possui_filhos = bool(corrente.filhos)
+    return {
+        "console_id": console.id,
+        "item_id": corrente.id,
+        "texto": "Expandir" if not possui_filhos or corrente.id in fechados else "Recolher",
+        "ativo": possui_filhos,
+    }
 
 
 def console_focado(estado):

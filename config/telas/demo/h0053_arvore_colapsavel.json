@@ -1,0 +1,84 @@
+{
+  "schema": "tela.v1",
+  "id": "h0053_arvore_colapsavel",
+  "cabecalho": {
+    "titulo": "H-0053 Árvore Colapsável",
+    "descricao": "Console demonstrativo de percurso hierárquico visível",
+    "apresentacao": {
+      "titulo": {
+        "posicao": "esquerda",
+        "recuo_lateral": 0,
+        "capitalizacao": "maiusculas",
+        "formato_na_borda": "com_espacos_laterais"
+      },
+      "descricao": {
+        "max_caracteres": 200,
+        "alinhamento": "esquerda",
+        "recuo": 1,
+        "capitalizacao": "preservar"
+      }
+    }
+  },
+  "corpo": {
+    "arranjo": "vertical",
+    "distribuicao": {
+      "modo": "igual"
+    },
+    "elementos": [
+      {
+        "id": "arvore",
+        "tipo": "console",
+        "titulo": "Árvore",
+        "origem_dados": null,
+        "politica_composicao": {},
+        "politica_navegacao": {
+          "navegavel": true,
+          "tipo": "arvore_colapsavel"
+        },
+        "politica_selecao": "nenhuma",
+        "politica_paginacao": "sem",
+        "politica_exibicao": {
+          "verboso": true
+        },
+        "itens": []
+      }
+    ]
+  },
+  "barra_de_menus": {
+    "chips": [
+      {
+        "id": "chip_esc",
+        "tipo": "acao",
+        "tecla": "Esc",
+        "texto": "Sair"
+      },
+      {
+        "id": "chip_navegar",
+        "tipo": "navegacao",
+        "tecla": "✥",
+        "texto": "Navegar",
+        "regra_existencia": "console_focado_com_mais_de_um_item_navegavel",
+        "regra_ativo": "sempre",
+        "forma_exibicao": "visivel_ativo"
+      },
+      {
+        "id": "chip_arvore_espaco",
+        "tipo": "acao",
+        "tecla": "␣",
+        "texto": "Expandir",
+        "regra_existencia": "sempre",
+        "regra_ativo": "sempre",
+        "forma_exibicao": "rotulo_dinamico"
+      },
+      {
+        "id": "chip_ajuda",
+        "tipo": "acao",
+        "tecla": "?",
+        "texto": "Ajuda",
+        "regra_existencia": "sempre",
+        "regra_ativo": "sempre",
+        "forma_exibicao": "visivel_ativo"
+      }
+    ]
+  }
+}

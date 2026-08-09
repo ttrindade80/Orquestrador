@@ -3,7 +3,10 @@
 from tela.renderizacao.designadores import _texto_designador, _texto_no_conteudo
 from tela.renderizacao.erros import RenderizadorErro
 
-def _linhas_conteudo_externo(conteudo, content_w, verboso=False):
+def _linhas_conteudo_externo(
+    conteudo, content_w, verboso=False, ramos_fechados=None,
+    no_corrente_id=None, indicador=None, indicador_off=None,
+):
     """Despacha o conteudo externo para a apresentacao declarada (H-0036).
 
     Produz a lista de linhas de conteudo da caixa do console. As tres
@@ -13,7 +16,13 @@ def _linhas_conteudo_externo(conteudo, content_w, verboso=False):
     """
     apresentacao = getattr(conteudo, "apresentacao", None)
     if apresentacao == "hierarquia":
-        return _linhas_apresentacao_hierarquia(conteudo, content_w, verboso)
+        return _linhas_apresentacao_hierarquia(
+            conteudo, content_w, verboso,
+            ramos_fechados=ramos_fechados,
+            no_corrente_id=no_corrente_id,
+            indicador=indicador,
+            indicador_off=indicador_off,
+        )
     if apresentacao == "tabela":
         return _linhas_apresentacao_tabela(conteudo, content_w, verboso)
     if apresentacao == "conjuntos_campos":
@@ -74,8 +83,11 @@ def _truncar_com_marcador(texto, largura):
     return texto[:largura - 3] + "..."
 
 
-def _linhas_apresentacao_hierarquia(conteudo, content_w=None, verboso=False):
-    """Apresentacao ``hierarquia``: lista recuada com designadores por nivel.
+def _linhas_apresentacao_hierarquia_com_mapa(
+    conteudo, content_w=None, verboso=False, ramos_fechados=None,
+    no_corrente_id=None, indicador=None, indicador_off=None,
+):
+    """Calcula as linhas de cada nó da apresentação ``hierarquia``.
 
     Regra por modo (H0037-MANUAL-001 / contrato_console.md §21.2-21.3):
 
@@ -93,7 +105,10 @@ def _linhas_apresentacao_hierarquia(conteudo, content_w=None, verboso=False):
     designadores) e pre-calculado para estabilidade visual entre irmaos.
     """
     niveis = {n.id: n for n in conteudo.niveis}
-    linhas = []
+    entradas = []
+    ramos_fechados = set(ramos_fechados or ())
+    possui_indicador = indicador is not None
+    indicador_off = indicador_off if indicador_off is not None else " "
 
     # H-0037: pre-calcula largura maxima dos designadores do nivel raiz para
     # alinhamento de coluna estavel em modo verboso (dois niveis).
@@ -118,6 +133,10 @@ def _linhas_apresentacao_hierarquia(conteudo, content_w=None, verboso=False):
             )
             texto = _texto_no_conteudo(no, nivel)
             recuo = "  " * profundidade
+            prefixo_indicador = ""
+            if possui_indicador:
+                simbolo = indicador if no.id == no_corrente_id else indicador_off
+                prefixo_indicador = "{0} ".format(simbolo)
             if verboso and content_w is not None:
                 # Modo verboso (contrato_console.md §21.3): TODO no (container
                 # ou folha) pode ocupar varias linhas fisicas. O conteudo e
@@ -131,19 +150,23 @@ def _linhas_apresentacao_hierarquia(conteudo, content_w=None, verboso=False):
                 else:
                     marc_fmt = marcador
                 prefixo = "{0}{1}{2}".format(
-                    recuo, marc_fmt, " " if marc_fmt else ""
+                    prefixo_indicador + recuo,
+                    marc_fmt,
+                    " " if marc_fmt else "",
                 )
                 largura_disp = max(10, content_w - len(prefixo))
                 fragmentos = _quebrar_texto(texto, largura_disp)
-                linhas.append("{0}{1}".format(prefixo, fragmentos[0]))
+                linhas_do_no = ["{0}{1}".format(prefixo, fragmentos[0])]
                 indent_cont = " " * len(prefixo)
                 for frag in fragmentos[1:]:
-                    linhas.append("{0}{1}".format(indent_cont, frag))
+                    linhas_do_no.append("{0}{1}".format(indent_cont, frag))
             else:
                 if marcador:
-                    prefixo_linha = "{0}{1} ".format(recuo, marcador)
+                    prefixo_linha = "{0}{1}{2} ".format(
+                        prefixo_indicador, recuo, marcador
+                    )
                 else:
-                    prefixo_linha = recuo
+                    prefixo_linha = prefixo_indicador + recuo
                 # H0037-MANUAL-001: em modo nao verboso, o conteudo aplicavel
                 # ocupa exatamente uma linha fisica com marcador de truncamento
                 # quando excede a largura disponivel (contrato_console.md §21.2).
@@ -152,12 +175,26 @@ def _linhas_apresentacao_hierarquia(conteudo, content_w=None, verboso=False):
                     texto_visivel = _truncar_com_marcador(texto, largura_linha)
                 else:
                     texto_visivel = texto
-                linhas.append("{0}{1}".format(prefixo_linha, texto_visivel))
-            if no.filhos:
+                linhas_do_no = ["{0}{1}".format(prefixo_linha, texto_visivel)]
+            entradas.append({"id": no.id, "linhas": linhas_do_no})
+            if no.filhos and no.id not in ramos_fechados:
                 recorrer(no.filhos, profundidade + 1, ancestrais + [ordinal])
 
     recorrer(conteudo.nos, 0, [])
-    return linhas
+    return entradas
+
+
+def _linhas_apresentacao_hierarquia(
+    conteudo, content_w=None, verboso=False, ramos_fechados=None,
+    no_corrente_id=None, indicador=None, indicador_off=None,
+):
+    """Apresentacao ``hierarquia``: lista recuada com designadores por nivel."""
+    entradas = _linhas_apresentacao_hierarquia_com_mapa(
+        conteudo, content_w, verboso, ramos_fechados=ramos_fechados,
+        no_corrente_id=no_corrente_id, indicador=indicador,
+        indicador_off=indicador_off,
+    )
+    return [linha for entrada in entradas for linha in entrada["linhas"]]
 
 
 def _linhas_apresentacao_tabela(conteudo, content_w, verboso=False):

@@ -1,0 +1,75 @@
+{
+  "tipo": "multinivel",
+  "formato": {
+    "apresentacao": "hierarquia",
+    "niveis": [
+      {
+        "id": "secao",
+        "tipo": "container",
+        "conteudo": "titulo",
+        "designador": {
+          "tipo": "decimal",
+          "sufixo": "."
+        }
+      },
+      {
+        "id": "subsecao",
+        "tipo": "container",
+        "conteudo": "titulo",
+        "designador": {
+          "tipo": "decimal_composto",
+          "separador": ".",
+          "sufixo": ""
+        }
+      },
+      {
+        "id": "item",
+        "tipo": "conteudo",
+        "conteudo": "texto",
+        "designador": {
+          "tipo": "decimal_composto",
+          "separador": ".",
+          "sufixo": ""
+        }
+      }
+    ]
+  },
+  "dados": [
+    {
+      "id": "secao_1",
+      "nivel": "secao",
+      "titulo": "Fundamentos da navegação hierárquica e da leitura contextual",
+      "filhos": [
+        {
+          "id": "subsecao_1_1",
+          "nivel": "item",
+          "texto": "Percurso vertical preserva a ordem declarada dos itens e acompanha a projeção atualmente visível da árvore."
+        },
+        {
+          "id": "subsecao_1_2",
+          "nivel": "subsecao",
+          "titulo": "Expansão e recolhimento mantêm o ramo corrente em uma posição estável",
+          "filhos": [
+            {
+              "id": "item_1_2_1",
+              "nivel": "item",
+              "texto": "O espaço alterna somente a abertura do nó com filhos; folhas permanecem navegáveis, mas não ganham uma ação de expansão fictícia."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "secao_2",
+      "nivel": "secao",
+      "titulo": "Estado contextual da barra e continuidade do console",
+      "filhos": [
+        {
+          "id": "subsecao_2_1",
+          "nivel": "item",
+          "texto": "O chip de espaço acompanha o item corrente e a Ajuda permanece como último chip declarado da demonstração."
+        }
+      ]
+    }
+  ]
+}

@@ -21,6 +21,7 @@ metadata:
       - docs/adr/ADR-0038-paginacao-interativa-limitada-em-console.md
       - docs/adr/ADR-0040-padronizacao-universal-do-controle-de-execucao-real-e-dry-run.md
       - docs/adr/ADR-0041-paginacao-universal-por-pageup-e-pagedown.md
+      - docs/adr/ADR-0043-ajuda-universal-e-chip-contextual-de-expandir-recolher.md
     reaproveitado_de_legado: false
   dependencias_nomenclatura:
     dependencias_obrigatorias:
@@ -128,24 +129,21 @@ própria, sem lógica de seleção de chips, sem fallback, sem lista hardcoded.
 Esta regra deriva de `docs/nomenclatura/31_BARRA_DE_MENUS_E_CHIPS.md`
 (regra estrutural) e da ADR-0008.
 
-**Política declarativa por tela (ADR-0012, 2026-07-08)**: a `barra_de_menus`
-é declarativa por tela e **não contém todos os chips canônicos por padrão**.
-Cada tela declara apenas os chips aplicáveis ao seu estado/capacidade atual.
-O Orquestrador não precisa declarar todos os chips canônicos. A existência de
-um chip canônico como categoria semântica **não obriga** sua presença em toda
-tela — "canônico" define semântica e ordem quando o chip está presente, não
-obrigatoriedade de declaração. Chips condicionais só devem ser declarados
-quando a capacidade correspondente existir ou for aplicável à tela; se a
-capacidade não está implementada, o chip não deve ser declarado apenas por
-ser canônico. Testes devem validar os chips declarados no JSON da tela, não
-um conjunto global obrigatório.
+**Política declarativa por tela (ADR-0012, 2026-07-08, parcialmente
+especializada pela ADR-0043)**: a `barra_de_menus` continua declarativa por
+tela para os demais chips. `[?] Ajuda` é a exceção normativa universal:
+deve existir em toda tela, em todos os estados e páginas aplicáveis. Os demais
+chips canônicos e os chips condicionais continuam sendo declarados somente
+quando a capacidade correspondente existir ou for aplicável à tela; a ADR-0043
+não cria um conjunto global obrigatório para esses chips.
 
 **Barra mínima da tela real inicial (ADR-0022, 2026-07-14)**: a futura tela
 inicial real `orquestrador` deverá declarar, no mínimo, `Esc`, `?` e acesso a
-estilos. Essa regra é específica da instância `config/telas/orquestrador.json`
-e não transforma esses itens em lista global obrigatória para toda tela. O
-item de estilos deverá permanecer sem navegação para destino inexistente até
-que a tela funcional de estilos seja decidida e implementada por ciclo próprio.
+estilos. Pela ADR-0043, `[?] Ajuda` deixou de ser específico dessa instância e
+é obrigatório em toda tela; a restrição de não transformar a regra em lista
+global aplica-se somente a `Esc` e ao acesso a estilos. O item de estilos
+deverá permanecer sem navegação para destino inexistente até que a tela
+funcional de estilos seja decidida e implementada por ciclo próprio.
 
 ---
 
@@ -224,6 +222,12 @@ A ordem é invariante: um chip condicional ausente na instância simplesmente
 não ocupa espaço — os chips existentes mantêm a ordem relativa entre si. O
 renderer não inventa chips ausentes na declaração.
 
+Na faixa `específicos`, podem ser declarados chips específicos ou contextuais.
+Para `politica_navegacao.tipo = arvore_colapsavel`, o chip contextual de
+`Espaço` ocupa essa faixa, depois de `[⏎]` quando aplicável e antes de `[V]` e
+`[?]`. Essa inserção não desloca a identidade de seleção `[␣] Selecionar` nem
+cria uma segunda ordenação. `[?] Ajuda` permanece o último chip.
+
 ---
 
 ## 8. Chips canônicos — semântica e regras de existência
@@ -245,19 +249,30 @@ em ADR-0004, que inclui `cor_inativo` e `cor_alerta` no schema de estilo
 ### 8.2 Chips canônicos de semântica fixa
 
 Os chips abaixo são canônicos de semântica fixa. "Canônico" significa
-nome/semântica reconhecida pelo sistema, **não** presença obrigatória em toda
-tela (ADR-0012). A presença de cada um é declarativa por tela: a instância
-declarada no `tela.json` declara apenas os chips aplicáveis ao seu
-estado/capacidade atual. Quando presentes, esses chips seguem os invariantes
-contratuais abaixo (posição e estado); a declaração concreta no `tela.json`
-especifica texto, tecla e ação, e os invariantes de semântica são não
-negociáveis.
+nome/semântica reconhecida pelo sistema. A presença de `[?] Ajuda` é
+obrigatória em toda tela pela ADR-0043; os demais chips continuam com
+existência declarativa por tela. Quando presentes, esses chips seguem os
+invariantes contratuais abaixo (posição e estado); a declaração concreta no
+`tela.json` especifica texto, tecla e ação, e os invariantes de semântica são
+não negociáveis.
 
 | Chip canônico / notação documental | Rótulo documental | Estado (quando presente) | Regra |
 |---|---|---|---|
 | `[Esc]` | Sair / Voltar / Limpar (ver seção 9) | sempre ativo | Primeiro na ordem quando declarado; rótulo dinâmico conforme contexto |
 | `[⏎]` | Ação do item em foco (ver seção 10) | inativo quando item em foco não tem ação válida | Rótulo derivado da ação declarada pelo item |
-| `[?]` | Ajuda | sempre ativo | Último na ordem quando declarado |
+| `[?]` | Ajuda | sempre ativo | Obrigatório em toda tela; último na ordem |
+
+### 8.2.1 `[?] Ajuda` universal (ADR-0043)
+
+`[?] Ajuda` possui existência obrigatória em toda tela. A barra permanece
+declarativa para os demais chips, mas nenhuma declaração de tela pode omitir
+Ajuda. O chip permanece presente entre estados da mesma tela, entre páginas do
+console e após mudança de foco. Largura insuficiente não autoriza sua omissão,
+truncamento ou reordenação: quando a distribuição declarada não couber,
+aplica-se `erro_layout`.
+
+`[?] Ajuda` é sempre ativo, ocupa a última posição canônica e não ganha
+identificador técnico, registry ou campo de schema novo por esta regra.
 
 ### 8.3 Chips canônicos de existência condicional
 
@@ -408,6 +423,24 @@ existe em instâncias com seleção única.
 que declararem `selecionavel: true`. Item que não declara selecionabilidade
 não participa do toggle e não muda de estado ao acionar `[␣]`.
 
+### 12.1 `[␣] Expandir` / `[␣] Recolher` — árvore contextual (ADR-0043)
+
+Quando `politica_navegacao.tipo = arvore_colapsavel`, o chip contextual de
+Espaço é derivado do item corrente do console focalizado e não da seleção ou do
+estado global da árvore:
+
+| Item corrente | Estado | Chip |
+|---|---|---|
+| ramo com filhos | expandido | `[␣] Recolher` ativo |
+| ramo com filhos | recolhido | `[␣] Expandir` ativo |
+| folha | não aplicável | `[␣] Expandir` inativo |
+
+`[␣] Expandir` e `[␣] Recolher` são identidades contextuais de expansão e
+recolhimento, distintas de `[␣] Selecionar`. A folha não possui ação de
+Espaço; o chip inativo permanece visível com a apresentação canônica de
+inativo e capitalização normal. Esta regra descreve comportamento semântico e
+não cria identificador técnico, enum, registry ou campo de schema.
+
 ---
 
 ## 13. Filtros declarativos
@@ -520,6 +553,10 @@ pendente:
 
 Chips específicos sempre ocupam a posição entre `[⏎]` e `[V]`/`[?]` na ordem
 canônica — nunca antes de `[⏎]` nem depois de `[?]`.
+
+O chip contextual de `arvore_colapsavel` pertence a essa faixa de específicos
+ou contextuais. Sua identidade funcional é distinta de `[␣] Selecionar`, ainda
+que ambos usem a tecla física Espaço.
 
 Em tela de processamento, ações próprias da classe são representadas por chips
 específicos declarados no `tela.json`. Esses chips têm existência declarada
@@ -781,7 +818,9 @@ nem de ativação de `[✥]` (ADR-0005).
 - [ ] O controle universal permanece ativo nos dois estados, usa o rótulo
       correspondente ao modo corrente (`Real`/`Simulação`, D-DRY-12) e aplica
       `cor_alerta` somente em `Simulação`.
-- [ ] `[?]`, quando declarado, é o último chip da instância e permanece ativo.
+- [ ] `[?] Ajuda` existe obrigatoriamente em toda tela, permanece em estados,
+      páginas e focos da mesma tela e não pode ser omitido para caber; falta de
+      largura produz `erro_layout`.
 - [ ] A distinção `barra_de_menus` vs objeto `lancador` do corpo é verificável:
       chips dos itens do `lancador` não são chips da `barra_de_menus`; nenhuma
       regra de layout de `contrato_lancador.md` é aplicada ao renderer da barra.

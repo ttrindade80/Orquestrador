@@ -14,7 +14,7 @@ Apenas biblioteca padrao do Python.
 
 import pytest
 
-from tela.modelo import ElementoCorpo
+from tela.modelo import ConteudoExterno, ElementoCorpo, NivelConteudo, NoConteudo
 from tela import navegacao
 
 
@@ -44,6 +44,26 @@ def _console(idc, itens, navegavel=True, distribuicao=None, titulo="C",
 def _item(idc, texto, navegavel=True):
     """Constroi um dict de item navegavel."""
     return {"id": idc, "texto": texto, "navegavel": navegavel}
+
+
+def _arvore(idc="arvore", nos=None, navegavel=True):
+    console = _console(
+        idc,
+        [],
+        navegavel=navegavel,
+        tipo_navegacao="arvore_colapsavel",
+    )
+    console.conteudo_externo = ConteudoExterno(
+        tipo="multinivel",
+        apresentacao="hierarquia",
+        niveis=[],
+        nos=nos or [],
+    )
+    return console
+
+
+def _no(idc, *filhos):
+    return NoConteudo(id=idc, nivel="item", filhos=list(filhos))
 
 
 def _lancador(idc, itens=None):
@@ -99,9 +119,9 @@ def _distribuicao_matriz(linhas, colunas):
 
 
 def _estado(modelo, foco=None, cursores=None, largura=40, altura_interna=None,
-            desconto_estrutural=0):
+            desconto_estrutural=0, ramos_fechados=None, itens_permitidos=None):
     """Constroi um dict de estado de navegacao para os testes."""
-    return {
+    estado = {
         "modelo": modelo,
         "foco_console": foco,
         "cursores": cursores or {},
@@ -109,6 +129,11 @@ def _estado(modelo, foco=None, cursores=None, largura=40, altura_interna=None,
         "altura_interna": altura_interna,
         "desconto_estrutural": desconto_estrutural,
     }
+    if ramos_fechados is not None:
+        estado["ramos_fechados"] = ramos_fechados
+    if itens_permitidos is not None:
+        estado["itens_permitidos"] = itens_permitidos
+    return estado
 
 
 # ---------------------------------------------------------------------------
@@ -1485,6 +1510,232 @@ def teste_h0052_tabela_eh_passiva_no_foco_chip_e_movimento_direto():
     ):
         novo = mover(estado, tabela)
         assert novo["cursores"] == {"tabela": 1}
+
+
+# H-0053 -- arvore_colapsavel sobre ConteudoExterno/NoConteudo
+def teste_h0053_arvore_ativa_focalizavel_e_sem_conteudo_nao_focalizavel():
+    raiz = _no("raiz", _no("filho_a"), _no("filho_b"))
+    arvore = _arvore(nos=[raiz, _no("posterior")])
+    assert navegacao.tipo_navegacao_efetivo(arvore) == "arvore_colapsavel"
+    assert navegacao.console_e_focalizavel(arvore) is True
+    assert navegacao.lista_foco([arvore]) == [arvore]
+
+    sem_conteudo = _console(
+        "sem_conteudo", [], tipo_navegacao="arvore_colapsavel"
+    )
+    assert navegacao.console_e_focalizavel(sem_conteudo) is False
+
+
+def teste_h0053_sequencia_pre_ordem_movimento_vertical_e_sem_borda_prescrita():
+    raiz = _no("raiz", _no("filho_a"), _no("filho_b"))
+    arvore = _arvore(nos=[raiz, _no("posterior")])
+    estado = _estado([arvore], foco=0, cursores={arvore.id: 0})
+    assert [no.id for no in navegacao.sequencia_visivel_arvore(arvore, estado)] == [
+        "raiz", "filho_a", "filho_b", "posterior"
+    ]
+    estado = navegacao.mover_baixo(estado, arvore)
+    assert estado["cursores"][arvore.id] == 1
+    estado = navegacao.mover_baixo(estado, arvore)
+    assert estado["cursores"][arvore.id] == 2
+    estado = navegacao.mover_baixo(estado, arvore)
+    assert estado["cursores"][arvore.id] == 3
+    estado = navegacao.mover_cima(estado, arvore)
+    assert estado["cursores"][arvore.id] == 2
+
+
+def teste_h0053_fechamento_reabertura_mantem_ramo_corrente_e_remove_subarvore():
+    raiz = _no("raiz", _no("filho_a"), _no("filho_b"))
+    arvore = _arvore(nos=[raiz, _no("posterior")])
+    estado = _estado([arvore], foco=0, cursores={arvore.id: 0})
+
+    fechado = navegacao.alternar_ramo(estado, arvore)
+    assert fechado["cursores"][arvore.id] == 0
+    assert fechado["ramos_fechados"][arvore.id] == frozenset({"raiz"})
+    assert [no.id for no in navegacao.sequencia_visivel_arvore(arvore, fechado)] == [
+        "raiz", "posterior"
+    ]
+    assert navegacao.mover_baixo(fechado, arvore)["cursores"][arvore.id] == 1
+
+    corrente = dict(fechado, cursores={arvore.id: 0})
+    reaberto = navegacao.alternar_ramo(corrente, arvore)
+    assert reaberto["ramos_fechados"][arvore.id] == frozenset()
+    assert [no.id for no in navegacao.sequencia_visivel_arvore(arvore, reaberto)] == [
+        "raiz", "filho_a", "filho_b", "posterior"
+    ]
+
+
+def teste_h0053_espaco_sobre_folha_nao_cria_selecao_nem_acao():
+    raiz = _no("raiz", _no("filho_a"), _no("folha"))
+    arvore = _arvore(nos=[raiz])
+    estado = _estado([arvore], foco=0, cursores={arvore.id: 2})
+    novo = navegacao.alternar_ramo(estado, arvore)
+    assert novo["cursores"] == estado["cursores"]
+    assert "ramos_fechados" not in novo
+    assert "selecoes" not in novo
+
+
+def teste_h0053_chip_contextual_segue_cursor_ramo_fechado_e_folha():
+    raiz = _no("ramo_sem_numero", _no("folha_sem_numero"))
+    arvore = _arvore(nos=[raiz, _no("outro_ramo")])
+    estado = _estado([arvore], foco=0, cursores={arvore.id: 0})
+
+    assert navegacao.estado_chip_arvore(estado) == {
+        "console_id": arvore.id,
+        "item_id": "ramo_sem_numero",
+        "texto": "Recolher",
+        "ativo": True,
+    }
+
+    folha = navegacao.mover_baixo(estado, arvore)
+    assert navegacao.estado_chip_arvore(folha)["texto"] == "Expandir"
+    assert navegacao.estado_chip_arvore(folha)["ativo"] is False
+    sem_efeito = navegacao.alternar_ramo(folha, arvore)
+    assert sem_efeito["cursores"] == folha["cursores"]
+    assert "ramos_fechados" not in sem_efeito
+
+    fechado = navegacao.alternar_ramo(estado, arvore)
+    contexto_fechado = navegacao.estado_chip_arvore(fechado)
+    assert contexto_fechado["texto"] == "Expandir"
+    assert contexto_fechado["ativo"] is True
+    assert "Selecionar" not in contexto_fechado["texto"]
+
+    sem_cursor = dict(estado)
+    sem_cursor["cursores"] = {}
+    assert navegacao.estado_chip_arvore(sem_cursor) is None
+
+
+def teste_h0053_reconciliacao_nao_forca_cursor_em_projecao_vazia():
+    arvore = _arvore(nos=[])
+    estado = _estado([arvore], foco=0, cursores={arvore.id: 0})
+
+    reconciliado = navegacao.reconciliar_cursor_arvore(estado, arvore)
+
+    assert reconciliado["cursores"] == {}
+
+
+def teste_h0053_horizontal_permanece_noop_e_chip_reflete_projecao():
+    raiz = _no("raiz", _no("filho"))
+    arvore = _arvore(nos=[raiz, _no("posterior")])
+    estado = _estado([arvore], foco=0, cursores={arvore.id: 0})
+    assert navegacao.mover_direita(estado, arvore) == estado
+    assert navegacao.mover_esquerda(estado, arvore) == estado
+    assert navegacao.exibir_chip_navegar(estado) is True
+
+    estado_pagina = _estado(
+        [arvore], foco=0, cursores={arvore.id: 0},
+        itens_permitidos={arvore.id: [0]},
+    )
+    assert navegacao.exibir_chip_navegar(estado_pagina) is False
+
+
+def teste_h0053_pagina_atual_restringe_setas_sem_troca_implicita():
+    raiz = _no("raiz", _no("filho"), _no("neto"))
+    arvore = _arvore(nos=[raiz, _no("posterior")])
+    arvore._campos_inertes["politica_paginacao"] = "com"
+    estado = _estado(
+        [arvore], foco=0, cursores={arvore.id: 0},
+        ramos_fechados={},
+        itens_permitidos={arvore.id: [0, 3]},
+    )
+    assert [no.id for no in navegacao.sequencia_visivel_arvore(arvore, estado)] == [
+        "raiz", "posterior"
+    ]
+    novo = navegacao.mover_baixo(estado, arvore)
+    assert novo["cursores"][arvore.id] == 3
+    assert novo.get("pagina_atual") == estado.get("pagina_atual")
+
+
+def teste_h0053_mapa_verboso_paginado_reusa_alturas_do_renderer():
+    from tela import paginacao
+    from tela.renderizacao.console import _linhas_console, mapa_fisico_de_itens
+    from tela.renderizacao.contexto_execucao import _navegacao_atual
+    from tela.renderizacao.paginacao_interna import _recortar_linhas_paginadas
+
+    nivel = NivelConteudo(
+        id="item", tipo="conteudo", conteudo="texto",
+        designador={"tipo": "nenhum"},
+    )
+    longo = NoConteudo(
+        id="longo", nivel="item",
+        campos={
+            "texto": (
+                "alpha bravo charlie delta echo foxtrot golf hotel india "
+                "juliet kilo lima mike november oscar papa quebec romeo"
+            )
+        },
+    )
+    curto = NoConteudo(
+        id="curto", nivel="item", campos={"texto": "fim"},
+    )
+    arvore = _arvore(nos=[longo, curto])
+    arvore.conteudo_externo.niveis = [nivel]
+    arvore._campos_inertes["politica_paginacao"] = "com"
+
+    contexto_anterior = dict(_navegacao_atual)
+    _navegacao_atual.update({
+        "lista_foco": [arvore],
+        "foco_console": 0,
+        "cursores": {arvore.id: 0},
+        "ramos_fechados": {arvore.id: frozenset()},
+        "paginas_atuais": {arvore.id: 1},
+        "largura": 30,
+        "altura_interna": 3,
+        "simbolo": ">",
+        "off": " ",
+    })
+    try:
+        mapa = mapa_fisico_de_itens(
+            arvore, 30, 3, True, desconto_estrutural=3,
+        )
+        linhas_render = _linhas_console(arvore, 25, verboso=True)
+        assert mapa[0]["linhas_fisicas"] > 1
+        assert [entrada["id"] for entrada in mapa] == ["longo", "curto"]
+        assert sum(entrada["linhas_fisicas"] for entrada in mapa) == len(
+            linhas_render
+        )
+
+        plano = paginacao.plano_de_paginacao(
+            arvore, 30, 3, True, desconto_estrutural=3,
+        )
+        assert plano["total_paginas"] >= 3
+        assert sum(pagina["linhas_usadas"] for pagina in plano["paginas"]) == sum(
+            entrada["linhas_fisicas"] for entrada in mapa
+        )
+
+        pagina_1 = _recortar_linhas_paginadas(
+            arvore, linhas_render, 27, 5, True,
+        )
+        _navegacao_atual["paginas_atuais"] = {arvore.id: 2}
+        pagina_2 = _recortar_linhas_paginadas(
+            arvore, linhas_render, 27, 5, True,
+        )
+        assert pagina_1 == linhas_render[:3]
+        assert pagina_2 == linhas_render[3:mapa[0]["linhas_fisicas"]]
+        assert all("fim" not in linha for linha in pagina_1 + pagina_2)
+
+        estado = _estado(
+            [arvore], foco=0, cursores={arvore.id: 0}, largura=30,
+            altura_interna=3, ramos_fechados={arvore.id: frozenset()},
+        )
+        estado["pagina_atual"] = {arvore.id: 1}
+        permitidos = paginacao.linhas_logicas_navegaveis_da_pagina(
+            estado, arvore,
+        )
+        assert permitidos == [0]
+        assert [no.id for no in navegacao.sequencia_visivel_arvore(arvore, estado)] == [
+            "longo"
+        ]
+        assert navegacao.exibir_chip_navegar(estado) is False
+        sem_troca = navegacao.mover_baixo(estado, arvore)
+        assert sem_troca["cursores"] == estado["cursores"]
+        assert sem_troca["pagina_atual"] == estado["pagina_atual"]
+        paginada = paginacao.pagina_proxima(estado, arvore)
+        assert paginada["pagina_atual"][arvore.id] == 2
+    finally:
+        _navegacao_atual.clear()
+        _navegacao_atual.update(contexto_anterior)
+
+
 def test_h0045_setas_restritas_aos_itens_navegaveis_da_pagina_atual():
     from tela.loader import carregar_tela
     from tela.modelo import construir_modelo

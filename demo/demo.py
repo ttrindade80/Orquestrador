@@ -98,6 +98,7 @@ ADICOES DO H-0023 (redimensionamento reativo -- ADR-0017):
 A apenas biblioteca padrao do Python.
 """
 
+import copy
 import sys
 
 sys.dont_write_bytecode = True
@@ -127,7 +128,9 @@ from tela.renderizador import (
     renderizar_tela,
     RenderizadorErro,
     DESCONTO_ESTRUTURAL_CONSOLE,
+    _navegacao_atual,
     _largura_sem_ansi,
+    _texto_chip_barra,
     geometria_console,
 )
 from tela import navegacao
@@ -198,6 +201,7 @@ _CATALOGO_CONTEUDO_EXTERNO = {
     "h0037_console_verboso_dois_niveis": "h0037_dois_niveis_conteudo",
     "h0037_console_alternavel_tres_niveis": "h0037_tres_niveis_conteudo",
     "h0037_console_tabela_alternavel": "h0037_tabela_conteudo",
+    "h0053_arvore_colapsavel": "h0053_arvore_colapsavel_conteudo",
 }
 
 # H-0043 / ADR-0036: cenarios da tela padrao de resultado. Todos resolvem para
@@ -318,6 +322,42 @@ def _anexar_controle_execucao(estado, modelo):
     novo.pop("resultado_controle_execucao", None)
     novo.pop("_sessao_resultado_controle", None)
     novo.pop("_modelo_origem_controle", None)
+    return novo
+
+
+def _preparar_estado_h0053(estado, modelo):
+    """Prepara o ramo aberto usado exclusivamente pela demonstracao H-0053.
+
+    A ausencia de IDs fechados continua sendo apenas o estado transitório da
+    árvore; esta preparação não altera schema nem cria uma política global de
+    expansão. Ela torna explícita e determinística a condição inicial da
+    fixture demonstrativa no ponto de entrada da demo.
+    """
+    if getattr(modelo, "id", None) != "h0053_arvore_colapsavel":
+        return estado
+    arvores = [
+        console for console in navegacao.lista_foco(modelo)
+        if navegacao.tipo_navegacao_efetivo(console) == "arvore_colapsavel"
+    ]
+    if not arvores:
+        return estado
+    ramos = dict(estado.get("ramos_fechados", {}) or {})
+    for console in arvores:
+        ramos.setdefault(console.id, frozenset())
+    novo = dict(estado)
+    novo["ramos_fechados"] = ramos
+    return _reconciliar_cursor_focalizado(novo, modelo)
+
+
+def _reconciliar_cursor_focalizado(estado, modelo):
+    """Entrega ao contexto de árvore o cursor reconciliado do runtime."""
+    if modelo is None:
+        return dict(estado)
+    reconciliado = navegacao.reconciliar_cursor_arvore(
+        dict(estado, modelo=modelo)
+    )
+    novo = dict(estado)
+    novo["cursores"] = dict(reconciliado.get("cursores", {}))
     return novo
 
 
@@ -546,6 +586,8 @@ def processar_comando(estado, comando, modelo=None):
         # comandos; nunca persiste em JSON (NC-005/D-SEL-01).
         "selecoes": dict(estado.get("selecoes", {})),
     }
+    if "ramos_fechados" in estado:
+        novo["ramos_fechados"] = dict(estado.get("ramos_fechados", {}))
     if isinstance(estado.get("controle_execucao"), ControleExecucao):
         # A instância é da tela aberta: suspensão e retorno carregam a mesma
         # referência; nova abertura/reload chama _anexar_controle_execucao.
@@ -594,6 +636,10 @@ def processar_comando(estado, comando, modelo=None):
         novo["caso_validacao_adaptativo"] = estado["caso_validacao_adaptativo"]
     if "caso_validacao_meta" in estado:
         novo["caso_validacao_meta"] = estado["caso_validacao_meta"]
+
+    # Boundary de estado: uma árvore focalizada com nós visíveis não chega a
+    # chip/renderer sem o cursor reconciliado pela navegação vigente.
+    novo = _reconciliar_cursor_focalizado(novo, modelo)
 
     fluxo = estado.get("fluxo_execucao")
     if fluxo is not None and isinstance(fluxo, fluxo_execucao_mod.FluxoExecucao):
@@ -689,6 +735,7 @@ def processar_comando(estado, comando, modelo=None):
         if novo["pilha_telas"]:
             novo["tela_atual"] = novo["pilha_telas"][-1]
             novo["pilha_telas"] = novo["pilha_telas"][:-1]
+            novo.pop("ramos_fechados", None)
         else:
             novo["saindo"] = True
         return novo
@@ -836,12 +883,19 @@ def processar_comando(estado, comando, modelo=None):
                     elif selecao.esta_vazia(nav_estado, console):
                         nav_estado = selecao.selecionar_todos(nav_estado, console)
             elif comando == " ":
-                # D13/PN-0017: espaco nao cria nem alterna selecao (legado).
-                nav_estado = navegacao.processar_espaco(nav_estado)
+                if navegacao.tipo_navegacao_efetivo(console) == "arvore_colapsavel":
+                    nav_estado = navegacao.alternar_ramo(nav_estado, console)
+                else:
+                    # D13/PN-0017: espaco nao cria nem alterna selecao (legado).
+                    nav_estado = navegacao.processar_espaco(nav_estado)
         # O modelo nao e estado de runtime; e removido antes de devolver.
         novo["foco_console"] = nav_estado.get("foco_console")
         novo["cursores"] = dict(nav_estado.get("cursores", {}))
         novo["selecoes"] = dict(nav_estado.get("selecoes", {}))
+        if "ramos_fechados" in nav_estado:
+            novo["ramos_fechados"] = dict(nav_estado.get("ramos_fechados", {}))
+        else:
+            novo.pop("ramos_fechados", None)
         novo["pagina_atual"] = dict(nav_estado.get("pagina_atual", {}))
         return novo
 
@@ -870,6 +924,7 @@ def processar_comando(estado, comando, modelo=None):
                 if item.get("chip") == comando:
                     novo["pilha_telas"].append(novo["tela_atual"])
                     novo["tela_atual"] = item.get("tela_destino")
+                    novo.pop("ramos_fechados", None)
                     return novo
 
     return novo
@@ -896,29 +951,136 @@ def renderizar_estado(estado, modelo, largura=None, altura=None):
     materializar o indicador de cursor no console focado e aplicar as regras
     dinamicas de existencia dos chips ``[⇆]``/``[✥]`` (D11/D12/D14).
     """
-    lista_foco = navegacao.lista_foco(modelo) if modelo is not None else []
-    fluxo = estado.get("fluxo_execucao")
+    estado_render = _reconciliar_cursor_focalizado(estado, modelo)
+    modelo_render, contexto_chip = _modelo_com_chip_arvore(
+        estado_render, modelo
+    )
+    lista_foco = _lista_foco_para_renderizacao(estado_render, modelo_render)
+    fluxo = estado_render.get("fluxo_execucao")
     chips_destacados = None
     executar_disponivel = None
-    controle = estado.get("controle_execucao")
-    if _controle_execucao_ativo(estado, modelo):
+    controle = estado_render.get("controle_execucao")
+    if _controle_execucao_ativo(estado_render, modelo):
         chips_destacados, executar_disponivel = controle.contexto_renderizacao()
     elif fluxo is not None and isinstance(fluxo, fluxo_execucao_mod.FluxoExecucao):
         chips_destacados = fluxo.chips_destacados()
         if not fluxo.resultado_ativo:
-            executar_disponivel = fluxo.executar_disponivel(estado)
-    return renderizar_tela(
-        modelo, estado["estilo"], largura=largura, altura=altura,
-        verboso=_verboso_efetivo(estado, modelo),
-        foco_console=estado.get("foco_console"),
-        cursores=estado.get("cursores", {}),
-        lista_foco=lista_foco,
-        largura_navegacao=largura,
-        selecoes=estado.get("selecoes", {}),
-        chips_destacados=chips_destacados,
-        executar_disponivel=executar_disponivel,
-        paginas_atuais=estado.get("pagina_atual", {}),
+            executar_disponivel = fluxo.executar_disponivel(estado_render)
+    marcador_anterior = _navegacao_atual.get("ramos_fechados")
+    _navegacao_atual["ramos_fechados"] = dict(
+        estado_render.get("ramos_fechados", {})
     )
+    try:
+        quadro = renderizar_tela(
+            modelo_render, estado_render["estilo"], largura=largura, altura=altura,
+            verboso=_verboso_efetivo(estado_render, modelo_render),
+            foco_console=estado_render.get("foco_console"),
+            cursores=estado_render.get("cursores", {}),
+            lista_foco=lista_foco,
+            largura_navegacao=largura,
+            selecoes=estado_render.get("selecoes", {}),
+            chips_destacados=chips_destacados,
+            executar_disponivel=executar_disponivel,
+            paginas_atuais=estado_render.get("pagina_atual", {}),
+        )
+        if contexto_chip is not None:
+            chip, estado_chip = contexto_chip
+            quadro = _aplicar_inatividade_chip_arvore(
+                quadro, chip, estado_chip, estado_render["estilo"], modelo_render
+            )
+            _navegacao_atual.setdefault("estado_ativo_chips", {})[
+                chip.get("id")
+            ] = bool(estado_chip.get("ativo"))
+        return quadro
+    finally:
+        if marcador_anterior is None:
+            _navegacao_atual.pop("ramos_fechados", None)
+        else:
+            _navegacao_atual["ramos_fechados"] = marcador_anterior
+
+
+def _modelo_com_chip_arvore(estado, modelo):
+    """Projeta o chip declarativo de Espaço para o estado corrente.
+
+    A barra continua sendo composta pelo JSON. O ponto de entrada apenas
+    prepara uma cópia efêmera do rótulo dinâmico já declarado; a política e o
+    estado continuam sendo derivados por ``tela.navegacao``.
+    """
+    contexto = navegacao.estado_chip_arvore(
+        dict(estado, modelo=modelo)
+    )
+    if contexto is None or modelo is None:
+        return modelo, None
+    barra = copy.deepcopy(modelo.barra_de_menus)
+    chips = barra.get("chips", []) if isinstance(barra, dict) else []
+    chip_arvore = next(
+        (
+            chip for chip in chips
+            if isinstance(chip, dict)
+            and chip.get("tipo") == "acao"
+            and chip.get("tecla") == "␣"
+            and chip.get("forma_exibicao") == "rotulo_dinamico"
+        ),
+        None,
+    )
+    if chip_arvore is None:
+        return modelo, None
+    chip_arvore["texto"] = contexto["texto"]
+    projetado = copy.copy(modelo)
+    projetado.barra_de_menus = barra
+    return projetado, (chip_arvore, contexto)
+
+
+def _aplicar_inatividade_chip_arvore(quadro, chip, contexto, estilo, modelo):
+    """Aplica a apresentação inativa já contratada ao chip projetado.
+
+    O rótulo ``Expandir``/``Recolher`` tem a mesma largura. Assim, a troca
+    preserva a distribuição calculada pela barra e apenas reaplica a cor
+    canônica de inatividade quando o item corrente é folha.
+    """
+    if contexto.get("ativo"):
+        return quadro
+    distribuicao = modelo.barra_de_menus.get("distribuicao")
+    vao = 1
+    if isinstance(distribuicao, dict):
+        espacamentos = distribuicao.get("espacamentos") or {}
+        vao = (espacamentos.get("vao_chip_texto") or {}).get("minimo", 1)
+    ativo = _texto_chip_barra(chip, estilo, vao=vao, inativo=False)
+    inativo = _texto_chip_barra(chip, estilo, vao=vao, inativo=True)
+    return quadro.replace(ativo, inativo, 1)
+
+
+def _lista_foco_para_renderizacao(estado, modelo):
+    """Adapta a disponibilidade legada do chip à projeção da árvore.
+
+    A barra de menus histórica consulta ``itens`` apenas para decidir se o
+    chip de navegação existe. Para uma árvore, o modelo canônico continua
+    sendo ``conteudo_externo``; esta cópia efêmera só expõe os nós atualmente
+    alcançáveis a esse consumidor legado durante o render.
+    """
+    lista = navegacao.lista_foco(modelo) if modelo is not None else []
+    resultado = []
+    estado_arvore = {
+        "ramos_fechados": estado.get("ramos_fechados", {}),
+        "cursores": estado.get("cursores", {}),
+        "pagina_atual": estado.get("pagina_atual", {}),
+        "largura": estado.get("largura", 80),
+        "altura_interna": estado.get("altura_interna"),
+    }
+    for console in lista:
+        if navegacao.tipo_navegacao_efetivo(console) != "arvore_colapsavel":
+            resultado.append(console)
+            continue
+        projetado = copy.copy(console)
+        campos = dict(console._campos_inertes)
+        nos = navegacao.sequencia_visivel_arvore(console, estado_arvore)
+        campos["itens"] = [
+            {"id": no.id, "texto": "", "navegavel": True}
+            for no in nos
+        ]
+        projetado._campos_inertes = campos
+        resultado.append(projetado)
+    return resultado
 
 
 def id_conteudo_externo_de(id_tela):
@@ -1813,6 +1975,7 @@ def main(argv=None, estado_inicial=None):
     # vigentes carregam modelo fixo uma unica vez (sem regeneracao).
     casos_val.id_caso_de_entrada(tela_inicial)
     modelo = _carregar_modelo_por_id(estado["tela_atual"])
+    estado = _preparar_estado_h0053(estado, modelo)
     if estado["tela_atual"] == _ID_TELA_H0044:
         estado = _anexar_fluxo_h0044(estado, modelo)
     else:
@@ -1904,6 +2067,9 @@ def main(argv=None, estado_inicial=None):
                     foco_antes = estado.get("foco_console")
                     cursores_antes = dict(estado.get("cursores", {}))
                     selecoes_antes = dict(estado.get("selecoes", {}))
+                    ramos_fechados_antes = dict(
+                        estado.get("ramos_fechados", {})
+                    )
                     paginas_antes = dict(estado.get("pagina_atual", {}))
                     fluxo_antes = estado.get("fluxo_execucao")
                     controle_antes = estado.get("controle_execucao")
@@ -1959,6 +2125,10 @@ def main(argv=None, estado_inicial=None):
                     foco_mudou = estado.get("foco_console") != foco_antes
                     cursores_mudou = estado.get("cursores", {}) != cursores_antes
                     selecoes_mudou = estado.get("selecoes", {}) != selecoes_antes
+                    ramos_fechados_mudou = (
+                        estado.get("ramos_fechados", {})
+                        != ramos_fechados_antes
+                    )
                     paginas_mudou = estado.get("pagina_atual", {}) != paginas_antes
                     if (
                         estado["tela_atual"] != tela_antes
@@ -1966,6 +2136,7 @@ def main(argv=None, estado_inicial=None):
                         or foco_mudou
                         or cursores_mudou
                         or selecoes_mudou
+                        or ramos_fechados_mudou
                         or paginas_mudou
                         or dry_mudou
                         or resultado_mudou
@@ -2013,6 +2184,9 @@ def main(argv=None, estado_inicial=None):
             foco_antes = estado.get("foco_console")
             cursores_antes = dict(estado.get("cursores", {}))
             selecoes_antes = dict(estado.get("selecoes", {}))
+            ramos_fechados_antes = dict(
+                estado.get("ramos_fechados", {})
+            )
             paginas_antes = dict(estado.get("pagina_atual", {}))
             fluxo_antes = estado.get("fluxo_execucao")
             controle_antes = estado.get("controle_execucao")
@@ -2066,6 +2240,10 @@ def main(argv=None, estado_inicial=None):
             foco_mudou = estado.get("foco_console") != foco_antes
             cursores_mudou = estado.get("cursores", {}) != cursores_antes
             selecoes_mudou = estado.get("selecoes", {}) != selecoes_antes
+            ramos_fechados_mudou = (
+                estado.get("ramos_fechados", {})
+                != ramos_fechados_antes
+            )
             paginas_mudou = estado.get("pagina_atual", {}) != paginas_antes
             if (
                 estado["tela_atual"] != tela_antes
@@ -2073,6 +2251,7 @@ def main(argv=None, estado_inicial=None):
                 or foco_mudou
                 or cursores_mudou
                 or selecoes_mudou
+                or ramos_fechados_mudou
                 or paginas_mudou
                 or dry_mudou
                 or resultado_mudou

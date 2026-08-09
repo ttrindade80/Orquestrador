@@ -18,6 +18,7 @@ Apenas biblioteca padrao do Python.
 """
 
 import os
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -33,9 +34,16 @@ from demo.demo import (  # noqa: E402
     _CATALOGO_CONTEUDO_EXTERNO,
     id_conteudo_externo_de,
     _carregar_modelo_por_id,
+    criar_estado_inicial,
+    _preparar_estado_h0053,
+    processar_comando,
+    renderizar_estado,
     _tela_inicial_de_argv,
 )
+from demo.demo_navegacao import main as demo_navegacao_main  # noqa: E402
+from tela import navegacao  # noqa: E402
 from tela.renderizador import renderizar_tela  # noqa: E402
+from tela.renderizacao.console import _linhas_console  # noqa: E402
 from tela.loader import carregar_estilo  # noqa: E402
 
 # H-0039: estilo global resolvido, carregado uma vez para os testes que
@@ -157,8 +165,9 @@ def teste_catalogo():
         "h0037_console_verboso_dois_niveis": "h0037_dois_niveis_conteudo",
         "h0037_console_alternavel_tres_niveis": "h0037_tres_niveis_conteudo",
         "h0037_console_tabela_alternavel": "h0037_tabela_conteudo",
+        "h0053_arvore_colapsavel": "h0053_arvore_colapsavel_conteudo",
     }
-    _registrar("catalogo associa exatamente os 10 cenarios com conteudo",
+    _registrar("catalogo associa os cenarios com conteudo",
                _CATALOGO_CONTEUDO_EXTERNO == esperado,
                "obtido={0}".format(_CATALOGO_CONTEUDO_EXTERNO))
     _registrar("cenario com conteudo: associacao correta (hierarquia)",
@@ -300,6 +309,221 @@ def teste_ponto_de_entrada_real():
                proc0.returncode == 0 and "ORQUESTRADOR" in proc0.stdout)
     _registrar("demo.py sem argumento: placeholder '(console)' presente (sem conteudo)",
                "(console)" in proc0.stdout and "H-0036" not in proc0.stdout)
+
+
+def teste_h0053_arvore_colapsavel_carrega_renderiza_e_alterna_ramo():
+    modelo = _carregar_modelo_por_id("h0053_arvore_colapsavel")
+    console = navegacao.lista_foco(modelo)[0]
+    estado_base = criar_estado_inicial()
+    assert "ramos_fechados" not in estado_base
+    estado = _preparar_estado_h0053(estado_base, modelo)
+    estado.update({
+        "estilo": _ESTILO,
+        "foco_console": 0,
+        "cursores": {console.id: 0},
+    })
+    assert estado["ramos_fechados"][console.id] == frozenset()
+    assert "ramos_fechados" not in modelo._raw
+    assert "ramos_fechados" not in console._campos_inertes
+
+    aberta = renderizar_estado(estado, modelo, largura=90, altura=30)
+    _registrar(
+        "H-0053: política e conteúdo externo carregados",
+        modelo.conteudo_externo is not None
+        and navegacao.tipo_navegacao_efetivo(console) == "arvore_colapsavel",
+    )
+    _registrar(
+        "H-0053: árvore aberta renderiza sem placeholder e com chip",
+        "(console)" not in aberta
+        and "1. Fundamentos" in aberta
+        and "1.2.1" in aberta
+        and "[✥] Navegar" in aberta
+        and "[Esc] Sair" in aberta
+        and "[Esc] Voltar" not in aberta,
+    )
+    barra_aberta = next(linha for linha in aberta.splitlines() if "[?] Ajuda" in linha)
+    _registrar(
+        "H-0053: ramo aberto mostra Recolher e Ajuda por último",
+        "[␣] Recolher" in barra_aberta
+        and barra_aberta.index("[␣] Recolher") < barra_aberta.index("[?] Ajuda"),
+    )
+
+    fechada = processar_comando(estado, " ", modelo)
+    quadro_fechado = renderizar_estado(fechada, modelo, largura=90, altura=30)
+    _registrar(
+        "H-0053: Espaço fecha o ramo sem seleção",
+        fechada.get("ramos_fechados", {}).get(console.id) == frozenset({"secao_1"})
+        and "1.1" not in quadro_fechado
+        and "1.2" not in quadro_fechado
+        and "1.2.1" not in quadro_fechado
+        and "2. Estado" in quadro_fechado
+        and fechada.get("selecoes", {}) == {},
+    )
+    barra_fechada = next(linha for linha in quadro_fechado.splitlines() if "[?] Ajuda" in linha)
+    _registrar(
+        "H-0053: ramo recolhido mostra Expandir ativo",
+        "[␣] Expandir" in barra_fechada
+        and "\x1b[90m[␣] Expandir\x1b[39m" not in barra_fechada,
+    )
+
+    reaberta = processar_comando(fechada, " ", modelo)
+    quadro_reaberto = renderizar_estado(reaberta, modelo, largura=90, altura=30)
+    _registrar(
+        "H-0053: segundo Espaço reabre o mesmo ramo corrente",
+        reaberta.get("ramos_fechados", {}).get(console.id) == frozenset()
+        and reaberta.get("cursores", {}).get(console.id) == 0
+        and "1.1" in quadro_reaberto
+        and "1.2" in quadro_reaberto
+        and "1.2.1" in quadro_reaberto,
+    )
+
+    folha = estado
+    for _ in range(3):
+        folha = processar_comando(folha, "\x1b[B", modelo)
+    quadro_folha = renderizar_estado(folha, modelo, largura=90, altura=30)
+    quadro_folha_sem_ansi = re.sub(r"\x1b\[[0-9;]*m", "", quadro_folha)
+    barra_folha = next(
+        linha for linha in quadro_folha_sem_ansi.splitlines()
+        if "[?] Ajuda" in linha
+    )
+    _registrar(
+        "H-0053: folha mostra Expandir inativo e Espaço não seleciona",
+        "[␣] Expandir" in barra_folha
+        and "\x1b[90m" in quadro_folha
+        and navegacao.estado_chip_arvore(
+            dict(folha, modelo=modelo)
+        ) == {
+            "console_id": console.id,
+            "item_id": "item_1_2_1",
+            "texto": "Expandir",
+            "ativo": False,
+        }
+        and processar_comando(folha, " ", modelo)["cursores"] == folha["cursores"]
+        and processar_comando(folha, " ", modelo).get("selecoes", {}) == {},
+    )
+
+
+def teste_h0053_fixture_hierarquia_e_multiline():
+    modelo = _carregar_modelo_por_id("h0053_arvore_colapsavel")
+    console = navegacao.lista_foco(modelo)[0]
+    barra = modelo.barra_de_menus["chips"]
+    assert barra[-1]["tecla"] == "?"
+    assert barra[-1]["texto"] == "Ajuda"
+    assert barra[-1]["regra_ativo"] == "sempre"
+    assert any(
+        chip["tipo"] == "acao"
+        and chip["tecla"] == "␣"
+        and chip["texto"] == "Expandir"
+        for chip in barra
+    )
+
+    conteudo = modelo.conteudo_externo
+    assert [no.id for no in conteudo.nos] == ["secao_1", "secao_2"]
+    assert [no.id for no in conteudo.nos[0].filhos] == [
+        "subsecao_1_1", "subsecao_1_2"
+    ]
+    assert [no.id for no in conteudo.nos[0].filhos[1].filhos] == [
+        "item_1_2_1"
+    ]
+    assert [no.id for no in conteudo.nos[1].filhos] == ["subsecao_2_1"]
+    assert "a)" not in str(conteudo._raw)
+
+    linhas = _linhas_console(console, 80, verboso=True)
+    assert len(linhas) > 6
+    assert any("1. " in linha for linha in linhas)
+    assert any("1.1 " in linha for linha in linhas)
+    assert any("1.2 " in linha for linha in linhas)
+    assert any("1.2.1 " in linha for linha in linhas)
+    assert any("2. " in linha for linha in linhas)
+    assert any("2.1 " in linha for linha in linhas)
+
+
+def teste_h0053_reconcilia_cursor_antes_do_chip_e_renderer():
+    modelo = _carregar_modelo_por_id("h0053_arvore_colapsavel")
+    console = navegacao.lista_foco(modelo)[0]
+    estado = dict(
+        criar_estado_inicial(),
+        estilo=_ESTILO,
+        foco_console=0,
+        cursores={},
+    )
+
+    reconciliado = _preparar_estado_h0053(estado, modelo)
+    assert reconciliado["cursores"] == {console.id: 0}
+
+    contexto = navegacao.estado_chip_arvore(
+        dict(reconciliado, modelo=modelo)
+    )
+    quadro = renderizar_estado(reconciliado, modelo, largura=90, altura=30)
+    simbolo = _ESTILO.selecionado_simbolo
+    linha_marcada = [
+        linha for linha in quadro.splitlines()
+        if simbolo in linha and "1. Fundamentos" in linha
+    ]
+    corrente = navegacao.sequencia_visivel_arvore(
+        console, dict(reconciliado, modelo=modelo)
+    )[reconciliado["cursores"][console.id]]
+
+    assert contexto["item_id"] == corrente.id
+    assert contexto["item_id"] == console.conteudo_externo.nos[0].id
+    assert len(linha_marcada) == 1
+
+
+def teste_h0053_renderer_nao_inventa_cursor_zero_sem_reconciliacao():
+    modelo = _carregar_modelo_por_id("h0053_arvore_colapsavel")
+    lista = navegacao.lista_foco(modelo)
+
+    quadro = renderizar_tela(
+        modelo,
+        _ESTILO,
+        largura=90,
+        altura=30,
+        foco_console=0,
+        cursores={},
+        lista_foco=lista,
+        largura_navegacao=90,
+    )
+    linhas_nos = [
+        linha for linha in quadro.splitlines()
+        if "1. Fundamentos" in linha
+    ]
+
+    assert linhas_nos
+    assert all(_ESTILO.selecionado_simbolo not in linha for linha in linhas_nos)
+    assert navegacao.estado_chip_arvore({
+        "modelo": modelo,
+        "foco_console": 0,
+        "cursores": {},
+    }) is None
+
+
+def teste_h0053_dispatch_de_espaco_redesenha_a_sessao_sem_tty(
+    monkeypatch, capsys
+):
+    """Exerce o dispatch da sessão e prova o redesenho do estado de árvore."""
+    class LinhaComEspaco(str):
+        def strip(self, chars=None):
+            if self == " \n":
+                return " "
+            return super().strip(chars)
+
+    class Entrada:
+        def isatty(self):
+            return False
+
+        def __iter__(self):
+            return iter([LinhaComEspaco(" \n"), LinhaComEspaco(" \n"), "s\n"])
+
+    monkeypatch.setattr(sys, "stdin", Entrada())
+    assert demo_navegacao_main([
+        "demo_navegacao.py",
+        "--tela",
+        "config/telas/demo/h0053_arvore_colapsavel.json",
+    ]) == 0
+    saida = capsys.readouterr().out
+
+    assert saida.count("1.2.1") == 2
+    assert saida.count("1.1") == 2
 
 
 def main():

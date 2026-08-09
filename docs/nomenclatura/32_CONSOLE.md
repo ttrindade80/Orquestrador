@@ -73,6 +73,7 @@ Não redefinir `grupo` como nó estrutural; esse sentido pertence ao módulo `40
 - `nivel_unico` (ADR-0042)
 - `tabela` como política de navegação (ADR-0042)
 - `arvore_colapsavel` (ADR-0042)
+- chip contextual de `arvore_colapsavel` (`[␣] Expandir` / `[␣] Recolher`) (ADR-0043)
 - `selecao_multinivel` (ADR-0042)
 - `dois_niveis_por_foco` (ADR-0042)
 - seleção exclusiva obrigatória de filho por pai (ADR-0042)
@@ -286,6 +287,25 @@ requisição, mas não pertence ao console nem ao lote.
 cursor. Também não é seleção múltipla. Foco, cursor, seleção e escolha do
 filho permanecem mecanismos distintos.
 
+Para `arvore_colapsavel`, a relação entre foco, cursor e o chip contextual é
+fechada assim:
+
+```yaml
+arvore_colapsavel:
+  quando_focalizado:
+    item_corrente_navegavel: obrigatorio
+    cursor_valido: obrigatorio
+
+  sem_nos_navegaveis_visiveis:
+    focalizavel: false
+```
+
+Após troca de página, expansão, recolhimento ou recomputação da projeção
+visível, o cursor deve estar reconciliado para item válido antes da interação
+contextual. Esta relação não cria algoritmo de reconciliação, política de
+borda ou nova regra de paginação. Foco, cursor e seleção continuam distintos:
+`foco ≠ cursor ≠ seleção`.
+
 ## 5. Distinções obrigatórias
 
 | Par | Distinção normativa |
@@ -301,6 +321,7 @@ filho permanecem mecanismos distintos.
 | cursor × escolha do filho | Cursor indica o item corrente; em `dois_niveis_por_foco`, a escolha do filho só muda por Espaço e permanece independente do movimento do cursor |
 | seleção única × seleção exclusiva obrigatória de filho por pai | Seleção única é o item sob cursor da ADR-0031; seleção exclusiva obrigatória de filho por pai mantém uma escolha persistente e exclusiva por pai em `dois_niveis_por_foco` |
 | navegação × paginação | Navegação move o cursor conforme a política ativa; paginação permanece independente e subordinada à ADR-0041, sem troca implícita de página pelo cursor |
+| chip contextual × seleção | `[␣] Expandir`/`[␣] Recolher` refletem o item corrente de `arvore_colapsavel`; `[␣] Selecionar` pertence à seleção múltipla — a tecla física compartilhada não funde as semânticas |
 
 ## 6. Relação com contratos
 
@@ -318,6 +339,9 @@ filho permanecem mecanismos distintos.
 - ADR-0038: paginação interativa limitada e independência de página por console; terminologia de página atual, página de destino, página sem item navegável e repaginação; precedência da reconciliação especializada por ID da ADR-0037 sobre a regra genérica de atualização de dados.
 - ADR-0040: transmissão explícita do modo universal junto ao lote reconciliado, sem atribuir o modo ao console.
 - ADR-0042: política de navegação declarada, cinco valores fechados de `tipo`, políticas multinível, precedência contextual de Esc e seleção exclusiva obrigatória de filho por pai.
+- ADR-0043: Ajuda universal e chip contextual de expansão/recolhimento em
+  `arvore_colapsavel`; fecha a relação semântica entre console focalizado,
+  item corrente, cursor válido e chip contextual.
 
 ## 8. Aliases ou termos descontinuados relacionados
 

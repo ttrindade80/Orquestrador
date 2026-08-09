@@ -81,8 +81,17 @@ esta lista.
 **Prioridade:** media
 **Status:** em_andamento
 **Descricao:** Implementar as politicas de navegacao multinivel do console com foco estrito em cursor, percurso e semantica de Espaco: preservar `nivel_unico`; manter `tabela` nao navegavel; implementar `arvore_colapsavel`; implementar `selecao_multinivel` com uma unica navegacao reunindo todos os niveis e selecao recursiva dos descendentes; implementar `dois_niveis_por_foco` com toroide dos pais e toroide proprio de filhos por pai, usando a apresentacao de selecao ja existente. O ciclo deve ser decomposto em quatro handoffs sequenciais e nao pode reaproveitar a tentativa defeituosa preservada em branch de erro.
-**Pre-requisitos:** Ciclo universal de paginacao por `PageUp`/`PageDown` e chips `[PgUp]`/`[PgDn]` concluido pela ADR-0041 e pelo H-0051, com QA tecnico e validacao manual aprovados. ADR-0042 aceita (`ADR-0042_ACEITA`) e aplicada (`APLICACAO_DOCUMENTAL: CONCLUIDA`), QA da aplicacao aprovado (`QA_DA_APLICACAO: ADR_APPLICATION_APPROVED`), H-0052 implementado com QA resolvido por validacao manual (`IMPLEMENTACAO: IMPLEMENTED`, `VALIDACAO_MANUAL: MANUAL_VALIDATION_APPROVED`). Especificacao fechada preservada externamente em `ESPECIFICACAO_CICLO_B_NAVEGACAO_MULTINIVEL.md`, a ser fornecida ao gerente responsavel.
-**Proxima acao:** Em ciclo futuro, iniciar H-0053 (`arvore_colapsavel`); manter H-0054 (`selecao_multinivel`) e H-0055 (`dois_niveis_por_foco`) futuros. Nao reabrir apresentacao de filho ativo, distribuicao geometrica de grupos, Enter, execucao, confirmacao ou persistencia neste item.
+**Estado dos handoffs:** H-0052: concluido; H-0053: concluido; H-0054: futuro; H-0055: futuro.
+**Pre-requisitos:** Ciclo universal de paginacao por `PageUp`/`PageDown` e chips `[PgUp]`/`[PgDn]` concluido pela ADR-0041 e pelo H-0051, com QA tecnico e validacao manual aprovados. ADR-0042 aceita (`ADR-0042_ACEITA`) e aplicada (`APLICACAO_DOCUMENTAL: CONCLUIDA`), QA da aplicacao aprovado (`QA_DA_APLICACAO: ADR_APPLICATION_APPROVED`), H-0052 concluido com QA resolvido por validacao manual (`IMPLEMENTACAO: IMPLEMENTED`, `VALIDACAO_MANUAL: MANUAL_VALIDATION_APPROVED`). ADR-0043 aceita e aplicada, com QA da aplicacao aprovado (`QA_APLICACAO: ADR_APPLICATION_APPROVED`). H-0053 concluido com QA do handoff, QA da implementacao, QA da alteracao declarativa e validacao manual aprovados. H-0054 (`selecao_multinivel`) e H-0055 (`dois_niveis_por_foco`) permanecem futuros. A integracao conjunta de arvore, multiline e paginacao sera atribuida a item futuro proprio.
+**Proxima acao:** Verificar a especificacao e iniciar, em ciclo proprio, a integracao futura de `arvore_colapsavel` com multiline e paginacao. Nao iniciar H-0054 ou H-0055 nesta etapa; nao reabrir apresentacao de filho ativo, distribuicao geometrica de grupos, Enter, execucao, confirmacao ou persistencia neste item.
+
+### ITEM-0025 — Integração de arvore_colapsavel com multiline e paginação
+**Tipo:** implementacao
+**Prioridade:** media
+**Status:** planejado
+**Descricao:** BACKLOG / FUTURO. Validar `arvore_colapsavel` com conteúdo multilinha e paginação real, incluindo PageUp/PageDown vigentes, mudança de página, projeção visível por página, cursor válido antes/depois da mudança de página, expansão/recolhimento com recomputação da projeção, alteração do número/distribuição de páginas causada pelo estado da árvore, renderer e mapa físico usando a mesma projeção e demonstração TTY focal.
+**Pre-requisitos:** ITEM-0007 concluído; ciclo próprio de especificação e validação. Exclui nova política universal de paginação, H-0054, H-0055, nova geometria geral multinível, seleção, Enter e execução.
+**Proxima acao:** Criar especificação própria e planejar o ciclo sem criar ADR ou handoff nesta etapa.
 
 ### ITEM-0023 — Apresentacao de filho ativo em grupos multinivel
 **Tipo:** implementacao

@@ -53,6 +53,8 @@ Comportamento completo de cada comando permanece nos contratos
 - paginação limitada de `[PgUp][PgDn]` (ADR-0038; tecla e notação especializadas pela ADR-0041)
 - teclas universais de paginação `PageUp`/`PageDown` (ADR-0041)
 - representação canônica `[PgUp][PgDn] Páginas` (ADR-0041)
+- Ajuda universal (`[?] Ajuda`) e chip contextual de árvore (`[␣] Expandir` /
+  `[␣] Recolher`) (ADR-0043)
 
 ## 4. Definições
 
@@ -62,8 +64,10 @@ Comportamento completo de cada comando permanece nos contratos
 uma instância declarada pela tela no JSON. A barra é espelho da declaração —
 nunca fonte de decisão sobre composição.
 
-**Declarativa por tela (ADR-0012)**: a `barra_de_menus` não contém todos
-os chips canônicos por padrão. Cada tela declara apenas os chips aplicáveis.
+**Declarativa por tela (ADR-0012, especializada pela ADR-0043)**: a
+`barra_de_menus` continua declarativa para os demais chips. `[?] Ajuda` é
+universal e obrigatório em toda tela; os demais chips seguem suas condições
+de existência declaradas.
 
 ### 4.2 Chip
 
@@ -72,7 +76,7 @@ ou símbolo acionável — ou informativo — exibido na região da tela.
 
 | Categoria | Definição |
 |---|---|
-| chip canônico | Chip pertencente à ordem fixa definida pelo sistema; sua existência é condicional à composição declarada pela tela |
+| chip canônico | Chip pertencente à ordem fixa definida pelo sistema; `[?] Ajuda` é universal e obrigatório, enquanto os demais seguem sua condição declarada |
 | chip específico | Chip próprio da classe de tela; posicionado entre `[⏎]` e `[V]/[?]` na ordem |
 
 ### 4.3 Ordem fixa dos chips canônicos
@@ -93,7 +97,20 @@ ou símbolo acionável — ou informativo — exibido na região da tela.
 | `[⏎]` | Todos / Executar / Visualizar | declarativa por tela |
 | específicos | (por classe) | chips próprios da classe |
 | `[V]` | Verboso | política de modo `alternavel` (ADR-0028) |
-| `[?]` | Ajuda | declarativa por tela |
+| `[?]` | Ajuda | obrigatória em toda tela; sempre ativa e última |
+
+Para `politica_navegacao.tipo = arvore_colapsavel`, o chip contextual de
+Espaço pertence à faixa de específicos/contextuais, depois de `[⏎]` quando
+aplicável e antes de `[V]` e `[?]`. Sua representação deriva do item corrente:
+
+| Item corrente | Estado | Representação |
+|---|---|---|
+| ramo com filhos | expandido | `[␣] Recolher` ativo |
+| ramo com filhos | recolhido | `[␣] Expandir` ativo |
+| folha | não aplicável | `[␣] Expandir` inativo |
+
+`[␣] Expandir` e `[␣] Recolher` são distintos de `[␣] Selecionar` por
+semântica, não por uma nova tecla física ou sinônimo técnico.
 
 ### 4.4 Estado ativo e inativo
 
@@ -233,6 +250,9 @@ unicamente.
 - ADR-0040: controle universal de execução real e `dry-run`, distinto da especialização focal da ADR-0037.
 - ADR-0038: fecha, para `[PgUp][PgDn]`, a topologia limitada e a avaliação pelo console focado; especializa, para `[✥]`, o universo de avaliação restrito à página atual do console focado.
 - ADR-0041: especializa, para toda paginação comum do Orquestrador, a tecla de acionamento (`PageUp`/`PageDown`) e a representação canônica (`[PgUp][PgDn] Páginas`), substituindo `,`/`<`/`.`/`>` e `[<][>]` em todos os documentos normativos; nenhuma outra decisão D-PAG-01 a D-PAG-13 é reaberta.
+- ADR-0043: torna `[?] Ajuda` universal, sempre ativa e última; distingue
+  `[␣] Expandir`/`[␣] Recolher` de `[␣] Selecionar` e os posiciona na faixa de
+  específicos/contextuais para `arvore_colapsavel`.
 
 ## 8. Aliases ou termos descontinuados relacionados
 

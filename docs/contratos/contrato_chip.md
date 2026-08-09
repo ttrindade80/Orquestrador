@@ -22,6 +22,7 @@ metadata:
       - docs/adr/ADR-0038-paginacao-interativa-limitada-em-console.md
       - docs/adr/ADR-0040-padronizacao-universal-do-controle-de-execucao-real-e-dry-run.md
       - docs/adr/ADR-0041-paginacao-universal-por-pageup-e-pagedown.md
+      - docs/adr/ADR-0043-ajuda-universal-e-chip-contextual-de-expandir-recolher.md
     reaproveitado_de_legado: false
   dependencias_nomenclatura:
     dependencias_obrigatorias:
@@ -178,8 +179,10 @@ O `contrato_barra_de_menus.md` menciona `canonico` como tipo documental de
 chip (seções 6 e 7). Este contrato adota uma taxonomia ligeiramente mais
 granular para uso nos campos do chip:
 
-- Chips canônicos de existência sempre presente (`[Esc]`, `[⏎]`, `[?]`) são
-  instâncias de tipo `acao` ou `alternancia`, com `regra_existencia: sempre`.
+- `[?] Ajuda` é a identidade canônica de existência universal: possui
+`regra_existencia: sempre` e é obrigatória em toda tela pela ADR-0043. `[Esc]`
+e `[⏎]` continuam com as regras declarativas próprias da barra quando
+presentes.
 - Chips canônicos de existência condicional (`[PgUp][PgDn]`, `[-][+]`, `[#]`,
   `[⇆]`, `[✥]`, `[␣]`, `[V]`) são instâncias de tipos como `navegacao`,
   `filtro`, `alternancia` ou `acao`, com `regra_existencia` condicionada.
@@ -212,8 +215,13 @@ da instância e do estilo ativo.
 [␣]      — Selecionar (toggle de seleção múltipla)
 [⏎]      — Ação do item em foco (Todos / Executar / Visualizar)
 [V]      — Verboso (alterna modo verboso de console)
-[?]      — Ajuda
+[?]      — Ajuda (universal, último chip)
 ```
+
+Para `politica_navegacao.tipo = arvore_colapsavel`, também existem as
+identidades contextuais `[␣] Expandir` e `[␣] Recolher`. Elas não são aliases de
+`[␣] Selecionar`: a tecla física é a mesma, mas a função contextual é
+expansão/recolhimento.
 
 Chips específicos de classe de tela são instâncias adicionais, não incluídas
 nessa lista canônica, declaradas individualmente pela classe no `tela.json`.
@@ -229,7 +237,7 @@ render — e não muda enquanto a tela está aberta.
 Exemplos de valores conceituais:
 
 ```text
-sempre                                              — chip sempre existe nessa instância
+sempre                                              — chip sempre existe nessa instância; para `[?] Ajuda`, em toda tela
 console_com_paginacao                               — existe se a instância de console declara paginacao: com
 console_com_colunas_ajustavel                       — existe se a instância de console declara colunas_ajustavel: com
 console_com_filtro_de_grupo                         — existe se a instância de console declara filtro_de_grupo: com
@@ -241,6 +249,15 @@ console_focado_com_mais_de_um_item_navegavel        — aparece quando o console
 acao_especifica_declarada                           — existe se a classe de tela declara esta ação específica
 filtro_declarado                                    — existe se a tela declara o filtro referenciado
 ```
+
+O chip `[?] Ajuda` é sempre existente, permanece entre estados, páginas e
+mudanças de foco da mesma tela e ocupa a última posição canônica. A falta de
+largura não permite omiti-lo; aplica-se `erro_layout` quando a distribuição
+declarada não couber.
+
+O chip contextual de `arvore_colapsavel` existe quando há console focalizado
+com item corrente navegável. Seu rótulo e estado são derivados desse item,
+conforme a seção 9, sem criar identificador técnico ou campo de schema.
 
 A existência é **estática** para a tela carregada na maioria dos chips. Exceção
 documentada: `[✥]` (ADR-0031 D14) possui existência **dinâmica** — aparece e
@@ -360,6 +377,23 @@ instância existir. A inicialização e a reinicialização em nova abertura ou
 recarga pertencem ao ciclo de vida da tela, não a uma decisão autônoma do
 chip.
 
+### 9.2 Chip contextual de árvore (ADR-0043)
+
+Quando o console focalizado declara `politica_navegacao.tipo =
+arvore_colapsavel`, o rótulo e o estado do chip de Espaço derivam
+exclusivamente do item corrente:
+
+| Item corrente | Estado | Chip |
+|---|---|---|
+| ramo com filhos | expandido | `[␣] Recolher` ativo |
+| ramo com filhos | recolhido | `[␣] Expandir` ativo |
+| folha | não aplicável | `[␣] Expandir` inativo |
+
+O chip contextual é funcionalmente distinto de `[␣] Selecionar`. Folha não
+possui ação de Espaço. O estado inativo permanece visível, com capitalização
+normal e forma canônica de chip inativo. A regra não introduz ação textual,
+ID técnico, enum, registry ou campo novo de schema.
+
 ---
 
 ## 10. Forma de exibição (`forma_exibicao`)
@@ -467,6 +501,8 @@ Chips podem refletir capacidades declaradas por uma instância de `console`:
   navegável; ausente nos demais casos (ADR-0031 D14; ver §8 nota e §22.8 de
   `contrato_console.md`);
 - `[␣]` depende de `console` com seleção múltipla declarada;
+- `[␣] Expandir`/`[␣] Recolher` dependem da política declarada
+  `arvore_colapsavel` e do item corrente navegável do console focalizado;
 - `[⏎]` depende da ação declarada pelo item em foco no `console` atual;
 - `[PgUp][PgDn]`, `[-][+]` dependem das capacidades declaradas pela instância de
   `console` (paginação, colunas ajustáveis);
@@ -566,6 +602,13 @@ Critérios mínimos de validação de um chip:
 - [ ] `[✥]` vinculado a `lancador` ou `dashboard` como condição de existência
       é violação contratual (ADR-0005).
 - [ ] `[␣]` declarado em tela sem `console` com seleção múltipla é inválido.
+- [ ] `[?] Ajuda` existe em toda tela, é sempre ativo, permanece entre estados,
+      páginas e focos da mesma tela e é o último chip; não pode ser omitido
+      para caber, pois a insuficiência de largura é `erro_layout`.
+- [ ] `[␣] Expandir`/`[␣] Recolher` não compartilham identidade funcional com
+      `[␣] Selecionar`; seu rótulo e estado derivam do item corrente de
+      `arvore_colapsavel`, e folha apresenta `[␣] Expandir` inativo sem ação de
+      Espaço.
 - [ ] `[⏎]` declarado sem política de item em foco (ação por item/binding) é
       inválido.
 - [ ] O controle universal só existe quando `controle_execucao` é declarado
