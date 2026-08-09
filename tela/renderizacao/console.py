@@ -39,6 +39,16 @@ def _arvore_colapsavel(elemento):
     )
 
 
+def _selecao_multinivel(elemento):
+    from tela.navegacao import tipo_navegacao_efetivo
+
+    return (
+        getattr(elemento, "tipo", None) == "console"
+        and tipo_navegacao_efetivo(elemento) == "selecao_multinivel"
+        and getattr(elemento, "conteudo_externo", None) is not None
+    )
+
+
 def _contexto_foco_arvore(elemento):
     lista = _navegacao_atual.get("lista_foco") or []
     focalizavel = any(getattr(c, "id", None) == elemento.id for c in lista)
@@ -67,9 +77,41 @@ def _parametros_renderizacao_arvore(elemento):
     return estado, focalizavel, corrente_id, indicador, indicador_off
 
 
+def _parametros_renderizacao_multinivel(elemento):
+    estado = _estado_runtime_arvore(elemento)
+    estado["selecoes"] = _navegacao_atual.get("selecoes") or {}
+    focalizavel, focado = _contexto_foco_arvore(elemento)
+    from tela.navegacao import _sequencia_estrutural_selecao_multinivel
+
+    estrutural = _sequencia_estrutural_selecao_multinivel(elemento)
+    cursor = (estado.get("cursores") or {}).get(elemento.id)
+    corrente_id = None
+    if focado and isinstance(cursor, int) and 0 <= cursor < len(estrutural):
+        corrente_id = estrutural[cursor].id
+    indicador = _navegacao_atual.get("simbolo") if focalizavel else None
+    indicador_off = _navegacao_atual.get("off") if focalizavel else None
+    selecionados = (estado.get("selecoes") or {}).get(elemento.id, ())
+    incluido_on = _navegacao_atual.get(
+        "inc_on", _navegacao_atual.get("incluido_on", "●")
+    )
+    incluido_off = _navegacao_atual.get(
+        "inc_off", _navegacao_atual.get("incluido_off", "○")
+    )
+    return (
+        estado, focalizavel, corrente_id, indicador, indicador_off,
+        selecionados, incluido_on, incluido_off,
+    )
+
+
 def _largura_renderizada_arvore(elemento, content_w, focalizavel):
     if focalizavel and content_w is not None:
         return max(0, content_w - 2)
+    return content_w
+
+
+def _largura_renderizada_multinivel(content_w, focalizavel):
+    if focalizavel and content_w is not None:
+        return max(0, content_w - 4)
     return content_w
 
 
@@ -104,6 +146,24 @@ def _linhas_console(elemento, content_w=None, verboso=False):
             no_corrente_id=corrente_id,
             indicador=indicador,
             indicador_off=indicador_off,
+        )
+    if _selecao_multinivel(elemento) and getattr(conteudo, "apresentacao", None) == "hierarquia":
+        (
+            estado, focalizavel, corrente_id, indicador, indicador_off,
+            selecionados, incluido_on, incluido_off,
+        ) = _parametros_renderizacao_multinivel(elemento)
+        largura_conteudo = _largura_renderizada_multinivel(content_w, focalizavel)
+        return _linhas_conteudo_externo(
+            conteudo,
+            largura_conteudo,
+            verboso,
+            no_corrente_id=corrente_id,
+            indicador=indicador,
+            indicador_off=indicador_off,
+            selecoes=selecionados,
+            incluir_selecao=True,
+            incluido_on=incluido_on,
+            incluido_off=incluido_off,
         )
     return _linhas_conteudo_externo(conteudo, content_w, verboso)
 
@@ -153,6 +213,51 @@ def mapa_fisico_de_itens(
             }
             for indice, entrada in enumerate(entradas)
         ]
+    if _selecao_multinivel(elemento):
+        (
+            estado, focalizavel, corrente_id, indicador, indicador_off,
+            selecionados, incluido_on, incluido_off,
+        ) = _parametros_renderizacao_multinivel(elemento)
+        largura_conteudo = largura_util_itens_console(largura, elemento)
+        largura_conteudo = _largura_renderizada_multinivel(
+            largura_conteudo, focalizavel
+        )
+        entradas = _linhas_apresentacao_hierarquia_com_mapa(
+            elemento.conteudo_externo,
+            largura_conteudo,
+            verboso,
+            no_corrente_id=corrente_id,
+            indicador=indicador,
+            indicador_off=indicador_off,
+            selecoes=selecionados,
+            incluir_selecao=True,
+            incluido_on=incluido_on,
+            incluido_off=incluido_off,
+        )
+        from tela.navegacao import _nos_em_pre_ordem, no_multinivel_navegavel
+
+        nos = _nos_em_pre_ordem(elemento.conteudo_externo.nos)
+        mapa = []
+        navegavel_idx = 0
+        for indice, entrada in enumerate(entradas):
+            no = nos[indice] if indice < len(nos) else None
+            navegavel = no is not None and no_multinivel_navegavel(no)
+            item_logico = navegavel_idx if navegavel else None
+            if navegavel:
+                navegavel_idx += 1
+            mapa.append({
+                "indice_fisico": indice,
+                "id": entrada["id"],
+                "item_logico": item_logico,
+                "item_logico_ou_id": item_logico if navegavel else entrada["id"],
+                "navegavel": navegavel,
+                "linhas_fisicas": len(entrada["linhas"]),
+                # H-0054 reusa a politica universal de paginacao: linhas
+                # hierarquicas cabem juntas na pagina e so um item maior que
+                # a pagina pode ser fragmentado.
+                "politica_quebra": "permitir_quebra_somente_se_maior_que_pagina",
+            })
+        return mapa
     participantes = _participantes_distribuicao_matricial(elemento)
     itens = _itens_visiveis_console(elemento)
     navegavel_idx = 0

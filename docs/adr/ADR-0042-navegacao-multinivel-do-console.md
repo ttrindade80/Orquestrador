@@ -1,6 +1,6 @@
 ---
 name: ADR-0042-navegacao-multinivel-do-console
-description: "Fecha as políticas de navegação multinível do console (nivel_unico preservado, tabela passiva, arvore_colapsavel, selecao_multinivel, dois_niveis_por_foco), sua declaração discriminada em politica_navegacao, a semântica de Espaço associada a cada política, a seleção exclusiva obrigatória de filho por pai em dois_niveis_por_foco, a subordinação integral à paginação universal da ADR-0041 e o isolamento em relação à tentativa multinível anterior preservada em branch de erro"
+description: "Fecha as políticas de navegação multinível do console (nivel_unico preservado, tabela passiva, arvore_colapsavel, selecao_multinivel, dois_niveis_por_foco), sua declaração discriminada em politica_navegacao, a semântica de Espaço associada a cada política, a seleção exclusiva obrigatória de filho por pai em dois_niveis_por_foco, a derivação binária de seleção e reconciliação hierárquica de selecao_multinivel, a coerência estrutural de selecionabilidade, a subordinação integral à paginação universal da ADR-0041 e o isolamento em relação à tentativa multinível anterior preservada em branch de erro"
 metadata:
   type: adr
   status: aceita
@@ -8,7 +8,7 @@ metadata:
   data: "2026-08-08"
   substitui: null
 rastreabilidade:
-  decisao_usuario: "D-MULTI-01 a D-MULTI-13 — escopo do ciclo restrito a navegação multinível do console (políticas explícitas de navegação, foco entre consoles, cursor dentro do console, nivel_unico, tabela, arvore_colapsavel, selecao_multinivel, dois_niveis_por_foco, semântica de Espaço associada, integração com a apresentação de seleção já existente); regras transversais de foco/cursor/política declarada; preservação de nivel_unico; tabela como apresentação passiva sem cursor; arvore_colapsavel como hierarquia navegável sem seleção; selecao_multinivel como topologia única de profundidade arbitrária com Espaço recursivo; dois_niveis_por_foco com toroide de pais, toroide de filhos por pai e escolha exclusiva obrigatória de filho por pai; declaração de politica_navegacao como objeto com discriminador tipo e valores fechados; fallback de tipo ausente para nivel_unico para compatibilidade; subordinação integral da paginação à ADR-0041; isolamento explícito da tentativa multinível anterior preservada em branch de erro"
+  decisao_usuario: "D-MULTI-01 a D-MULTI-13 — escopo do ciclo restrito a navegação multinível do console (políticas explícitas de navegação, foco entre consoles, cursor dentro do console, nivel_unico, tabela, arvore_colapsavel, selecao_multinivel, dois_niveis_por_foco, semântica de Espaço associada, integração com a apresentação de seleção já existente); regras transversais de foco/cursor/política declarada; preservação de nivel_unico; tabela como apresentação passiva sem cursor; arvore_colapsavel como hierarquia navegável sem seleção; selecao_multinivel como topologia única de profundidade arbitrária com Espaço recursivo; dois_niveis_por_foco com toroide de pais, toroide de filhos por pai e escolha exclusiva obrigatória de filho por pai; declaração de politica_navegacao como objeto com discriminador tipo e valores fechados; fallback de tipo ausente para nivel_unico para compatibilidade; subordinação integral da paginação à ADR-0041; isolamento explícito da tentativa multinível anterior preservada em branch de erro; D-MULTI-06-P03 — estado selecionado derivado e propagação bidirecional na hierarquia; D-MULTI-07-P04 — coerência estrutural de selecionabilidade"
   rfc_origem: null
   issues_relacionadas:
     - ITEM-0007
@@ -28,16 +28,16 @@ rastreabilidade:
 status_da_adr: aceita
 qa_da_adr:
   resultado: ADR_APPROVED
-  relatorio: docs/relatorios/RELATORIO_QA_POS_PATCH_ADR-0042_P02.md
+  relatorio: docs/relatorios/RELATORIO_QA_POS_PATCH_ADR-0042_P04.md
 patch:
   aplicado: true
-  id: P02
-  relatorio: docs/relatorios/RELATORIO_PATCH_ADR-0042_P02.md
+  id: P04
+  relatorio: docs/relatorios/RELATORIO_PATCH_ADR-0042_P04.md
 aplicacao_documental:
   executada: true
-  relatorio: docs/relatorios/RELATORIO_APLICACAO_ADR-0042_R02.md
+  relatorio: docs/relatorios/RELATORIO_APLICACAO_ADR-0042_P04.md
   qa_da_aplicacao: ADR_APPLICATION_APPROVED
-  relatorio_qa_aplicacao: docs/relatorios/RELATORIO_QA_APLICACAO_ADR-0042_R02.md
+  qa_relatorio: docs/relatorios/RELATORIO_QA_APLICACAO_ADR-0042_P04.md
 handoff:
   id: H-0052
   qa: H1_HANDOFF_APPROVED
@@ -123,6 +123,11 @@ além do que foi explicitamente fechado.
 
 As treze decisões abaixo são fechadas e transportadas integralmente. Nenhuma
 alternativa é escolhida por este documento.
+
+O patch P04 acrescenta D-MULTI-07-P04, que restringe estruturalmente a
+selecionabilidade: descendente selecionável implica todos os ancestrais
+estruturais selecionáveis, sem alterar a política de navegação ou a
+reconciliação já fechada por D-MULTI-06-P03.
 
 ### D-MULTI-01 — Escopo do ciclo
 
@@ -216,8 +221,99 @@ espaco_sobre_pai:
   inclusao: seleciona_todos
   remocao: remove_todos
   itens_nao_selecionaveis: sem_alteracao
+estado_selecao:
+  item_selecionavel:
+    estado: binario
+    apresentacao: tg_existente
+  item_nao_selecionavel:
+    estado: ausente
+    apresentacao: tg_ausente
+    participa_da_unanimidade: false
+  pai_selecionavel:
+    selecionado_quando: todos_os_filhos_selecionaveis_imediatos_estao_selecionados
+    nao_selecionado_quando: existe_pelo_menos_um_filho_selecionavel_imediato_nao_selecionado
+    estado_parcial_ou_indeterminado: proibido
+propagacao_ascendente:
+  apos_toggle_de_folha: reconciliar_ancestrais_de_baixo_para_cima
+  alcance: recursivo_ate_a_raiz
+  filho_desmarcado: desmarca_pais_e_ancestrais_que_deixarem_de_satisfazer_unanimidade
+apos_propagacao_descendente: reconciliar_pais_de_baixo_para_cima
 apresentacao_de_selecao: reutilizar_a_ja_existente
 ```
+
+A ampliação `D-MULTI-06-P03 — estado selecionado derivado e propagação
+bidirecional na hierarquia` integra a regra acima à decisão vigente. Ela não
+introduz alternativa, estado parcial, contador, seleção independente do pai,
+novo símbolo ou política específica por profundidade.
+
+Em `selecao_multinivel`, a regra vale para raiz selecionável, pai intermediário
+selecionável e folha selecionável. Item não selecionável não recebe estado de
+seleção nem `tg` e é ignorado no cálculo de unanimidade. A seleção manual de
+todos os filhos selecionáveis imediatos marca o pai; a desseleção de qualquer
+filho desmarca o pai e os ancestrais afetados, sempre recursivamente até a
+raiz. Espaço sobre pai continua selecionando ou removendo recursivamente todos
+os descendentes selecionáveis, sem alterar os não selecionáveis; depois disso,
+os pais são reconciliados de baixo para cima. A regra vale em profundidade
+arbitrária, sem semântica especial para nível 1, 2 ou 3.
+
+Para a demonstração futura de H-0054, a fixture deve conter pelo menos três
+pais de nível 1. O primeiro deve conter dois pais de nível 2 selecionáveis,
+cada um com mais de uma folha selecionável. O caso não selecionável deve
+estar no segundo ramo, cujo pai de nível 1 (`2.`) é selecionável e possui
+`tg`; abaixo dele deve existir um item explicitamente não selecionável, sem
+`tg` e sem descendentes selecionáveis. Deve existir um terceiro ramo para
+diversidade/demonstração. A fixture deve permitir demonstrar seleção de cima
+para baixo, seleção manual de baixo para cima e desseleção com preservação dos
+ramos independentes.
+
+### D-MULTI-07-P04 — coerência estrutural de selecionabilidade
+
+```yaml
+regra:
+  descendente_selecionavel: todo_ancestral_estrutural_ate_a_raiz_selecionavel
+  pai_com_ao_menos_um_descendente_selecionavel:
+    selecionavel: true
+    estado: binario
+    apresentacao: tg_existente
+  item_nao_selecionavel:
+    estado: ausente
+    apresentacao: tg_ausente
+    participa_do_conjunto_selecionado: false
+    participa_da_unanimidade: false
+    subarvore: integralmente_nao_selecionavel
+    pode_ser: folha_ou_pai_de_conteudo_integralmente_nao_selecionavel
+  pai_nao_selecionavel_com_descendente_selecionavel:
+    configuracao: invalida_e_incoerente
+    comportamento_funcional: nao_suportado
+```
+
+Em `selecao_multinivel`, a selecionabilidade é estruturalmente coerente em
+profundidade arbitrária: se um nó possui ao menos um descendente
+selecionável, o próprio nó e todos os seus ancestrais estruturais até a raiz
+devem ser selecionáveis. Toda raiz ou pai intermediário que contém seleção
+abaixo dela possui estado binário e `tg`, e participa da seleção segundo as
+regras de D-MULTI-06-P03.
+
+Um item declarado não selecionável não possui estado de seleção, não recebe
+`tg`, não entra no conjunto selecionado e não participa da unanimidade. Ele
+pode ser uma folha ou um pai cujo conteúdo abaixo dele seja integralmente não
+selecionável, mas não pode introduzir uma subárvore com itens selecionáveis.
+Logo, `item não selecionável → toda sua subárvore é não selecionável`.
+
+O cenário `pai não selecionável + descendente selecionável` é configuração
+inválida/incoerente, e não comportamento funcional suportado. Não há Espaço
+recursivo a definir para esse caso. Para pais válidos com descendentes
+selecionáveis, o pai é selecionável, possui `tg` e Espaço opera pela política
+descendente já vigente; D-MULTI-06-P03 continua governando a reconciliação
+pai↔filhos.
+
+Na fixture H-0054, o segundo ramo deve ser lido como `2.` — pai de nível 1
+selecionável — contendo um item explicitamente não selecionável. O pai `2.`
+participa normalmente da seleção e possui `tg`; o item não selecionável não
+possui `tg` e não possui descendentes selecionáveis. O caso negativo correto
+é um pai selecionável com filho selecionável e item não selecionável: o item
+permanece fora da seleção recursiva e não impede a unanimidade calculada
+somente sobre os filhos selecionáveis.
 
 ### D-MULTI-07 — `dois_niveis_por_foco`: estrutura
 
@@ -377,20 +473,69 @@ fechado permanece como item corrente. Espaço sobre um ramo abre ou fecha
 esse ramo. Esta política não possui seleção, não possui `Todos` e não cria
 semântica de Enter.
 
-### 4.6 `selecao_multinivel` — topologia única com Espaço recursivo
+### 4.6 `selecao_multinivel` — topologia única com Espaço recursivo e reconciliação bidirecional
 
 A hierarquia de `selecao_multinivel` pode possuir profundidade arbitrária.
 Todos os elementos navegáveis, independentemente do nível, participam de uma
 única topologia de navegação — não existem toroides independentes por pai,
 por nível ou por ramo. A apresentação pode ocupar múltiplas colunas quando a
 geometria vigente já permitir isso, sem que este ciclo introduza nova
-distribuição geométrica. A hierarquia altera o alcance de Espaço, não divide
-a navegação: sobre uma folha, Espaço alterna entre não selecionada e
-selecionada, nos dois sentidos; sobre um pai, Espaço atua recursivamente
-sobre todos os descendentes selecionáveis em qualquer profundidade — inclui
-todos quando a ação corresponde à inclusão, remove todos quando corresponde
-à remoção — e itens não selecionáveis permanecem sem alteração. A
-apresentação de seleção já existente é reutilizada integralmente.
+distribuição geométrica.
+
+D-MULTI-07-P04 acrescenta a invariável estrutural de que um nó com ao menos
+um descendente selecionável deve ser selecionável, assim como todos os seus
+ancestrais estruturais até a raiz. Portanto, toda raiz e todo pai intermediário
+que contenham seleção abaixo deles possuem estado binário e `tg`. Essa
+restrição vale em profundidade arbitrária e é compatível com D-MULTI-06-P03:
+ela não altera a derivação binária, a unanimidade dos filhos selecionáveis
+imediatos, a reconciliação ascendente, a propagação descendente, a ausência de
+estado parcial ou a topologia única.
+
+Todo item declarado selecionável — raiz, pai intermediário ou folha — possui
+estado binário de seleção e usa a apresentação `tg` já existente. Item não
+selecionável não recebe estado de seleção, não recebe `tg` e não participa do
+cálculo de unanimidade dos filhos selecionáveis.
+
+A hierarquia altera o alcance de Espaço, não divide a navegação: sobre uma
+folha selecionável, Espaço alterna entre não selecionada e selecionada, nos
+dois sentidos. Um pai selecionável fica marcado exatamente quando todos os
+seus filhos selecionáveis imediatos estão selecionados; fica desmarcado quando
+existe pelo menos um filho selecionável imediato não selecionado. Não existe
+estado parcial ou indeterminado.
+
+Depois de qualquer toggle de folha, os pais são reconciliados de baixo para
+cima. Selecionar manualmente todos os filhos selecionáveis imediatos marca o
+pai e, quando aplicável, continua recursivamente até a raiz. Desmarcar um
+filho desmarca o pai e os ancestrais que deixarem de satisfazer a unanimidade,
+sem alterar ramos independentes.
+
+Sobre um pai, Espaço atua recursivamente sobre todos os descendentes
+selecionáveis em qualquer profundidade — inclui todos quando a ação
+corresponde à inclusão, remove todos quando corresponde à remoção — e itens
+não selecionáveis permanecem sem alteração. Após a propagação descendente,
+os estados dos pais são derivados/reconciliados de baixo para cima pela mesma
+regra de unanimidade. A apresentação de seleção já existente é reutilizada
+integralmente; nenhum novo estado visual é criado.
+
+Um pai não selecionável com descendente selecionável é configuração
+inválida/incoerente, não comportamento funcional suportado. Um item declarado
+não selecionável não possui estado de seleção, não recebe `tg`, não entra no
+conjunto selecionado, não participa da unanimidade e não pode introduzir uma
+subárvore com itens selecionáveis. Logo, item não selecionável implica
+subárvore integralmente não selecionável; o item pode ser folha ou pai de
+conteúdo também integralmente não selecionável. Para um pai válido com
+descendentes selecionáveis, o pai é selecionável, possui `tg` e Espaço opera
+pela política descendente já vigente. O caso negativo correto é:
+
+```text
+pai selecionável
+├── filho selecionável
+└── item não selecionável
+```
+
+O item não selecionável permanece sem `tg`, não é marcado pela seleção
+recursiva e não impede a unanimidade calculada somente sobre os filhos
+selecionáveis.
 
 ### 4.7 `dois_niveis_por_foco` — dois toroides e escolha exclusiva por pai
 
@@ -478,7 +623,10 @@ Todas as políticas que possuem seleção (`selecao_multinivel`,
 existente — `tg` com `●`/`○`, conforme `docs/nomenclatura/32_CONSOLE.md`
 §4.4. Nenhuma nova linguagem visual de seleção é criada. `arvore_colapsavel`
 e `tabela` não possuem seleção e, portanto, não exibem `tg` em modo de
-seleção ativa.
+seleção ativa. Em `selecao_multinivel`, a mesma apresentação binária vale
+para folhas e pais selecionáveis; itens não selecionáveis permanecem sem
+estado e sem `tg`, e o estado do pai é derivado dos filhos, não uma seleção
+independente desconectada deles.
 
 ---
 
@@ -524,6 +672,15 @@ políticas multinível fechadas por esta ADR.
 - Nomeia de forma inequívoca a escolha exclusiva obrigatória de filho por
   pai, evitando colisão terminológica com "seleção única" (ADR-0031) e
   preservando a integridade do termo canônico preexistente.
+- Fecha, em `selecao_multinivel`, o estado binário derivado dos pais e a
+  reconciliação recursiva de baixo para cima, tornando demonstrável a
+  bidirecionalidade entre seleção manual de folhas e seleção recursiva de
+  pais.
+- Fecha a coerência estrutural de selecionabilidade: descendente selecionável
+  implica todos os ancestrais até a raiz selecionáveis, enquanto uma subárvore
+  não selecionável não pode conter seleção. Suporte específico a pai não
+  selecionável com descendentes selecionáveis deixa de ser requisito e deverá
+  ser removido ou reconciliado na futura aplicação da implementação.
 - Fixa a subordinação integral à autoridade universal de paginação da
   ADR-0041, evitando qualquer regra concorrente de paginação neste ciclo ou
   em capacidades futuras que herdem desta ADR.
@@ -545,6 +702,10 @@ políticas multinível fechadas por esta ADR.
 - Exigirá, na aplicação e nos handoffs futuros, fixtures com geometria
   suficiente para demonstrar navegação em mais de um eixo quando aplicável,
   conforme o critério de demonstração de D-MULTI-11 (§8).
+- Exigirá, na aplicação e no H-0054, fixture hierárquica com três pais de
+  nível 1, dois pais de nível 2 no primeiro ramo, múltiplas folhas em cada um,
+  ramo não selecionável separado e terceiro ramo, além dos cenários de
+  propagação para baixo, reconciliação para cima e desseleção.
 
 ---
 
@@ -567,6 +728,12 @@ políticas multinível fechadas por esta ADR.
 - Aplicação documental aos contratos e módulos de nomenclatura afetados,
   criação de handoff, implementação, testes e demonstração em TTY — etapas
   distintas, sujeitas a QA favorável desta ADR.
+- H-0053 e H-0055 permanecem preservados e fora do escopo deste patch; não há
+  alteração de `arvore_colapsavel`, `dois_niveis_por_foco`, paginação,
+  PageUp/PageDown, cursor, foco, Enter, execução, confirmação ou persistência.
+- D-MULTI-07-P04 também não altera a barra, os símbolos existentes ou a
+  apresentação `tg`; preserva a barra e `tg` vigentes e não cria nova
+  linguagem visual, geometria ou política de navegação.
 
 ---
 
@@ -612,6 +779,39 @@ políticas multinível fechadas por esta ADR.
   coluna não é aceita como demonstração de navegação horizontal.
 - [ ] Para `tabela`, a demonstração confirma explicitamente a ausência de
   cursor e de `[✥]`.
+- [ ] Em `selecao_multinivel`, toda folha e todo pai declarados selecionáveis
+  possuem estado binário apresentado por `tg`; itens não selecionáveis não
+  possuem estado, não recebem `tg` e são ignorados na unanimidade.
+- [ ] Em `selecao_multinivel`, qualquer descendente selecionável implica que
+  o nó e todos os ancestrais estruturais até a raiz sejam selecionáveis; pai
+  válido com conteúdo selecionável possui `tg`.
+- [ ] Pai não selecionável com descendente selecionável é configuração
+  inválida/incoerente e não possui comportamento funcional suportado; não há
+  Espaço recursivo definido para esse cenário.
+- [ ] Item não selecionável só é folha ou pai de conteúdo integralmente não
+  selecionável; permanece fora do conjunto selecionado e da unanimidade.
+- [ ] Pai selecionável marcado significa que todos os seus filhos
+  selecionáveis imediatos estão marcados; um único filho selecionável
+  desmarcado deixa o pai desmarcado, sem estado parcial ou indeterminado.
+- [ ] O toggle manual de folhas reconcilia pais e ancestrais de baixo para
+  cima; a desseleção desmarca todos os ancestrais afetados e preserva ramos
+  independentes.
+- [ ] Espaço em pai propaga a seleção/remoção a todos os descendentes
+  selecionáveis e, depois, reconcilia os pais de baixo para cima.
+- [ ] A fixture de H-0054 contém pelo menos três pais de nível 1; o primeiro
+  contém pelo menos dois pais de nível 2, cada qual com mais de uma folha
+  selecionável; o segundo ramo possui o pai `2.` selecionável, com `tg`, e um
+  item explicitamente não selecionável sem descendentes selecionáveis; há um
+  terceiro ramo para diversidade/demonstração.
+- [ ] O caso negativo demonstrado é pai selecionável com filho selecionável e
+  item não selecionável; o item não selecionável permanece sem `tg`, não é
+  marcado pela seleção recursiva e não impede a unanimidade dos filhos
+  selecionáveis.
+- [ ] A demonstração futura cobre: Espaço em `1.` marcando `1.1`, `1.2` e
+  `1.`; seleção manual de `1.1.1`/`1.1.2` e dos filhos de `1.2` marcando os
+  pais e depois `1.`; e desseleção de uma folha desmarcando apenas os
+  ancestrais afetados.
+- [ ] H-0053 e H-0055 não são alterados por esta decisão.
 - [ ] Nenhuma implementação de código é feita nesta etapa de ADR.
 - [ ] Nenhum handoff é criado nesta etapa de ADR.
 

@@ -202,6 +202,7 @@ _CATALOGO_CONTEUDO_EXTERNO = {
     "h0037_console_alternavel_tres_niveis": "h0037_tres_niveis_conteudo",
     "h0037_console_tabela_alternavel": "h0037_tabela_conteudo",
     "h0053_arvore_colapsavel": "h0053_arvore_colapsavel_conteudo",
+    "h0054_selecao_multinivel": "h0054_selecao_multinivel_conteudo",
 }
 
 # H-0043 / ADR-0036: cenarios da tela padrao de resultado. Todos resolvem para
@@ -640,6 +641,22 @@ def processar_comando(estado, comando, modelo=None):
     # Boundary de estado: uma árvore focalizada com nós visíveis não chega a
     # chip/renderer sem o cursor reconciliado pela navegação vigente.
     novo = _reconciliar_cursor_focalizado(novo, modelo)
+    # H-0054: qualquer transição que consuma o runtime reconcilia os IDs dos
+    # consoles multinivel já materializados. A reconciliação não cria entradas
+    # para consoles sem seleção e não altera a ordem lógica dos IDs válidos.
+    if modelo is not None and novo.get("selecoes"):
+        selecoes_reconciliadas = dict(novo.get("selecoes", {}))
+        for console in navegacao.lista_foco(modelo):
+            if (
+                navegacao.tipo_navegacao_efetivo(console)
+                == "selecao_multinivel"
+                and console.id in selecoes_reconciliadas
+            ):
+                reconciliado = selecao.reconciliar(novo, console)
+                selecoes_reconciliadas[console.id] = reconciliado[
+                    "selecoes"
+                ][console.id]
+        novo["selecoes"] = selecoes_reconciliadas
 
     fluxo = estado.get("fluxo_execucao")
     if fluxo is not None and isinstance(fluxo, fluxo_execucao_mod.FluxoExecucao):
@@ -856,7 +873,11 @@ def processar_comando(estado, comando, modelo=None):
                         nav_estado = selecao.alternar(
                             nav_estado, console, item.get("id")
                         )
-                elif comando in ("\r", "\n"):
+                elif (
+                    comando in ("\r", "\n")
+                    and navegacao.tipo_navegacao_efetivo(console)
+                    != "selecao_multinivel"
+                ):
                     # D-SEL-04/D-SEL-07/D-SEL-21: Enter com selecao vazia age
                     # como Todos; com selecao, Enter e INATIVO (nenhuma execucao
                     # neste handoff).
@@ -1006,13 +1027,47 @@ def _modelo_com_chip_arvore(estado, modelo):
     prepara uma cópia efêmera do rótulo dinâmico já declarado; a política e o
     estado continuam sendo derivados por ``tela.navegacao``.
     """
-    contexto = navegacao.estado_chip_arvore(
+    contexto = navegacao.estado_chip_arvore(dict(estado, modelo=modelo))
+    contexto_selecao = navegacao.estado_chip_selecao(
         dict(estado, modelo=modelo)
     )
-    if contexto is None or modelo is None:
+    if modelo is None:
         return modelo, None
     barra = copy.deepcopy(modelo.barra_de_menus)
     chips = barra.get("chips", []) if isinstance(barra, dict) else []
+    if contexto_selecao is not None:
+        if not navegacao.exibir_chip_navegar(dict(estado, modelo=modelo)):
+            chips[:] = [
+                chip for chip in chips
+                if not (
+                    isinstance(chip, dict) and chip.get("tecla") == "✥"
+                )
+            ]
+        chip_espaco = next(
+            (
+                chip for chip in chips
+                if isinstance(chip, dict)
+                and chip.get("tipo") == "acao"
+                and chip.get("tecla") == "␣"
+            ),
+            None,
+        )
+        if chip_espaco is not None:
+            chip_espaco["texto"] = "Selecionar"
+        console = navegacao.console_focado(dict(estado, modelo=modelo))
+        for chip in chips:
+            if not isinstance(chip, dict) or chip.get("tecla") != "Esc":
+                continue
+            chip["texto"] = selecao.rotulo_esc(
+                estado, console, chip.get("texto")
+            )
+        if chip_espaco is None:
+            return modelo, None
+        projetado = copy.copy(modelo)
+        projetado.barra_de_menus = barra
+        return projetado, (chip_espaco, contexto_selecao)
+    if contexto is None:
+        return modelo, None
     chip_arvore = next(
         (
             chip for chip in chips
@@ -1068,14 +1123,25 @@ def _lista_foco_para_renderizacao(estado, modelo):
         "altura_interna": estado.get("altura_interna"),
     }
     for console in lista:
-        if navegacao.tipo_navegacao_efetivo(console) != "arvore_colapsavel":
+        tipo = navegacao.tipo_navegacao_efetivo(console)
+        if tipo not in ("arvore_colapsavel", "selecao_multinivel"):
             resultado.append(console)
             continue
         projetado = copy.copy(console)
         campos = dict(console._campos_inertes)
-        nos = navegacao.sequencia_visivel_arvore(console, estado_arvore)
+        if tipo == "arvore_colapsavel":
+            nos = navegacao.sequencia_visivel_arvore(console, estado_arvore)
+        else:
+            nos = navegacao.sequencia_visivel_selecao_multinivel(
+                console, estado_arvore
+            )
         campos["itens"] = [
-            {"id": no.id, "texto": "", "navegavel": True}
+            {
+                "id": no.id,
+                "texto": "",
+                "navegavel": True,
+                "selecionavel": navegacao.no_multinivel_selecionavel(no),
+            }
             for no in nos
         ]
         projetado._campos_inertes = campos
@@ -1303,16 +1369,18 @@ def _reconciliar_paginacao_apos_resize(estado, modelo):
 
 
 def _estabelecer_foco_paginacao_inicial(estado, modelo):
-    """H-0045-P01: materializa foco no primeiro console paginado ao abrir.
+    """Materializa foco inicial para os consoles demonstrativos navegáveis.
 
     VM-H0045-01: ``python demo/demo.py h0045_paginacao_console_unico`` partia
     com ``foco_console=None``. Sem foco, ``[PgUp]``/``[PgDn]`` nao apareciam
     na barra (existencia avaliada so no console focado) e ``PageUp``/
-    ``PageDown`` nao alteravam pagina (``console_focado`` ausente). Espelha
-    o padrao de
-    ``demo_navegacao``/``demo_selecao`` apenas para consoles com
-    ``politica_paginacao: "com"``. Nao sobrescreve foco ja estabelecido via
-    ``estado_inicial``.
+    ``PageDown`` nao alteravam pagina (``console_focado`` ausente). O mesmo
+    boundary precisa inicializar a arvore colapsavel aberta diretamente pelo
+    ponto de entrada: sem foco, cursor e chips contextuais, a politica
+    ``arvore_colapsavel`` nao chega ao caminho compartilhado de renderizacao.
+    Consoles paginados mantem a inicializacao de pagina vigente; a arvore nao
+    recebe estado de pagina por este caminho. Nao sobrescreve foco ja
+    estabelecido via ``estado_inicial``.
     """
     if estado.get("foco_console") is not None:
         return estado
@@ -1320,18 +1388,25 @@ def _estabelecer_foco_paginacao_inicial(estado, modelo):
     if not lista:
         return estado
     if not any(
-        c._campos_inertes.get("politica_paginacao") == "com" for c in lista
+        c._campos_inertes.get("politica_paginacao") == "com"
+        or navegacao.tipo_navegacao_efetivo(c) == "arvore_colapsavel"
+        for c in lista
     ):
         return estado
-    console = lista[0]
+    console = next(
+        c for c in lista
+        if c._campos_inertes.get("politica_paginacao") == "com"
+        or navegacao.tipo_navegacao_efetivo(c) == "arvore_colapsavel"
+    )
     novo = dict(estado)
     novo["foco_console"] = 0
     cursores = dict(estado.get("cursores") or {})
     cursores[console.id] = 0
     novo["cursores"] = cursores
-    paginas = dict(estado.get("pagina_atual") or {})
-    paginas.setdefault(console.id, 1)
-    novo["pagina_atual"] = paginas
+    if console._campos_inertes.get("politica_paginacao") == "com":
+        paginas = dict(estado.get("pagina_atual") or {})
+        paginas.setdefault(console.id, 1)
+        novo["pagina_atual"] = paginas
     return novo
 
 

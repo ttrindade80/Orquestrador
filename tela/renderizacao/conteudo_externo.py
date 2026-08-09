@@ -3,9 +3,25 @@
 from tela.renderizacao.designadores import _texto_designador, _texto_no_conteudo
 from tela.renderizacao.erros import RenderizadorErro
 
+
+def _campo_no(no, nome, padrao=None):
+    campos = getattr(no, "campos", {})
+    if not isinstance(campos, dict):
+        return padrao
+    return campos.get(nome, padrao)
+
+
+def _no_navegavel(no):
+    return _campo_no(no, "navegavel", True) is not False
+
+
+def _no_selecionavel(no):
+    return bool(_campo_no(no, "selecionavel", False)) and _no_navegavel(no)
+
 def _linhas_conteudo_externo(
     conteudo, content_w, verboso=False, ramos_fechados=None,
     no_corrente_id=None, indicador=None, indicador_off=None,
+    selecoes=None, incluir_selecao=False, incluido_on="●", incluido_off="○",
 ):
     """Despacha o conteudo externo para a apresentacao declarada (H-0036).
 
@@ -22,6 +38,10 @@ def _linhas_conteudo_externo(
             no_corrente_id=no_corrente_id,
             indicador=indicador,
             indicador_off=indicador_off,
+            selecoes=selecoes,
+            incluir_selecao=incluir_selecao,
+            incluido_on=incluido_on,
+            incluido_off=incluido_off,
         )
     if apresentacao == "tabela":
         return _linhas_apresentacao_tabela(conteudo, content_w, verboso)
@@ -86,6 +106,7 @@ def _truncar_com_marcador(texto, largura):
 def _linhas_apresentacao_hierarquia_com_mapa(
     conteudo, content_w=None, verboso=False, ramos_fechados=None,
     no_corrente_id=None, indicador=None, indicador_off=None,
+    selecoes=None, incluir_selecao=False, incluido_on="●", incluido_off="○",
 ):
     """Calcula as linhas de cada nó da apresentação ``hierarquia``.
 
@@ -109,6 +130,8 @@ def _linhas_apresentacao_hierarquia_com_mapa(
     ramos_fechados = set(ramos_fechados or ())
     possui_indicador = indicador is not None
     indicador_off = indicador_off if indicador_off is not None else " "
+    selecoes = set(selecoes or ())
+    possui_inclusao = bool(incluir_selecao)
 
     # H-0037: pre-calcula largura maxima dos designadores do nivel raiz para
     # alinhamento de coluna estavel em modo verboso (dois niveis).
@@ -137,6 +160,15 @@ def _linhas_apresentacao_hierarquia_com_mapa(
             if possui_indicador:
                 simbolo = indicador if no.id == no_corrente_id else indicador_off
                 prefixo_indicador = "{0} ".format(simbolo)
+            prefixo_inclusao = ""
+            if possui_inclusao:
+                if _no_selecionavel(no):
+                    simbolo_inclusao = (
+                        incluido_on if no.id in selecoes else incluido_off
+                    )
+                else:
+                    simbolo_inclusao = " "
+                prefixo_inclusao = "{0} ".format(simbolo_inclusao)
             if verboso and content_w is not None:
                 # Modo verboso (contrato_console.md §21.3): TODO no (container
                 # ou folha) pode ocupar varias linhas fisicas. O conteudo e
@@ -150,7 +182,7 @@ def _linhas_apresentacao_hierarquia_com_mapa(
                 else:
                     marc_fmt = marcador
                 prefixo = "{0}{1}{2}".format(
-                    prefixo_indicador + recuo,
+                    prefixo_indicador + prefixo_inclusao + recuo,
                     marc_fmt,
                     " " if marc_fmt else "",
                 )
@@ -163,10 +195,11 @@ def _linhas_apresentacao_hierarquia_com_mapa(
             else:
                 if marcador:
                     prefixo_linha = "{0}{1}{2} ".format(
-                        prefixo_indicador, recuo, marcador
+                        prefixo_indicador + prefixo_inclusao,
+                        recuo, marcador
                     )
                 else:
-                    prefixo_linha = prefixo_indicador + recuo
+                    prefixo_linha = prefixo_indicador + prefixo_inclusao + recuo
                 # H0037-MANUAL-001: em modo nao verboso, o conteudo aplicavel
                 # ocupa exatamente uma linha fisica com marcador de truncamento
                 # quando excede a largura disponivel (contrato_console.md §21.2).
@@ -187,12 +220,15 @@ def _linhas_apresentacao_hierarquia_com_mapa(
 def _linhas_apresentacao_hierarquia(
     conteudo, content_w=None, verboso=False, ramos_fechados=None,
     no_corrente_id=None, indicador=None, indicador_off=None,
+    selecoes=None, incluir_selecao=False, incluido_on="●", incluido_off="○",
 ):
     """Apresentacao ``hierarquia``: lista recuada com designadores por nivel."""
     entradas = _linhas_apresentacao_hierarquia_com_mapa(
         conteudo, content_w, verboso, ramos_fechados=ramos_fechados,
         no_corrente_id=no_corrente_id, indicador=indicador,
-        indicador_off=indicador_off,
+        indicador_off=indicador_off, selecoes=selecoes,
+        incluir_selecao=incluir_selecao, incluido_on=incluido_on,
+        incluido_off=incluido_off,
     )
     return [linha for entrada in entradas for linha in entrada["linhas"]]
 

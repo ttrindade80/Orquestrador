@@ -71,6 +71,17 @@ def itens_selecionaveis(console):
     Itens nao navegaveis e itens nao selecionaveis (``selecionavel`` ausente ou
     falso) ficam de fora. Retorna lista de IDs (strings), na ordem declarada.
     """
+    if _eh_selecao_multinivel(console):
+        from tela import navegacao
+
+        conteudo = getattr(console, "conteudo_externo", None)
+        nos = getattr(conteudo, "nos", ()) if conteudo is not None else ()
+        return [
+            no.id for no in navegacao._nos_em_pre_ordem(nos)
+            if navegacao.no_multinivel_selecionavel(no)
+            and no.id is not None
+        ]
+
     itens = console._campos_inertes.get("itens", []) or []
     return [
         item.get("id")
@@ -129,6 +140,8 @@ def alternar(estado, console, id_item):
     Apos a transicao, a selecao e reordenada pela ordem logica do console
     (D-SEL-02), de modo que a marcacao nunca introduz ordem propria observavel.
     """
+    if _eh_selecao_multinivel(console):
+        return _alternar_multinivel(estado, console, id_item)
     if not item_selecionavel(console, id_item):
         # D-SEL-05: item não selecionável ignora Espaço (sem efeito).
         return _escrever_selecao(estado, console, _selecao_do_console(estado, console))
@@ -144,6 +157,124 @@ def alternar(estado, console, id_item):
     return _escrever_selecao(estado, console, ordenado)
 
 
+def _eh_selecao_multinivel(console):
+    campos = getattr(console, "_campos_inertes", {})
+    politica = campos.get("politica_navegacao") if isinstance(campos, dict) else None
+    return isinstance(politica, dict) and politica.get("tipo") == "selecao_multinivel"
+
+
+def _alvos_multinivel(console, id_item):
+    """Resolve o item corrente e seu alcance recursivo selecionável.
+
+    O próprio item selecionável faz parte do alcance. Isso permite que um
+    pai sem filhos selecionáveis imediatos ainda seja alternado como estado
+    binário independente; quando há filhos selecionáveis, a reconciliação
+    posterior deriva o estado parental pela unanimidade.
+    """
+    from tela import navegacao
+
+    conteudo = getattr(console, "conteudo_externo", None)
+    nos = getattr(conteudo, "nos", ()) if conteudo is not None else ()
+    corrente = next(
+        (
+            no for no in navegacao._nos_em_pre_ordem(nos)
+            if no.id == id_item
+        ),
+        None,
+    )
+    if corrente is None:
+        return []
+    # A configuração válida não possui selecionáveis sob um nó não
+    # selecionável. Sem suporte transitório para esse cenário inválido,
+    # Espaço só resolve o alcance de um item selecionável.
+    if not navegacao.no_multinivel_selecionavel(corrente):
+        return []
+    candidatos = [corrente] + navegacao._descendentes(corrente)
+    return [
+        no.id for no in candidatos
+        if navegacao.no_multinivel_selecionavel(no) and no.id is not None
+    ]
+
+
+def _nos_e_pais_multinivel(console):
+    """Retorna nós em pré-ordem e o pai lógico de cada nó."""
+    from tela import navegacao
+
+    conteudo = getattr(console, "conteudo_externo", None)
+    nos = getattr(conteudo, "nos", ()) if conteudo is not None else ()
+    todos = []
+    pais = {}
+
+    def recorrer(atual, pai=None):
+        for no in atual or ():
+            todos.append(no)
+            if pai is not None and no.id is not None:
+                pais[no.id] = pai
+            recorrer(getattr(no, "filhos", ()), no)
+
+    recorrer(nos)
+    return todos, pais
+
+
+def _reconciliar_ids_multinivel(console, ids):
+    """Reconcilia estados parentais binários em pós-ordem.
+
+    Para cada nó selecionável que possui filhos selecionáveis imediatos, o
+    estado é derivado exclusivamente desses filhos. Nós não selecionáveis e
+    pais sem filhos selecionáveis não recebem estado derivado. A saída segue
+    a ordem lógica dos IDs estáveis já usada pelo console.
+    """
+    from tela import navegacao
+
+    validos = set(itens_selecionaveis(console))
+    marcados = {id_item for id_item in ids if id_item in validos}
+    todos, _pais = _nos_e_pais_multinivel(console)
+
+    # A pré-ordem coloca todos os descendentes depois de seus pais; invertê-la
+    # garante que um pai leia estados já reconciliados dos filhos.
+    for no in reversed(todos):
+        if not navegacao.no_multinivel_selecionavel(no):
+            continue
+        filhos_selecionaveis = [
+            filho for filho in getattr(no, "filhos", ()) or ()
+            if navegacao.no_multinivel_selecionavel(filho)
+            and filho.id is not None
+        ]
+        if not filhos_selecionaveis:
+            continue
+        if all(filho.id in marcados for filho in filhos_selecionaveis):
+            marcados.add(no.id)
+        else:
+            marcados.discard(no.id)
+
+    return [id_item for id_item in itens_selecionaveis(console)
+            if id_item in marcados]
+
+
+def _alternar_multinivel(estado, console, id_item):
+    """Alterna um item e reconcilia todos os pais afetados H-0054."""
+    alvos = _alvos_multinivel(console, id_item)
+    if not alvos:
+        return _escrever_selecao(
+            estado,
+            console,
+            _reconciliar_ids_multinivel(
+                console, _selecao_do_console(estado, console)
+            ),
+        )
+    atual = _reconciliar_ids_multinivel(console, selecao(console, estado))
+    atual_set = set(atual)
+    if all(id_alvo in atual_set for id_alvo in alvos):
+        novo_set = atual_set.difference(alvos)
+    else:
+        novo_set = atual_set.union(alvos)
+    return _escrever_selecao(
+        estado,
+        console,
+        _reconciliar_ids_multinivel(console, novo_set),
+    )
+
+
 def selecionar_todos(estado, console):
     """Retorna novo ``estado`` com todos os selecionaveis marcados (D-SEL-04).
 
@@ -155,7 +286,10 @@ def selecionar_todos(estado, console):
     Nao executa, nao consome, nao produz resultado: a marcacao e o unico
     efeito (D-SEL-21).
     """
-    return _escrever_selecao(estado, console, itens_selecionaveis(console))
+    ids = itens_selecionaveis(console)
+    if _eh_selecao_multinivel(console):
+        ids = _reconciliar_ids_multinivel(console, ids)
+    return _escrever_selecao(estado, console, ids)
 
 
 def reconciliar(estado, console):
@@ -167,7 +301,10 @@ def reconciliar(estado, console):
     nao executa nem aplica Todos no mesmo acionamento`` (D-SEL-04): esta
     funcao apenas limpa residuo, nunca marca.
     """
-    return _escrever_selecao(estado, console, selecao(console, estado))
+    ids = selecao(console, estado)
+    if _eh_selecao_multinivel(console):
+        ids = _reconciliar_ids_multinivel(console, ids)
+    return _escrever_selecao(estado, console, ids)
 
 
 def esta_vazia(estado, console):
@@ -256,6 +393,10 @@ def chip_espaco_ativo(console, estado, navegacao):
     item = navegacao.item_selecionado(console, estado)
     if not isinstance(item, dict):
         return False
+    tipo_navegacao = getattr(navegacao, "tipo_navegacao_efetivo", None)
+    if tipo_navegacao is not None and tipo_navegacao(console) == "selecao_multinivel":
+        no = item.get("_no_multinivel")
+        return navegacao.no_tem_alcance_selecao(no)
     return bool(item.get("selecionavel"))
 
 

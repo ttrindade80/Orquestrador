@@ -41,6 +41,34 @@ def _item_eh_navegavel(item):
     return isinstance(item, dict) and bool(item.get("navegavel"))
 
 
+def _campo_no(no, nome, padrao=None):
+    """Le um campo de navegacao do no externo sem ampliar o modelo."""
+    campos = getattr(no, "campos", {})
+    if not isinstance(campos, dict):
+        return padrao
+    return campos.get(nome, padrao)
+
+
+def no_multinivel_navegavel(no):
+    """True quando o no externo participa do percurso multinivel.
+
+    O modelo de conteudo externo transporta campos desconhecidos em
+    ``NoConteudo.campos``. A ausencia de ``navegavel`` conserva a semantica
+    hierarquica vigente: o no e navegavel por default. A politica explicita
+    H-0054 continua sendo decidida somente pelo console.
+    """
+    return _campo_no(no, "navegavel", True) is not False
+
+
+def no_multinivel_selecionavel(no):
+    """True quando o no externo pode entrar no conjunto de selecao."""
+    return bool(_campo_no(no, "selecionavel", False)) and no_multinivel_navegavel(no)
+
+
+def _eh_selecao_multinivel(elemento):
+    return tipo_navegacao_efetivo(elemento) == "selecao_multinivel"
+
+
 def itens_navegaveis(elemento):
     """Lista de itens navegaveis do console na ordem declarada (D7).
 
@@ -89,6 +117,14 @@ def console_e_focalizavel(elemento):
     if tipo == "arvore_colapsavel":
         conteudo = getattr(elemento, "conteudo_externo", None)
         return conteudo is not None and bool(getattr(conteudo, "nos", None))
+    if tipo == "selecao_multinivel":
+        conteudo = getattr(elemento, "conteudo_externo", None)
+        if conteudo is None or not getattr(conteudo, "nos", None):
+            return False
+        return any(
+            no_multinivel_navegavel(no)
+            for no in _nos_em_pre_ordem(getattr(conteudo, "nos", ()))
+        )
     if tipo != "nivel_unico":
         return False
     return len(itens_navegaveis(elemento)) > 0
@@ -499,6 +535,58 @@ def _ramos_fechados_do_console(estado, console):
     return set(fechados or ())
 
 
+def _nos_em_pre_ordem(nos):
+    """Achata uma hierarquia externa preservando a ordem declarada."""
+    resultado = []
+
+    def recorrer(atual):
+        for no in atual or ():
+            resultado.append(no)
+            recorrer(getattr(no, "filhos", ()))
+
+    recorrer(nos)
+    return resultado
+
+
+def _sequencia_estrutural_selecao_multinivel(elemento):
+    """Retorna a topologia unica de nos navegaveis do H-0054."""
+    conteudo = getattr(elemento, "conteudo_externo", None)
+    if conteudo is None:
+        return []
+    return [
+        no for no in _nos_em_pre_ordem(getattr(conteudo, "nos", ()))
+        if no_multinivel_navegavel(no)
+    ]
+
+
+def _sequencia_com_indices_selecao_multinivel(
+    elemento, estado, itens_permitidos=None
+):
+    estrutural = _sequencia_estrutural_selecao_multinivel(elemento)
+    if itens_permitidos is None:
+        itens_permitidos = _itens_permitidos_da_pagina(estado, elemento)
+    if itens_permitidos is None:
+        return list(enumerate(estrutural))
+    permitidos = set(itens_permitidos)
+    return [
+        (indice, no)
+        for indice, no in enumerate(estrutural)
+        if indice in permitidos
+    ]
+
+
+def sequencia_visivel_selecao_multinivel(
+    elemento, estado, itens_permitidos=None
+):
+    """Retorna a projeção paginada da topologia única do H-0054."""
+    return [
+        no for _indice, no in
+        _sequencia_com_indices_selecao_multinivel(
+            elemento, estado, itens_permitidos
+        )
+    ]
+
+
 def _sequencia_estrutural_arvore(elemento, estado):
     """Deriva a pre-ordem visivel da hierarquia canonica do console."""
     conteudo = getattr(elemento, "conteudo_externo", None)
@@ -566,10 +654,16 @@ def reconciliar_cursor_arvore(estado, console=None):
     """
     if console is None:
         console = console_focado(estado)
-    if console is None or tipo_navegacao_efetivo(console) != "arvore_colapsavel":
+    if console is None:
         return dict(estado)
 
-    acessiveis = _sequencia_com_indices_arvore(console, estado)
+    tipo = tipo_navegacao_efetivo(console)
+    if tipo == "arvore_colapsavel":
+        acessiveis = _sequencia_com_indices_arvore(console, estado)
+    elif tipo == "selecao_multinivel":
+        acessiveis = _sequencia_com_indices_selecao_multinivel(console, estado)
+    else:
+        return dict(estado)
     cursores = dict(estado.get("cursores", {}) or {})
     if not acessiveis:
         cursores.pop(console.id, None)
@@ -625,6 +719,8 @@ def mover_baixo(estado, console, itens_permitidos=None):
     """
     if tipo_navegacao_efetivo(console) == "arvore_colapsavel":
         return _mover_arvore(estado, console, +1, itens_permitidos)
+    if tipo_navegacao_efetivo(console) == "selecao_multinivel":
+        return _mover_selecao_multinivel(estado, console, +1, itens_permitidos)
     return _mover_vertical(estado, console, +1, itens_permitidos=itens_permitidos)
 
 
@@ -639,12 +735,36 @@ def mover_cima(estado, console, itens_permitidos=None):
     """
     if tipo_navegacao_efetivo(console) == "arvore_colapsavel":
         return _mover_arvore(estado, console, -1, itens_permitidos)
+    if tipo_navegacao_efetivo(console) == "selecao_multinivel":
+        return _mover_selecao_multinivel(estado, console, -1, itens_permitidos)
     return _mover_vertical(estado, console, -1, itens_permitidos=itens_permitidos)
 
 
 def _mover_arvore(estado, console, passo, itens_permitidos=None):
     """Move pelo índice estrutural da projeção visível corrente."""
     acessiveis = _sequencia_com_indices_arvore(
+        console, estado, itens_permitidos
+    )
+    if len(acessiveis) < 2:
+        return dict(estado)
+    cursor = (estado.get("cursores", {}) or {}).get(console.id, 0)
+    indices = [indice for indice, _no in acessiveis]
+    if cursor not in indices:
+        return dict(estado)
+    posicao = indices.index(cursor)
+    novo_posicao = posicao + passo
+    if novo_posicao < 0 or novo_posicao >= len(acessiveis):
+        return dict(estado)
+    novo = dict(estado)
+    cursores = dict(estado.get("cursores", {}) or {})
+    cursores[console.id] = acessiveis[novo_posicao][0]
+    novo["cursores"] = cursores
+    return novo
+
+
+def _mover_selecao_multinivel(estado, console, passo, itens_permitidos=None):
+    """Move cima/baixo na sequencia linear de todos os niveis navegaveis."""
+    acessiveis = _sequencia_com_indices_selecao_multinivel(
         console, estado, itens_permitidos
     )
     if len(acessiveis) < 2:
@@ -749,6 +869,23 @@ def item_selecionado(console, estado):
     toggle por espaco e sem indicador de inclusao. Retorna o dict do item
     navegavel corrente ou ``None`` quando o console nao tem item navegavel.
     """
+    if tipo_navegacao_efetivo(console) == "selecao_multinivel":
+        acessiveis = _sequencia_com_indices_selecao_multinivel(console, estado)
+        cursor = (estado.get("cursores", {}) or {}).get(console.id, 0)
+        no = next(
+            (no for indice, no in acessiveis if indice == cursor),
+            None,
+        )
+        if no is None:
+            return None
+        return {
+            "id": no.id,
+            "texto": "",
+            "navegavel": True,
+            "selecionavel": no_multinivel_selecionavel(no),
+            "_no_multinivel": no,
+        }
+
     navegaveis = itens_navegaveis(console)
     if not navegaveis:
         return None
@@ -798,6 +935,8 @@ def exibir_chip_navegar(estado):
     console = lista[foco]
     if tipo_navegacao_efetivo(console) == "arvore_colapsavel":
         return len(sequencia_visivel_arvore(console, estado)) > 1
+    if tipo_navegacao_efetivo(console) == "selecao_multinivel":
+        return len(sequencia_visivel_selecao_multinivel(console, estado)) > 1
     if console._campos_inertes.get("politica_paginacao") == "com":
         from tela import paginacao
 
@@ -830,6 +969,42 @@ def estado_chip_arvore(estado):
         "item_id": corrente.id,
         "texto": "Expandir" if not possui_filhos or corrente.id in fechados else "Recolher",
         "ativo": possui_filhos,
+    }
+
+
+def _descendentes(no):
+    resultado = []
+
+    def recorrer(filhos):
+        for filho in filhos or ():
+            resultado.append(filho)
+            recorrer(getattr(filho, "filhos", ()))
+
+    recorrer(getattr(no, "filhos", ()))
+    return resultado
+
+
+def no_tem_alcance_selecao(no):
+    """True quando Espaço tem ao menos um alvo selecionavel no no corrente."""
+    # Em uma configuração válida, toda seleção abaixo já torna o nó corrente
+    # selecionável. Não há alcance especial através de pai não selecionável.
+    return no is not None and no_multinivel_selecionavel(no)
+
+
+def estado_chip_selecao(estado):
+    """Deriva a acionabilidade do chip ``[␣] Selecionar`` do H-0054."""
+    console = console_focado(estado)
+    if console is None or tipo_navegacao_efetivo(console) != "selecao_multinivel":
+        return None
+    item = item_selecionado(console, estado)
+    no = item.get("_no_multinivel") if isinstance(item, dict) else None
+    if no is None:
+        return None
+    return {
+        "console_id": console.id,
+        "item_id": no.id,
+        "texto": "Selecionar",
+        "ativo": no_tem_alcance_selecao(no),
     }
 
 

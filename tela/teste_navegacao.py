@@ -62,6 +62,45 @@ def _arvore(idc="arvore", nos=None, navegavel=True):
     return console
 
 
+def _selecao_multinivel(idc="selecao", nos=None):
+    console = _console(
+        idc,
+        [],
+        navegavel=True,
+        tipo_navegacao="selecao_multinivel",
+    )
+    console._campos_inertes["politica_selecao"] = "multipla"
+    console.conteudo_externo = ConteudoExterno(
+        tipo="multinivel",
+        apresentacao="hierarquia",
+        niveis=[
+            NivelConteudo(
+                id="grupo", tipo="container", conteudo="texto",
+                designador={"tipo": "decimal"},
+            ),
+            NivelConteudo(
+                id="item", tipo="conteudo", conteudo="texto",
+                designador={"tipo": "decimal"},
+            ),
+        ],
+        nos=nos or [],
+    )
+    return console
+
+
+def _no_selecao(idc, nivel="item", selecionavel=False, filhos=None):
+    return NoConteudo(
+        id=idc,
+        nivel=nivel,
+        campos={
+            "texto": idc,
+            "navegavel": True,
+            "selecionavel": selecionavel,
+        },
+        filhos=list(filhos or []),
+    )
+
+
 def _no(idc, *filhos):
     return NoConteudo(id=idc, nivel="item", filhos=list(filhos))
 
@@ -1510,6 +1549,220 @@ def teste_h0052_tabela_eh_passiva_no_foco_chip_e_movimento_direto():
     ):
         novo = mover(estado, tabela)
         assert novo["cursores"] == {"tabela": 1}
+
+
+# H-0054 -- selecao_multinivel: topologia, selecao e reconciliacao
+def teste_h0054_politica_explicita_focaliza_e_fallback_legado_preserva_nivel_unico():
+    raiz = _no_selecao(
+        "raiz", nivel="grupo", filhos=[_no_selecao("folha", selecionavel=True)]
+    )
+    console = _selecao_multinivel(nos=[raiz])
+    assert navegacao.tipo_navegacao_efetivo(console) == "selecao_multinivel"
+    assert navegacao.console_e_focalizavel(console) is True
+    assert navegacao.lista_foco([console]) == [console]
+
+    legado = _console("legado", [_item("a", "A")])
+    assert navegacao.tipo_navegacao_efetivo(legado) == "nivel_unico"
+    assert navegacao.console_e_focalizavel(legado) is True
+
+
+def teste_h0054_percurso_unico_atravessa_raiz_filho_neto_e_ignora_selecao():
+    neto = _no_selecao("neto", selecionavel=True)
+    filho = _no_selecao("filho", nivel="grupo", filhos=[neto])
+    raiz = _no_selecao("raiz", nivel="grupo", filhos=[filho])
+    console = _selecao_multinivel(nos=[raiz, _no_selecao("depois")])
+    estado = _estado(
+        [console], foco=0, cursores={console.id: 0},
+    )
+    ids = ["raiz", "filho", "neto", "depois"]
+    assert [n.id for n in navegacao.sequencia_visivel_selecao_multinivel(
+        console, estado
+    )] == ids
+    for esperado in ids[1:]:
+        estado = navegacao.mover_baixo(estado, console)
+        assert navegacao.item_selecionado(console, estado)["id"] == esperado
+    assert "selecoes" not in estado
+    estado["selecoes"] = {console.id: ["neto"]}
+    anterior = estado["selecoes"]
+    movido = navegacao.mover_cima(estado, console)
+    assert movido["selecoes"] == {console.id: ["neto"]}
+    assert anterior == estado["selecoes"]
+
+
+def teste_h0054_espaco_toggle_de_folha_e_alcance_recursivo_de_pai():
+    neto_a = _no_selecao("neto_a", selecionavel=True)
+    nao = _no_selecao("nao", selecionavel=False)
+    pai = _no_selecao(
+        "pai", nivel="grupo", selecionavel=True, filhos=[neto_a, nao]
+    )
+    folha = _no_selecao("folha", selecionavel=True)
+    console = _selecao_multinivel(nos=[pai, folha])
+    from tela import selecao
+
+    estado = _estado([console], foco=0, cursores={console.id: 0})
+    estado = selecao.alternar(estado, console, "pai")
+    assert estado["selecoes"][console.id] == ["pai", "neto_a"]
+    assert estado["cursores"][console.id] == 0
+    estado = selecao.alternar(estado, console, "pai")
+    assert estado["selecoes"][console.id] == []
+    estado = selecao.alternar(estado, console, "folha")
+    assert estado["selecoes"][console.id] == ["folha"]
+    estado = selecao.alternar(estado, console, "folha")
+    assert estado["selecoes"][console.id] == []
+
+
+def _arvore_selecao_h0054():
+    folha_111 = _no_selecao("folha_111", selecionavel=True)
+    folha_112 = _no_selecao("folha_112", selecionavel=True)
+    pai_11 = _no_selecao(
+        "pai_11", nivel="grupo", selecionavel=True,
+        filhos=[folha_111, folha_112],
+    )
+    folha_121 = _no_selecao("folha_121", selecionavel=True)
+    folha_122 = _no_selecao("folha_122", selecionavel=True)
+    pai_12 = _no_selecao(
+        "pai_12", nivel="grupo", selecionavel=True,
+        filhos=[folha_121, folha_122],
+    )
+    raiz = _no_selecao(
+        "raiz_hierarquica", nivel="grupo", selecionavel=True,
+        filhos=[pai_11, pai_12],
+    )
+    irmao = _no_selecao(
+        "ramo_irmao", nivel="grupo", selecionavel=True,
+        filhos=[_no_selecao("folha_irma", selecionavel=True)],
+    )
+    nao = _no_selecao("nao_selecionavel", selecionavel=False)
+    return _selecao_multinivel(nos=[raiz, irmao, nao])
+
+
+def teste_h0054_pai_selecionado_diretamente_reconcilia_toda_a_subarvore():
+    from tela import selecao
+
+    console = _arvore_selecao_h0054()
+    estado = _estado([console], foco=0, cursores={console.id: 0})
+    marcado = selecao.alternar(estado, console, "raiz_hierarquica")
+
+    assert marcado["selecoes"][console.id] == [
+        "raiz_hierarquica", "pai_11", "folha_111", "folha_112",
+        "pai_12", "folha_121", "folha_122",
+    ]
+    assert "nao_selecionavel" not in marcado["selecoes"][console.id]
+
+
+def teste_h0054_construcao_manual_de_pai_intermediario_e_raiz():
+    from tela import selecao
+
+    console = _arvore_selecao_h0054()
+    estado = _estado([console], foco=0, cursores={console.id: 0})
+    estado = selecao.alternar(estado, console, "folha_111")
+    assert estado["selecoes"][console.id] == ["folha_111"]
+
+    estado = selecao.alternar(estado, console, "folha_112")
+    assert estado["selecoes"][console.id] == [
+        "pai_11", "folha_111", "folha_112",
+    ]
+    assert "raiz_hierarquica" not in estado["selecoes"][console.id]
+
+    estado = selecao.alternar(estado, console, "folha_121")
+    assert "pai_12" not in estado["selecoes"][console.id]
+    assert "raiz_hierarquica" not in estado["selecoes"][console.id]
+    estado = selecao.alternar(estado, console, "folha_122")
+    assert "pai_12" in estado["selecoes"][console.id]
+    assert "raiz_hierarquica" in estado["selecoes"][console.id]
+
+
+def teste_h0054_desselecionar_folha_desmarca_ancestrais_preserva_irmao():
+    from tela import selecao
+
+    console = _arvore_selecao_h0054()
+    estado = _estado([console], foco=0, cursores={console.id: 0})
+    estado = selecao.alternar(estado, console, "raiz_hierarquica")
+    estado = selecao.alternar(estado, console, "folha_111")
+    ids = set(estado["selecoes"][console.id])
+
+    assert {"folha_111", "pai_11", "raiz_hierarquica"}.isdisjoint(ids)
+    assert {"pai_12", "folha_121", "folha_122"}.issubset(ids)
+
+
+def teste_h0054_nao_selecionavel_nao_tem_estado_nem_tg_e_e_ignorado():
+    from tela import selecao
+
+    console = _arvore_selecao_h0054()
+    estado = _estado([console], foco=0, cursores={console.id: 11})
+    sem_efeito = selecao.alternar(estado, console, "nao_selecionavel")
+
+    assert navegacao.no_multinivel_selecionavel(
+        next(no for no in navegacao._nos_em_pre_ordem(console.conteudo_externo.nos)
+             if no.id == "nao_selecionavel")
+    ) is False
+    assert sem_efeito["selecoes"].get(console.id, []) == []
+    assert navegacao.no_tem_alcance_selecao(
+        next(no for no in navegacao._nos_em_pre_ordem(console.conteudo_externo.nos)
+             if no.id == "nao_selecionavel")
+    ) is False
+
+
+def teste_h0054_reconciliacao_funciona_em_profundidade_arbitraria_sem_estado_parcial():
+    from tela import selecao
+
+    folha_a = _no_selecao("prof_folha_a", selecionavel=True)
+    folha_b = _no_selecao("prof_folha_b", selecionavel=True)
+    nivel_4 = _no_selecao(
+        "prof_nivel_4", nivel="grupo", selecionavel=True,
+        filhos=[folha_a, folha_b],
+    )
+    nivel_3 = _no_selecao(
+        "prof_nivel_3", nivel="grupo", selecionavel=True,
+        filhos=[nivel_4],
+    )
+    nivel_2 = _no_selecao(
+        "prof_nivel_2", nivel="grupo", selecionavel=True,
+        filhos=[nivel_3],
+    )
+    raiz = _no_selecao(
+        "prof_raiz", nivel="grupo", selecionavel=True,
+        filhos=[nivel_2],
+    )
+    console = _selecao_multinivel(nos=[raiz])
+    estado = _estado([console], foco=0, cursores={console.id: 0})
+
+    estado = selecao.alternar(estado, console, "prof_folha_a")
+    assert estado["selecoes"][console.id] == ["prof_folha_a"]
+    estado = selecao.alternar(estado, console, "prof_folha_b")
+    assert estado["selecoes"][console.id] == [
+        "prof_raiz", "prof_nivel_2", "prof_nivel_3", "prof_nivel_4",
+        "prof_folha_a", "prof_folha_b",
+    ]
+    assert not any(
+        estado["selecoes"][console.id].count(id_item) > 1
+        for id_item in estado["selecoes"][console.id]
+    )
+
+
+def teste_h0054_reconciliacao_remove_ids_nao_selecionaveis_ou_nao_navegaveis():
+    valido = _no_selecao("valido", selecionavel=True)
+    removido = _no_selecao("removido", selecionavel=True)
+    console = _selecao_multinivel(nos=[valido, removido])
+    from tela import selecao
+
+    estado = {"selecoes": {console.id: ["removido", "valido", "inexistente"]}}
+    removido.campos["navegavel"] = False
+    reconciliado = selecao.reconciliar(estado, console)
+    assert reconciliado["selecoes"][console.id] == ["valido"]
+
+
+def teste_h0054_chip_de_selecao_tem_alcance_no_pai_e_fica_inativo_sem_alvo():
+    pai = _no_selecao(
+        "pai", nivel="grupo", selecionavel=True,
+        filhos=[_no_selecao("folha", selecionavel=True)]
+    )
+    sem_alvo = _no_selecao("sem_alvo", nivel="grupo", filhos=[_no_selecao("x")])
+    console = _selecao_multinivel(nos=[pai, sem_alvo])
+    estado = _estado([console], foco=0, cursores={console.id: 0})
+    assert navegacao.estado_chip_selecao(estado)["ativo"] is True
+    estado["cursores"][console.id] = 2
+    assert navegacao.estado_chip_selecao(estado)["ativo"] is False
 
 
 # H-0053 -- arvore_colapsavel sobre ConteudoExterno/NoConteudo

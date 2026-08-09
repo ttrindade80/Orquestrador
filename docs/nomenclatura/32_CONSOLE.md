@@ -122,23 +122,24 @@ fechado.
 
 ### 4.4 Estrutura do item do console
 
-Todo item de um corpo tipo `console` navegável tem exatamente três partes,
-sempre na mesma ordem:
+No item navegável, `ec` identifica o espaço do cursor e `tx` o texto. Item
+selecionável acrescenta `tg`, sempre na ordem `ec`, `tg`, `tx`:
 
 | Parte | Sigla | Função |
 |---|---|---|
 | Espaço do cursor | `ec` | onde `selecionado` (`→` ou preset equivalente) aparece quando o cursor está na linha |
-| Espaço de toggle | `tg` | onde `incluido` (`●`/`○` ou preset equivalente) aparece |
+| Espaço de toggle | `tg` | onde `incluido` (`●`/`○` ou preset equivalente) aparece em item selecionável |
 | Texto do item | `tx` | conteúdo, tamanho variável |
 
-**Uma estrutura só, não duas**: a diferença entre item com seleção real e item
-navegável sem seleção é o **conteúdo visual de `tg`** que muda — não a estrutura.
+**Uma estrutura só, não duas**: a apresentação de seleção usa `tg` no item
+selecionável. Item não selecionável não possui estado de seleção e não recebe
+`tg`.
 
 - Com seleção real: `tg` mostra par on/off completo.
-- Sem seleção: `tg` mostra símbolo estático (não alterna), configurável via schema.
+- Item não selecionável: não possui `tg` nem estado de seleção.
 
-**Sobreposição `ec` × `tg`**: os dois espaços coexistem em posições distintas
-e adjacentes, não se sobrepõem entre si.
+**Sobreposição `ec` × `tg`**: quando `tg` existe, os dois espaços coexistem em
+posições distintas e adjacentes, não se sobrepõem entre si.
 
 ### 4.5 Terminologia de navegação de nível único (ADR-0031)
 
@@ -278,7 +279,7 @@ requisição, mas não pertence ao console nem ao lote.
 | **`nivel_unico`** | Política que preserva integralmente o comportamento vigente de nível único, sem redesenho. |
 | **`tabela` como política de navegação** | Política passiva: não participa do foco, não recebe cursor entre linhas, não é percorrida pelas setas, não exibe `[✥]` e não tem fallback para `nivel_unico`. Não é propriedade terminológica da apresentação `tabela`; uma declaração incompatível como navegável é falha focal. |
 | **`arvore_colapsavel`** | Política de árvore hierárquica navegável sem seleção; ↑/↓ percorrem o que está visível e Espaço abre ou fecha o ramo corrente. |
-| **`selecao_multinivel`** | Política de profundidade arbitrária que reúne todos os níveis em uma única topologia de navegação e usa Espaço para alternância em folhas ou alcance recursivo nos descendentes de um pai. |
+| **`selecao_multinivel`** | Política única de profundidade arbitrária e selecionabilidade estruturalmente coerente: descendente selecionável implica todos os ancestrais estruturais selecionáveis; pai com seleção abaixo possui estado binário e `tg`; item não selecionável não possui estado nem `tg`, fica fora da seleção e da unanimidade e implica subárvore integralmente não selecionável; pai não selecionável com descendente selecionável é configuração inválida. D-MULTI-06-P03 permanece vigente: o pai deriva seu estado da unanimidade dos filhos selecionáveis imediatos, com reconciliação ascendente, sem estado parcial. |
 | **`dois_niveis_por_foco`** | Política com exatamente dois níveis — pais e filhos diretos —, um toroide único de pais e um toroide próprio de filhos para cada pai. |
 | **seleção exclusiva obrigatória de filho por pai** | Mecanismo de `dois_niveis_por_foco` em que cada pai mantém exatamente um filho escolhido; Espaço transfere a escolha para outro filho, mas mover o cursor não a transfere. |
 
@@ -319,6 +320,8 @@ borda ou nova regra de paginação. Foco, cursor e seleção continuam distintos
 | repaginação (D-PAG-10) × reconciliação especializada por ID (ADR-0037) | Repaginação genérica é regra padrão do `ITEM-0003` para atualização de dados; a reconciliação por ID do retorno pós-execução real do Handoff 4 é especialização exclusiva da ADR-0037 e tem precedência onde as duas poderiam se sobrepor |
 | `tabela` como política × `tabela` como apresentação | A política `tabela` é passiva e define navegabilidade; a apresentação `tabela` pertence ao vocabulário de apresentação e não recebe propriedade da política por homonímia |
 | cursor × escolha do filho | Cursor indica o item corrente; em `dois_niveis_por_foco`, a escolha do filho só muda por Espaço e permanece independente do movimento do cursor |
+| estado de seleção do pai × estado paralelo | O estado do pai é binário e derivado da unanimidade dos filhos selecionáveis imediatos; não é contador, seleção independente, estado parcial ou terceiro estado |
+| item não selecionável × unanimidade | Item não selecionável não possui estado de seleção, não recebe `tg` e não participa da unanimidade |
 | seleção única × seleção exclusiva obrigatória de filho por pai | Seleção única é o item sob cursor da ADR-0031; seleção exclusiva obrigatória de filho por pai mantém uma escolha persistente e exclusiva por pai em `dois_niveis_por_foco` |
 | navegação × paginação | Navegação move o cursor conforme a política ativa; paginação permanece independente e subordinada à ADR-0041, sem troca implícita de página pelo cursor |
 | chip contextual × seleção | `[␣] Expandir`/`[␣] Recolher` refletem o item corrente de `arvore_colapsavel`; `[␣] Selecionar` pertence à seleção múltipla — a tecla física compartilhada não funde as semânticas |

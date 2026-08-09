@@ -36,6 +36,7 @@ from demo.demo import (  # noqa: E402
     _carregar_modelo_por_id,
     criar_estado_inicial,
     _preparar_estado_h0053,
+    main as demo_main,
     processar_comando,
     renderizar_estado,
     _tela_inicial_de_argv,
@@ -139,6 +140,15 @@ _SMOKE = [
         "conteudo_incorreto": "H-0037 conteudo_dois_niveis",
         "placeholder": "AUSENTE",
     },
+    {
+        "cenario": "h0054_selecao_multinivel",
+        "estrutural": "h0054_selecao_multinivel",
+        "externo": "h0054_selecao_multinivel_conteudo",
+        "identidade": "Pai nível 1 selecionável",
+        "identidade_extra": "Navegação e seleção",
+        "conteudo_incorreto": "(console)",
+        "placeholder": "AUSENTE",
+    },
 ]
 
 
@@ -166,6 +176,7 @@ def teste_catalogo():
         "h0037_console_alternavel_tres_niveis": "h0037_tres_niveis_conteudo",
         "h0037_console_tabela_alternavel": "h0037_tabela_conteudo",
         "h0053_arvore_colapsavel": "h0053_arvore_colapsavel_conteudo",
+        "h0054_selecao_multinivel": "h0054_selecao_multinivel_conteudo",
     }
     _registrar("catalogo associa os cenarios com conteudo",
                _CATALOGO_CONTEUDO_EXTERNO == esperado,
@@ -311,6 +322,281 @@ def teste_ponto_de_entrada_real():
                "(console)" in proc0.stdout and "H-0036" not in proc0.stdout)
 
 
+def teste_h0054_selecao_multinivel_carrega_renderiza_e_preserva_paginas():
+    modelo = _carregar_modelo_por_id("h0054_selecao_multinivel")
+    console = navegacao.lista_foco(modelo)[0]
+    estado = dict(
+        criar_estado_inicial(),
+        estilo=_ESTILO,
+        foco_console=0,
+        cursores={console.id: 0},
+        largura=90,
+        altura=30,
+    )
+    ids = [
+        no.id for no in navegacao._sequencia_estrutural_selecao_multinivel(
+            console
+        )
+    ]
+    assert ids == [
+        "h0054_pai_1", "h0054_pai_1_1", "h0054_folha_1_1_1",
+        "h0054_folha_1_1_2", "h0054_pai_1_2", "h0054_folha_1_2_1",
+        "h0054_folha_1_2_2", "h0054_pai_2", "h0054_pai_2_1",
+        "h0054_folha_2_1_1", "h0054_folha_2_1_2", "h0054_folha_2_1_3",
+        "h0054_folha_2_1_4", "h0054_nao_selecionavel", "h0054_pai_2_2",
+        "h0054_folha_2_2_1", "h0054_folha_2_2_2", "h0054_pai_3",
+        "h0054_pai_3_1", "h0054_folha_3_1_1", "h0054_folha_3_1_2",
+        "h0054_folha_3_1_3", "h0054_folha_3_1_4", "h0054_pai_3_2",
+        "h0054_folha_3_2_1", "h0054_folha_3_2_2", "h0054_folha_3_2_3",
+        "h0054_folha_3_2_4", "h0054_pai_3_3", "h0054_folha_3_3_1",
+        "h0054_folha_3_3_2", "h0054_folha_3_3_3", "h0054_folha_3_3_4",
+    ]
+    quadro = renderizar_estado(estado, modelo, largura=90, altura=30)
+    assert "Pai nível 1 selecionável" in quadro
+    assert "[␣] Expandir" not in quadro
+    assert "[?] Ajuda" in quadro
+    linhas_nos = quadro.splitlines()
+    linha_raiz = next(
+        linha for linha in linhas_nos if "Pai nível 1 selecionável" in linha
+    )
+    linha_pai = next(
+        linha for linha in linhas_nos if "Pai nível 2 selecionável" in linha
+    )
+    linha_folha = next(
+        linha for linha in linhas_nos if "Folha selecionável 1.2.1" in linha
+    )
+    linha_nao_selecionavel = next(
+        linha for linha in linhas_nos
+        if "Item explicitamente não selecionável" in linha
+    )
+    assert "○" in linha_raiz
+    assert "○" in linha_pai
+    assert "○" in linha_folha
+    assert "○" not in linha_nao_selecionavel
+    linha_ajuda = next(
+        linha for linha in quadro.splitlines() if "[?] Ajuda" in linha
+    )
+    assert linha_ajuda.index("[PgUp][PgDn] Páginas") < linha_ajuda.index(
+        "[␣] Selecionar"
+    )
+    assert linha_ajuda.index("[␣] Selecionar") < linha_ajuda.index("[?] Ajuda")
+    assert "[✥] Navegar" in linha_ajuda
+
+    selecionado = processar_comando(estado, " ", modelo)
+    assert selecionado["cursores"] == estado["cursores"]
+    assert selecionado["selecoes"][console.id] == [
+        "h0054_pai_1", "h0054_pai_1_1", "h0054_folha_1_1_1",
+        "h0054_folha_1_1_2", "h0054_pai_1_2", "h0054_folha_1_2_1",
+        "h0054_folha_1_2_2",
+    ]
+    assert processar_comando(selecionado, "\r", modelo)["selecoes"] == selecionado[
+        "selecoes"
+    ]
+    pagina_dois = processar_comando(
+        selecionado, "\x1b[6~", modelo
+    )
+    assert pagina_dois["pagina_atual"][console.id] == 2
+    assert pagina_dois["selecoes"] == selecionado["selecoes"]
+    quadro_pagina_dois = renderizar_estado(
+        pagina_dois, modelo, largura=90, altura=30
+    )
+    assert "[PgUp][PgDn] Páginas" in quadro_pagina_dois
+    assert "●" not in quadro_pagina_dois
+    assert "[✥] Navegar" in quadro_pagina_dois
+    assert "[Esc] Limpar" in quadro_pagina_dois
+    pagina_um = processar_comando(pagina_dois, "\x1b[5~", modelo)
+    assert pagina_um["pagina_atual"][console.id] == 1
+    assert pagina_um["selecoes"] == selecionado["selecoes"]
+    assert "●" in renderizar_estado(pagina_um, modelo, largura=90, altura=30)
+    limpo = processar_comando(selecionado, "\x1b", modelo)
+    assert limpo["selecoes"] == {console.id: []}
+
+
+def teste_h0054_fixture_confirma_coerencia_estrutural_e_tg():
+    modelo = _carregar_modelo_por_id("h0054_selecao_multinivel")
+    console = navegacao.lista_foco(modelo)[0]
+
+    def tem_descendente_selecionavel(no):
+        return any(
+            navegacao.no_multinivel_selecionavel(filho)
+            or tem_descendente_selecionavel(filho)
+            for filho in no.filhos
+        )
+
+    def verificar_no(no, ancestrais=()):
+        tem_selecao_abaixo = tem_descendente_selecionavel(no)
+        if tem_selecao_abaixo:
+            assert navegacao.no_multinivel_selecionavel(no)
+            assert all(
+                navegacao.no_multinivel_selecionavel(ancestral)
+                for ancestral in ancestrais
+            )
+        if not navegacao.no_multinivel_selecionavel(no):
+            assert not tem_selecao_abaixo
+        for filho in no.filhos:
+            verificar_no(filho, ancestrais + (no,))
+
+    for raiz in console.conteudo_externo.nos:
+        verificar_no(raiz)
+
+    estado = dict(
+        criar_estado_inicial(),
+        estilo=_ESTILO,
+        foco_console=0,
+        cursores={console.id: 0},
+        pagina_atual={console.id: 1},
+        largura=180,
+        altura=100,
+    )
+    quadro = renderizar_estado(estado, modelo, largura=180, altura=100)
+    todos = navegacao._nos_em_pre_ordem(console.conteudo_externo.nos)
+    for no in todos:
+        linha = next(
+            linha for linha in quadro.splitlines()
+            if no.campos.get("texto") in linha
+        )
+        if navegacao.no_multinivel_selecionavel(no):
+            assert "○" in linha
+        else:
+            assert "○" not in linha and "●" not in linha
+
+
+def teste_h0054_fixture_ramo_2_espaco_ignora_item_nao_selecionavel():
+    modelo = _carregar_modelo_por_id("h0054_selecao_multinivel")
+    console = navegacao.lista_foco(modelo)[0]
+    estado = dict(
+        criar_estado_inicial(),
+        estilo=_ESTILO,
+        foco_console=0,
+        cursores={console.id: 7},
+        pagina_atual={console.id: 1},
+        largura=90,
+        altura=30,
+    )
+
+    selecionado = processar_comando(estado, " ", modelo)
+    ids = set(selecionado["selecoes"][console.id])
+    assert {
+        "h0054_pai_2", "h0054_pai_2_1", "h0054_pai_2_2",
+        "h0054_folha_2_1_1", "h0054_folha_2_1_2",
+        "h0054_folha_2_1_3", "h0054_folha_2_1_4",
+        "h0054_folha_2_2_1", "h0054_folha_2_2_2",
+    } <= ids
+    assert "h0054_nao_selecionavel" not in ids
+
+    quadro = renderizar_estado(selecionado, modelo, largura=90, altura=30)
+    linha_pai = next(
+        linha for linha in quadro.splitlines()
+        if "Pai nível 1 com não selecionável" in linha
+    )
+    linha_negativa = next(
+        linha for linha in quadro.splitlines()
+        if "Item explicitamente não selecionável" in linha
+    )
+    assert "●" in linha_pai
+    assert "○" not in linha_negativa and "●" not in linha_negativa
+
+    from tela import selecao
+
+    sem_folha = selecao.alternar(
+        selecionado, console, "h0054_folha_2_1_1"
+    )
+    assert "h0054_pai_2" not in sem_folha["selecoes"][console.id]
+    assert "h0054_nao_selecionavel" not in sem_folha["selecoes"][console.id]
+
+
+def teste_h0054_fixture_reconcilia_ascendente_e_desseleciona_ramo():
+    modelo = _carregar_modelo_por_id("h0054_selecao_multinivel")
+    console = navegacao.lista_foco(modelo)[0]
+    estado = dict(
+        criar_estado_inicial(),
+        foco_console=0,
+        cursores={console.id: 0},
+    )
+    from tela import selecao
+
+    estado = selecao.alternar(estado, console, "h0054_folha_1_1_1")
+    assert "h0054_pai_1_1" not in estado["selecoes"][console.id]
+    estado = selecao.alternar(estado, console, "h0054_folha_1_1_2")
+    assert "h0054_pai_1_1" in estado["selecoes"][console.id]
+    assert "h0054_pai_1" not in estado["selecoes"][console.id]
+
+    for id_folha in ("h0054_folha_1_2_1", "h0054_folha_1_2_2"):
+        estado = selecao.alternar(estado, console, id_folha)
+    ids = set(estado["selecoes"][console.id])
+    assert {"h0054_pai_1_2", "h0054_pai_1"} <= ids
+
+    estado = selecao.alternar(estado, console, "h0054_folha_1_1_1")
+    ids = set(estado["selecoes"][console.id])
+    assert {
+        "h0054_folha_1_1_1", "h0054_pai_1_1", "h0054_pai_1",
+    }.isdisjoint(ids)
+    assert {
+        "h0054_pai_1_2", "h0054_folha_1_2_1",
+        "h0054_folha_1_2_2",
+    } <= ids
+
+
+def teste_h0054_paginacao_agrupa_itens_e_chip_navegar_e_condicional():
+    from tela import paginacao
+    from tela.renderizacao.console import mapa_fisico_de_itens
+    from tela.renderizador import geometria_console
+
+    modelo = _carregar_modelo_por_id("h0054_selecao_multinivel")
+    console = navegacao.lista_foco(modelo)[0]
+    estado = dict(
+        criar_estado_inicial(),
+        estilo=_ESTILO,
+        foco_console=0,
+        cursores={console.id: 0},
+        pagina_atual={console.id: 1},
+        largura=90,
+        altura=30,
+    )
+    geometria = geometria_console(
+        modelo, _ESTILO, 90, 30, False,
+        console=console,
+        foco_console=0,
+        cursores=estado["cursores"],
+        lista_foco=[console],
+        selecoes=estado["selecoes"],
+        paginas_atuais=estado["pagina_atual"],
+    )
+    mapa = mapa_fisico_de_itens(
+        console,
+        geometria["largura"],
+        geometria["altura_interna"],
+        False,
+        desconto_estrutural=3,
+    )
+    plano = paginacao.plano_de_paginacao(
+        console,
+        geometria["largura"],
+        geometria["altura_interna"],
+        False,
+        desconto_estrutural=3,
+    )
+
+    assert len(mapa) == 33
+    assert len(plano["paginas"][0]["fragmentos"]) > 1
+    assert plano["total_paginas"] >= 2
+    assert navegacao.exibir_chip_navegar(dict(estado, modelo=modelo)) is True
+    movido = processar_comando(estado, "\x1b[B", modelo)
+    assert movido["cursores"][console.id] == 1
+    assert movido["pagina_atual"][console.id] == 1
+
+    pagina_unica = dict(
+        estado,
+        modelo=modelo,
+        itens_permitidos={console.id: [0]},
+    )
+    assert navegacao.exibir_chip_navegar(pagina_unica) is False
+
+    for tecla_antiga in (",", "<", ".", ">"):
+        sem_paginacao = processar_comando(estado, tecla_antiga, modelo)
+        assert sem_paginacao["pagina_atual"] == estado["pagina_atual"]
+
+
 def teste_h0053_arvore_colapsavel_carrega_renderiza_e_alterna_ramo():
     modelo = _carregar_modelo_por_id("h0053_arvore_colapsavel")
     console = navegacao.lista_foco(modelo)[0]
@@ -401,6 +687,58 @@ def teste_h0053_arvore_colapsavel_carrega_renderiza_e_alterna_ramo():
         and processar_comando(folha, " ", modelo)["cursores"] == folha["cursores"]
         and processar_comando(folha, " ", modelo).get("selecoes", {}) == {},
     )
+
+
+def teste_h0053_ponto_de_entrada_real_preserva_foco_cursor_navegacao_e_arvore(
+    monkeypatch, capsys
+):
+    """Percorre H-0053 pelo mesmo ``demo.py`` usado pela demonstracao."""
+    class Linha(str):
+        def strip(self, chars=None):
+            if self == " \n":
+                return " "
+            return super().strip(chars)
+
+    class Entrada:
+        def isatty(self):
+            return False
+
+        def __iter__(self):
+            return iter([
+                Linha(" \n"),       # fecha a raiz
+                Linha(" \n"),       # reabre a raiz
+                Linha("\x1b[B\n"), # vai para 1.1
+                Linha("\x1b[B\n"), # vai para 1.2
+                Linha(" \n"),       # fecha 1.2
+                Linha(" \n"),       # reabre 1.2
+                Linha("\x1b[B\n"), # vai para a folha
+                Linha(" \n"),       # folha: sem efeito
+                Linha("s\n"),
+            ])
+
+    monkeypatch.setattr(sys, "stdin", Entrada())
+    assert demo_main([
+        "demo.py", "h0053_arvore_colapsavel"
+    ]) == 0
+    saida = capsys.readouterr().out
+    quadros = saida.split("╭ H-0053")[1:]
+
+    assert len(quadros) >= 8
+    assert "→" in quadros[0]
+    assert "1.2.1" in quadros[0]
+    assert "[✥] Navegar" in quadros[0]
+    assert "[␣] Recolher" in quadros[0]
+    assert "●" not in saida and "○" not in saida
+
+    assert "1.2.1" not in quadros[1]
+    assert "[␣] Expandir" in quadros[1]
+    assert "1.2.1" in quadros[2]
+    assert "→" in quadros[3] and "1.1" in quadros[3]
+    assert "→" in quadros[4] and "1.2" in quadros[4]
+    assert "1.2.1" not in quadros[5]
+    assert "[␣] Expandir" in quadros[5]
+    assert "1.2.1" in quadros[6]
+    assert "[␣] Expandir" in quadros[7]
 
 
 def teste_h0053_fixture_hierarquia_e_multiline():

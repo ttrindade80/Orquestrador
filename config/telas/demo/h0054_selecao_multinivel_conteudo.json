@@ -1,0 +1,288 @@
+{
+  "id": "h0054_selecao_multinivel_conteudo",
+  "schema": "conteudo.v1",
+  "tipo": "multinivel",
+  "apresentacao": "hierarquia",
+  "formato": {
+    "apresentacao": "hierarquia",
+    "niveis": [
+      {
+        "id": "grupo",
+        "tipo": "container",
+        "conteudo": "texto",
+        "designador": {"tipo": "decimal", "sufixo": "."}
+      },
+      {
+        "id": "subgrupo",
+        "tipo": "container",
+        "conteudo": "texto",
+        "designador": {
+          "tipo": "decimal_composto",
+          "separador": "."
+        }
+      },
+      {
+        "id": "secao",
+        "tipo": "conteudo",
+        "conteudo": "texto",
+        "designador": {
+          "tipo": "decimal_composto",
+          "separador": "."
+        }
+      }
+    ]
+  },
+  "dados": [
+    {
+      "id": "h0054_pai_1",
+      "nivel": "grupo",
+      "navegavel": true,
+      "selecionavel": true,
+      "texto": "Pai nível 1 selecionável",
+      "filhos": [
+        {
+          "id": "h0054_pai_1_1",
+          "nivel": "subgrupo",
+          "navegavel": true,
+          "selecionavel": true,
+          "texto": "Pai nível 2 selecionável",
+          "filhos": [
+            {
+              "id": "h0054_folha_1_1_1",
+              "nivel": "secao",
+              "navegavel": true,
+              "selecionavel": true,
+              "texto": "Folha selecionável 1.1.1"
+            },
+            {
+              "id": "h0054_folha_1_1_2",
+              "nivel": "secao",
+              "navegavel": true,
+              "selecionavel": true,
+              "texto": "Folha selecionável 1.1.2"
+            }
+          ]
+        },
+        {
+          "id": "h0054_pai_1_2",
+          "nivel": "subgrupo",
+          "navegavel": true,
+          "selecionavel": true,
+          "texto": "Pai nível 2 adicional",
+          "filhos": [
+            {
+              "id": "h0054_folha_1_2_1",
+              "nivel": "secao",
+              "navegavel": true,
+              "selecionavel": true,
+              "texto": "Folha selecionável 1.2.1"
+            },
+            {
+              "id": "h0054_folha_1_2_2",
+              "nivel": "secao",
+              "navegavel": true,
+              "selecionavel": true,
+              "texto": "Folha selecionável 1.2.2"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "h0054_pai_2",
+      "nivel": "grupo",
+      "navegavel": true,
+      "selecionavel": true,
+      "texto": "Pai nível 1 com não selecionável",
+      "filhos": [
+        {
+          "id": "h0054_pai_2_1",
+          "nivel": "subgrupo",
+          "navegavel": true,
+          "selecionavel": true,
+          "texto": "Ramo selecionável 2.1",
+          "filhos": [
+            {
+              "id": "h0054_folha_2_1_1",
+              "nivel": "secao",
+              "navegavel": true,
+              "selecionavel": true,
+              "texto": "Folha selecionável 2.1.1"
+            },
+            {
+              "id": "h0054_folha_2_1_2",
+              "nivel": "secao",
+              "navegavel": true,
+              "selecionavel": true,
+              "texto": "Folha selecionável 2.1.2"
+            },
+            {
+              "id": "h0054_folha_2_1_3",
+              "nivel": "secao",
+              "navegavel": true,
+              "selecionavel": true,
+              "texto": "Folha selecionável 2.1.3"
+            },
+            {
+              "id": "h0054_folha_2_1_4",
+              "nivel": "secao",
+              "navegavel": true,
+              "selecionavel": true,
+              "texto": "Folha selecionável 2.1.4"
+            }
+          ]
+        },
+        {
+          "id": "h0054_nao_selecionavel",
+          "nivel": "secao",
+          "navegavel": true,
+          "selecionavel": false,
+          "texto": "Item explicitamente não selecionável"
+        },
+        {
+          "id": "h0054_pai_2_2",
+          "nivel": "subgrupo",
+          "navegavel": true,
+          "selecionavel": true,
+          "texto": "Ramo selecionável 2.2",
+          "filhos": [
+            {
+              "id": "h0054_folha_2_2_1",
+              "nivel": "secao",
+              "navegavel": true,
+              "selecionavel": true,
+              "texto": "Folha selecionável 2.2.1"
+            },
+            {
+              "id": "h0054_folha_2_2_2",
+              "nivel": "secao",
+              "navegavel": true,
+              "selecionavel": true,
+              "texto": "Folha selecionável 2.2.2"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "h0054_pai_3",
+      "nivel": "grupo",
+      "navegavel": true,
+      "selecionavel": true,
+      "texto": "Pai nível 1 adicional",
+      "filhos": [
+        {
+          "id": "h0054_pai_3_1",
+          "nivel": "subgrupo",
+          "navegavel": true,
+          "selecionavel": true,
+          "texto": "Ramo adicional 3.1",
+          "filhos": [
+            {
+              "id": "h0054_folha_3_1_1",
+              "nivel": "secao",
+              "navegavel": true,
+              "selecionavel": true,
+              "texto": "Folha adicional 3.1.1"
+            },
+            {
+              "id": "h0054_folha_3_1_2",
+              "nivel": "secao",
+              "navegavel": true,
+              "selecionavel": true,
+              "texto": "Folha adicional 3.1.2"
+            },
+            {
+              "id": "h0054_folha_3_1_3",
+              "nivel": "secao",
+              "navegavel": true,
+              "selecionavel": true,
+              "texto": "Folha adicional 3.1.3"
+            },
+            {
+              "id": "h0054_folha_3_1_4",
+              "nivel": "secao",
+              "navegavel": true,
+              "selecionavel": true,
+              "texto": "Folha adicional 3.1.4"
+            }
+          ]
+        },
+        {
+          "id": "h0054_pai_3_2",
+          "nivel": "subgrupo",
+          "navegavel": true,
+          "selecionavel": true,
+          "texto": "Ramo adicional 3.2",
+          "filhos": [
+            {
+              "id": "h0054_folha_3_2_1",
+              "nivel": "secao",
+              "navegavel": true,
+              "selecionavel": true,
+              "texto": "Folha adicional 3.2.1"
+            },
+            {
+              "id": "h0054_folha_3_2_2",
+              "nivel": "secao",
+              "navegavel": true,
+              "selecionavel": true,
+              "texto": "Folha adicional 3.2.2"
+            },
+            {
+              "id": "h0054_folha_3_2_3",
+              "nivel": "secao",
+              "navegavel": true,
+              "selecionavel": true,
+              "texto": "Folha adicional 3.2.3"
+            },
+            {
+              "id": "h0054_folha_3_2_4",
+              "nivel": "secao",
+              "navegavel": true,
+              "selecionavel": true,
+              "texto": "Folha adicional 3.2.4"
+            }
+          ]
+        },
+        {
+          "id": "h0054_pai_3_3",
+          "nivel": "subgrupo",
+          "navegavel": true,
+          "selecionavel": true,
+          "texto": "Ramo adicional 3.3",
+          "filhos": [
+            {
+              "id": "h0054_folha_3_3_1",
+              "nivel": "secao",
+              "navegavel": true,
+              "selecionavel": true,
+              "texto": "Folha adicional 3.3.1"
+            },
+            {
+              "id": "h0054_folha_3_3_2",
+              "nivel": "secao",
+              "navegavel": true,
+              "selecionavel": true,
+              "texto": "Folha adicional 3.3.2"
+            },
+            {
+              "id": "h0054_folha_3_3_3",
+              "nivel": "secao",
+              "navegavel": true,
+              "selecionavel": true,
+              "texto": "Folha adicional 3.3.3"
+            },
+            {
+              "id": "h0054_folha_3_3_4",
+              "nivel": "secao",
+              "navegavel": true,
+              "selecionavel": true,
+              "texto": "Folha adicional 3.3.4"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
