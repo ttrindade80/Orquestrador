@@ -6,13 +6,16 @@ carrega dados, nao executa acoes e nao usa a barra de menus como area visual.
 """
 
 import copy
+import re
 from dataclasses import dataclass
 
+from tela.renderizacao.barra_menus import _texto_chip_barra
 from tela.renderizacao.erros import RenderizadorErro
 from tela.renderizacao.geometria_caixa import (
     _borda_de_estilo,
     _caixa,
 )
+from tela.renderizacao.texto_ansi import _largura_sem_ansi
 
 
 class PopupErro(RenderizadorErro):
@@ -243,96 +246,229 @@ def consumir_tecla_popup(instancia, tecla):
     return None
 
 
+_VAO_ENTRE_CHIPS_POPUP = 2
+
+
 def _texto_chip_popup(chip, estilo):
-    texto = chip["texto"]
-    if estilo.caixa_alta:
-        texto = texto.upper()
-    # As propriedades cromaticas sao materializadas pelo estilo. Esta
-    # primitiva textual nao cria uma paleta propria nem introduz ANSI novo.
-    _ = (estilo.cor_texto, estilo.cor_fundo)
-    return "{0}{1}{2} {3}".format(
-        estilo.caractere_esquerdo,
-        chip["tecla"],
-        estilo.caractere_direito,
-        texto,
-    )
+    """Materializa um chip com a mesma primitiva textual da barra."""
+    return _texto_chip_barra(chip, estilo, vao=1)
 
 
-def geometria_popup(instancia, estilo):
-    """Calcula a dimensao intrinseca simples da instancia textual."""
+def _erro_geometria(motivo):
+    return PopupErro("popup geometria insuficiente: {0}".format(motivo))
+
+
+def _quebrar_texto(texto, largura_util):
+    """Quebra uma string em linhas fisicas sem descartar caracteres."""
+    if isinstance(largura_util, bool) or not isinstance(largura_util, int):
+        raise _erro_geometria("largura util nao inteira")
+    if largura_util <= 0:
+        raise _erro_geometria("largura util nao positiva")
+    if not texto:
+        return [""]
+
+    linhas = []
+    corrente = ""
+
+    def emitir_separador(separador):
+        nonlocal corrente
+        while separador:
+            disponivel = largura_util - len(corrente)
+            if disponivel == 0:
+                linhas.append(corrente)
+                corrente = ""
+                continue
+            corrente += separador[:disponivel]
+            separador = separador[disponivel:]
+            if len(corrente) == largura_util:
+                linhas.append(corrente)
+                corrente = ""
+
+    def emitir_palavra(palavra):
+        nonlocal corrente
+        while palavra:
+            if corrente and len(corrente) + len(palavra) > largura_util:
+                linhas.append(corrente)
+                corrente = ""
+                continue
+            disponivel = largura_util - len(corrente)
+            trecho = palavra[:disponivel]
+            corrente += trecho
+            palavra = palavra[len(trecho):]
+            if len(corrente) == largura_util:
+                linhas.append(corrente)
+                corrente = ""
+
+    for token in re.findall(r"\S+|\s+", texto):
+        if token.isspace():
+            emitir_separador(token)
+        else:
+            emitir_palavra(token)
+
+    if corrente:
+        linhas.append(corrente)
+    return linhas or [""]
+
+
+def _justificar_linha(texto, largura):
+    comprimento_atual = _largura_sem_ansi(texto)
+    extra = largura - comprimento_atual
+    if extra <= 0:
+        return texto
+    partes = re.split(r"(\s+)", texto)
+    indices = [
+        indice
+        for indice in range(1, len(partes) - 1, 2)
+        if partes[indice] and partes[indice - 1] and partes[indice + 1]
+        and not partes[indice - 1].isspace()
+        and not partes[indice + 1].isspace()
+    ]
+    if not indices:
+        return texto + " " * extra
+    base, resto = divmod(extra, len(indices))
+    for ordem, indice in enumerate(indices):
+        adicionais = base + (1 if ordem < resto else 0)
+        partes[indice] += " " * adicionais
+    return "".join(partes)
+
+
+def _formatar_linha(texto, largura, alinhamento, margem, ultima=True):
+    disponivel = largura - (2 * margem)
+    if disponivel < _largura_sem_ansi(texto):
+        raise _erro_geometria("linha excede a largura util")
+    sobra = disponivel - _largura_sem_ansi(texto)
+    if alinhamento == "centralizado":
+        esquerda = sobra // 2
+        central = " " * esquerda + texto + " " * (sobra - esquerda)
+    elif alinhamento == "justificado" and not ultima:
+        central = _justificar_linha(texto, disponivel)
+    else:
+        central = texto + " " * sobra
+    return " " * margem + central + " " * margem
+
+
+def _distribuir_chips(chips, largura_util, estilo):
+    """Distribui chips inteiros em linhas, preservando a ordem declarada."""
+    if not isinstance(largura_util, int) or isinstance(largura_util, bool):
+        raise _erro_geometria("largura util nao inteira")
+    textos = [_texto_chip_popup(chip, estilo) for chip in chips]
+    if not textos:
+        return []
+    for texto in textos:
+        if _largura_sem_ansi(texto) > largura_util:
+            raise _erro_geometria("chip isolado nao cabe na largura util")
+
+    linhas = []
+    corrente = ""
+    for texto in textos:
+        candidato = texto if not corrente else "{}{}{}".format(
+            corrente, " " * _VAO_ENTRE_CHIPS_POPUP, texto
+        )
+        if corrente and _largura_sem_ansi(candidato) > largura_util:
+            linhas.append(corrente)
+            corrente = texto
+        else:
+            corrente = candidato
+    if corrente:
+        linhas.append(corrente)
+    return linhas
+
+
+def _layout_popup(instancia, estilo, largura_corpo=None):
     if not isinstance(instancia, PopupInstancia):
         raise PopupErro("instancia de popup invalida")
     declaracao = instancia.declaracao
     texto = instancia.conteudo["texto"]
-    chip = _texto_chip_popup(declaracao["chips"][0], estilo)
-    horizontal = declaracao["espacamento_horizontal"]
-    largura_conteudo = max(len(texto), len(chip)) + 2 * horizontal
-    largura = max(len(declaracao["titulo"]) + 4, largura_conteudo + 3)
+    margem = declaracao["espacamento_horizontal"]
+    textos_chips = [
+        _texto_chip_popup(chip, estilo) for chip in declaracao["chips"]
+    ]
+    chips_uma_linha = " " * _VAO_ENTRE_CHIPS_POPUP
+    chips_uma_linha = chips_uma_linha.join(textos_chips)
+    largura_intrinseca = max(
+        len(declaracao["titulo"]) + 4,
+        3 + 2 * margem + max(len(texto), _largura_sem_ansi(chips_uma_linha)),
+    )
+    if largura_corpo is None:
+        largura = largura_intrinseca
+    else:
+        if isinstance(largura_corpo, bool) or not isinstance(largura_corpo, int):
+            raise _erro_geometria("largura fisica do corpo nao inteira")
+        largura = min(largura_intrinseca, largura_corpo)
+
+    if largura < len(declaracao["titulo"]) + 4:
+        raise _erro_geometria("titulo nao cabe na moldura")
+    content_w = largura - 3
+    largura_util = content_w - 2 * margem
+    if largura_util <= 0:
+        raise _erro_geometria("largura util nao positiva")
+    linhas_texto = _quebrar_texto(texto, largura_util)
+    linhas_chips = _distribuir_chips(
+        declaracao["chips"], largura_util, estilo
+    )
     altura = (
-        4
+        2
         + declaracao["espacamento_superior"]
+        + len(linhas_texto)
         + declaracao["espacamento_conteudo_chips"]
+        + len(linhas_chips)
         + declaracao["espacamento_inferior"]
     )
-    return {"largura": largura, "altura": altura}
+    return {
+        "largura": largura,
+        "altura": altura,
+        "content_w": content_w,
+        "largura_util": largura_util,
+        "linhas_texto": linhas_texto,
+        "linhas_chips": linhas_chips,
+    }
 
 
-def _formatar_linha(texto, largura, alinhamento, margem):
-    disponivel = largura - (2 * margem)
-    if disponivel < len(texto):
-        raise PopupErro("geometria de popup insuficiente para texto sem wrapping")
-    if alinhamento == "centralizado":
-        central = texto.center(disponivel)
-    else:
-        # Com uma frase curta, justificado coincide com a disposicao inicial;
-        # nao ha wrapping nem uma segunda palavra a distribuir.
-        central = texto.ljust(disponivel)
-    return " " * margem + central + " " * margem
+def geometria_popup(instancia, estilo, largura_corpo=None):
+    """Calcula a geometria intrinseca ou limitada pelo corpo fisico."""
+    layout = _layout_popup(instancia, estilo, largura_corpo=largura_corpo)
+    return {"largura": layout["largura"], "altura": layout["altura"]}
 
 
-def renderizar_popup(instancia, estilo):
-    """Renderiza a caixa do popup usando as primitivas de caixa vigentes."""
-    if not isinstance(instancia, PopupInstancia):
-        raise PopupErro("instancia de popup invalida")
-    medidas = geometria_popup(instancia, estilo)
-    largura = medidas["largura"]
-    inner_w = largura - 2
-    content_w = largura - 3
-    label_max = largura - 4
+def renderizar_popup(instancia, estilo, largura=None):
+    """Renderiza a caixa do popup com wrapping e altura derivada."""
+    layout = _layout_popup(instancia, estilo, largura_corpo=largura)
     declaracao = instancia.declaracao
-    texto_chip = _texto_chip_popup(declaracao["chips"][0], estilo)
+    popup_largura = layout["largura"]
+    content_w = layout["content_w"]
+    margem = declaracao["espacamento_horizontal"]
     linhas = []
     vazio = " " * content_w
     linhas.extend([vazio] * declaracao["espacamento_superior"])
-    linhas.append(
-        _formatar_linha(
-            instancia.conteudo["texto"],
-            content_w,
-            declaracao["alinhamento"],
-            declaracao["espacamento_horizontal"],
+    for indice, texto in enumerate(layout["linhas_texto"]):
+        linhas.append(
+            _formatar_linha(
+                texto,
+                content_w,
+                declaracao["alinhamento"],
+                margem,
+                ultima=indice == len(layout["linhas_texto"]) - 1,
+            )
         )
-    )
     linhas.extend([vazio] * declaracao["espacamento_conteudo_chips"])
-    linhas.append(
-        _formatar_linha(
-            texto_chip,
-            content_w,
-            declaracao["alinhamento"],
-            declaracao["espacamento_horizontal"],
+    for texto in layout["linhas_chips"]:
+        linhas.append(
+            _formatar_linha(
+                texto, content_w, "centralizado", margem, ultima=True
+            )
         )
-    )
     linhas.extend([vazio] * declaracao["espacamento_inferior"])
     return _caixa(
         declaracao["titulo"],
         linhas,
         _borda_de_estilo(estilo),
-        inner_w,
+        popup_largura - 2,
         content_w,
-        label_max,
+        popup_largura - 4,
     )
 
 
-def sobrepor_no_corpo(corpo, instancia, estilo, largura, altura=None):
+def sobrepor_no_corpo(corpo, instancia, estilo, largura=None, altura=None):
     """Sobrepoe a caixa no centro do bloco fisico do corpo."""
     if not isinstance(corpo, str):
         raise PopupErro("corpo materializado invalido")
@@ -341,19 +477,24 @@ def sobrepor_no_corpo(corpo, instancia, estilo, largura, altura=None):
         linhas_corpo.pop()
     if not linhas_corpo:
         raise PopupErro("popup exige corpo materializado")
+    largura_corpo = max(len(linha) for linha in linhas_corpo)
     altura_corpo = len(linhas_corpo) if altura is None else altura
     if altura_corpo != len(linhas_corpo):
         raise PopupErro("altura fisica do corpo divergente da composicao")
-    medidas = geometria_popup(instancia, estilo)
-    caixa = renderizar_popup(instancia, estilo).split("\n")
+    medidas = _layout_popup(instancia, estilo, largura_corpo=largura_corpo)
+    caixa = renderizar_popup(instancia, estilo, largura=largura_corpo).split("\n")
     largura_popup = medidas["largura"]
-    if largura_popup > largura or len(caixa) > altura_corpo:
-        raise PopupErro("popup nao cabe no corpo sem tratamento de terminal pequeno")
-    x = (largura - largura_popup) // 2
+    if len(caixa) > altura_corpo:
+        raise _erro_geometria("altura derivada nao cabe no corpo")
+    x = (largura_corpo - largura_popup) // 2
     y = (altura_corpo - len(caixa)) // 2
     for indice, linha in enumerate(caixa):
         linha_atual = linhas_corpo[y + indice]
-        if len(linha_atual) < largura:
-            linha_atual = linha_atual.ljust(largura)
-        linhas_corpo[y + indice] = linha_atual[:x] + linha + linha_atual[x + largura_popup:]
+        if len(linha_atual) < largura_corpo:
+            linha_atual = linha_atual.ljust(largura_corpo)
+        linhas_corpo[y + indice] = (
+            linha_atual[:x]
+            + linha
+            + linha_atual[x + largura_popup:]
+        )
     return "\n".join(linhas_corpo)

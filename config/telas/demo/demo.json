@@ -219,6 +219,31 @@
           "forma_exibicao": "ativo"
         }
       ]
+    },
+    "popup_texto_dinamico": {
+      "tipo": "texto",
+      "titulo": "Texto dinamico",
+      "alinhamento": "justificado",
+      "espacamento_superior": 1,
+      "espacamento_conteudo_chips": 1,
+      "espacamento_inferior": 1,
+      "espacamento_horizontal": 2,
+      "chips": [
+        {
+          "id": "popup_texto_dinamico_voltar",
+          "tipo": "especifico",
+          "tecla": "Esc",
+          "texto": "Voltar",
+          "referencia_regra": {
+            "resultado": {
+              "status": "ABORTADO"
+            }
+          },
+          "regra_existencia": "sempre",
+          "regra_ativo": "sempre",
+          "forma_exibicao": "ativo"
+        }
+      ]
     }
   },
   "acionamentos": [
@@ -226,6 +251,11 @@
       "tipo": "popup",
       "tecla": "p",
       "popup": "popup_basico"
+    },
+    {
+      "tipo": "popup",
+      "tecla": "w",
+      "popup": "popup_texto_dinamico"
     }
   ],
   "barra_de_menus": {

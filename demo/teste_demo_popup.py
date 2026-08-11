@@ -4,6 +4,8 @@ import copy
 import importlib.util
 from pathlib import Path
 
+from tela.renderizacao import popup
+
 
 _SPEC = importlib.util.spec_from_file_location(
     "h0056_demo_under_test",
@@ -90,3 +92,75 @@ def test_acionamento_referencia_popup_basico_e_nao_barra_de_menus():
     }
     ids_barra = [chip["id"] for chip in modelo._raw["barra_de_menus"]["chips"]]
     assert "popup_basico_voltar" not in ids_barra
+
+
+def test_h0057_declara_popup_fixture_runtime_sem_conteudo_no_json():
+    modelo = demo._carregar_modelo_por_id("demo")
+    declaracao = modelo._raw["popups"]["popup_texto_dinamico"]
+    assert "id" not in declaracao
+    assert "conteudo" not in declaracao
+    assert demo._popup_acionado_por(modelo, "w") == "popup_texto_dinamico"
+
+    estado = demo.criar_estado_inicial()
+    aberto = demo.processar_comando(estado, "w", modelo)
+    assert aberto["popup"].id == "popup_texto_dinamico"
+    assert aberto["popup"].conteudo == demo.conteudo_popup_h0057()
+
+
+def test_h0057_wrapping_recompoe_e_preserva_a_mesma_instancia():
+    modelo = demo._carregar_modelo_por_id("demo")
+    estilo = demo.carregar_estilo()
+    estado = dict(demo.criar_estado_inicial(), estilo=estilo)
+    aberto = demo.processar_comando(estado, "w", modelo)
+    instancia = aberto["popup"]
+
+    largo = demo.renderizar_estado(aberto, modelo, largura=80, altura=24)
+    estreito = demo.renderizar_estado(aberto, modelo, largura=75, altura=24)
+    restaurado = demo.renderizar_estado(aberto, modelo, largura=80, altura=24)
+
+    assert aberto["popup"] is instancia
+    assert largo != estreito
+    assert restaurado == largo
+    assert all(len(linha) == 80 for linha in largo.splitlines())
+    assert all(len(linha) == 75 for linha in estreito.splitlines())
+    assert all(palavra in estreito for palavra in ("conteudo", "wrapping", "instancia"))
+    assert popup.geometria_popup(instancia, estilo, largura_corpo=75)["largura"] == 75
+
+
+def test_h0057_resize_vertical_usa_quadro_geral_e_retorna_sem_reabrir():
+    modelo = demo._carregar_modelo_por_id("demo")
+    estilo = demo.carregar_estilo()
+    estado = dict(demo.criar_estado_inicial(), estilo=estilo)
+    aberto = demo.processar_comando(estado, "w", modelo)
+    instancia = aberto["popup"]
+
+    pequeno = demo._resolver_conteudo(aberto, modelo, 75, 10)
+    assert "Terminal pequeno demais" in pequeno
+    assert aberto["popup"] is instancia
+
+    recuperado = demo._resolver_conteudo(aberto, modelo, 75, 24)
+    assert "Texto dinamico" in recuperado
+    assert demo.renderizar_estado(aberto, modelo, 75, 24) == recuperado
+    assert aberto["popup"] is instancia
+
+
+def test_h0057_dimensoes_invalidas_preservam_ultimo_par_valido(monkeypatch):
+    monkeypatch.setattr(demo, "_obter_dimensoes_ioctl", lambda fd: None)
+    monkeypatch.setattr(demo, "_obter_dimensoes_env", lambda: None)
+    assert demo._obter_dimensoes_apos_sigwinch(0, (75, 24)) == (75, 24)
+
+
+def test_h0057_modalidade_esc_abortado_sem_payload_e_tecla_x_inerte():
+    modelo = demo._carregar_modelo_por_id("demo")
+    estado = demo.criar_estado_inicial()
+    aberto = demo.processar_comando(estado, "w", modelo)
+    instancia = aberto["popup"]
+    ignorado = demo.processar_comando(aberto, "x", modelo)
+    assert ignorado["popup"] is instancia
+    assert ignorado["tela_atual"] == "demo"
+
+    fechado = demo.processar_comando(ignorado, "\x1b", modelo)
+    assert fechado["popup"] is None
+    assert fechado["popup_resultado"] == {"status": "ABORTADO"}
+    assert "valor" not in fechado["popup_resultado"]
+    assert fechado["tela_atual"] == "demo"

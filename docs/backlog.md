@@ -168,6 +168,6 @@ esta lista.
 **Tipo:** documentacao
 **Prioridade:** media
 **Status:** em_andamento
-**Descricao:** ADR-0044 aplicada; H-0056 concluído com pop-up modal textual básico implementado e validado. Permanecem em aberto as entregas incrementais H-0057, H-0058 e H-0059.
+**Descricao:** ADR-0044 aplicada; H-0056 e H-0057 concluídos, com o pop-up modal textual básico e a geometria dinâmica, wrapping e resize implementados e validados. Permanecem em aberto H-0058 e H-0059.
 **Pre-requisitos:** ADR-0044 aprovada; contrato especializado, integração declarativa limitada ao que foi fechado pela ADR e nomenclatura própria.
-**Proxima acao:** Encaminhar a próxima entrega incremental para H-0057 — geometria dinâmica, wrapping e resize; não iniciar nesta etapa.
+**Proxima acao:** Encaminhar a próxima entrega incremental para H-0058 — lista navegável e marcação exclusiva/múltipla; não iniciada nesta etapa.

@@ -173,6 +173,18 @@ _mod_h0056_popup = _importlib_util_executor.module_from_spec(_spec_h0056_popup)
 _spec_h0056_popup.loader.exec_module(_mod_h0056_popup)
 conteudo_popup_h0056 = _mod_h0056_popup.conteudo_popup_h0056
 
+_spec_h0057_popup = _importlib_util_executor.spec_from_file_location(
+    "demo_h0057_popup_texto_dinamico",
+    os.path.join(
+        os.path.dirname(os.path.abspath(__file__)),
+        "fixtures",
+        "h0057_popup_texto_dinamico.py",
+    ),
+)
+_mod_h0057_popup = _importlib_util_executor.module_from_spec(_spec_h0057_popup)
+_spec_h0057_popup.loader.exec_module(_mod_h0057_popup)
+conteudo_popup_h0057 = _mod_h0057_popup.conteudo_popup_h0057
+
 # H-0045-P12: carrega o helper por caminho absoluto. ``python demo/demo.py``
 # registra este arquivo como modulo ``demo``, o que impede
 # ``from demo import casos_validacao_paginacao``.
@@ -446,10 +458,15 @@ def _abrir_popup_demonstrativo(estado, modelo, comando):
     popup_id = _popup_acionado_por(modelo, comando)
     if popup_id is None:
         return None
+    conteudo = (
+        conteudo_popup_h0057()
+        if popup_id == "popup_texto_dinamico"
+        else conteudo_popup_h0056()
+    )
     instancia = abrir_popup(
         modelo,
         popup_id,
-        conteudo_popup_h0056(),
+        conteudo,
     )
     novo = dict(estado)
     novo["popup"] = instancia
@@ -1991,6 +2008,9 @@ _ERRO_ALTURA_CORPO_RE = re.compile(
     r"^altura insuficiente: corpo requer \d+ linhas mas area disponivel e "
     r"-?\d+ linhas \(altura=\d+, cabecalho=\d+, barra=\d+\)$"
 )
+_ERRO_POPUP_GEOMETRIA_RE = re.compile(
+    r"^popup geometria insuficiente: .+$"
+)
 
 
 def _e_insuficiencia_geometrica(exc):
@@ -2009,6 +2029,7 @@ def _e_insuficiencia_geometrica(exc):
         _ERRO_LAYOUT_BARRA_RE.fullmatch(msg)
         or _ERRO_ALTURA_CABECALHO_RE.fullmatch(msg)
         or _ERRO_ALTURA_CORPO_RE.fullmatch(msg)
+        or _ERRO_POPUP_GEOMETRIA_RE.fullmatch(msg)
     )
 
 
