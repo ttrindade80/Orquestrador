@@ -107,6 +107,7 @@ sequência operacional constitua vocabulário canônico próprio deste módulo.
 | `carregamento conjunto` × `apresentações multinível` | Carregamento conjunto (ADR-0027): associação de múltiplos envelopes; apresentações multinível (ADR-0028): como esses dados são exibidos nos modos verboso/não verboso — módulo `44` |
 | `vínculo` × `composição do corpo` | Vínculo: relação entre envelope e instância de console; composição do corpo: estrutura de grupos e elementos na tela (módulo `20`, `40`) |
 | `carregamento` (genérico, envelope de conteúdo) × `carregamento do documento de resultado de execução` (ADR-0034) | Carregamento genérico: vincula envelope de conteúdo a console em operação; carregamento do documento de resultado: segue as regras comportamentais fixadas em `contrato_json_console.md` §14.4 para a tela de resultado do `ITEM-0006` |
+| conteúdo pronto do pop-up × carregamento do console | O pop-up recebe conteúdo pronto do chamador e não declara origem, produtor ou loader; carregamento e associação deste módulo permanecem restritos ao console |
 
 ## 6. Relação com contratos
 
@@ -133,6 +134,9 @@ Nenhum neste módulo.
 - `loader` como conceito transversal (definição geral) → módulo `01`.
 - Regras comportamentais completas do carregamento → `contrato_console.md` e
   `contrato_json_console.md`.
+- Conteúdo pronto do pop-up modal e sua compatibilidade com o chamador →
+  módulo `35` e `contrato_popup.md`; não declarar produtor ou origem para o
+  pop-up.
 
 ## 10. Proveniência da migração
 

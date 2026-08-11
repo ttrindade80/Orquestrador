@@ -133,6 +133,10 @@ from tela.renderizador import (
     _texto_chip_barra,
     geometria_console,
 )
+from tela.renderizacao.popup import (
+    abrir_popup,
+    consumir_tecla_popup,
+)
 from tela import navegacao
 from tela import paginacao
 from tela import selecao
@@ -156,6 +160,18 @@ _mod_executor = _importlib_util_executor.module_from_spec(_spec_executor)
 _spec_executor.loader.exec_module(_mod_executor)
 executar_controle_execucao = _mod_executor.executar
 documento_resultado_observavel = _mod_executor.documento_resultado_observavel
+
+_spec_h0056_popup = _importlib_util_executor.spec_from_file_location(
+    "demo_h0056_popup_texto",
+    os.path.join(
+        os.path.dirname(os.path.abspath(__file__)),
+        "fixtures",
+        "h0056_popup_texto.py",
+    ),
+)
+_mod_h0056_popup = _importlib_util_executor.module_from_spec(_spec_h0056_popup)
+_spec_h0056_popup.loader.exec_module(_mod_h0056_popup)
+conteudo_popup_h0056 = _mod_h0056_popup.conteudo_popup_h0056
 
 # H-0045-P12: carrega o helper por caminho absoluto. ``python demo/demo.py``
 # registra este arquivo como modulo ``demo``, o que impede
@@ -262,6 +278,8 @@ def criar_estado_inicial():
         "cursores": {},
         "selecoes": {},
         "pagina_atual": {},
+        "popup": None,
+        "popup_resultado": None,
     }
 
 
@@ -395,6 +413,48 @@ def _controle_execucao_ativo(estado, modelo=None):
 
 def _resultado_controle_ativo(estado):
     return estado.get("_sessao_resultado_controle") is not None
+
+
+def _popup_acionado_por(modelo, comando):
+    """Resolve o acionamento estrutural demonstrativo da tela demo."""
+    raw = getattr(modelo, "_raw", {}) if modelo is not None else {}
+    acionamentos = raw.get("acionamentos", []) if isinstance(raw, dict) else []
+    for acionamento in acionamentos:
+        if not isinstance(acionamento, dict):
+            continue
+        if (
+            acionamento.get("tipo") == "popup"
+            and acionamento.get("tecla") == comando
+            and isinstance(acionamento.get("popup"), str)
+        ):
+            return acionamento["popup"]
+    corpo = raw.get("corpo", {}) if isinstance(raw, dict) else {}
+    elementos = corpo.get("elementos", []) if isinstance(corpo, dict) else []
+    for elemento in elementos:
+        if not isinstance(elemento, dict) or elemento.get("tipo") != "lancador":
+            continue
+        for item in elemento.get("itens", []) or []:
+            if not isinstance(item, dict):
+                continue
+            if item.get("chip") == comando and isinstance(item.get("popup"), str):
+                return item["popup"]
+    return None
+
+
+def _abrir_popup_demonstrativo(estado, modelo, comando):
+    """Abre o popup por referencia declarativa e envelope runtime pronto."""
+    popup_id = _popup_acionado_por(modelo, comando)
+    if popup_id is None:
+        return None
+    instancia = abrir_popup(
+        modelo,
+        popup_id,
+        conteudo_popup_h0056(),
+    )
+    novo = dict(estado)
+    novo["popup"] = instancia
+    novo["popup_resultado"] = None
+    return novo
 
 
 def _abrir_resultado_controle(estado, modelo, resultado):
@@ -597,6 +657,10 @@ def processar_comando(estado, comando, modelo=None):
         # comandos; nunca persiste em JSON (NC-005/D-SEL-01).
         "selecoes": dict(estado.get("selecoes", {})),
     }
+    if "popup" in estado:
+        novo["popup"] = estado.get("popup")
+    if "popup_resultado" in estado:
+        novo["popup_resultado"] = estado.get("popup_resultado")
     if "ramos_fechados" in estado:
         novo["ramos_fechados"] = dict(estado.get("ramos_fechados", {}))
     if isinstance(estado.get("controle_execucao"), ControleExecucao):
@@ -647,6 +711,16 @@ def processar_comando(estado, comando, modelo=None):
         novo["caso_validacao_adaptativo"] = estado["caso_validacao_adaptativo"]
     if "caso_validacao_meta" in estado:
         novo["caso_validacao_meta"] = estado["caso_validacao_meta"]
+
+    # H-0056: enquanto a instancia modal existe, toda tecla e consumida aqui.
+    # A tela e o modelo subjacentes permanecem intocados; somente Esc fecha e
+    # produz o resultado nao confirmatorio sem payload.
+    if novo.get("popup") is not None:
+        resultado_popup = consumir_tecla_popup(novo["popup"], comando)
+        if resultado_popup is not None:
+            novo["popup"] = None
+            novo["popup_resultado"] = resultado_popup
+        return novo
 
     # Boundary de estado: uma árvore focalizada com nós visíveis não chega a
     # chip/renderer sem o cursor reconciliado pela navegação vigente.
@@ -966,6 +1040,10 @@ def processar_comando(estado, comando, modelo=None):
                 break
         return novo
 
+    popup_aberto = _abrir_popup_demonstrativo(novo, modelo, comando)
+    if popup_aberto is not None:
+        return popup_aberto
+
     if modelo is not None:
         for elemento in modelo.corpo.elementos:
             if elemento.tipo != "lancador":
@@ -1037,6 +1115,7 @@ def renderizar_estado(estado, modelo, largura=None, altura=None):
             chips_destacados=chips_destacados,
             executar_disponivel=executar_disponivel,
             paginas_atuais=estado_render.get("pagina_atual", {}),
+            popup=estado_render.get("popup"),
         )
         if contexto_chip is not None:
             chip, estado_chip = contexto_chip
@@ -2198,6 +2277,7 @@ def main(argv=None, estado_inicial=None):
                         estado.get("ramos_fechados", {})
                     )
                     paginas_antes = dict(estado.get("pagina_atual", {}))
+                    popup_antes = estado.get("popup")
                     fluxo_antes = estado.get("fluxo_execucao")
                     controle_antes = estado.get("controle_execucao")
                     modo_controle_antes = getattr(
@@ -2258,6 +2338,7 @@ def main(argv=None, estado_inicial=None):
                         != ramos_fechados_antes
                     )
                     paginas_mudou = estado.get("pagina_atual", {}) != paginas_antes
+                    popup_mudou = estado.get("popup") is not popup_antes
                     if (
                         estado["tela_atual"] != tela_antes
                         or verboso_mudou
@@ -2266,6 +2347,7 @@ def main(argv=None, estado_inicial=None):
                         or selecoes_mudou
                         or ramos_fechados_mudou
                         or paginas_mudou
+                        or popup_mudou
                         or dry_mudou
                         or resultado_mudou
                         or resultado_controle_mudou
@@ -2316,6 +2398,7 @@ def main(argv=None, estado_inicial=None):
                 estado.get("ramos_fechados", {})
             )
             paginas_antes = dict(estado.get("pagina_atual", {}))
+            popup_antes = estado.get("popup")
             fluxo_antes = estado.get("fluxo_execucao")
             controle_antes = estado.get("controle_execucao")
             modo_controle_antes = getattr(controle_antes, "modo_atual", None)
@@ -2374,6 +2457,7 @@ def main(argv=None, estado_inicial=None):
                 != ramos_fechados_antes
             )
             paginas_mudou = estado.get("pagina_atual", {}) != paginas_antes
+            popup_mudou = estado.get("popup") is not popup_antes
             if (
                 estado["tela_atual"] != tela_antes
                 or verboso_mudou
@@ -2382,6 +2466,7 @@ def main(argv=None, estado_inicial=None):
                 or selecoes_mudou
                 or ramos_fechados_mudou
                 or paginas_mudou
+                or popup_mudou
                 or dry_mudou
                 or resultado_mudou
                 or resultado_controle_mudou

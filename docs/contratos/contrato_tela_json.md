@@ -19,6 +19,7 @@ metadata:
       - docs/adr/ADR-0034-selecao-multipla-e-fluxo-focal-de-processamento.md
       - docs/adr/ADR-0036-carregamento-e-apresentacao-da-tela-padrao-de-resultado.md
       - docs/adr/ADR-0040-padronizacao-universal-do-controle-de-execucao-real-e-dry-run.md
+      - docs/adr/ADR-0044-popup-modal-generico-de-decisao.md
     reaproveitado_de_legado: false
   dependencias_nomenclatura:
     dependencias_obrigatorias:
@@ -46,6 +47,8 @@ metadata:
         quando: a tela declarar carregamento externo de conteúdo
       - modulo: docs/nomenclatura/44_APRESENTACOES_E_MODOS_MULTINIVEL_DO_CONSOLE.md
         quando: a tela declarar política de modo ou apresentação multinível
+      - modulo: docs/nomenclatura/35_POPUP.md
+        quando: a configuração adotar a capacidade de pop-up modal
       - modulo: docs/nomenclatura/90_ALIASES_E_TERMOS_DESCONTINUADOS.md
         quando: a tela referenciar elemento ou campo com termo legado
 ---
@@ -111,6 +114,7 @@ O JSON da tela pode declarar:
 - instâncias de `console`, `dashboard` e `lancador`;
 - instância de `barra_de_menus`;
 - lista de chips;
+- o mapa geral opcional `popups`;
 - filtros;
 - bindings;
 - ações registradas;
@@ -144,6 +148,10 @@ tela
 
 O JSON configura essas regiões e suas instâncias; ele não redefine a existência
 da estrutura macro.
+
+Além da estrutura macro obrigatória, o JSON pode declarar o campo geral
+opcional `popups`, conforme a seção 35. Esse campo não é uma região da tela e
+não integra a composição de `corpo`.
 
 ---
 
@@ -1764,3 +1772,43 @@ A supersessão é somente sobre essa divisão; todas as demais decisões de
 D-SEL-21 e da ADR-0034 permanecem vigentes. O Handoff 3 não abre a tela de
 resultado nem executa o retorno; essas capacidades pertencem exclusivamente
 ao Handoff 4.
+
+## 35. Configuração estrutural e conteúdo runtime do pop-up (ADR-0044)
+
+O JSON estrutural da tela pode declarar, no nível geral, o campo literal
+`popups`. Ele fica fora de `cabecalho`, `corpo` e `barra_de_menus`; não é uma
+quarta região, um elemento funcional ou um nó da árvore do corpo.
+
+A forma estrutural fechada é um mapa/objeto de cardinalidade `0..N`, não uma
+lista:
+
+```yaml
+popups:
+  <id_popup>:
+    <configuracao_do_popup>
+```
+
+A ausência de `popups` e `popups: {}` são válidas. Quando houver entradas, a
+chave de cada entrada é o ID estável da declaração estrutural. Não existe
+campo interno `id` obrigatório redundante. O ID estrutural identifica a
+declaração independentemente de conteúdo, posição física ou ordem de
+apresentação.
+
+Cada valor do mapa contém somente configuração estrutural/interativa do
+pop-up. O contrato especializado define os campos autorizados da capacidade;
+esta seção não completa o schema integral de configurações futuras. A
+declaração não contém conteúdo concreto de uma abertura, mensagem produzida,
+lista concreta de opções, cursor, marcação provisória, resultado, produtor,
+loader ou origem de dados.
+
+O envelope de conteúdo é externo à declaração e chega pronto em runtime pelo
+chamador. Declaração estrutural e instância de pop-up são entidades distintas:
+a declaração permanece no JSON, enquanto a instância é criada para uma
+abertura concreta, possui conteúdo e estado vivo próprios e nunca altera a
+declaração.
+
+O JSON estrutural continua declarando a tela e suas três regiões canônicas.
+Quando uma configuração adotar a capacidade, a compatibilidade entre sua
+declaração, o envelope runtime e o contrato de resultado esperado pelo
+chamador deve ser validada antes da materialização, conforme
+`contrato_popup.md`.

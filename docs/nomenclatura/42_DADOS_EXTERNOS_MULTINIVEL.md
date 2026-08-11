@@ -129,6 +129,7 @@ console.
 | `dado externo` (módulo 42) × `carregamento` (módulo 43) | Dado externo: o que existe no envelope; carregamento: como esse envelope é associado ao console e ao momento de carga |
 | `schema semântico` × `schema de configuração` | Schema semântico: descreve campos de dado por nível; schema de configuração: descreve campos da tela, do console ou do contrato |
 | `JSON externo de conteúdo` (genérico) × `documento de resultado de execução` (ADR-0034) | Conteúdo genérico: dados de domínio apresentados pelo console em operação; documento de resultado: resultado ou erro estruturado de uma operação focal executada sobre um lote reconciliado — campos fixos, não vocabulário livre de níveis |
+| `envelope de entrada do pop-up` × `envelope declarativo multinível` | O envelope do pop-up pertence ao domínio `35` e transporta conteúdo pronto de uma abertura; não é o envelope multinível do console e não declara níveis, produtor ou origem de dados |
 
 ## 6. Relação com contratos
 
@@ -172,6 +173,8 @@ renomeados com base nestes termos concorrentes.
 - Apresentação e modos de exibição do dado carregado → módulo `44`.
 - Schema normativo do console (campos de configuração) → `contrato_json_console.md`.
 - Grupo como nó estrutural → módulo `40`.
+- Envelope de entrada do pop-up modal → módulo `35`; não ampliar este domínio
+  para cobrir a capacidade da ADR-0044.
 
 ## 10. Proveniência da migração
 

@@ -83,6 +83,11 @@ Toda tela do sistema tem exatamente três regiões:
 3. **`barra_de_menus`**: região fixa inferior com chips de ação. Proprietário
    terminológico: módulo `31`.
 
+O pop-up é apresentação sobreposta referenciada fisicamente pelo corpo, mas
+não integra a árvore do corpo, não é filho de `corpo` e não cria uma quarta
+região da tela. A taxonomia de elementos funcionais permanece inalterada;
+consulte `35_POPUP.md`.
+
 ### 4.2 Tipos de elemento do corpo
 
 A taxonomia é fechada (ADR-0010, ADR-0007):
@@ -200,6 +205,8 @@ do schema completo: `contrato_tela_json.md` e módulo `02`.
 - ADR-0024: proibição de espaço externo vazio.
 - ADR-0034: tela de resultado como composição de um único console passivo; origem suspensa.
 - ADR-0037: especializa origem suspensa como referência viva; tela ativa; reativação da origem; transição focal.
+- ADR-0044: pop-up sobreposto fora da árvore do corpo e das três regiões da
+  tela.
 
 ## 8. Aliases ou termos descontinuados relacionados
 

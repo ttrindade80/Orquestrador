@@ -86,6 +86,9 @@ Campos do schema de borda:
 O espaço da moldura sempre existe estruturalmente; o que muda entre estilos
 de borda é só o caractere de preenchimento.
 
+O pop-up reutiliza a moldura do estilo universal. Ele não introduz campo,
+catálogo ou aparência independente de estilo.
+
 **Catálogo e preset ativo (ADR-0030 D2)**: três presets nomeados — "Borda
 Curva", "Borda Reta", "Linha". O preset ativo é indicado por
 `borda.preset_default` em `config/estilo.json`. O preset ativo inicial é
@@ -122,6 +125,9 @@ preservar a capitalização atual dos rótulos (ADR-0030 D5).
 resolvido controla se o renderer aplica transformação para maiúsculas no texto
 do chip. A capitalização NÃO é definida pela declaração do chip no `tela.json`
 — vem exclusivamente do preset de estilo resolvido.
+
+A área de chips do pop-up também reutiliza a forma visual universal do chip;
+esta remissão não cria estilo específico do pop-up.
 
 ### 4.4 Indicadores
 

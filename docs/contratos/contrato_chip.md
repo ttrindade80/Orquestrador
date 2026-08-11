@@ -23,6 +23,7 @@ metadata:
       - docs/adr/ADR-0040-padronizacao-universal-do-controle-de-execucao-real-e-dry-run.md
       - docs/adr/ADR-0041-paginacao-universal-por-pageup-e-pagedown.md
       - docs/adr/ADR-0043-ajuda-universal-e-chip-contextual-de-expandir-recolher.md
+      - docs/adr/ADR-0044-popup-modal-generico-de-decisao.md
     reaproveitado_de_legado: false
   dependencias_nomenclatura:
     dependencias_obrigatorias:
@@ -37,6 +38,8 @@ metadata:
         quando: tratar distinção ou associação com lançador
       - modulo: docs/nomenclatura/34_DASHBOARD.md
         quando: tratar distinção ou associação com dashboard
+      - modulo: docs/nomenclatura/35_POPUP.md
+        quando: tratar chip consumido por pop-up modal
       - modulo: docs/nomenclatura/90_ALIASES_E_TERMOS_DESCONTINUADOS.md
         quando: houver termo descontinuado ou alias
 ---
@@ -59,7 +62,9 @@ registry completo de ações nem o registry completo de tipos de chip.
 
 `chip` é uma **entidade declarativa de interface textual**. Representa uma
 tecla ou símbolo acionável — ou informativo — exibido em uma região da tela,
-especialmente na `barra_de_menus`.
+especialmente na `barra_de_menus`. A mesma entidade visual/semântica pode ser
+consumida pela área de chips de um pop-up modal, conforme
+`docs/contratos/contrato_popup.md`.
 
 Propriedades fundamentais:
 
@@ -106,6 +111,18 @@ documentação e nomenclatura. O contrato do `lancador`
 (`docs/contratos/contrato_lancador.md`) é a autoridade sobre a estrutura do
 item do `lancador`; este contrato é a autoridade sobre chips da
 `barra_de_menus`.
+
+### 3.1 Consumo pelo pop-up modal
+
+O pop-up pode consumir a entidade visual/semântica `chip` para sua área de
+chips própria. Essa área não é `barra_de_menus` e não participa da ordem fixa
+dos chips canônicos da barra. A ordem dos chips do pop-up é a ordem declarada
+no próprio pop-up.
+
+Nos dois contextos, a aparência deriva do estilo universal, e tecla física,
+rótulo e semântica permanecem conceitos separados. No pop-up, o rótulo não
+define ação de negócio: confirmação ou aborto produz o resultado previsto por
+`contrato_popup.md`, e qualquer efeito posterior pertence ao chamador.
 
 ---
 
@@ -225,6 +242,9 @@ expansão/recolhimento.
 
 Chips específicos de classe de tela são instâncias adicionais, não incluídas
 nessa lista canônica, declaradas individualmente pela classe no `tela.json`.
+
+Esta ordem canônica pertence exclusivamente à `barra_de_menus`; não é
+reutilizada como ordem implícita na área de chips do pop-up.
 
 ---
 
@@ -436,6 +456,8 @@ Regras:
 - A tradução de `tecla` para valor de terminal (código de tecla, símbolo de
   display) é responsabilidade do renderer, com base na declaração da instância
   e no estilo ativo — não do schema do chip.
+- Quando consumido por um pop-up, o chip preserva a separação entre tecla
+  física, rótulo e resultado; o rótulo não constitui ação de negócio.
 
 Exemplo de rótulo dinâmico contratual: `[⏎]` tem texto diferente conforme o
 estado da seleção e o tipo de ação do item em foco (ver `contrato_barra_de_menus.md`
@@ -578,6 +600,11 @@ O JSON não pode executar comando arbitrário, chamar script livre nem declarar
 lógica procedural. Toda ação declarada em chip deve pertencer ao registro de
 ações conhecidas. Ação não registrada é erro de validação — não é ignorada nem
 executada.
+
+No pop-up, a entidade `chip` pode declarar a confirmação ou a saída da
+interação, mas não autoriza o pop-up a executar a ação de negócio sugerida
+pelo rótulo. A semântica de retorno é a do contrato do pop-up e o chamador é
+responsável pelo efeito posterior.
 
 ---
 

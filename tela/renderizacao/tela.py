@@ -16,6 +16,7 @@ from tela.renderizacao.geometria_caixa import (
     _caixa,
     _contar_linhas,
 )
+from tela.renderizacao.popup import sobrepor_no_corpo
 
 
 def _quadro_minimo_global(total_w, altura):
@@ -233,6 +234,7 @@ def renderizar_tela(
     chips_destacados=None,
     executar_disponivel=None,
     paginas_atuais=None,
+    popup=None,
 ) -> str:
     """Renderiza ModeloTela como string visual declarativa (H-0010A).
 
@@ -398,6 +400,19 @@ def renderizar_tela(
         modelo.corpo.elementos, borda, total_w, l_corpo_disponivel,
         verboso=verboso,
     )
+    if popup is not None:
+        if not bloco_corpo:
+            raise RenderizadorErro(
+                "popup exige corpo materializado para sobreposicao"
+            )
+        altura_corpo = (
+            l_corpo_disponivel
+            if l_corpo_disponivel is not None
+            else _contar_linhas(bloco_corpo)
+        )
+        bloco_corpo = sobrepor_no_corpo(
+            bloco_corpo, popup, estilo, total_w, altura=altura_corpo
+        )
     if bloco_corpo:
         partes.append(bloco_corpo)
 

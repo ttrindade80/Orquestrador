@@ -164,10 +164,10 @@ esta lista.
 **Pre-requisitos:** Levantamento focal da nomenclatura, contrato e ADRs que tratam truncamento e apresentação textual.
 **Proxima acao:** Identificar a contradição exata e obter decisão documental própria.
 
-### ITEM-0017 — Avaliar a necessidade de popup_execucao
+### ITEM-0017 — Capacidade de pop-up modal genérico de decisão
 **Tipo:** documentacao
 **Prioridade:** media
-**Status:** bloqueado
-**Descricao:** Determinar se `popup_execucao` ainda representa uma necessidade do sistema.
-**Pre-requisitos:** Caso real de uso ou decisão explícita sobre sua necessidade.
-**Proxima acao:** Apresentar a questão ao usuário em ciclo focal de especificação.
+**Status:** em_andamento
+**Descricao:** ADR-0044 aplicada; H-0056 concluído com pop-up modal textual básico implementado e validado. Permanecem em aberto as entregas incrementais H-0057, H-0058 e H-0059.
+**Pre-requisitos:** ADR-0044 aprovada; contrato especializado, integração declarativa limitada ao que foi fechado pela ADR e nomenclatura própria.
+**Proxima acao:** Encaminhar a próxima entrega incremental para H-0057 — geometria dinâmica, wrapping e resize; não iniciar nesta etapa.

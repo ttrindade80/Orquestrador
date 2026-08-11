@@ -102,6 +102,11 @@ de posição na tela.
 - `quadro mínimo de terminal pequeno` não encerra a sessão; recuperação é automática.
 - `ncurses`, `curses`, `textual` e `rich` permanecem proibidos para esta capacidade.
 
+O pop-up reutiliza esta política geral de `SIGWINCH`, dimensões válidas,
+últimas dimensões válidas, redesenho e `quadro mínimo de terminal pequeno`.
+Essa remissão não cria uma política concorrente e não cria paginação de
+pop-up; seu conteúdo permanece sem paginação.
+
 ### 4.6 Fronteiras de navegação simples (ADR-0031)
 
 As regras abaixo delimitam o escopo da ADR-0031 em relação ao redimensionamento
@@ -195,6 +200,8 @@ paginação — não são alias, atalho nem fallback de `PageUp`/`PageDown`
   de acionamento (`PageUp`/`PageDown`) e a representação visual
   (`[PgUp][PgDn] Páginas`) já fixadas pela ADR-0038, sem reabrir os conceitos
   de página, repaginação ou paginação limitada.
+- ADR-0044: reutiliza a política geral de resize e o quadro mínimo para
+  apresentação modal, sem paginação de pop-up.
 
 ## 8. Aliases ou termos descontinuados relacionados
 

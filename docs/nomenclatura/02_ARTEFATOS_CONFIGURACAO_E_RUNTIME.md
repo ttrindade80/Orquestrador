@@ -156,6 +156,17 @@ configuração concreta declarada antes da execução; não confundir com o
 estado de visualização ou de seleção vivos durante a sessão (§4.5). Autoridade
 comportamental completa: `contrato_tela_json.md` seção 34.
 
+### 4.7 Configuração, conteúdo recebido e runtime do pop-up (ADR-0044)
+
+Quando a configuração adota a capacidade de pop-up, a configuração estrutural
+permanece no JSON geral, o conteúdo concreto chega pronto em runtime e o
+estado vivo pertence à instância aberta. O conteúdo recebido não é parte do
+JSON estrutural da tela nem é persistido como estado; cursor e marcações
+provisórias pertencem ao runtime. A propriedade do vocabulário específico e
+do envelope de entrada é do módulo `35_POPUP.md` e do contrato
+`contrato_popup.md`; este módulo registra somente a distinção entre as
+camadas.
+
 ## 5. Distinções obrigatórias
 
 | Par | Distinção normativa |
@@ -172,6 +183,8 @@ comportamental completa: `contrato_tela_json.md` seção 34.
 
 - `contrato_tela_json.md`: autoridade do schema completo de `tela.json`.
 - `contrato_estilo.md`: autoridade das regras de uso de `config/estilo.json`.
+- `contrato_popup.md`: separação entre configuração do pop-up, conteúdo
+  recebido e estado de runtime da instância.
 
 ## 7. Relação com ADRs
 
@@ -183,6 +196,8 @@ comportamental completa: `contrato_tela_json.md` seção 34.
 - ADR-0040: distinção entre estado inicial declarado e modo corrente de runtime.
 - ADR-0040: objeto fechado `controle_execucao` e autoridade implementacional
   do registro de ações.
+- ADR-0044: separação entre configuração estrutural do pop-up, conteúdo pronto
+  recebido e estado vivo da instância.
 
 ## 8. Aliases ou termos descontinuados relacionados
 

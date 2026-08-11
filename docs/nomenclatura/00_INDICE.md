@@ -105,6 +105,7 @@ por domínio; a lista autoritativa de módulos requeridos está em cada contrato
 | `32_CONSOLE.md` | Console como container interativo, cursor, seleção, lote, partes do item |
 | `33_LANCADOR.md` | Lançador, itens de navegação, fila, matriz, grandezas de largura |
 | `34_DASHBOARD.md` | Dashboard, saída passiva, marcadores, campos de resumo |
+| `35_POPUP.md` | Pop-up modal e interação sobreposta para decisões focais |
 
 ### 5.5 Distribuição de área e grupos
 

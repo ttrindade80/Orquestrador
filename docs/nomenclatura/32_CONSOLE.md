@@ -160,6 +160,9 @@ completa em `contrato_console.md` §22.
 | **linha física** | Linha do terminal ocupada por parte de um item ou por marcador de continuação; o cursor se move por item lógico, não por linha física. |
 | **coluna indicadora** | Primeira linha física do console focado que recebe o símbolo indicador de foco derivado do `config/estilo.json` (D11/D12). |
 
+`marcacao: exclusiva` é a política própria do pop-up e não é o termo
+`seleção única` do console: no pop-up, mover o cursor não altera a marcação.
+
 **Distinções adicionais obrigatórias (ADR-0031):**
 
 | Par | Distinção normativa |

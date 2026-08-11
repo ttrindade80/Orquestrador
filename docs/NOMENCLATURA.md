@@ -73,6 +73,7 @@ ordem_de_leitura:
 | `docs/nomenclatura/32_CONSOLE.md` | Console — container interativo genérico de itens |
 | `docs/nomenclatura/33_LANCADOR.md` | Lançador — tipo de elemento do corpo para navegação entre telas |
 | `docs/nomenclatura/34_DASHBOARD.md` | Dashboard — saída passiva não navegável |
+| `docs/nomenclatura/35_POPUP.md` | Pop-up modal e interação sobreposta para decisões focais |
 | `docs/nomenclatura/40_GRUPOS_E_DISTRIBUICAO_DE_AREA.md` | Grupos, distribuição de área, ocupação, espaço externo |
 | `docs/nomenclatura/41_DISTRIBUICAO_MATRICIAL.md` | Distribuição matricial configurável de nível único |
 | `docs/nomenclatura/42_DADOS_EXTERNOS_MULTINIVEL.md` | Dados externos multinível — envelope declarativo, níveis, schema semântico |

@@ -220,6 +220,11 @@ rótulo que muda conforme o estado atual.
 Esses termos não colapsam: uma substring (`horizontal`) não os identifica
 unicamente.
 
+O pop-up possui uma área de chips própria, distinta da `barra_de_menus`.
+Se consumir a entidade `chip`, preserva a aparência derivada do estilo
+universal, mas usa a ordem declarada no próprio pop-up; a ordem canônica desta
+barra não é alterada nem transferida.
+
 ## 5. Distinções obrigatórias
 
 | Par | Distinção normativa |
@@ -253,6 +258,8 @@ unicamente.
 - ADR-0043: torna `[?] Ajuda` universal, sempre ativa e última; distingue
   `[␣] Expandir`/`[␣] Recolher` de `[␣] Selecionar` e os posiciona na faixa de
   específicos/contextuais para `arvore_colapsavel`.
+- ADR-0044: distingue a área de chips do pop-up da `barra_de_menus` e
+  preserva a ordem canônica desta barra.
 
 ## 8. Aliases ou termos descontinuados relacionados
 
