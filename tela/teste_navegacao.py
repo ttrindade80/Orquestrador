@@ -88,6 +88,19 @@ def _selecao_multinivel(idc="selecao", nos=None):
     return console
 
 
+def _dois_niveis(idc="dois_niveis", nos=None):
+    console = _console(
+        idc, [], navegavel=True,
+        tipo_navegacao="dois_niveis_por_foco",
+    )
+    console._campos_inertes["politica_selecao"] = "multipla"
+    console.conteudo_externo = ConteudoExterno(
+        tipo="multinivel", apresentacao="hierarquia", niveis=[],
+        nos=nos or [],
+    )
+    return console
+
+
 def _no_selecao(idc, nivel="item", selecionavel=False, filhos=None):
     return NoConteudo(
         id=idc,
@@ -2014,3 +2027,114 @@ def test_h0045_setas_restritas_aos_itens_navegaveis_da_pagina_atual():
     novo = navegacao.mover_baixo(estado, console, itens_permitidos=permitidos)
 
     assert novo["cursores"][console.id] == 0
+
+
+# H-0055 -- dois_niveis_por_foco
+def _arvore_h0055():
+    return _dois_niveis(nos=[
+        _no_selecao(
+            "pai_a", nivel="grupo", filhos=[
+                _no_selecao("a1", selecionavel=True),
+                _no_selecao("a2", selecionavel=True),
+                _no_selecao("a3", selecionavel=True),
+            ],
+        ),
+        _no_selecao(
+            "pai_b", nivel="grupo", filhos=[
+                _no_selecao("b1", selecionavel=True),
+                _no_selecao("b2", selecionavel=True),
+            ],
+        ),
+    ])
+
+
+def teste_h0055_politica_explicita_e_terceiro_nivel_invalido():
+    console = _arvore_h0055()
+    assert navegacao.console_e_focalizavel(console) is True
+    assert navegacao.tipo_navegacao_efetivo(console) == "dois_niveis_por_foco"
+
+    neto = _no_selecao("neto", selecionavel=True)
+    filho = _no_selecao("filho", selecionavel=True, filhos=[neto])
+    invalido = _dois_niveis(nos=[
+        _no_selecao("pai", nivel="grupo", filhos=[filho])
+    ])
+    assert navegacao.estrutura_dois_niveis_valida(invalido) is False
+    assert navegacao.console_e_focalizavel(invalido) is False
+
+
+def teste_h0055_toroides_independentes_wrap_entrada_e_retorno():
+    console = _arvore_h0055()
+    estado = _estado([console], foco=0, cursores={console.id: 0})
+    estado["selecoes"] = {console.id: ["a1", "b1"]}
+
+    # Toroide dos pais: 0 (pai_a) -> 4 (pai_b) -> 0.
+    estado = navegacao.mover_cima(estado, console)
+    assert estado["cursores"][console.id] == 4
+    estado = navegacao.mover_baixo(estado, console)
+    assert estado["cursores"][console.id] == 0
+
+    filhos = navegacao.entrar_nivel_filhos(estado, console)
+    assert filhos["cursores"][console.id] == 1
+    assert navegacao.em_nivel_filhos(filhos, console) is True
+    assert navegacao.mover_cima(filhos, console)["cursores"][console.id] == 3
+    assert navegacao.mover_direita(filhos, console)["cursores"][console.id] == 2
+
+    pais = navegacao.retornar_nivel_pais(filhos, console)
+    assert pais["cursores"][console.id] == 0
+    assert pais["selecoes"] == filhos["selecoes"]
+
+
+def teste_h0055_rotulo_esc_recalcula_nos_dois_niveis():
+    console = _arvore_h0055()
+    estado = _estado([console], foco=0, cursores={console.id: 0})
+    estado["selecoes"] = {console.id: ["a1", "b1"]}
+
+    assert navegacao.rotulo_esc_dois_niveis(estado, console) == "Sair"
+    filhos = navegacao.entrar_nivel_filhos(estado, console)
+    assert navegacao.rotulo_esc_dois_niveis(filhos, console) == "Voltar"
+    pais = navegacao.retornar_nivel_pais(filhos, console)
+    assert navegacao.rotulo_esc_dois_niveis(pais, console) == "Sair"
+
+    repetido = navegacao.entrar_nivel_filhos(pais, console)
+    repetido = navegacao.retornar_nivel_pais(repetido, console)
+    assert navegacao.rotulo_esc_dois_niveis(repetido, console) == "Sair"
+    assert repetido["selecoes"] == estado["selecoes"]
+
+
+def teste_h0055_escolha_inicial_transferencia_idempotencia_e_isolamento():
+    from tela import selecao
+
+    console = _arvore_h0055()
+    estado = _estado([console], foco=0, cursores={console.id: 0})
+    estado = selecao.inicializar_escolhas_dois_niveis(estado, console)
+    assert estado["selecoes"][console.id] == ["a1", "b1"]
+
+    estado = navegacao.entrar_nivel_filhos(estado, console)
+    movido = navegacao.mover_baixo(estado, console)
+    assert movido["cursores"][console.id] == 2
+    assert movido["selecoes"][console.id] == ["a1", "b1"]
+
+    transferido = selecao.alternar(movido, console, "a2")
+    assert transferido["cursores"] == movido["cursores"]
+    assert transferido["selecoes"][console.id] == ["a2", "b1"]
+    repetido = selecao.alternar(transferido, console, "a2")
+    assert repetido["selecoes"][console.id] == ["a2", "b1"]
+    assert selecao.limpar(repetido, console)["selecoes"][console.id] == [
+        "a2", "b1"
+    ]
+
+
+def teste_h0055_tab_reseta_cursor_sem_alterar_escolhas_e_preserva_resize():
+    console = _arvore_h0055()
+    outro = _console("outro", [_item("x", "X")])
+    estado = _estado(
+        [outro, console], foco=0, cursores={"outro": 0, console.id: 2}
+    )
+    estado["selecoes"] = {console.id: ["a2", "b1"]}
+    focado = navegacao.avancar_foco(estado)
+    assert focado["foco_console"] == 1
+    assert focado["cursores"][console.id] == 0
+    assert focado["selecoes"] == estado["selecoes"]
+    redimensionado = navegacao.redimensionar(focado, 120, 35)
+    assert redimensionado["cursores"] == focado["cursores"]
+    assert redimensionado["selecoes"] == focado["selecoes"]

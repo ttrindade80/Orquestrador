@@ -71,7 +71,7 @@ def itens_selecionaveis(console):
     Itens nao navegaveis e itens nao selecionaveis (``selecionavel`` ausente ou
     falso) ficam de fora. Retorna lista de IDs (strings), na ordem declarada.
     """
-    if _eh_selecao_multinivel(console):
+    if _eh_selecao_multinivel(console) or _eh_dois_niveis_por_foco(console):
         from tela import navegacao
 
         conteudo = getattr(console, "conteudo_externo", None)
@@ -112,6 +112,8 @@ def selecao(console, estado):
     leitura, de modo que a selecao observada nunca carrega residuo.
     """
     marcados = _selecao_do_console(estado, console)
+    if _eh_dois_niveis_por_foco(console):
+        return _reconciliar_ids_dois_niveis(console, marcados)
     validos = itens_selecionaveis(console)
     valido_set = set(validos)
     # D-SEL-03: remove IDs inexistentes/não selecionáveis na leitura.
@@ -126,6 +128,13 @@ def limpar(estado, console):
     ``Esc`` com selecao ativa limpa e permanece na tela (o chamador decide
     se o proximo ``Esc`` volta/sai). Nenhum dict recebido e mutado.
     """
+    if _eh_dois_niveis_por_foco(console):
+        return _escrever_selecao(
+            estado, console,
+            _reconciliar_ids_dois_niveis(
+                console, _selecao_do_console(estado, console)
+            ),
+        )
     return _escrever_selecao(estado, console, [])
 
 
@@ -142,6 +151,10 @@ def alternar(estado, console, id_item):
     """
     if _eh_selecao_multinivel(console):
         return _alternar_multinivel(estado, console, id_item)
+    if _eh_dois_niveis_por_foco(console):
+        return _transferir_escolha_dois_niveis(
+            estado, console, id_item
+        )
     if not item_selecionavel(console, id_item):
         # D-SEL-05: item não selecionável ignora Espaço (sem efeito).
         return _escrever_selecao(estado, console, _selecao_do_console(estado, console))
@@ -161,6 +174,63 @@ def _eh_selecao_multinivel(console):
     campos = getattr(console, "_campos_inertes", {})
     politica = campos.get("politica_navegacao") if isinstance(campos, dict) else None
     return isinstance(politica, dict) and politica.get("tipo") == "selecao_multinivel"
+
+
+def _eh_dois_niveis_por_foco(console):
+    campos = getattr(console, "_campos_inertes", {})
+    politica = campos.get("politica_navegacao") if isinstance(campos, dict) else None
+    return isinstance(politica, dict) and politica.get("tipo") == "dois_niveis_por_foco"
+
+
+def _reconciliar_ids_dois_niveis(console, ids):
+    """Mantem exatamente a escolha de um filho direto por pai."""
+    from tela import navegacao
+
+    if not navegacao.estrutura_dois_niveis_valida(console):
+        return []
+    marcados = set(ids or ())
+    escolhas = []
+    for pai in console.conteudo_externo.nos:
+        escolhido = next(
+            (filho for filho in pai.filhos if filho.id in marcados),
+            pai.filhos[0],
+        )
+        escolhas.append(escolhido.id)
+    return escolhas
+
+
+def _transferir_escolha_dois_niveis(estado, console, id_item):
+    """Transfere a escolha somente entre filhos diretos do mesmo pai."""
+    atuais = _reconciliar_ids_dois_niveis(
+        console, _selecao_do_console(estado, console)
+    )
+    pai_alvo = next(
+        (
+            pai for pai in console.conteudo_externo.nos
+            if any(filho.id == id_item for filho in pai.filhos)
+        ),
+        None,
+    )
+    if pai_alvo is None:
+        return _escrever_selecao(estado, console, atuais)
+    ids_do_pai = {filho.id for filho in pai_alvo.filhos}
+    novo = [id_atual for id_atual in atuais if id_atual not in ids_do_pai]
+    novo.append(id_item)
+    return _escrever_selecao(
+        estado, console, _reconciliar_ids_dois_niveis(console, novo)
+    )
+
+
+def inicializar_escolhas_dois_niveis(estado, console):
+    """Materializa no runtime a escolha inicial derivada da ordem dos filhos."""
+    if not _eh_dois_niveis_por_foco(console):
+        return dict(estado)
+    return _escrever_selecao(
+        estado, console,
+        _reconciliar_ids_dois_niveis(
+            console, _selecao_do_console(estado, console)
+        ),
+    )
 
 
 def _alvos_multinivel(console, id_item):
@@ -304,6 +374,8 @@ def reconciliar(estado, console):
     ids = selecao(console, estado)
     if _eh_selecao_multinivel(console):
         ids = _reconciliar_ids_multinivel(console, ids)
+    elif _eh_dois_niveis_por_foco(console):
+        ids = _reconciliar_ids_dois_niveis(console, ids)
     return _escrever_selecao(estado, console, ids)
 
 
@@ -357,6 +429,8 @@ def rotulo_esc(estado, console, rotulo_original):
         return rotulo_original
     if not _console_declarou_selecao_multipla(console):
         return rotulo_original
+    if _eh_dois_niveis_por_foco(console):
+        return rotulo_original
     if esta_vazia(estado, console):
         return rotulo_original
     return "Limpar"
@@ -394,7 +468,9 @@ def chip_espaco_ativo(console, estado, navegacao):
     if not isinstance(item, dict):
         return False
     tipo_navegacao = getattr(navegacao, "tipo_navegacao_efetivo", None)
-    if tipo_navegacao is not None and tipo_navegacao(console) == "selecao_multinivel":
+    if tipo_navegacao is not None and tipo_navegacao(console) in (
+        "selecao_multinivel", "dois_niveis_por_foco"
+    ):
         no = item.get("_no_multinivel")
         return navegacao.no_tem_alcance_selecao(no)
     return bool(item.get("selecionavel"))

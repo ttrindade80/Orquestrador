@@ -1,0 +1,86 @@
+{
+  "id": "h0055_dois_niveis_por_foco",
+  "schema": "tela.v1",
+  "cabecalho": {
+    "titulo": "H-0055 Dois níveis por foco",
+    "descricao": "Escolha exclusiva obrigatória de um filho por pai",
+    "apresentacao": {
+      "titulo": {
+        "posicao": "esquerda",
+        "recuo_lateral": 0,
+        "capitalizacao": "maiusculas",
+        "formato_na_borda": "com_espacos_laterais"
+      },
+      "descricao": {
+        "max_caracteres": 120,
+        "alinhamento": "esquerda",
+        "recuo": 1,
+        "capitalizacao": "preservar"
+      }
+    }
+  },
+  "corpo": {
+    "arranjo": "vertical",
+    "elementos": [
+      {
+        "id": "console_h0055",
+        "tipo": "console",
+        "titulo": "Pais e filhos diretos",
+        "itens": [],
+        "origem_dados": {"tipo": "declarados"},
+        "politica_composicao": {"tipo": "manual"},
+        "politica_navegacao": {
+          "navegavel": true,
+          "tipo": "dois_niveis_por_foco"
+        },
+        "politica_selecao": "multipla",
+          "politica_paginacao": "com",
+          "formato": {
+            "excesso": {
+            "politica_modo": "somente_nao_verboso"
+            }
+          }
+      }
+    ]
+  },
+  "barra_de_menus": {
+    "chips": [
+      {
+        "id": "sair",
+        "tipo": "acao",
+        "tecla": "Esc",
+        "texto": "Sair",
+        "regra_ativo": "sempre"
+      },
+      {
+        "id": "navegar",
+        "tipo": "informativo",
+        "tecla": "✥",
+        "texto": "Navegar",
+        "regra_ativo": "quando_navegacao_disponivel"
+      },
+      {
+        "id": "paginas",
+        "tipo": "informativo",
+        "tecla": "PgUp][PgDn",
+        "texto": "Páginas",
+        "regra_ativo": "quando_paginacao"
+      },
+      {
+        "id": "selecionar",
+        "tipo": "acao",
+        "tecla": "␣",
+        "texto": "Selecionar",
+        "forma_exibicao": "rotulo_dinamico",
+        "regra_ativo": "sempre"
+      },
+      {
+        "id": "ajuda",
+        "tipo": "ajuda",
+        "tecla": "?",
+        "texto": "Ajuda",
+        "regra_ativo": "sempre"
+      }
+    ]
+  }
+}

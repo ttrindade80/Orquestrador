@@ -1,0 +1,75 @@
+{
+  "id": "h0055_dois_niveis_por_foco_conteudo",
+  "schema": "conteudo.v1",
+  "tipo": "multinivel",
+  "apresentacao": "hierarquia",
+  "formato": {
+    "apresentacao": "hierarquia",
+    "niveis": [
+      {
+        "id": "pai",
+        "tipo": "container",
+        "conteudo": "titulo",
+        "designador": {"tipo": "decimal", "sufixo": "."}
+      },
+      {
+        "id": "filho",
+        "tipo": "conteudo",
+        "conteudo": "titulo",
+        "designador": {"tipo": "alfabetico_maiusculo", "sufixo": ")"}
+      }
+    ]
+  },
+  "dados": [
+    {
+      "id": "pai_01", "nivel": "pai", "navegavel": true,
+      "selecionavel": false, "titulo": "Pai 01",
+      "filhos": [
+        {"id": "filho_01_01", "nivel": "filho", "navegavel": true, "selecionavel": true, "titulo": "Filho 01.01"},
+        {"id": "filho_01_02", "nivel": "filho", "navegavel": true, "selecionavel": true, "titulo": "Filho 01.02"},
+        {"id": "filho_01_03", "nivel": "filho", "navegavel": true, "selecionavel": true, "titulo": "Filho 01.03"},
+        {"id": "filho_01_04", "nivel": "filho", "navegavel": true, "selecionavel": true, "titulo": "Filho 01.04"}
+      ]
+    },
+    {
+      "id": "pai_02", "nivel": "pai", "navegavel": true,
+      "selecionavel": false, "titulo": "Pai 02",
+      "filhos": [
+        {"id": "filho_02_01", "nivel": "filho", "navegavel": true, "selecionavel": true, "titulo": "Filho 02.01"},
+        {"id": "filho_02_02", "nivel": "filho", "navegavel": true, "selecionavel": true, "titulo": "Filho 02.02"},
+        {"id": "filho_02_03", "nivel": "filho", "navegavel": true, "selecionavel": true, "titulo": "Filho 02.03"},
+        {"id": "filho_02_04", "nivel": "filho", "navegavel": true, "selecionavel": true, "titulo": "Filho 02.04"}
+      ]
+    },
+    {
+      "id": "pai_03", "nivel": "pai", "navegavel": true,
+      "selecionavel": false, "titulo": "Pai 03",
+      "filhos": [
+        {"id": "filho_03_01", "nivel": "filho", "navegavel": true, "selecionavel": true, "titulo": "Filho 03.01"},
+        {"id": "filho_03_02", "nivel": "filho", "navegavel": true, "selecionavel": true, "titulo": "Filho 03.02"},
+        {"id": "filho_03_03", "nivel": "filho", "navegavel": true, "selecionavel": true, "titulo": "Filho 03.03"},
+        {"id": "filho_03_04", "nivel": "filho", "navegavel": true, "selecionavel": true, "titulo": "Filho 03.04"}
+      ]
+    },
+    {
+      "id": "pai_04", "nivel": "pai", "navegavel": true,
+      "selecionavel": false, "titulo": "Pai 04",
+      "filhos": [
+        {"id": "filho_04_01", "nivel": "filho", "navegavel": true, "selecionavel": true, "titulo": "Filho 04.01"},
+        {"id": "filho_04_02", "nivel": "filho", "navegavel": true, "selecionavel": true, "titulo": "Filho 04.02"},
+        {"id": "filho_04_03", "nivel": "filho", "navegavel": true, "selecionavel": true, "titulo": "Filho 04.03"},
+        {"id": "filho_04_04", "nivel": "filho", "navegavel": true, "selecionavel": true, "titulo": "Filho 04.04"}
+      ]
+    },
+    {
+      "id": "pai_05", "nivel": "pai", "navegavel": true,
+      "selecionavel": false, "titulo": "Pai 05",
+      "filhos": [
+        {"id": "filho_05_01", "nivel": "filho", "navegavel": true, "selecionavel": true, "titulo": "Filho 05.01"},
+        {"id": "filho_05_02", "nivel": "filho", "navegavel": true, "selecionavel": true, "titulo": "Filho 05.02"},
+        {"id": "filho_05_03", "nivel": "filho", "navegavel": true, "selecionavel": true, "titulo": "Filho 05.03"},
+        {"id": "filho_05_04", "nivel": "filho", "navegavel": true, "selecionavel": true, "titulo": "Filho 05.04"}
+      ]
+    }
+  ]
+}

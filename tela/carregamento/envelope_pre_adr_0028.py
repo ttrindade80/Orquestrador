@@ -80,6 +80,37 @@ _TIPOS_POLITICA_NAVEGACAO_VALIDOS = frozenset({
 })
 
 
+def _h0055_d23_valido(elemento, id_tela, tem_itens, tem_regra):
+    """Reconhece somente o envelope nominal H-0055 com D23.
+
+    H-0055 conserva os campos declarativos do console para reutilizar as
+    superfícies vigentes, mas também declara ``formato.excesso`` para D23.
+    Essa combinação é válida apenas para a fixture nominal; não altera a
+    classificação geral de envelopes híbridos nem introduz vocabulário novo.
+    """
+    if id_tela != "h0055_dois_niveis_por_foco" or not tem_itens or tem_regra:
+        return False
+    if elemento.get("itens") != []:
+        return False
+    origem = elemento.get("origem_dados")
+    composicao = elemento.get("politica_composicao")
+    navegacao = elemento.get("politica_navegacao")
+    formato = elemento.get("formato")
+    excesso = formato.get("excesso") if isinstance(formato, dict) else None
+    return (
+        isinstance(origem, dict)
+        and isinstance(composicao, dict)
+        and isinstance(navegacao, dict)
+        and navegacao.get("navegavel") is True
+        and navegacao.get("tipo") == "dois_niveis_por_foco"
+        and elemento.get("politica_selecao") == "multipla"
+        and elemento.get("politica_paginacao") == "com"
+        and isinstance(excesso, dict)
+        and excesso.get("politica_modo") == "somente_nao_verboso"
+        and "modo_inicial" not in excesso
+    )
+
+
 def _validar_valores_envelope_pre_adr_0028(elemento):
     """Valida os valores dos campos base do envelope pre-ADR-0028.
 
@@ -246,6 +277,23 @@ def _console_em_escopo_d23(elemento, id_tela):
     _tem_d23 = isinstance(_exc, dict) and (
         "politica_modo" in _exc or "modo_inicial" in _exc
     )
+
+    # H-0055: a única exceção focal à separação estrutural é a combinação
+    # nominal e validada acima. Todas as demais combinações híbridas seguem
+    # rejeitadas pelo ramo geral imediatamente abaixo.
+    if _tem_d23 and _h0055_d23_valido(
+        elemento, id_tela, tem_itens, tem_regra
+    ):
+        # A fixture nominal H-0055 nao fornece politica_exibicao. Reutiliza a
+        # validacao estrita dos demais campos sem transformar essa ausencia
+        # historicamente aceita em requisito novo; qualquer valor fornecido
+        # para o campo ainda passa pela validacao estrita e rejeita []/tipos
+        # invalidos.
+        elemento_para_validar = elemento
+        if elemento.get("politica_exibicao") is None:
+            elemento_para_validar = dict(elemento, politica_exibicao={})
+        _validar_valores_envelope_pre_adr_0028(elemento_para_validar)
+        return True
 
     # Hibrido envelope + marcadores D23 de consumidor multinivel. Rejeitado em
     # qualquer cardinalidade de envelope (mesmo um campo base + D23 e

@@ -44,7 +44,9 @@ def _selecao_multinivel(elemento):
 
     return (
         getattr(elemento, "tipo", None) == "console"
-        and tipo_navegacao_efetivo(elemento) == "selecao_multinivel"
+        and tipo_navegacao_efetivo(elemento) in (
+            "selecao_multinivel", "dois_niveis_por_foco"
+        )
         and getattr(elemento, "conteudo_externo", None) is not None
     )
 
@@ -81,9 +83,14 @@ def _parametros_renderizacao_multinivel(elemento):
     estado = _estado_runtime_arvore(elemento)
     estado["selecoes"] = _navegacao_atual.get("selecoes") or {}
     focalizavel, focado = _contexto_foco_arvore(elemento)
-    from tela.navegacao import _sequencia_estrutural_selecao_multinivel
+    from tela import navegacao
+    from tela import selecao
 
-    estrutural = _sequencia_estrutural_selecao_multinivel(elemento)
+    if navegacao.tipo_navegacao_efetivo(elemento) == "dois_niveis_por_foco":
+        estrutural = navegacao._sequencia_estrutural_dois_niveis(elemento)
+        estado = selecao.inicializar_escolhas_dois_niveis(estado, elemento)
+    else:
+        estrutural = navegacao._sequencia_estrutural_selecao_multinivel(elemento)
     cursor = (estado.get("cursores") or {}).get(elemento.id)
     corrente_id = None
     if focado and isinstance(cursor, int) and 0 <= cursor < len(estrutural):

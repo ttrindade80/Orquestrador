@@ -203,6 +203,7 @@ _CATALOGO_CONTEUDO_EXTERNO = {
     "h0037_console_tabela_alternavel": "h0037_tabela_conteudo",
     "h0053_arvore_colapsavel": "h0053_arvore_colapsavel_conteudo",
     "h0054_selecao_multinivel": "h0054_selecao_multinivel_conteudo",
+    "h0055_dois_niveis_por_foco": "h0055_dois_niveis_por_foco_conteudo",
 }
 
 # H-0043 / ADR-0036: cenarios da tela padrao de resultado. Todos resolvem para
@@ -348,6 +349,15 @@ def _preparar_estado_h0053(estado, modelo):
     novo = dict(estado)
     novo["ramos_fechados"] = ramos
     return _reconciliar_cursor_focalizado(novo, modelo)
+
+
+def _preparar_estado_h0055(estado, modelo):
+    """Materializa escolhas iniciais H-0055 somente no estado de runtime."""
+    novo = dict(estado)
+    for console in navegacao.lista_foco(modelo):
+        if navegacao.tipo_navegacao_efetivo(console) == "dois_niveis_por_foco":
+            novo = selecao.inicializar_escolhas_dois_niveis(novo, console)
+    return novo
 
 
 def _reconciliar_cursor_focalizado(estado, modelo):
@@ -641,6 +651,8 @@ def processar_comando(estado, comando, modelo=None):
     # Boundary de estado: uma árvore focalizada com nós visíveis não chega a
     # chip/renderer sem o cursor reconciliado pela navegação vigente.
     novo = _reconciliar_cursor_focalizado(novo, modelo)
+    if modelo is not None:
+        novo = _preparar_estado_h0055(novo, modelo)
     # H-0054: qualquer transição que consuma o runtime reconcilia os IDs dos
     # consoles multinivel já materializados. A reconciliação não cria entradas
     # para consoles sem seleção e não altera a ordem lógica dos IDs válidos.
@@ -735,6 +747,15 @@ def processar_comando(estado, comando, modelo=None):
                 return novo
 
     if comando == "s" or comando == "\x1b":
+        if modelo is not None and comando == "\x1b":
+            console_foco = navegacao.console_focado(dict(novo, modelo=modelo))
+            if (
+                console_foco is not None
+                and navegacao.tipo_navegacao_efetivo(console_foco)
+                == "dois_niveis_por_foco"
+                and navegacao.em_nivel_filhos(novo, console_foco)
+            ):
+                return navegacao.retornar_nivel_pais(novo, console_foco)
         # H-0041 / ADR-0034 D-SEL-08: quando o console focado declara selecao
         # multipla e ha selecao ativa, o primeiro Esc LIMPA a selecao e
         # PERMANECE na tela (nao sai/volta). Somente quando a selecao esta
@@ -745,6 +766,8 @@ def processar_comando(estado, comando, modelo=None):
                 dict(novo, modelo=modelo)
             )
             if (console_foco is not None
+                    and navegacao.tipo_navegacao_efetivo(console_foco)
+                    != "dois_niveis_por_foco"
                     and navegacao._console_declarou_selecao_multipla(console_foco)
                     and not selecao.esta_vazia(novo, console_foco)):
                 novo = selecao.limpar(novo, console_foco)
@@ -868,11 +891,20 @@ def processar_comando(estado, comando, modelo=None):
             if (console is not None
                     and navegacao._console_declarou_selecao_multipla(console)):
                 if comando == " ":
-                    item = navegacao.item_selecionado(console, nav_estado)
-                    if isinstance(item, dict):
-                        nav_estado = selecao.alternar(
-                            nav_estado, console, item.get("id")
+                    if (
+                        navegacao.tipo_navegacao_efetivo(console)
+                        == "dois_niveis_por_foco"
+                        and not navegacao.em_nivel_filhos(nav_estado, console)
+                    ):
+                        nav_estado = navegacao.entrar_nivel_filhos(
+                            nav_estado, console
                         )
+                    else:
+                        item = navegacao.item_selecionado(console, nav_estado)
+                        if isinstance(item, dict):
+                            nav_estado = selecao.alternar(
+                                nav_estado, console, item.get("id")
+                            )
                 elif (
                     comando in ("\r", "\n")
                     and navegacao.tipo_navegacao_efetivo(console)
@@ -972,7 +1004,9 @@ def renderizar_estado(estado, modelo, largura=None, altura=None):
     materializar o indicador de cursor no console focado e aplicar as regras
     dinamicas de existencia dos chips ``[⇆]``/``[✥]`` (D11/D12/D14).
     """
-    estado_render = _reconciliar_cursor_focalizado(estado, modelo)
+    estado_render = _preparar_estado_h0055(
+        _reconciliar_cursor_focalizado(estado, modelo), modelo
+    )
     modelo_render, contexto_chip = _modelo_com_chip_arvore(
         estado_render, modelo
     )
@@ -1058,9 +1092,18 @@ def _modelo_com_chip_arvore(estado, modelo):
         for chip in chips:
             if not isinstance(chip, dict) or chip.get("tecla") != "Esc":
                 continue
-            chip["texto"] = selecao.rotulo_esc(
-                estado, console, chip.get("texto")
-            )
+            if (
+                console is not None
+                and navegacao.tipo_navegacao_efetivo(console)
+                == "dois_niveis_por_foco"
+            ):
+                chip["texto"] = navegacao.rotulo_esc_dois_niveis(
+                    estado, console
+                )
+            else:
+                chip["texto"] = selecao.rotulo_esc(
+                    estado, console, chip.get("texto")
+                )
         if chip_espaco is None:
             return modelo, None
         projetado = copy.copy(modelo)
@@ -1124,17 +1167,25 @@ def _lista_foco_para_renderizacao(estado, modelo):
     }
     for console in lista:
         tipo = navegacao.tipo_navegacao_efetivo(console)
-        if tipo not in ("arvore_colapsavel", "selecao_multinivel"):
+        if tipo not in (
+            "arvore_colapsavel", "selecao_multinivel",
+            "dois_niveis_por_foco",
+        ):
             resultado.append(console)
             continue
         projetado = copy.copy(console)
         campos = dict(console._campos_inertes)
         if tipo == "arvore_colapsavel":
             nos = navegacao.sequencia_visivel_arvore(console, estado_arvore)
-        else:
+        elif tipo == "selecao_multinivel":
             nos = navegacao.sequencia_visivel_selecao_multinivel(
                 console, estado_arvore
             )
+        else:
+            nos = [
+                no for _indice, no in
+                navegacao._toroide_ativo_dois_niveis(console, estado_arvore)
+            ]
         campos["itens"] = [
             {
                 "id": no.id,
@@ -2051,6 +2102,7 @@ def main(argv=None, estado_inicial=None):
     casos_val.id_caso_de_entrada(tela_inicial)
     modelo = _carregar_modelo_por_id(estado["tela_atual"])
     estado = _preparar_estado_h0053(estado, modelo)
+    estado = _preparar_estado_h0055(estado, modelo)
     if estado["tela_atual"] == _ID_TELA_H0044:
         estado = _anexar_fluxo_h0044(estado, modelo)
     else:
@@ -2173,6 +2225,7 @@ def main(argv=None, estado_inicial=None):
                             estado = _anexar_fluxo_h0044(estado, modelo)
                         else:
                             estado = _anexar_controle_execucao(estado, modelo)
+                        estado = _preparar_estado_h0055(estado, modelo)
                         if estado.get("modo_verboso_forcado") is True:
                             estado = dict(estado, modo_verboso=True)
                         else:
@@ -2289,6 +2342,7 @@ def main(argv=None, estado_inicial=None):
                     estado = _anexar_fluxo_h0044(estado, modelo)
                 else:
                     estado = _anexar_controle_execucao(estado, modelo)
+                estado = _preparar_estado_h0055(estado, modelo)
                 if estado.get("modo_verboso_forcado") is True:
                     estado = dict(estado, modo_verboso=True)
                 else:

@@ -43,6 +43,10 @@ from demo.demo import (  # noqa: E402
 )
 from demo.demo_navegacao import main as demo_navegacao_main  # noqa: E402
 from tela import navegacao  # noqa: E402
+from tela.carregamento.envelope_pre_adr_0028 import (  # noqa: E402
+    _console_em_escopo_d23,
+)
+from tela.carregamento.erros import TelaEstruturaInvalida  # noqa: E402
 from tela.renderizador import renderizar_tela  # noqa: E402
 from tela.renderizacao.console import _linhas_console  # noqa: E402
 from tela.loader import carregar_estilo  # noqa: E402
@@ -149,6 +153,15 @@ _SMOKE = [
         "conteudo_incorreto": "(console)",
         "placeholder": "AUSENTE",
     },
+    {
+        "cenario": "h0055_dois_niveis_por_foco",
+        "estrutural": "h0055_dois_niveis_por_foco",
+        "externo": "h0055_dois_niveis_por_foco_conteudo",
+        "identidade": "Pai 01",
+        "identidade_extra": "Escolha exclusiva obrigatória",
+        "conteudo_incorreto": "(console)",
+        "placeholder": "AUSENTE",
+    },
 ]
 
 
@@ -177,6 +190,7 @@ def teste_catalogo():
         "h0037_console_tabela_alternavel": "h0037_tabela_conteudo",
         "h0053_arvore_colapsavel": "h0053_arvore_colapsavel_conteudo",
         "h0054_selecao_multinivel": "h0054_selecao_multinivel_conteudo",
+        "h0055_dois_niveis_por_foco": "h0055_dois_niveis_por_foco_conteudo",
     }
     _registrar("catalogo associa os cenarios com conteudo",
                _CATALOGO_CONTEUDO_EXTERNO == esperado,
@@ -410,6 +424,146 @@ def teste_h0054_selecao_multinivel_carrega_renderiza_e_preserva_paginas():
     assert "●" in renderizar_estado(pagina_um, modelo, largura=90, altura=30)
     limpo = processar_comando(selecionado, "\x1b", modelo)
     assert limpo["selecoes"] == {console.id: []}
+
+
+def teste_h0055_fixture_runtime_chips_modo_e_paginacao():
+    modelo = _carregar_modelo_por_id("h0055_dois_niveis_por_foco")
+    console = navegacao.lista_foco(modelo)[0]
+    estado = dict(
+        criar_estado_inicial(), estilo=_ESTILO, foco_console=0,
+        cursores={console.id: 0}, pagina_atual={console.id: 1},
+        largura=90, altura=24,
+    )
+    assert modelo.conteudo_externo.apresentacao == "hierarquia"
+    assert len(navegacao._sequencia_estrutural_dois_niveis(console)) == 25
+    assert [len(pai.filhos) for pai in modelo.conteudo_externo.nos] == [4] * 5
+
+    inicial = processar_comando(estado, "", modelo)
+    assert inicial["selecoes"][console.id] == [
+        "filho_01_01", "filho_02_01", "filho_03_01",
+        "filho_04_01", "filho_05_01",
+    ]
+    quadro = renderizar_estado(inicial, modelo, largura=90, altura=24)
+    assert "→" in quadro and "●" in quadro and "○" in quadro
+    assert "[PgUp][PgDn] Páginas" in quadro
+    assert "[␣] Selecionar" in quadro
+    assert "[␣] Expandir" not in quadro
+    assert "[Esc] Sair" in quadro
+    assert "[Esc] Voltar" not in quadro
+    assert "[V] Verboso" not in quadro
+    barra = next(l for l in quadro.splitlines() if "[?] Ajuda" in l)
+    assert barra.rstrip("│ ").endswith("[?] Ajuda")
+
+    filhos = processar_comando(inicial, " ", modelo)
+    assert filhos["cursores"][console.id] == 1
+    cursor = processar_comando(filhos, "\x1b[B", modelo)
+    assert cursor["cursores"][console.id] == 2
+    assert cursor["selecoes"] == filhos["selecoes"]
+    transferido = processar_comando(cursor, " ", modelo)
+    assert transferido["selecoes"][console.id] == [
+        "filho_01_02", "filho_02_01", "filho_03_01",
+        "filho_04_01", "filho_05_01",
+    ]
+    mantido = processar_comando(transferido, " ", modelo)
+    assert mantido["selecoes"] == transferido["selecoes"]
+    quadro_filhos = renderizar_estado(mantido, modelo, largura=90, altura=24)
+    assert "[Esc] Voltar" in quadro_filhos
+    assert "[Esc] Sair" not in quadro_filhos
+    assert "[Esc] Limpar" not in quadro_filhos
+    retorno = processar_comando(mantido, "\x1b", modelo)
+    assert retorno["cursores"][console.id] == 0
+    assert retorno["selecoes"] == mantido["selecoes"]
+    assert retorno["saindo"] is False
+    quadro_retorno = renderizar_estado(retorno, modelo, largura=90, altura=24)
+    assert "[Esc] Sair" in quadro_retorno
+    assert "[Esc] Voltar" not in quadro_retorno
+    assert "[Esc] Limpar" not in quadro_retorno
+
+    sem_v = processar_comando(retorno, "V", modelo)
+    assert sem_v["modo_verboso"] is False
+    assert sem_v["cursores"] == retorno["cursores"]
+    assert sem_v["selecoes"] == retorno["selecoes"]
+    sem_v_minusculo = processar_comando(retorno, "v", modelo)
+    assert sem_v_minusculo["modo_verboso"] is False
+    assert sem_v_minusculo["selecoes"] == retorno["selecoes"]
+
+    pagina_dois = processar_comando(sem_v, "\x1b[6~", modelo)
+    assert pagina_dois["pagina_atual"][console.id] == 2
+    assert pagina_dois["selecoes"] == sem_v["selecoes"]
+    pagina_um = processar_comando(pagina_dois, "\x1b[5~", modelo)
+    assert pagina_um["pagina_atual"][console.id] == 1
+    assert pagina_um["selecoes"] == sem_v["selecoes"]
+
+    saida_pai = processar_comando(retorno, "\x1b", modelo)
+    assert saida_pai["saindo"] is True
+    assert saida_pai["selecoes"] == retorno["selecoes"]
+
+
+def teste_h0055_excecao_focal_valida_envelope_e_rejeita_campo_conhecido():
+    modelo = _carregar_modelo_por_id("h0055_dois_niveis_por_foco")
+    assert modelo.id == "h0055_dois_niveis_por_foco"
+
+    nominal = {
+        "id": "console_h0055",
+        "itens": [],
+        "origem_dados": {},
+        "politica_composicao": {},
+        "politica_navegacao": {
+            "navegavel": True,
+            "tipo": "dois_niveis_por_foco",
+        },
+        "politica_selecao": "multipla",
+        "politica_paginacao": "com",
+        "politica_exibicao": {},
+        "formato": {
+            "excesso": {
+                "politica_modo": "somente_nao_verboso",
+            },
+        },
+    }
+    assert _console_em_escopo_d23(
+        nominal, "h0055_dois_niveis_por_foco"
+    ) is True
+
+    antiga = dict(nominal)
+    antiga["formato"] = {
+        "excesso": {
+            "politica_modo": "alternavel",
+            "modo_inicial": "nao_verboso",
+        },
+    }
+    try:
+        _console_em_escopo_d23(antiga, "h0055_dois_niveis_por_foco")
+    except TelaEstruturaInvalida:
+        pass
+    else:
+        raise AssertionError("a forma alternável antiga de H-0055 deve ser rejeitada")
+
+    com_modo_inicial = dict(nominal)
+    com_modo_inicial["formato"] = {
+        "excesso": {
+            "politica_modo": "somente_nao_verboso",
+            "modo_inicial": "nao_verboso",
+        },
+    }
+    try:
+        _console_em_escopo_d23(
+            com_modo_inicial, "h0055_dois_niveis_por_foco"
+        )
+    except TelaEstruturaInvalida:
+        pass
+    else:
+        raise AssertionError("H-0055 não deve aceitar modo_inicial")
+
+    invalida = dict(nominal, politica_exibicao=[])
+    try:
+        _console_em_escopo_d23(invalida, "h0055_dois_niveis_por_foco")
+    except TelaEstruturaInvalida:
+        pass
+    else:
+        raise AssertionError(
+            "politica_exibicao=[] deve ser rejeitada no envelope H-0055/D23"
+        )
 
 
 def teste_h0054_fixture_confirma_coerencia_estrutural_e_tg():

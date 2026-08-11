@@ -69,6 +69,36 @@ def _eh_selecao_multinivel(elemento):
     return tipo_navegacao_efetivo(elemento) == "selecao_multinivel"
 
 
+def _eh_dois_niveis_por_foco(elemento):
+    return tipo_navegacao_efetivo(elemento) == "dois_niveis_por_foco"
+
+
+def estrutura_dois_niveis_valida(elemento):
+    """Valida a topologia fechada de pais e filhos diretos do H-0055."""
+    conteudo = getattr(elemento, "conteudo_externo", None)
+    raizes = getattr(conteudo, "nos", ()) if conteudo is not None else ()
+    if not raizes:
+        return False
+    ids = set()
+    for pai in raizes:
+        if not no_multinivel_navegavel(pai) or not pai.id or pai.id in ids:
+            return False
+        ids.add(pai.id)
+        filhos = list(getattr(pai, "filhos", ()) or ())
+        if not filhos:
+            return False
+        for filho in filhos:
+            if (
+                not no_multinivel_selecionavel(filho)
+                or not filho.id
+                or filho.id in ids
+                or bool(getattr(filho, "filhos", ()))
+            ):
+                return False
+            ids.add(filho.id)
+    return True
+
+
 def itens_navegaveis(elemento):
     """Lista de itens navegaveis do console na ordem declarada (D7).
 
@@ -125,6 +155,8 @@ def console_e_focalizavel(elemento):
             no_multinivel_navegavel(no)
             for no in _nos_em_pre_ordem(getattr(conteudo, "nos", ()))
         )
+    if tipo == "dois_niveis_por_foco":
+        return estrutura_dois_niveis_valida(elemento)
     if tipo != "nivel_unico":
         return False
     return len(itens_navegaveis(elemento)) > 0
@@ -501,6 +533,8 @@ def mover_esquerda(estado, console, itens_permitidos=None):
 
 def _mover_horizontal(estado, console, passo, itens_permitidos=None):
     """Nucleo do movimento horizontal toroidal (D8/D9)."""
+    if tipo_navegacao_efetivo(console) == "dois_niveis_por_foco":
+        return _mover_dois_niveis(estado, console, passo, itens_permitidos)
     if tipo_navegacao_efetivo(console) != "nivel_unico":
         return estado
     largura = estado.get("largura", 0)
@@ -557,6 +591,110 @@ def _sequencia_estrutural_selecao_multinivel(elemento):
         no for no in _nos_em_pre_ordem(getattr(conteudo, "nos", ()))
         if no_multinivel_navegavel(no)
     ]
+
+
+def _sequencia_estrutural_dois_niveis(elemento):
+    """Retorna pais e filhos em pre-ordem, somente para topologia valida."""
+    if not estrutura_dois_niveis_valida(elemento):
+        return []
+    return _nos_em_pre_ordem(elemento.conteudo_externo.nos)
+
+
+def _indices_dois_niveis(elemento):
+    """Mapeia cada raiz e seus filhos aos indices logicos renderizados."""
+    resultado = []
+    indice = 0
+    for pai in elemento.conteudo_externo.nos:
+        indice_pai = indice
+        indice += 1
+        filhos = []
+        for filho in pai.filhos:
+            filhos.append((indice, filho))
+            indice += 1
+        resultado.append((indice_pai, pai, filhos))
+    return resultado
+
+
+def _toroide_ativo_dois_niveis(elemento, estado, itens_permitidos=None):
+    """Resolve o toroide corrente sem armazenar um campo adicional de nivel."""
+    estruturas = _indices_dois_niveis(elemento)
+    cursor = (estado.get("cursores", {}) or {}).get(elemento.id, 0)
+    if itens_permitidos is None:
+        itens_permitidos = _itens_permitidos_da_pagina(estado, elemento)
+    permitidos = None if itens_permitidos is None else set(itens_permitidos)
+    for indice_pai, pai, filhos in estruturas:
+        if cursor == indice_pai:
+            candidatos = [(i, no) for i, no, _filhos in estruturas]
+            break
+        if any(cursor == indice_filho for indice_filho, _filho in filhos):
+            candidatos = filhos
+            break
+    else:
+        return []
+    if permitidos is not None:
+        candidatos = [par for par in candidatos if par[0] in permitidos]
+    return candidatos
+
+
+def em_nivel_filhos(estado, console):
+    """True quando o cursor corrente pertence a um filho direto."""
+    if not _eh_dois_niveis_por_foco(console):
+        return False
+    cursor = (estado.get("cursores", {}) or {}).get(console.id, 0)
+    return any(
+        cursor == indice_filho
+        for _indice_pai, _pai, filhos in _indices_dois_niveis(console)
+        for indice_filho, _filho in filhos
+    )
+
+
+def rotulo_esc_dois_niveis(estado, console):
+    """Deriva o rótulo de Esc a partir do nível ativo de H-0055."""
+    if not _eh_dois_niveis_por_foco(console):
+        return None
+    return "Voltar" if em_nivel_filhos(estado, console) else "Sair"
+
+
+def entrar_nivel_filhos(estado, console):
+    """Entra nos filhos do pai corrente, posicionando no filho escolhido."""
+    if not _eh_dois_niveis_por_foco(console):
+        return dict(estado)
+    cursor = (estado.get("cursores", {}) or {}).get(console.id, 0)
+    estrutura = next(
+        (item for item in _indices_dois_niveis(console) if item[0] == cursor),
+        None,
+    )
+    if estrutura is None:
+        return dict(estado)
+    _indice_pai, _pai, filhos = estrutura
+    escolhidos = set((estado.get("selecoes", {}) or {}).get(console.id, ()))
+    indice = next((i for i, no in filhos if no.id in escolhidos), filhos[0][0])
+    novo = dict(estado)
+    cursores = dict(estado.get("cursores", {}) or {})
+    cursores[console.id] = indice
+    novo["cursores"] = cursores
+    return novo
+
+
+def retornar_nivel_pais(estado, console):
+    """Retorna do filho corrente ao respectivo pai, preservando escolhas."""
+    if not _eh_dois_niveis_por_foco(console):
+        return dict(estado)
+    cursor = (estado.get("cursores", {}) or {}).get(console.id, 0)
+    indice_pai = next(
+        (
+            ip for ip, _pai, filhos in _indices_dois_niveis(console)
+            if any(cursor == indice for indice, _filho in filhos)
+        ),
+        None,
+    )
+    if indice_pai is None:
+        return dict(estado)
+    novo = dict(estado)
+    cursores = dict(estado.get("cursores", {}) or {})
+    cursores[console.id] = indice_pai
+    novo["cursores"] = cursores
+    return novo
 
 
 def _sequencia_com_indices_selecao_multinivel(
@@ -662,6 +800,8 @@ def reconciliar_cursor_arvore(estado, console=None):
         acessiveis = _sequencia_com_indices_arvore(console, estado)
     elif tipo == "selecao_multinivel":
         acessiveis = _sequencia_com_indices_selecao_multinivel(console, estado)
+    elif tipo == "dois_niveis_por_foco":
+        acessiveis = _toroide_ativo_dois_niveis(console, estado)
     else:
         return dict(estado)
     cursores = dict(estado.get("cursores", {}) or {})
@@ -721,6 +861,8 @@ def mover_baixo(estado, console, itens_permitidos=None):
         return _mover_arvore(estado, console, +1, itens_permitidos)
     if tipo_navegacao_efetivo(console) == "selecao_multinivel":
         return _mover_selecao_multinivel(estado, console, +1, itens_permitidos)
+    if tipo_navegacao_efetivo(console) == "dois_niveis_por_foco":
+        return _mover_dois_niveis(estado, console, +1, itens_permitidos)
     return _mover_vertical(estado, console, +1, itens_permitidos=itens_permitidos)
 
 
@@ -737,6 +879,8 @@ def mover_cima(estado, console, itens_permitidos=None):
         return _mover_arvore(estado, console, -1, itens_permitidos)
     if tipo_navegacao_efetivo(console) == "selecao_multinivel":
         return _mover_selecao_multinivel(estado, console, -1, itens_permitidos)
+    if tipo_navegacao_efetivo(console) == "dois_niveis_por_foco":
+        return _mover_dois_niveis(estado, console, -1, itens_permitidos)
     return _mover_vertical(estado, console, -1, itens_permitidos=itens_permitidos)
 
 
@@ -780,6 +924,24 @@ def _mover_selecao_multinivel(estado, console, passo, itens_permitidos=None):
     novo = dict(estado)
     cursores = dict(estado.get("cursores", {}) or {})
     cursores[console.id] = acessiveis[novo_posicao][0]
+    novo["cursores"] = cursores
+    return novo
+
+
+def _mover_dois_niveis(estado, console, passo, itens_permitidos=None):
+    """Move com wrap apenas no toroide de pais ou de filhos ativo."""
+    acessiveis = _toroide_ativo_dois_niveis(
+        console, estado, itens_permitidos
+    )
+    if len(acessiveis) < 2:
+        return dict(estado)
+    cursor = (estado.get("cursores", {}) or {}).get(console.id, 0)
+    indices = [indice for indice, _no in acessiveis]
+    if cursor not in indices:
+        return dict(estado)
+    novo = dict(estado)
+    cursores = dict(estado.get("cursores", {}) or {})
+    cursores[console.id] = indices[(indices.index(cursor) + passo) % len(indices)]
     novo["cursores"] = cursores
     return novo
 
@@ -869,8 +1031,15 @@ def item_selecionado(console, estado):
     toggle por espaco e sem indicador de inclusao. Retorna o dict do item
     navegavel corrente ou ``None`` quando o console nao tem item navegavel.
     """
-    if tipo_navegacao_efetivo(console) == "selecao_multinivel":
-        acessiveis = _sequencia_com_indices_selecao_multinivel(console, estado)
+    if tipo_navegacao_efetivo(console) in (
+        "selecao_multinivel", "dois_niveis_por_foco"
+    ):
+        if tipo_navegacao_efetivo(console) == "selecao_multinivel":
+            acessiveis = _sequencia_com_indices_selecao_multinivel(console, estado)
+        else:
+            acessiveis = list(enumerate(
+                _sequencia_estrutural_dois_niveis(console)
+            ))
         cursor = (estado.get("cursores", {}) or {}).get(console.id, 0)
         no = next(
             (no for indice, no in acessiveis if indice == cursor),
@@ -937,6 +1106,8 @@ def exibir_chip_navegar(estado):
         return len(sequencia_visivel_arvore(console, estado)) > 1
     if tipo_navegacao_efetivo(console) == "selecao_multinivel":
         return len(sequencia_visivel_selecao_multinivel(console, estado)) > 1
+    if tipo_navegacao_efetivo(console) == "dois_niveis_por_foco":
+        return len(_toroide_ativo_dois_niveis(console, estado)) > 1
     if console._campos_inertes.get("politica_paginacao") == "com":
         from tela import paginacao
 
@@ -994,17 +1165,22 @@ def no_tem_alcance_selecao(no):
 def estado_chip_selecao(estado):
     """Deriva a acionabilidade do chip ``[␣] Selecionar`` do H-0054."""
     console = console_focado(estado)
-    if console is None or tipo_navegacao_efetivo(console) != "selecao_multinivel":
+    if console is None or tipo_navegacao_efetivo(console) not in (
+        "selecao_multinivel", "dois_niveis_por_foco"
+    ):
         return None
     item = item_selecionado(console, estado)
     no = item.get("_no_multinivel") if isinstance(item, dict) else None
     if no is None:
         return None
+    ativo = no_tem_alcance_selecao(no)
+    if tipo_navegacao_efetivo(console) == "dois_niveis_por_foco":
+        ativo = bool(getattr(no, "filhos", ())) or no_multinivel_selecionavel(no)
     return {
         "console_id": console.id,
         "item_id": no.id,
         "texto": "Selecionar",
-        "ativo": no_tem_alcance_selecao(no),
+        "ativo": ativo,
     }
 
 
