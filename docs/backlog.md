@@ -76,15 +76,6 @@ esta lista.
 **Pre-requisitos:** Registrado pela ADR-0034 (D-SEL-24); `ITEM-0006` concluido em 2026-07-29.
 **Proxima acao:** Realizar levantamento focal e criar ADR propria para as politicas e transicoes de modo das telas de resultado.
 
-### ITEM-0007 — Navegacao multinivel do console
-**Tipo:** implementacao
-**Prioridade:** media
-**Status:** em_andamento
-**Descricao:** Implementar as politicas de navegacao multinivel do console com foco estrito em cursor, percurso e semantica de Espaco: preservar `nivel_unico`; manter `tabela` nao navegavel; implementar `arvore_colapsavel`; implementar `selecao_multinivel` com uma unica navegacao reunindo todos os niveis e selecao recursiva dos descendentes; implementar `dois_niveis_por_foco` com toroide dos pais e toroide proprio de filhos por pai, usando a apresentacao de selecao ja existente. O ciclo deve ser decomposto em quatro handoffs sequenciais e nao pode reaproveitar a tentativa defeituosa preservada em branch de erro.
-**Estado dos handoffs:** H-0052: concluido; H-0053: concluido; H-0054: concluido apos implementacao, QA e validacao manual; H-0055: concluido apos implementacao, QA e validacao manual.
-**Pre-requisitos:** Ciclo universal de paginacao por `PageUp`/`PageDown` e chips `[PgUp]`/`[PgDn]` concluido pela ADR-0041 e pelo H-0051, com QA tecnico e validacao manual aprovados. ADR-0042 aceita (`ADR-0042_ACEITA`) e aplicada (`APLICACAO_DOCUMENTAL: CONCLUIDA`), QA da aplicacao aprovado (`QA_DA_APLICACAO: ADR_APPLICATION_APPROVED`), H-0052 concluido com QA resolvido por validacao manual (`IMPLEMENTACAO: IMPLEMENTED`, `VALIDACAO_MANUAL: MANUAL_VALIDATION_APPROVED`). ADR-0043 aceita e aplicada, com QA da aplicacao aprovado (`QA_APLICACAO: ADR_APPLICATION_APPROVED`). H-0053 concluido com QA do handoff, QA da implementacao, QA da alteracao declarativa e validacao manual aprovados. H-0054 (`selecao_multinivel`) concluido apos implementacao, QA e validacao manual; H-0055 (`dois_niveis_por_foco`) concluido apos implementacao, QA e validacao manual. A integracao conjunta de arvore, multiline e paginacao sera atribuida a item futuro proprio.
-**Proxima acao:** Preservar os deferimentos e encaminhar somente as integracoes futuras de `arvore_colapsavel` com multiline e paginacao, sem reabrir apresentacao de filho ativo, distribuicao geometrica de grupos, Enter, execucao, confirmacao ou persistencia neste item.
-
 ### ITEM-0025 — Integração de arvore_colapsavel com multiline e paginação
 **Tipo:** implementacao
 **Prioridade:** media

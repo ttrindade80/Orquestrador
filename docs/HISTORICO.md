@@ -392,3 +392,10 @@ Nenhum item registrado.
 **Data:** 2026-08-04
 **Referências:** docs/adr/ADR-0008-modelo-configuracao-por-tela.md; docs/handoff/H-0049-materializacao-local-dos-parametros-do-cabecalho.md; docs/relatorios/RELATORIO_QA_IMPLEMENTACAO_H-0049.md
 **Resumo:** A aplicação remanescente da ADR-0008 foi concluída. Os oito parâmetros de apresentação do cabeçalho passaram a pertencer ao JSON estrutural de cada tela; 72 telas foram migradas com baseline geométrico 0/1 e capitalização literal `preservar` para a descrição; oito conteúdos externos foram mantidos intactos; loader, modelo, renderer e geometria passaram a consumir o schema local fechado; 58 fixtures antigas foram adequadas; a configuração global obsoleta foi removida; e a suíte integral terminou com 998 testes aprovados.
+
+### ITEM-0007 — Navegacao multinivel do console
+
+**Resultado:** CONCLUIDO
+**Origem:** backlog
+**Referências:** H-0052; H-0053; H-0054; H-0055; commit `cbd9946`
+**Resumo:** Navegacao multinivel do console concluida pelos H-0052 (`nivel_unico`), H-0053 (`arvore_colapsavel`), H-0054 (`selecao_multinivel`) e H-0055 (`dois_niveis_por_foco`), com fechamento final pelo H-0055 no commit `cbd9946`; capacidades futuras foram separadas em ITEM-0023 a ITEM-0026.
