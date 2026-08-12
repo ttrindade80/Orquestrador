@@ -399,3 +399,11 @@ Nenhum item registrado.
 **Origem:** backlog
 **Referências:** H-0052; H-0053; H-0054; H-0055; commit `cbd9946`
 **Resumo:** Navegacao multinivel do console concluida pelos H-0052 (`nivel_unico`), H-0053 (`arvore_colapsavel`), H-0054 (`selecao_multinivel`) e H-0055 (`dois_niveis_por_foco`), com fechamento final pelo H-0055 no commit `cbd9946`; capacidades futuras foram separadas em ITEM-0023 a ITEM-0026.
+
+### ITEM-0017 — Capacidade de pop-up modal genérico de decisão
+
+**Resultado:** CONCLUIDO
+**Origem:** backlog
+**Data:** 2026-08-11
+**Referências:** docs/adr/ADR-0044-popup-modal-generico-de-decisao.md; H-0056; H-0057; H-0058; H-0059
+**Resumo:** Pop-up modal genérico concluído pelos H-0056 a H-0059, com modalidade textual, aborto sem payload, geometria dinâmica e resize, lista navegável e marcação exclusiva/múltipla, e confirmação `CONFIRMADO` com `valor` e binding no consumidor. ITEM-0017 concluído.

@@ -158,8 +158,10 @@ def _validar_chip(chip, indice):
         raise PopupErro("ID do chip deve ser distinto de popup_basico")
     if chip["tipo"] != "especifico":
         raise PopupErro("{0}.tipo deve ser 'especifico'".format(caminho))
-    if chip["tecla"] != "Esc":
-        raise PopupErro("{0}.tecla deve ser a tecla fisica 'Esc'".format(caminho))
+    if chip["tecla"] not in {"Esc", "Enter"}:
+        raise PopupErro(
+            "{0}.tecla deve ser a tecla fisica 'Esc' ou 'Enter'".format(caminho)
+        )
     _exigir_texto(chip["texto"], caminho + ".texto")
     if chip["regra_existencia"] != "sempre":
         raise PopupErro("{0}.regra_existencia deve ser 'sempre'".format(caminho))
@@ -170,10 +172,23 @@ def _validar_chip(chip, indice):
     referencia = chip.get("referencia_regra")
     if isinstance(referencia, dict):
         resultado = referencia.get("resultado")
-        if not isinstance(resultado, dict) or resultado.get("status") != "ABORTADO":
+        if chip["tecla"] == "Esc":
+            if resultado != {"status": "ABORTADO"}:
+                raise PopupErro(
+                    "{0}.referencia_regra deve declarar resultado ABORTADO sem payload".format(
+                        caminho
+                    )
+                )
+        elif resultado != {"status": "CONFIRMADO"}:
             raise PopupErro(
-                "{0}.referencia_regra deve declarar resultado ABORTADO".format(caminho)
+                "{0}.referencia_regra deve declarar resultado CONFIRMADO".format(
+                    caminho
+                )
             )
+    elif chip["tecla"] == "Enter":
+        raise PopupErro(
+            "{0}.referencia_regra deve declarar resultado CONFIRMADO".format(caminho)
+        )
     return copy.deepcopy(chip)
 
 
@@ -231,13 +246,28 @@ def validar_declaracao_popup(declaracao, popup_id="popup_basico"):
         5,
     )
     chips = declaracao["chips"]
-    if not isinstance(chips, list) or len(chips) != 1:
+    if not isinstance(chips, list) or not 1 <= len(chips) <= 2:
+        raise PopupErro("popup deve declarar um chip Esc e, no maximo, um Enter")
+    chips_validados = [
+        _validar_chip(chip, indice) for indice, chip in enumerate(chips)
+    ]
+    ids = [chip["id"] for chip in chips_validados]
+    if len(set(ids)) != len(ids):
+        raise PopupErro("IDs de chips de popup devem ser unicos")
+    chips_esc = [chip for chip in chips_validados if chip["tecla"] == "Esc"]
+    chips_enter = [chip for chip in chips_validados if chip["tecla"] == "Enter"]
+    if len(chips_esc) != 1:
         raise PopupErro("popup deve declarar exatamente um chip Esc")
-    chip = _validar_chip(chips[0], 0)
-    if chip["texto"] != "Voltar":
+    if len(chips_enter) > 1:
+        raise PopupErro("popup deve declarar no maximo um chip Enter")
+    if chips_esc[0]["texto"] != "Voltar":
         raise PopupErro("o chip Esc demonstrativo deve ter texto 'Voltar'")
+    if declaracao["tipo"] == "texto" and chips_enter:
+        raise PopupErro("popup textual nao aceita regra de confirmacao")
+    if chips_enter and chips_enter[0]["texto"] != "Confirmar":
+        raise PopupErro("o chip Enter demonstrativo deve ter texto 'Confirmar'")
     copia = copy.deepcopy(declaracao)
-    copia["chips"] = [chip]
+    copia["chips"] = chips_validados
     return copia
 
 
@@ -316,7 +346,7 @@ def validar_conteudo_popup(conteudo):
         raise PopupErro("conteudo_popup.marcados deve ser lista")
     if any(not isinstance(item_id, str) or not item_id for item_id in marcados):
         raise PopupErro("conteudo_popup.marcados deve conter IDs textuais")
-    if len(set(marcados)) != len(marcados):
+    if any(marcados.count(item_id) > 1 for item_id in marcados):
         raise PopupErro("conteudo_popup.marcados nao pode conter duplicatas")
     if any(item_id not in ids for item_id in marcados):
         raise PopupErro("conteudo_popup.marcados referencia ID inexistente")
@@ -354,11 +384,15 @@ def abrir_popup(fonte, popup_id, conteudo):
 
 
 def consumir_tecla_popup(instancia, tecla):
-    """Consome a tecla na modalidade vigente; somente Esc encerra."""
+    """Consome a tecla na modalidade vigente e produz resultados terminais."""
     if not isinstance(instancia, PopupInstancia):
         raise PopupErro("instancia de popup invalida")
+    if instancia._estado.get("_resultado_terminal"):
+        return None
     if tecla == "\x1b":
-        return {"status": "ABORTADO"}
+        resultado = {"status": "ABORTADO"}
+        instancia._estado["_resultado_terminal"] = True
+        return resultado
     if instancia.declaracao.get("tipo") != "marcacao":
         return None
     if tecla in {"\x1b[A", "\x1b[B", "\x1b[C", "\x1b[D"}:
@@ -369,7 +403,8 @@ def consumir_tecla_popup(instancia, tecla):
         resultado = _alternar_marcacao(instancia)
         instancia._estado["ultimo_resultado"] = resultado
         return resultado
-    # Enter, CR e LF nao sao confirmacao nem fechamento nesta capacidade.
+    if tecla in {"\r", "\n"}:
+        return _confirmar_marcacao(instancia)
     return None
 
 
@@ -394,6 +429,54 @@ def _reconciliar_estado_marcacao(instancia):
         else:
             ordenados = ordenados[:1]
     estado["marcados"] = ordenados
+
+
+def _regra_confirmacao_declarada(instancia):
+    """Retorna a regra Enter somente quando o contrato é compatível."""
+    for chip in instancia.declaracao.get("chips", ()):
+        if chip.get("tecla") != "Enter":
+            continue
+        referencia = chip.get("referencia_regra")
+        if isinstance(referencia, dict) and referencia.get("resultado") == {
+            "status": "CONFIRMADO"
+        }:
+            return chip
+    return None
+
+
+def _valor_confirmacao(instancia):
+    """Reconcile a marcação viva sem transformar estado inválido em valor."""
+    estado = instancia._estado
+    ids = _ids_marcacao(instancia)
+    marcados = estado.get("marcados")
+    if not isinstance(marcados, list):
+        return False, None
+    if len(set(marcados)) != len(marcados):
+        return False, None
+    if any(item_id not in ids for item_id in marcados):
+        return False, None
+    marcados_ordenados = [item_id for item_id in ids if item_id in marcados]
+    if instancia.declaracao["marcacao"] == "exclusiva":
+        if len(marcados_ordenados) != 1:
+            return False, None
+        valor = marcados_ordenados[0]
+    elif instancia.declaracao["marcacao"] == "multipla":
+        valor = marcados_ordenados
+    else:
+        return False, None
+    estado["marcados"] = marcados_ordenados
+    return True, valor
+
+
+def _confirmar_marcacao(instancia):
+    if _regra_confirmacao_declarada(instancia) is None:
+        return None
+    valido, valor = _valor_confirmacao(instancia)
+    if not valido:
+        return None
+    resultado = {"status": "CONFIRMADO", "valor": copy.deepcopy(valor)}
+    instancia._estado["_resultado_terminal"] = True
+    return resultado
 
 
 def _grade_para_formacao(ids, formacao, colunas=None):

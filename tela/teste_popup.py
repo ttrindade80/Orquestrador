@@ -393,6 +393,18 @@ def _declaracao_marcacao(politica="exclusiva"):
     declaracao["marcacao"] = politica
     declaracao["titulo"] = "Lista"
     declaracao["alinhamento"] = "esquerda"
+    declaracao["chips"].append(
+        {
+            "id": "lista_confirmar",
+            "tipo": "especifico",
+            "tecla": "Enter",
+            "texto": "Confirmar",
+            "referencia_regra": {"resultado": {"status": "CONFIRMADO"}},
+            "regra_existencia": "sempre",
+            "regra_ativo": "sempre",
+            "forma_exibicao": "ativo",
+        }
+    )
     return declaracao
 
 
@@ -619,12 +631,86 @@ def test_resize_recalcula_formacao_na_mesma_instancia_preservando_ids(estilo):
     assert instancia.conteudo == conteudo
 
 
-def test_enter_nao_confirma_esc_aborta_sem_valor(estilo):
-    instancia = _instancia_marcacao(estilo)
-    for tecla in ("\r", "\n"):
-        assert popup.consumir_tecla_popup(instancia, tecla) is None
-        assert instancia.cursor_id == "opcao_1"
-        assert instancia.marcados == ["opcao_2"]
+def test_confirmacao_exclusiva_devolve_id_vivo_sem_campos_fisicos(estilo):
+    instancia = _instancia_marcacao(estilo, marcados=["opcao_2"])
+    resultado = popup.consumir_tecla_popup(instancia, "\r")
+
+    assert resultado == {"status": "CONFIRMADO", "valor": "opcao_2"}
+    assert set(resultado) == {"status", "valor"}
+    assert all(
+        campo not in resultado
+        for campo in ("cursor", "cursor_id", "formacao", "grade", "coordenadas", "historico")
+    )
+    assert popup.consumir_tecla_popup(instancia, "\n") is None
+
+
+def test_confirmacao_multipla_preserva_ordem_logica_declarada(estilo):
+    instancia = _instancia_marcacao(
+        estilo, politica="multipla", marcados=["opcao_4", "opcao_2"]
+    )
+    instancia._estado["marcados"] = ["opcao_4", "opcao_2"]
+
+    assert popup.consumir_tecla_popup(instancia, "\n") == {
+        "status": "CONFIRMADO",
+        "valor": ["opcao_2", "opcao_4"],
+    }
+
+
+def test_confirmacao_multipla_vazia_devolve_lista_vazia(estilo):
+    instancia = _instancia_marcacao(estilo, politica="multipla", marcados=[])
+
+    assert popup.consumir_tecla_popup(instancia, "\r") == {
+        "status": "CONFIRMADO",
+        "valor": [],
+    }
+
+
+def test_enter_sem_regra_compativel_e_texto_permanecem_abertos(estilo):
+    fonte = {"popups": {"lista": _declaracao_marcacao()}}
+    fonte["popups"]["lista"]["chips"] = fonte["popups"]["lista"]["chips"][:1]
+    instancia = popup.abrir_popup(fonte, "lista", _conteudo_marcacao())
+    assert popup.consumir_tecla_popup(instancia, "\r") is None
+    assert instancia.marcados == ["opcao_2"]
+
+    textual = popup.abrir_popup(_fonte(), "popup_basico", _conteudo())
+    assert popup.consumir_tecla_popup(textual, "\n") is None
+    assert popup.consumir_tecla_popup(textual, "\x1b") == {"status": "ABORTADO"}
+
+
+@pytest.mark.parametrize(
+    "alteracao",
+    [
+        lambda instancia: instancia._estado.update(marcados=[]),
+        lambda instancia: instancia._estado.update(marcados=["opcao_2", "opcao_2"]),
+        lambda instancia: instancia._estado.update(marcados=["nao_existe"]),
+    ],
+)
+def test_confirmacao_rejeita_estado_vivo_invalido_sem_fabricar_valor(estilo, alteracao):
+    instancia = _instancia_marcacao(estilo, marcados=["opcao_2"])
+    alteracao(instancia)
+
+    assert popup.consumir_tecla_popup(instancia, "\r") is None
+    assert popup.consumir_tecla_popup(instancia, "\x1b") == {"status": "ABORTADO"}
+
+
+def test_regra_enter_incompativel_e_chip_esc_com_payload_falham_fechadamente():
+    declaracao = _declaracao_marcacao()
+    declaracao["chips"][1]["referencia_regra"] = {
+        "resultado": {"status": "ABORTADO"}
+    }
+    with pytest.raises(popup.PopupErro):
+        popup.validar_declaracao_popup(declaracao)
+
+    declaracao = _declaracao()
+    declaracao["chips"][0]["referencia_regra"]["resultado"]["valor"] = "x"
+    with pytest.raises(popup.PopupErro):
+        popup.validar_declaracao_popup(declaracao)
+
+
+def test_esc_aborta_sem_valor_depois_de_marcacao(estilo):
+    instancia = _instancia_marcacao(estilo, politica="multipla", marcados=["opcao_2"])
+    popup.consumir_tecla_popup(instancia, " ")
+
     resultado = popup.consumir_tecla_popup(instancia, "\x1b")
     assert resultado == {"status": "ABORTADO"}
     assert "valor" not in resultado

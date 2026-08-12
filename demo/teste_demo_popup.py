@@ -201,11 +201,20 @@ def test_h0058_modal_captura_setas_espaco_enter_e_preserva_instancia():
     marcado = demo.processar_comando(movido, " ", modelo)
     assert marcado["popup"] is instancia
     assert instancia.marcados == ["opcao_2"]
-    for tecla in ("\r", "\n"):
-        inerte = demo.processar_comando(marcado, tecla, modelo)
-        assert inerte["popup"] is instancia
-        assert inerte["popup_resultado"] is None
     assert demo.processar_comando(marcado, "x", modelo)["popup"] is instancia
+    for tecla in ("\r", "\n"):
+        independente = dict(
+            demo.processar_comando(demo.criar_estado_inicial(), "e", modelo),
+            estilo=demo.carregar_estilo(),
+        )
+        independente = demo.processar_comando(independente, "\x1b[B", modelo)
+        independente = demo.processar_comando(independente, " ", modelo)
+        fechado = demo.processar_comando(independente, tecla, modelo)
+        assert fechado["popup"] is None
+        assert fechado["popup_resultado"] == {
+            "status": "CONFIRMADO",
+            "valor": "opcao_2",
+        }
 
 
 def test_h0058_multipla_resize_terminal_pequeno_e_esc():
@@ -232,3 +241,41 @@ def test_h0058_multipla_resize_terminal_pequeno_e_esc():
     assert fechado["popup"] is None
     assert fechado["popup_resultado"] == {"status": "ABORTADO"}
     assert "valor" not in fechado["popup_resultado"]
+
+
+def test_h0059_binding_consumido_fecha_modal_e_reativa_tela_sem_duplicar_tecla():
+    modelo = demo._carregar_modelo_por_id("demo")
+    estado = demo.criar_estado_inicial()
+    aberto = demo.processar_comando(estado, "e", modelo)
+    marcado = demo.processar_comando(aberto, " ", modelo)
+    confirmado = demo.processar_comando(marcado, "\r", modelo)
+
+    assert confirmado["popup"] is None
+    assert confirmado["popup_resultado"] == {
+        "status": "CONFIRMADO",
+        "valor": "opcao_1",
+    }
+    assert confirmado["tela_atual"] == "demo"
+    assert confirmado["pilha_telas"] == []
+
+    depois = demo.processar_comando(confirmado, "d", modelo)
+    assert depois["tela_atual"] == "destino_minimo"
+    assert depois["pilha_telas"] == ["demo"]
+    assert depois["popup_resultado"] == confirmado["popup_resultado"]
+
+    sem_duplicar = demo.processar_comando(confirmado, "\n", modelo)
+    assert sem_duplicar["popup"] is None
+    assert sem_duplicar["popup_resultado"] == confirmado["popup_resultado"]
+
+
+def test_h0059_binding_multiplo_entrega_lista_de_ids_na_ordem_logica():
+    modelo = demo._carregar_modelo_por_id("demo")
+    aberto = demo.processar_comando(demo.criar_estado_inicial(), "m", modelo)
+    aberto["popup"]._estado["marcados"] = ["opcao_4", "opcao_2"]
+
+    fechado = demo.processar_comando(aberto, "\n", modelo)
+    assert fechado["popup"] is None
+    assert fechado["popup_resultado"] == {
+        "status": "CONFIRMADO",
+        "valor": ["opcao_2", "opcao_4"],
+    }

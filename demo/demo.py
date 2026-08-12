@@ -757,15 +757,15 @@ def processar_comando(estado, comando, modelo=None):
     if "caso_validacao_meta" in estado:
         novo["caso_validacao_meta"] = estado["caso_validacao_meta"]
 
-    # H-0056: enquanto a instancia modal existe, toda tecla e consumida aqui.
-    # A tela e o modelo subjacentes permanecem intocados; somente Esc fecha e
-    # produz o resultado nao confirmatorio sem payload. Resultados internos de
-    # navegacao/marcacao apenas deixam a mesma instancia aberta.
+    # H-0059: enquanto a instancia modal existe, toda tecla e consumida aqui.
+    # A tela e o modelo subjacentes permanecem intocados; somente resultados
+    # terminais fecham o modal. Resultados internos de navegacao/marcacao
+    # apenas deixam a mesma instancia aberta.
     if novo.get("popup") is not None:
         resultado_popup = consumir_tecla_popup(novo["popup"], comando)
         if (
             isinstance(resultado_popup, dict)
-            and resultado_popup.get("status") == "ABORTADO"
+            and resultado_popup.get("status") in {"CONFIRMADO", "ABORTADO"}
         ):
             novo["popup"] = None
             novo["popup_resultado"] = resultado_popup
