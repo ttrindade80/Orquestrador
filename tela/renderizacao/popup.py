@@ -570,6 +570,7 @@ def _alternar_marcacao(instancia):
 
 
 _VAO_ENTRE_CHIPS_POPUP = 2
+_VAO_ENTRE_ITENS_POPUP = 2
 
 
 def _texto_chip_popup(chip, estilo):
@@ -702,7 +703,7 @@ def _largura_grade(colunas):
         max((_largura_sem_ansi(item_id) for item_id in coluna), default=0)
         for coluna in colunas
     ]
-    return sum(larguras) + max(0, len(larguras) - 1) * 2
+    return sum(larguras) + max(0, len(larguras) - 1) * _VAO_ENTRE_ITENS_POPUP
 
 
 def _colunas_formacao(ids, larguras, quantidade):
@@ -712,31 +713,47 @@ def _colunas_formacao(ids, larguras, quantidade):
     return [
         list(ids[indice * linhas:min((indice + 1) * linhas, len(ids))])
         for indice in range(quantidade)
+        if ids[indice * linhas:min((indice + 1) * linhas, len(ids))]
     ]
 
 
 def _selecionar_formacao(ids, larguras, largura_util, linhas_disponiveis):
-    """Escolhe coluna, menor matriz cabivel ou linha, nessa ordem."""
+    """Escolhe coluna, matriz maximizada, linha ou sinaliza insuficiencia."""
     largura_coluna = max(larguras)
     if len(ids) <= linhas_disponiveis and largura_coluna <= largura_util:
         return "coluna", _colunas_formacao(ids, larguras, 1)
 
-    for quantidade in range(2, len(ids)):
-        colunas = _colunas_formacao(ids, larguras, quantidade)
-        linhas = max(len(coluna) for coluna in colunas)
-        largura = _largura_grade([
-            ["x" * max(
-                (larguras[ids.index(item_id)] for item_id in coluna),
-                default=0,
-            ) for item_id in coluna]
-            for coluna in colunas
-        ])
-        if linhas <= linhas_disponiveis and largura <= largura_util:
-            return "matriz", colunas
+    melhor_matriz = None
+    if linhas_disponiveis >= 2:
+        for quantidade in range(2, len(ids) + 1):
+            colunas = _colunas_formacao(ids, larguras, quantidade)
+            if not colunas:
+                continue
+            colunas = [coluna for coluna in colunas if coluna]
+            linhas = max(len(coluna) for coluna in colunas)
+            if linhas < 2 or linhas > linhas_disponiveis:
+                continue
+            largura = _largura_grade([
+                ["x" * max(
+                    (larguras[ids.index(item_id)] for item_id in coluna),
+                    default=0,
+                ) for item_id in coluna]
+                for coluna in colunas
+            ])
+            if largura > largura_util:
+                continue
+            quantidade_real = len(colunas)
+            if melhor_matriz is None or quantidade_real > melhor_matriz[0]:
+                melhor_matriz = (quantidade_real, colunas)
 
-    largura_linha = sum(larguras) + max(0, len(ids) - 1) * 2
-    if linhas_disponiveis >= 1 and largura_linha <= largura_util:
-        return "linha", _colunas_formacao(ids, larguras, len(ids))
+    if melhor_matriz is not None:
+        return "matriz", melhor_matriz[1]
+
+    largura_linha = sum(larguras) + max(
+        0, len(ids) - 1
+    ) * _VAO_ENTRE_ITENS_POPUP
+    if linhas_disponiveis == 1 and largura_linha <= largura_util:
+        return "linha", _colunas_formacao(ids, larguras, 1)
 
     if largura_coluna > largura_util:
         raise _erro_geometria("item de marcacao excede a largura util")
@@ -785,7 +802,9 @@ def _layout_popup_marcacao(instancia, estilo, largura_corpo=None, altura_corpo=N
     chips_uma_linha = chips_uma_linha.join(
         _texto_chip_popup(chip, estilo) for chip in declaracao["chips"]
     )
-    largura_linha = sum(larguras) + max(0, len(ids) - 1) * 2
+    largura_linha = sum(larguras) + max(
+        0, len(ids) - 1
+    ) * _VAO_ENTRE_ITENS_POPUP
     largura_intrinseca = max(
         len(declaracao["titulo"]) + 4,
         3 + 2 * margem + max(
@@ -839,7 +858,9 @@ def _layout_popup_marcacao(instancia, estilo, largura_corpo=None, altura_corpo=N
             _texto_item_marcacao(instancia, itens_por_id[item_id], estilo)
             for item_id in ids_linha
         ]
-        linhas_itens.append("  ".join(partes))
+        linhas_itens.append(
+            (" " * _VAO_ENTRE_ITENS_POPUP).join(partes)
+        )
     altura = overhead + len(linhas_itens)
     return {
         "largura": largura,

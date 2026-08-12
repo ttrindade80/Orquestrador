@@ -229,8 +229,24 @@ def test_h0058_multipla_resize_terminal_pequeno_e_esc():
     assert instancia.cursor_id == "opcao_2"
     assert instancia.marcados == ["opcao_2", "opcao_4"]
 
-    pequeno = demo._resolver_conteudo(estado, modelo, 9, 5)
-    assert "terminal" not in pequeno.lower() or len(pequeno.splitlines()) == 5
+    largura_pequena, altura_pequena = 23, 6
+    pequeno = demo._resolver_conteudo(
+        estado, modelo, largura_pequena, altura_pequena
+    )
+    esperado = (
+        "Terminal pequeno demais\n"
+        "Aumente a janela para c\n"
+        + (" " * largura_pequena + "\n") * (altura_pequena - 2)
+    )
+    assert pequeno == esperado
+    linhas_pequeno = pequeno.splitlines()
+    assert len(linhas_pequeno) == altura_pequena
+    assert all(len(linha) == largura_pequena for linha in linhas_pequeno)
+    assert linhas_pequeno[2:] == [" " * largura_pequena] * (altura_pequena - 2)
+    assert all(
+        item["texto"] not in pequeno for item in instancia.conteudo["itens"]
+    )
+    assert "..." not in pequeno
     recuperado = demo._resolver_conteudo(estado, modelo, 80, 24)
     assert "Lista múltipla" in recuperado
     assert estado["popup"] is instancia
@@ -241,6 +257,72 @@ def test_h0058_multipla_resize_terminal_pequeno_e_esc():
     assert fechado["popup"] is None
     assert fechado["popup_resultado"] == {"status": "ABORTADO"}
     assert "valor" not in fechado["popup_resultado"]
+
+
+def test_h0060_h0058_resize_recompoe_formacoes_e_preserva_estado_vivo():
+    modelo = demo._carregar_modelo_por_id("demo")
+    estilo = demo.carregar_estilo()
+
+    for tecla, marcados_esperados in (
+        ("e", ["opcao_2"]),
+        ("m", ["opcao_2", "opcao_4"]),
+    ):
+        estado = dict(
+            demo.processar_comando(demo.criar_estado_inicial(), tecla, modelo),
+            estilo=estilo,
+        )
+        instancia = estado["popup"]
+        identidade = instancia
+        demo.processar_comando(estado, "\x1b[B", modelo)
+        cursor = instancia.cursor_id
+        marcados = instancia.marcados
+
+        popup.renderizar_popup(instancia, estilo, largura=80, altura=24)
+        assert instancia.formacao == "coluna"
+
+        popup.renderizar_popup(instancia, estilo, largura=50, altura=10)
+        assert instancia.formacao == "matriz"
+        assert instancia.grade == (
+            ("opcao_1", "opcao_3", "opcao_5"),
+            ("opcao_2", "opcao_4", "opcao_6"),
+        )
+
+        popup.renderizar_popup(instancia, estilo, largura=77, altura=8)
+        assert instancia.formacao == "linha"
+
+        formacao_antes = instancia.formacao
+        saida_linha_matriz = popup.renderizar_popup(
+            instancia, estilo, largura=50, altura=10
+        )
+        assert formacao_antes == "linha"
+        assert instancia.formacao == "matriz"
+        assert instancia is identidade
+        assert instancia.cursor_id == cursor
+        assert instancia.marcados == marcados
+        assert instancia.grade == (
+            ("opcao_1", "opcao_3", "opcao_5"),
+            ("opcao_2", "opcao_4", "opcao_6"),
+        )
+        assert all(
+            "Opção " + str(indice) in saida_linha_matriz
+            for indice in range(1, 7)
+        )
+
+        formacao_antes = instancia.formacao
+        saida_matriz_coluna = popup.renderizar_popup(
+            instancia, estilo, largura=80, altura=24
+        )
+        assert formacao_antes == "matriz"
+        assert instancia.formacao == "coluna"
+        assert estado["popup"] is identidade
+        assert instancia.cursor_id == cursor
+        assert instancia.marcados == marcados == marcados_esperados
+        assert all(
+            "Opção " + str(indice) in saida_matriz_coluna
+            for indice in range(1, 7)
+        )
+        ids_fisicos = [item_id for linha in instancia.grade for item_id in linha]
+        assert ids_fisicos == ["opcao_1", "opcao_2", "opcao_3", "opcao_4", "opcao_5", "opcao_6"]
 
 
 def test_h0059_binding_consumido_fecha_modal_e_reativa_tela_sem_duplicar_tecla():

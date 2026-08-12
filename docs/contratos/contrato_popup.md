@@ -11,6 +11,7 @@ metadata:
       - docs/adr/ADR-0044-popup-modal-generico-de-decisao.md
     adrs_aplicadas:
       - docs/adr/ADR-0044-popup-modal-generico-de-decisao.md
+      - docs/adr/ADR-0045-resize-responsivo-formacoes-popup-marcacao.md
     reaproveitado_de_legado: false
   dependencias_nomenclatura:
     dependencias_obrigatorias:
@@ -144,11 +145,37 @@ As formações físicas são tentadas nesta ordem:
 coluna → matriz → linha
 ```
 
-Na matriz, usa-se o menor número de colunas capaz de acomodar todos os itens,
-com preenchimento vertical por colunas e avanço das colunas da esquerda para a
-direita. Não há placeholders navegáveis, itens em branco ou células vazias
-introduzidas para completar a grade. A mudança de formação é somente física:
-IDs, ordem lógica, cursor e marcações permanecem os mesmos.
+A `coluna` permanece enquanto todos os itens couberem integralmente em uma
+única coluna. Quando a coluna não couber e houver espaço vertical para pelo
+menos duas linhas físicas de itens, avaliam-se as matrizes válidas. A matriz
+escolhida é a que cabe integralmente e tem o maior número de colunas
+fisicamente ocupadas por itens reais, conservando pelo menos duas linhas
+físicas. O preenchimento continua vertical por colunas, da esquerda para a
+direita. Colunas vazias, placeholders, células artificiais e itens vazios não
+contam para essa maximização nem são introduzidos para completar a grade.
+
+`linha` somente é usada quando há espaço vertical para apenas uma linha física
+de itens e todos os itens cabem integralmente nessa linha. Uma formação de uma
+linha não é tratada como matriz. Se nenhuma formação permitida couber
+integralmente, aplica-se o `quadro mínimo de terminal pequeno` já vigente.
+
+Para o encaixe, cada item usa sua largura física integral, incluindo indicador
+de cursor, indicador de marcação, separação interna vigente e texto integral.
+Na matriz, a largura é calculada com a largura máxima de cada coluna ocupada e
+vão de exatamente `2` espaços entre colunas; na linha, com a soma das larguras
+integrais e `2` espaços entre itens. Esses mesmos `2` espaços aparecem na
+representação física. A altura disponível para os itens é a altura do pop-up
+depois do overhead real: moldura, espaçamentos, instrução após wrapping,
+chips e demais linhas físicas que lhes correspondam. Cada item ocupa uma única
+linha física, sem wrapping, truncamento ou reticências.
+
+A formação é recalculada para cada novo par de dimensões válido, inclusive
+após `SIGWINCH`, e a recomposição é reversível conforme os mesmos critérios.
+A mudança de formação é somente física: na mesma instância, IDs, conteúdo,
+ordem lógica, cursor e marcações provisórias permanecem os mesmos.
+Estas regras de formação e encaixe valem igualmente para `marcacao: exclusiva`
+e `marcacao: multipla`; as semânticas próprias dessas políticas permanecem as
+definidas na seção 7.
 
 O cursor é independente da marcação. A navegação é toroidal por eixo:
 

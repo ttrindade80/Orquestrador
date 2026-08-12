@@ -408,23 +408,33 @@ def _declaracao_marcacao(politica="exclusiva"):
     return declaracao
 
 
-def _conteudo_marcacao(ids=None, marcados=None):
+def _conteudo_marcacao(
+    ids=None, marcados=None, instrucao="Escolha uma opção:", textos=None
+):
     ids = ids or ["opcao_1", "opcao_2", "opcao_3", "opcao_4", "opcao_5", "opcao_6"]
+    textos = textos or [
+        "Opção " + item_id.rsplit("_", 1)[-1] for item_id in ids
+    ]
     return {
         "tipo": "marcacao",
-        "instrucao": "Escolha uma opção:",
+        "instrucao": instrucao,
         "itens": [
-            {"id": item_id, "texto": "Opção " + item_id.rsplit("_", 1)[-1]}
-            for item_id in ids
+            {"id": item_id, "texto": texto}
+            for item_id, texto in zip(ids, textos)
         ],
         "marcados": list(marcados if marcados is not None else [ids[1]]),
     }
 
 
-def _instancia_marcacao(estilo, politica="exclusiva", ids=None, marcados=None):
+def _instancia_marcacao(
+    estilo, politica="exclusiva", ids=None, marcados=None,
+    instrucao="Escolha uma opção:", textos=None,
+):
     fonte = {"popups": {"lista": _declaracao_marcacao(politica)}}
     instancia = popup.abrir_popup(
-        fonte, "lista", _conteudo_marcacao(ids=ids, marcados=marcados)
+        fonte, "lista", _conteudo_marcacao(
+            ids=ids, marcados=marcados, instrucao=instrucao, textos=textos
+        )
     )
     return instancia
 
@@ -514,6 +524,200 @@ def test_formacoes_coluna_matriz_linha_e_preenchimento_vertical(estilo):
     )
 
 
+def test_matriz_maximiza_colunas_reais_e_rejeita_colunas_vazias():
+    ids = ["a", "b", "c", "d", "e", "f", "g"]
+    larguras = [5] * len(ids)
+
+    formacao, colunas = popup._selecionar_formacao(
+        ids, larguras, largura_util=26, linhas_disponiveis=2
+    )
+
+    assert formacao == "matriz"
+    assert len(colunas) == 4
+    assert all(colunas)
+    assert [item_id for coluna in colunas for item_id in coluna] == ids
+
+    colunas_nominais = popup._colunas_formacao(ids, larguras, 10)
+    assert len(colunas_nominais) == len(ids)
+    assert all(colunas_nominais)
+    _, grade = popup._grade_para_formacao(
+        ids, "matriz", colunas=colunas_nominais
+    )
+    assert grade == [["a", "b", "c", "d", "e", "f", "g"]]
+
+
+def test_matriz_tem_duas_linhas_e_linha_exige_uma_linha_disponivel():
+    ids = ["a", "b", "c", "d", "e", "f"]
+    larguras = [5] * len(ids)
+
+    formacao, colunas = popup._selecionar_formacao(
+        ids, larguras, largura_util=40, linhas_disponiveis=2
+    )
+    assert formacao == "matriz"
+    assert max(len(coluna) for coluna in colunas) >= 2
+
+    formacao, colunas = popup._selecionar_formacao(
+        ids, larguras, largura_util=40, linhas_disponiveis=1
+    )
+    assert formacao == "linha"
+    assert colunas == [ids]
+
+    with pytest.raises(popup.PopupErro, match="altura disponivel"):
+        popup._selecionar_formacao(
+            ids, larguras, largura_util=10, linhas_disponiveis=2
+        )
+
+
+def test_vano_da_formacao_e_unico_no_calculo_e_na_saida(estilo):
+    instancia = _instancia_marcacao(estilo, ids=["a", "b"])
+    itens = instancia.conteudo["itens"]
+    larguras = [
+        popup._largura_item_marcacao(item["texto"], estilo)
+        for item in itens
+    ]
+    largura_linha = sum(larguras) + popup._VAO_ENTRE_ITENS_POPUP
+    largura_corpo = 3 + 2 * instancia.declaracao["espacamento_horizontal"] + largura_linha
+    preliminar = popup._layout_popup_marcacao(
+        instancia, estilo, largura_corpo=largura_corpo
+    )
+    overhead = preliminar["altura"] - len(preliminar["linhas_itens"])
+    layout = popup._layout_popup_marcacao(
+        instancia,
+        estilo,
+        largura_corpo=largura_corpo,
+        altura_corpo=overhead + 1,
+    )
+    partes = [
+        popup._texto_item_marcacao(instancia, item, estilo)
+        for item in itens
+    ]
+
+    assert popup._VAO_ENTRE_ITENS_POPUP == 2
+    assert layout["formacao"] == "linha"
+    assert layout["largura_util"] == largura_linha
+    assert layout["linhas_itens"] == [
+        (" " * popup._VAO_ENTRE_ITENS_POPUP).join(partes)
+    ]
+
+
+def test_largura_integral_do_item_considera_indicadores_e_texto(estilo):
+    texto = "texto integral sem truncamento"
+    largura = popup._largura_item_marcacao(texto, estilo)
+    esperada = (
+        max(
+            popup._largura_sem_ansi(getattr(estilo, "selecionado_simbolo")),
+            popup._largura_sem_ansi(getattr(estilo, "selecionado_off")),
+        )
+        + max(
+            popup._largura_sem_ansi(getattr(estilo, "incluido_on")),
+            popup._largura_sem_ansi(getattr(estilo, "incluido_off")),
+        )
+        + 1
+        + len(texto)
+    )
+    assert largura == esperada
+
+    instancia = _instancia_marcacao(
+        estilo, ids=["item"], marcados=["item"], textos=[texto]
+    )
+    caixa = popup.renderizar_popup(instancia, estilo, largura=largura + 7, altura=10)
+    assert texto in caixa
+    assert "..." not in caixa
+
+
+def test_overhead_de_marcacao_desconta_instrucao_e_chips_wrapped(estilo):
+    instancia = _instancia_marcacao(
+        estilo,
+        ids=["a", "b", "c", "d", "e", "f"],
+        instrucao="Instrucao longa para ocupar mais de uma linha fisica",
+    )
+    layout = popup._layout_popup_marcacao(
+        instancia, estilo, largura_corpo=30, altura_corpo=20
+    )
+    esperado = (
+        2
+        + instancia.declaracao["espacamento_superior"]
+        + len(layout["linhas_instrucao"])
+        + instancia.declaracao["espacamento_conteudo_chips"]
+        + len(layout["linhas_chips"])
+        + instancia.declaracao["espacamento_inferior"]
+        + len(layout["linhas_itens"])
+    )
+
+    assert len(layout["linhas_instrucao"]) > 1
+    assert len(layout["linhas_chips"]) > 1
+    assert layout["altura"] == esperado
+
+
+def test_wrapping_da_instrucao_muda_formacao_na_fronteira_e_materializa(estilo):
+    largura, altura = 55, 13
+    curta = _instancia_marcacao(estilo, instrucao="Escolha uma opção:")
+    longa = _instancia_marcacao(
+        estilo,
+        instrucao="Instrucao longa para ocupar mais de uma linha fisica",
+    )
+
+    layout_curta = popup._layout_popup_marcacao(
+        curta, estilo, largura_corpo=largura, altura_corpo=altura
+    )
+    layout_longa = popup._layout_popup_marcacao(
+        longa, estilo, largura_corpo=largura, altura_corpo=altura
+    )
+    saida_curta = popup.renderizar_popup(
+        curta, estilo, largura=largura, altura=altura
+    )
+    saida_longa = popup.renderizar_popup(
+        longa, estilo, largura=largura, altura=altura
+    )
+
+    assert len(layout_curta["linhas_instrucao"]) == 1
+    assert len(layout_longa["linhas_instrucao"]) == 2
+    assert layout_curta["formacao"] == "coluna"
+    assert layout_longa["formacao"] == "matriz"
+    assert len(saida_curta.splitlines()) == 13
+    assert len(saida_longa.splitlines()) == 10
+    assert "Escolha uma opção:" in saida_curta
+    assert "Instrucao longa" in saida_longa and "fisica" in saida_longa
+    assert all(
+        item["texto"] in saida_curta for item in curta.conteudo["itens"]
+    )
+    assert all(
+        item["texto"] in saida_longa for item in longa.conteudo["itens"]
+    )
+
+
+def test_wrapping_dos_chips_muda_formacao_na_fronteira_e_materializa(estilo):
+    altura = 13
+    larga = _instancia_marcacao(estilo)
+    estreita = _instancia_marcacao(estilo)
+
+    layout_larga = popup._layout_popup_marcacao(
+        larga, estilo, largura_corpo=40, altura_corpo=altura
+    )
+    layout_estreita = popup._layout_popup_marcacao(
+        estreita, estilo, largura_corpo=35, altura_corpo=altura
+    )
+    saida_larga = popup.renderizar_popup(
+        larga, estilo, largura=40, altura=altura
+    )
+    saida_estreita = popup.renderizar_popup(
+        estreita, estilo, largura=35, altura=altura
+    )
+
+    assert len(layout_larga["linhas_chips"]) == 1
+    assert len(layout_estreita["linhas_chips"]) == 2
+    assert layout_larga["formacao"] == "coluna"
+    assert layout_estreita["formacao"] == "matriz"
+    assert len(saida_larga.splitlines()) == 13
+    assert len(saida_estreita.splitlines()) == 11
+    assert all(
+        item["texto"] in saida_larga for item in larga.conteudo["itens"]
+    )
+    assert all(
+        item["texto"] in saida_estreita for item in estreita.conteudo["itens"]
+    )
+
+
 def test_navegacao_toroidal_e_eixos_sem_movimento(estilo):
     coluna = _instancia_marcacao(estilo)
     popup.renderizar_popup(coluna, estilo, largura=50, altura=20)
@@ -540,6 +744,25 @@ def test_navegacao_toroidal_e_eixos_sem_movimento(estilo):
     assert popup.consumir_tecla_popup(matriz, "\x1b[A") == {"movimento": "SEM_MOVIMENTO"}
     assert popup.consumir_tecla_popup(matriz, "\x1b[C") == {"movimento": "MOVIDO"}
     assert matriz.cursor_id == "a"
+
+    matriz_completa = _instancia_marcacao(estilo)
+    popup.renderizar_popup(matriz_completa, estilo, largura=40, altura=10)
+    assert popup.consumir_tecla_popup(matriz_completa, "\x1b[B") == {
+        "movimento": "MOVIDO"
+    }
+    assert matriz_completa.cursor_id == "opcao_2"
+    assert popup.consumir_tecla_popup(matriz_completa, "\x1b[A") == {
+        "movimento": "MOVIDO"
+    }
+    assert matriz_completa.cursor_id == "opcao_1"
+    assert popup.consumir_tecla_popup(matriz_completa, "\x1b[C") == {
+        "movimento": "MOVIDO"
+    }
+    assert matriz_completa.cursor_id == "opcao_4"
+    assert popup.consumir_tecla_popup(matriz_completa, "\x1b[D") == {
+        "movimento": "MOVIDO"
+    }
+    assert matriz_completa.cursor_id == "opcao_1"
 
 
 def test_marcacao_exclusiva_transfere_e_nao_muda_no_item_marcado(estilo):

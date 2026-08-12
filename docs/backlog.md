@@ -171,11 +171,3 @@ esta lista.
 **Descricao:** Adotar algoritmo canônico/global de composição de parágrafo e justificação para todas as ocorrências de texto justificado da TUI, evitando soluções locais independentes por componente.
 **Pre-requisitos:** Ciclo próprio de especificação.
 **Proxima acao:** Iniciar ciclo futuro próprio, sem implementar nesta etapa.
-
-### ITEM-0028 — Resize das formações da lista do pop-up antes de terminal pequeno
-**Tipo:** implementacao
-**Prioridade:** media
-**Status:** planejado
-**Descricao:** Fazer o redimensionamento do terminal modificar efetivamente a distribuição da lista do pop-up de marcação de coluna para matriz e depois para linha antes de declarar terminal pequeno demais.
-**Pre-requisitos:** Ciclo próprio de especificação.
-**Proxima acao:** Iniciar ciclo futuro próprio, sem implementar nesta etapa.

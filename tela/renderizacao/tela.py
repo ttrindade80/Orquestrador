@@ -405,14 +405,23 @@ def renderizar_tela(
             raise RenderizadorErro(
                 "popup exige corpo materializado para sobreposicao"
             )
-        # A composicao e a autoridade da altura materializada: em larguras
-        # responsivas, uma caixa do corpo pode ter mais linhas naturais que a
-        # cota inicial antes da verificacao final de ocupacao integral.
-        altura_corpo = _contar_linhas(bloco_corpo)
         linhas_corpo = bloco_corpo.split("\n")
         if linhas_corpo and linhas_corpo[-1] == "":
             linhas_corpo.pop()
         largura_corpo = max((len(linha) for linha in linhas_corpo), default=0)
+        altura_corpo = len(linhas_corpo)
+        if l_corpo_disponivel is not None:
+            # H-0060/P01: a altura natural do corpo subjacente nao representa
+            # espaco fisico adicional para o popup. A sobreposicao opera sobre
+            # uma projecao com exatamente a cota reservada ao corpo; assim, o
+            # layout recebe a mesma autoridade vertical que a verificacao final.
+            linhas_corpo = linhas_corpo[:l_corpo_disponivel]
+            linhas_corpo.extend(
+                [" " * largura_corpo]
+                * (l_corpo_disponivel - len(linhas_corpo))
+            )
+            bloco_corpo = "\n".join(linhas_corpo)
+            altura_corpo = l_corpo_disponivel
         bloco_corpo = sobrepor_no_corpo(
             bloco_corpo, popup, estilo, largura_corpo, altura=altura_corpo
         )

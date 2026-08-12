@@ -86,10 +86,22 @@ O conteúdo do pop-up pode ser textual ou uma marcação navegável plana. O tip
 `justificado` e wrapping. O tipo `marcacao` possui instrução obrigatória,
 itens reais com IDs estáveis e uma linha física por item.
 
-As formações físicas da marcação seguem `coluna → matriz → linha`. A matriz é
-preenchida verticalmente por colunas, não cria placeholders e usa navegação
-toroidal independente por eixo. Essa topologia é reutilizada; não transforma
-o pop-up em `console`.
+As formações físicas da marcação seguem `coluna → matriz → linha`. `coluna` é
+preferida enquanto todos os itens couberem em uma única coluna. Se ela não
+couber e houver pelo menos duas linhas físicas disponíveis, `matriz` usa o
+maior número de colunas fisicamente ocupadas que caiba integralmente e
+conserve pelo menos duas linhas. O preenchimento é vertical, da esquerda para
+a direita, sem placeholders ou células artificiais. `linha` somente é usada
+quando houver espaço para apenas uma linha física e todos os itens couberem
+nela; uma linha não é matriz. Cada item permanece em uma linha física, e o vão
+entre colunas da matriz e entre itens da linha é exatamente `2` espaços, tanto
+no encaixe quanto na representação. Sem formação válida, usa-se o `quadro
+mínimo de terminal pequeno`.
+
+Para cada novo par de dimensões válido, a formação é recomposta de modo
+reversível, preservando na mesma instância IDs, ordem lógica, cursor e
+marcações provisórias. A navegação toroidal por eixo permanece a mesma; essa
+topologia não transforma o pop-up em `console`.
 
 O pop-up é centralizado na área física do corpo e usa tamanho intrínseco,
 limitado por essa área. Espaçamentos verticais aceitam `0|1` e o espaçamento
@@ -127,3 +139,6 @@ ação de negócio.
 - ADR-0044: fecha a capacidade, suas fronteiras, os tipos de conteúdo, as
   políticas de marcação, o retorno e a separação entre configuração,
   conteúdo e runtime.
+- ADR-0045: especializa o resize responsivo das formações físicas do conteúdo
+  `tipo: marcacao`, sem alterar a propriedade deste módulo sobre a
+  terminologia do pop-up.

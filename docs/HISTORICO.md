@@ -407,3 +407,10 @@ Nenhum item registrado.
 **Data:** 2026-08-11
 **Referências:** docs/adr/ADR-0044-popup-modal-generico-de-decisao.md; H-0056; H-0057; H-0058; H-0059
 **Resumo:** Pop-up modal genérico concluído pelos H-0056 a H-0059, com modalidade textual, aborto sem payload, geometria dinâmica e resize, lista navegável e marcação exclusiva/múltipla, e confirmação `CONFIRMADO` com `valor` e binding no consumidor. ITEM-0017 concluído.
+
+### ITEM-0028 — Resize das formações da lista do pop-up antes de terminal pequeno
+
+**Resultado:** CONCLUIDO
+**Data:** 2026-08-12
+**Referências:** docs/adr/ADR-0045-resize-responsivo-formacoes-popup-marcacao.md; docs/handoff/H-0060-resize-responsivo-formacoes-popup-marcacao.md; docs/relatorios/RELATORIO_VALIDACAO_MANUAL_H-0060.md
+**Resumo:** ITEM-0028 concluído com ADR-0045 e H-0060: resize coluna → matriz → linha antes de terminal pequeno; correção focal da integração da altura física em `tela/renderizacao/tela.py`; QA automatizado final aprovado (23 testes de integração, 63 do pop-up, 15 de demo e 1175 canônicos); validação manual TTY aprovada; fechamento em 2026-08-12.

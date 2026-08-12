@@ -1294,3 +1294,130 @@ def test_h0045_ph07_cinco_telas_validacao():
                 "página 1/{0}".format(plano["total_paginas"])
                 in borda_inferior
             ), (nome, largura, borda_inferior)
+
+
+def _estado_popup_h0060(tecla):
+    from demo import demo
+
+    modelo = demo._carregar_modelo_por_id("demo")
+    estado = dict(
+        demo.processar_comando(demo.criar_estado_inicial(), tecla, modelo),
+        estilo=demo.carregar_estilo(),
+    )
+    return estado, modelo
+
+
+def test_h0060_renderizar_tela_usa_area_fisica_real_e_forma_matriz(monkeypatch):
+    import importlib
+
+    tela_modulo = importlib.import_module("tela.renderizacao.tela")
+    sobrepor_original = tela_modulo.sobrepor_no_corpo
+    cotas_recebidas = []
+
+    def _registrar_cota(corpo, instancia, estilo, largura=None, altura=None):
+        cotas_recebidas.append((len(corpo.splitlines()), altura))
+        return sobrepor_original(
+            corpo, instancia, estilo, largura=largura, altura=altura
+        )
+
+    monkeypatch.setattr(tela_modulo, "sobrepor_no_corpo", _registrar_cota)
+    for tecla, marcados in (
+        ("e", ["opcao_2"]),
+        ("m", ["opcao_2", "opcao_4"]),
+    ):
+        estado, modelo = _estado_popup_h0060(tecla)
+        instancia = estado["popup"]
+        identidade = instancia
+        cursor = instancia.cursor_id
+
+        saida = renderizar_tela(
+            modelo, estado["estilo"], largura=80, altura=18, popup=instancia
+        )
+
+        assert estado["popup"] is identidade
+        assert instancia.formacao == "matriz"
+        assert instancia.cursor_id == cursor
+        assert instancia.marcados == marcados
+        assert cotas_recebidas[-1] == (12, 12)
+        assert "terminal pequeno demais" not in saida.lower()
+        assert len(saida.splitlines()) == 18
+        assert all(len(linha) == 80 for linha in saida.splitlines())
+        assert all(
+            item["texto"] in saida for item in instancia.conteudo["itens"]
+        )
+
+
+def test_h0060_renderizar_tela_usa_area_fisica_real_e_forma_linha(monkeypatch):
+    import importlib
+
+    tela_modulo = importlib.import_module("tela.renderizacao.tela")
+    sobrepor_original = tela_modulo.sobrepor_no_corpo
+    cotas_recebidas = []
+
+    def _registrar_cota(corpo, instancia, estilo, largura=None, altura=None):
+        cotas_recebidas.append((len(corpo.splitlines()), altura))
+        return sobrepor_original(
+            corpo, instancia, estilo, largura=largura, altura=altura
+        )
+
+    monkeypatch.setattr(tela_modulo, "sobrepor_no_corpo", _registrar_cota)
+    for tecla, marcados in (
+        ("e", ["opcao_2"]),
+        ("m", ["opcao_2", "opcao_4"]),
+    ):
+        estado, modelo = _estado_popup_h0060(tecla)
+        instancia = estado["popup"]
+        identidade = instancia
+        cursor = instancia.cursor_id
+
+        saida = renderizar_tela(
+            modelo, estado["estilo"], largura=77, altura=14, popup=instancia
+        )
+
+        assert estado["popup"] is identidade
+        assert instancia.formacao == "linha"
+        assert instancia.cursor_id == cursor
+        assert instancia.marcados == marcados
+        assert cotas_recebidas[-1] == (8, 8)
+        assert "terminal pequeno demais" not in saida.lower()
+        assert len(saida.splitlines()) == 14
+        assert all(len(linha) == 77 for linha in saida.splitlines())
+        assert all(
+            item["texto"] in saida for item in instancia.conteudo["itens"]
+        )
+
+
+def test_h0060_fluxo_completo_preserva_terminal_pequeno_real():
+    from demo import demo
+
+    largura, altura = 23, 6
+    esperado = (
+        "Terminal pequeno demais\n"
+        "Aumente a janela para c\n"
+        + (" " * largura + "\n") * (altura - 2)
+    )
+    for tecla in ("e", "m"):
+        estado, modelo = _estado_popup_h0060(tecla)
+        instancia = estado["popup"]
+
+        saida = demo._resolver_conteudo(estado, modelo, largura, altura)
+
+        assert saida == esperado
+        assert estado["popup"] is instancia
+        assert all(
+            item["texto"] not in saida for item in instancia.conteudo["itens"]
+        )
+
+
+def test_h0060_sem_popup_preserva_rejeicao_do_corpo_natural_excedente():
+    import pytest
+
+    estado, modelo = _estado_popup_h0060("e")
+
+    with pytest.raises(
+        RenderizadorErro,
+        match=r"corpo requer 14 linhas mas area disponivel e 12 linhas",
+    ):
+        renderizar_tela(
+            modelo, estado["estilo"], largura=80, altura=18, popup=None
+        )
