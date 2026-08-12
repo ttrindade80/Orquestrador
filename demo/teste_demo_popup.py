@@ -164,3 +164,71 @@ def test_h0057_modalidade_esc_abortado_sem_payload_e_tecla_x_inerte():
     assert fechado["popup_resultado"] == {"status": "ABORTADO"}
     assert "valor" not in fechado["popup_resultado"]
     assert fechado["tela_atual"] == "demo"
+
+
+def test_h0058_acionamentos_e_m_abrem_fixtures_separadas_com_seis_itens():
+    modelo = demo._carregar_modelo_por_id("demo")
+    assert demo._popup_acionado_por(modelo, "e") == "popup_lista_exclusiva"
+    assert demo._popup_acionado_por(modelo, "m") == "popup_lista_multipla"
+
+    estado = demo.criar_estado_inicial()
+    exclusivo = demo.processar_comando(estado, "e", modelo)
+    multiplo = demo.processar_comando(estado, "m", modelo)
+    assert exclusivo["popup"].id == "popup_lista_exclusiva"
+    assert multiplo["popup"].id == "popup_lista_multipla"
+    assert [item["id"] for item in exclusivo["popup"].conteudo["itens"]] == [
+        "opcao_1", "opcao_2", "opcao_3", "opcao_4", "opcao_5", "opcao_6"
+    ]
+    assert exclusivo["popup"].marcados == ["opcao_2"]
+    assert multiplo["popup"].marcados == ["opcao_2", "opcao_4"]
+
+
+def test_h0058_modal_captura_setas_espaco_enter_e_preserva_instancia():
+    modelo = demo._carregar_modelo_por_id("demo")
+    estado = dict(
+        demo.processar_comando(demo.criar_estado_inicial(), "e", modelo),
+        estilo=demo.carregar_estilo(),
+    )
+    instancia = estado["popup"]
+    quadro = demo.renderizar_estado(estado, modelo, largura=80, altura=24)
+    assert "Escolha uma opção:" in quadro
+    assert all("Opção " + str(indice) in quadro for indice in range(1, 7))
+    assert "Esc" in quadro and "Voltar" in quadro
+
+    movido = demo.processar_comando(estado, "\x1b[B", modelo)
+    assert movido["popup"] is instancia
+    assert instancia.cursor_id == "opcao_2"
+    marcado = demo.processar_comando(movido, " ", modelo)
+    assert marcado["popup"] is instancia
+    assert instancia.marcados == ["opcao_2"]
+    for tecla in ("\r", "\n"):
+        inerte = demo.processar_comando(marcado, tecla, modelo)
+        assert inerte["popup"] is instancia
+        assert inerte["popup_resultado"] is None
+    assert demo.processar_comando(marcado, "x", modelo)["popup"] is instancia
+
+
+def test_h0058_multipla_resize_terminal_pequeno_e_esc():
+    modelo = demo._carregar_modelo_por_id("demo")
+    estado = dict(
+        demo.processar_comando(demo.criar_estado_inicial(), "m", modelo),
+        estilo=demo.carregar_estilo(),
+    )
+    instancia = estado["popup"]
+    demo.renderizar_estado(estado, modelo, largura=80, altura=24)
+    demo.processar_comando(estado, "\x1b[B", modelo)
+    assert instancia.cursor_id == "opcao_2"
+    assert instancia.marcados == ["opcao_2", "opcao_4"]
+
+    pequeno = demo._resolver_conteudo(estado, modelo, 9, 5)
+    assert "terminal" not in pequeno.lower() or len(pequeno.splitlines()) == 5
+    recuperado = demo._resolver_conteudo(estado, modelo, 80, 24)
+    assert "Lista múltipla" in recuperado
+    assert estado["popup"] is instancia
+    assert instancia.cursor_id == "opcao_2"
+    assert instancia.marcados == ["opcao_2", "opcao_4"]
+
+    fechado = demo.processar_comando(estado, "\x1b", modelo)
+    assert fechado["popup"] is None
+    assert fechado["popup_resultado"] == {"status": "ABORTADO"}
+    assert "valor" not in fechado["popup_resultado"]

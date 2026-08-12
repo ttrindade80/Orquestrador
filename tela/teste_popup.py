@@ -385,3 +385,246 @@ def test_overlay_sinaliza_altura_inviavel_sem_remover_conteudo(estilo):
     corpo = "\n".join("x" * 19 for _ in range(3))
     with pytest.raises(popup.PopupErro, match="altura derivada"):
         popup.sobrepor_no_corpo(corpo, instancia, estilo, largura=19, altura=3)
+
+
+def _declaracao_marcacao(politica="exclusiva"):
+    declaracao = _declaracao()
+    declaracao["tipo"] = "marcacao"
+    declaracao["marcacao"] = politica
+    declaracao["titulo"] = "Lista"
+    declaracao["alinhamento"] = "esquerda"
+    return declaracao
+
+
+def _conteudo_marcacao(ids=None, marcados=None):
+    ids = ids or ["opcao_1", "opcao_2", "opcao_3", "opcao_4", "opcao_5", "opcao_6"]
+    return {
+        "tipo": "marcacao",
+        "instrucao": "Escolha uma opção:",
+        "itens": [
+            {"id": item_id, "texto": "Opção " + item_id.rsplit("_", 1)[-1]}
+            for item_id in ids
+        ],
+        "marcados": list(marcados if marcados is not None else [ids[1]]),
+    }
+
+
+def _instancia_marcacao(estilo, politica="exclusiva", ids=None, marcados=None):
+    fonte = {"popups": {"lista": _declaracao_marcacao(politica)}}
+    instancia = popup.abrir_popup(
+        fonte, "lista", _conteudo_marcacao(ids=ids, marcados=marcados)
+    )
+    return instancia
+
+
+def test_marcacao_valida_separa_declaracao_envelope_e_estado(estilo):
+    instancia = _instancia_marcacao(estilo, marcados=["opcao_2"])
+    assert instancia.declaracao["marcacao"] == "exclusiva"
+    assert instancia.conteudo["tipo"] == "marcacao"
+    assert "marcacao" not in instancia.conteudo
+    assert instancia.cursor_id == "opcao_1"
+    assert instancia.marcados == ["opcao_2"]
+
+    with pytest.raises(popup.PopupErro):
+        popup.validar_conteudo_popup({
+            "tipo": "marcacao",
+            "instrucao": "Escolha",
+            "itens": [{"id": "a", "texto": "A"}],
+            "marcados": [],
+            "extra": True,
+        })
+    with pytest.raises(popup.PopupErro):
+        popup.validar_conteudo_popup({
+            "tipo": "marcacao",
+            "instrucao": "Escolha",
+            "itens": [],
+            "marcados": [],
+        })
+    with pytest.raises(popup.PopupErro):
+        popup.validar_conteudo_popup({
+            "tipo": "marcacao",
+            "instrucao": "Escolha",
+            "itens": [{"id": "a", "texto": "A"}, {"id": "a", "texto": "A2"}],
+            "marcados": ["a"],
+        })
+    with pytest.raises(popup.PopupErro):
+        popup.validar_conteudo_popup({
+            "tipo": "marcacao",
+            "instrucao": "Escolha",
+            "itens": [{"id": "a", "texto": "A"}],
+            "marcados": ["inexistente"],
+        })
+    declaracao = _declaracao_marcacao("invalida")
+    with pytest.raises(popup.PopupErro):
+        popup.validar_declaracao_popup(declaracao)
+    with pytest.raises(popup.PopupErro):
+        popup.abrir_popup(
+            {"popups": {"lista": _declaracao_marcacao("exclusiva")}},
+            "lista",
+            _conteudo_marcacao(marcados=[]),
+        )
+
+
+def test_marcacao_renderiza_instrucao_foco_marcas_moldura_e_chip(estilo):
+    instancia = _instancia_marcacao(estilo)
+    caixa = popup.renderizar_popup(instancia, estilo, largura=50, altura=20)
+    assert "Escolha uma opção:" in caixa
+    assert "Opção 1" in caixa and "Opção 6" in caixa
+    assert getattr(estilo, "selecionado_simbolo") in caixa
+    assert getattr(estilo, "incluido_on") in caixa
+    assert getattr(estilo, "incluido_off") in caixa
+    assert "Esc" in caixa and "Voltar" in caixa
+    assert all(len(linha) == 50 for linha in caixa.splitlines())
+    assert instancia.cursor_id == "opcao_1"
+    assert instancia.marcados == ["opcao_2"]
+
+
+def test_formacoes_coluna_matriz_linha_e_preenchimento_vertical(estilo):
+    coluna = _instancia_marcacao(estilo)
+    popup.renderizar_popup(coluna, estilo, largura=50, altura=20)
+    assert coluna.formacao == "coluna"
+    assert coluna.grade == tuple(("opcao_{}".format(indice),) for indice in range(1, 7))
+
+    matriz = _instancia_marcacao(estilo)
+    popup.renderizar_popup(matriz, estilo, largura=40, altura=10)
+    assert matriz.formacao == "matriz"
+    assert matriz.grade == (
+        ("opcao_1", "opcao_4"),
+        ("opcao_2", "opcao_5"),
+        ("opcao_3", "opcao_6"),
+    )
+
+    linha = _instancia_marcacao(estilo)
+    popup.renderizar_popup(linha, estilo, largura=100, altura=8)
+    assert linha.formacao == "linha"
+    assert linha.grade == (
+        tuple("opcao_{}".format(indice) for indice in range(1, 7)),
+    )
+
+
+def test_navegacao_toroidal_e_eixos_sem_movimento(estilo):
+    coluna = _instancia_marcacao(estilo)
+    popup.renderizar_popup(coluna, estilo, largura=50, altura=20)
+    assert popup.consumir_tecla_popup(coluna, "\x1b[A") == {"movimento": "MOVIDO"}
+    assert coluna.cursor_id == "opcao_6"
+    assert popup.consumir_tecla_popup(coluna, "\x1b[C") == {"movimento": "SEM_MOVIMENTO"}
+
+    linha = _instancia_marcacao(estilo)
+    popup.renderizar_popup(linha, estilo, largura=100, altura=8)
+    assert popup.consumir_tecla_popup(linha, "\x1b[D") == {"movimento": "MOVIDO"}
+    assert linha.cursor_id == "opcao_6"
+    assert popup.consumir_tecla_popup(linha, "\x1b[A") == {"movimento": "SEM_MOVIMENTO"}
+
+    matriz = _instancia_marcacao(
+        estilo, ids=["a", "b", "c", "d", "e"], marcados=["b"]
+    )
+    popup.renderizar_popup(matriz, estilo, largura=41, altura=9)
+    assert matriz.formacao == "matriz"
+    assert matriz.grade == (("a", "c", "e"), ("b", "d"))
+    assert popup.consumir_tecla_popup(matriz, "\x1b[C") == {"movimento": "MOVIDO"}
+    assert matriz.cursor_id == "c"
+    assert popup.consumir_tecla_popup(matriz, "\x1b[C") == {"movimento": "MOVIDO"}
+    assert matriz.cursor_id == "e"
+    assert popup.consumir_tecla_popup(matriz, "\x1b[A") == {"movimento": "SEM_MOVIMENTO"}
+    assert popup.consumir_tecla_popup(matriz, "\x1b[C") == {"movimento": "MOVIDO"}
+    assert matriz.cursor_id == "a"
+
+
+def test_marcacao_exclusiva_transfere_e_nao_muda_no_item_marcado(estilo):
+    instancia = _instancia_marcacao(estilo, marcados=["opcao_2"])
+    assert instancia.marcados == ["opcao_2"]
+    assert popup.consumir_tecla_popup(instancia, " ") == {"marcacao": "TRANSFERIDA"}
+    assert instancia.marcados == ["opcao_1"]
+    assert popup.consumir_tecla_popup(instancia, " ") == {"marcacao": "SEM_MUDANCA"}
+    assert instancia.cursor_id == "opcao_1"
+    assert popup.consumir_tecla_popup(instancia, "\x1b[B") == {"movimento": "MOVIDO"}
+    assert instancia.marcados == ["opcao_1"]
+
+
+def test_marcacao_multipla_alterna_e_preserva_ordem_declarada(estilo):
+    instancia = _instancia_marcacao(
+        estilo, politica="multipla", marcados=["opcao_4", "opcao_2"]
+    )
+    assert instancia.marcados == ["opcao_2", "opcao_4"]
+    assert popup.consumir_tecla_popup(instancia, " ") == {"marcacao": "MARCADA"}
+    assert instancia.marcados == ["opcao_1", "opcao_2", "opcao_4"]
+    assert popup.consumir_tecla_popup(instancia, " ") == {"marcacao": "DESMARCADA"}
+    assert instancia.marcados == ["opcao_2", "opcao_4"]
+    assert popup.consumir_tecla_popup(instancia, "\x1b[B") == {"movimento": "MOVIDO"}
+    assert instancia.marcados == ["opcao_2", "opcao_4"]
+
+
+def test_resize_preserva_instancia_cursor_marcacoes_e_recomposicao(estilo):
+    instancia = _instancia_marcacao(estilo, politica="multipla")
+    identidade = instancia
+    popup.renderizar_popup(instancia, estilo, largura=50, altura=20)
+    popup.consumir_tecla_popup(instancia, "\x1b[B")
+    popup.consumir_tecla_popup(instancia, " ")
+    cursor = instancia.cursor_id
+    marcados = instancia.marcados
+    popup.renderizar_popup(instancia, estilo, largura=40, altura=10)
+    assert instancia is identidade
+    assert instancia.cursor_id == cursor
+    assert instancia.marcados == marcados
+    assert all(item_id.startswith("opcao_") for item_id in instancia.marcados)
+    popup.renderizar_popup(instancia, estilo, largura=50, altura=20)
+    assert instancia is identidade
+    assert instancia.cursor_id == cursor
+    assert instancia.marcados == marcados
+
+
+def test_resize_recalcula_formacao_na_mesma_instancia_preservando_ids(estilo):
+    instancia = _instancia_marcacao(estilo, politica="multipla")
+    identidade = instancia
+    conteudo = copy.deepcopy(instancia.conteudo)
+
+    popup.renderizar_popup(instancia, estilo, largura=50, altura=20)
+    assert instancia.formacao == "coluna"
+    popup.consumir_tecla_popup(instancia, "\x1b[B")
+    popup.consumir_tecla_popup(instancia, "\x1b[B")
+    popup.consumir_tecla_popup(instancia, " ")
+    cursor = instancia.cursor_id
+    marcados = instancia.marcados
+    assert cursor == "opcao_3"
+    assert marcados == ["opcao_2", "opcao_3"]
+
+    popup.renderizar_popup(instancia, estilo, largura=40, altura=10)
+    assert instancia is identidade
+    assert instancia.formacao == "matriz"
+    assert instancia.grade == (
+        ("opcao_1", "opcao_4"),
+        ("opcao_2", "opcao_5"),
+        ("opcao_3", "opcao_6"),
+    )
+    assert instancia.cursor_id == cursor
+    assert instancia.marcados == marcados
+
+    popup.renderizar_popup(instancia, estilo, largura=77, altura=8)
+    assert instancia is identidade
+    assert instancia.formacao == "linha"
+    assert instancia.grade == (
+        ("opcao_1", "opcao_2", "opcao_3", "opcao_4", "opcao_5", "opcao_6"),
+    )
+    assert instancia.cursor_id == cursor
+    assert instancia.marcados == marcados
+
+    popup.renderizar_popup(instancia, estilo, largura=50, altura=20)
+    assert instancia is identidade
+    assert instancia.formacao == "coluna"
+    assert instancia.grade == tuple(
+        ("opcao_{}".format(indice),) for indice in range(1, 7)
+    )
+    assert instancia.cursor_id == cursor
+    assert instancia.marcados == marcados
+    assert instancia.conteudo == conteudo
+
+
+def test_enter_nao_confirma_esc_aborta_sem_valor(estilo):
+    instancia = _instancia_marcacao(estilo)
+    for tecla in ("\r", "\n"):
+        assert popup.consumir_tecla_popup(instancia, tecla) is None
+        assert instancia.cursor_id == "opcao_1"
+        assert instancia.marcados == ["opcao_2"]
+    resultado = popup.consumir_tecla_popup(instancia, "\x1b")
+    assert resultado == {"status": "ABORTADO"}
+    assert "valor" not in resultado

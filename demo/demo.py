@@ -185,6 +185,19 @@ _mod_h0057_popup = _importlib_util_executor.module_from_spec(_spec_h0057_popup)
 _spec_h0057_popup.loader.exec_module(_mod_h0057_popup)
 conteudo_popup_h0057 = _mod_h0057_popup.conteudo_popup_h0057
 
+_spec_h0058_popup = _importlib_util_executor.spec_from_file_location(
+    "demo_h0058_popup_lista_marcacao",
+    os.path.join(
+        os.path.dirname(os.path.abspath(__file__)),
+        "fixtures",
+        "h0058_popup_lista_marcacao.py",
+    ),
+)
+_mod_h0058_popup = _importlib_util_executor.module_from_spec(_spec_h0058_popup)
+_spec_h0058_popup.loader.exec_module(_mod_h0058_popup)
+conteudo_popup_h0058_exclusiva = _mod_h0058_popup.conteudo_popup_h0058_exclusiva
+conteudo_popup_h0058_multipla = _mod_h0058_popup.conteudo_popup_h0058_multipla
+
 # H-0045-P12: carrega o helper por caminho absoluto. ``python demo/demo.py``
 # registra este arquivo como modulo ``demo``, o que impede
 # ``from demo import casos_validacao_paginacao``.
@@ -458,11 +471,13 @@ def _abrir_popup_demonstrativo(estado, modelo, comando):
     popup_id = _popup_acionado_por(modelo, comando)
     if popup_id is None:
         return None
-    conteudo = (
-        conteudo_popup_h0057()
-        if popup_id == "popup_texto_dinamico"
-        else conteudo_popup_h0056()
-    )
+    conteudos = {
+        "popup_texto_dinamico": conteudo_popup_h0057,
+        "popup_lista_exclusiva": conteudo_popup_h0058_exclusiva,
+        "popup_lista_multipla": conteudo_popup_h0058_multipla,
+        "popup_basico": conteudo_popup_h0056,
+    }
+    conteudo = conteudos.get(popup_id, conteudo_popup_h0056)()
     instancia = abrir_popup(
         modelo,
         popup_id,
@@ -472,6 +487,19 @@ def _abrir_popup_demonstrativo(estado, modelo, comando):
     novo["popup"] = instancia
     novo["popup_resultado"] = None
     return novo
+
+
+def _estado_popup_observavel(instancia):
+    """Retorna snapshot leve para redesenhar quando o estado vivo muda."""
+    if instancia is None:
+        return None
+    return (
+        instancia,
+        getattr(instancia, "cursor_id", None),
+        tuple(getattr(instancia, "marcados", ())),
+        getattr(instancia, "formacao", None),
+        getattr(instancia, "grade", ()),
+    )
 
 
 def _abrir_resultado_controle(estado, modelo, resultado):
@@ -731,10 +759,14 @@ def processar_comando(estado, comando, modelo=None):
 
     # H-0056: enquanto a instancia modal existe, toda tecla e consumida aqui.
     # A tela e o modelo subjacentes permanecem intocados; somente Esc fecha e
-    # produz o resultado nao confirmatorio sem payload.
+    # produz o resultado nao confirmatorio sem payload. Resultados internos de
+    # navegacao/marcacao apenas deixam a mesma instancia aberta.
     if novo.get("popup") is not None:
         resultado_popup = consumir_tecla_popup(novo["popup"], comando)
-        if resultado_popup is not None:
+        if (
+            isinstance(resultado_popup, dict)
+            and resultado_popup.get("status") == "ABORTADO"
+        ):
             novo["popup"] = None
             novo["popup_resultado"] = resultado_popup
         return novo
@@ -2298,7 +2330,7 @@ def main(argv=None, estado_inicial=None):
                         estado.get("ramos_fechados", {})
                     )
                     paginas_antes = dict(estado.get("pagina_atual", {}))
-                    popup_antes = estado.get("popup")
+                    popup_antes = _estado_popup_observavel(estado.get("popup"))
                     fluxo_antes = estado.get("fluxo_execucao")
                     controle_antes = estado.get("controle_execucao")
                     modo_controle_antes = getattr(
@@ -2359,7 +2391,10 @@ def main(argv=None, estado_inicial=None):
                         != ramos_fechados_antes
                     )
                     paginas_mudou = estado.get("pagina_atual", {}) != paginas_antes
-                    popup_mudou = estado.get("popup") is not popup_antes
+                    popup_mudou = (
+                        _estado_popup_observavel(estado.get("popup"))
+                        != popup_antes
+                    )
                     if (
                         estado["tela_atual"] != tela_antes
                         or verboso_mudou
@@ -2419,7 +2454,7 @@ def main(argv=None, estado_inicial=None):
                 estado.get("ramos_fechados", {})
             )
             paginas_antes = dict(estado.get("pagina_atual", {}))
-            popup_antes = estado.get("popup")
+            popup_antes = _estado_popup_observavel(estado.get("popup"))
             fluxo_antes = estado.get("fluxo_execucao")
             controle_antes = estado.get("controle_execucao")
             modo_controle_antes = getattr(controle_antes, "modo_atual", None)
@@ -2478,7 +2513,9 @@ def main(argv=None, estado_inicial=None):
                 != ramos_fechados_antes
             )
             paginas_mudou = estado.get("pagina_atual", {}) != paginas_antes
-            popup_mudou = estado.get("popup") is not popup_antes
+            popup_mudou = (
+                _estado_popup_observavel(estado.get("popup")) != popup_antes
+            )
             if (
                 estado["tela_atual"] != tela_antes
                 or verboso_mudou

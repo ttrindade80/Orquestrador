@@ -7,7 +7,7 @@ carrega dados, nao executa acoes e nao usa a barra de menus como area visual.
 
 import copy
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from tela.renderizacao.barra_menus import _texto_chip_barra
 from tela.renderizacao.erros import RenderizadorErro
@@ -25,6 +25,7 @@ class PopupErro(RenderizadorErro):
 _ALINHAMENTOS = {"esquerda", "centralizado", "justificado"}
 _CAMPOS_POPUP = {
     "tipo",
+    "marcacao",
     "titulo",
     "alinhamento",
     "espacamento_superior",
@@ -33,6 +34,7 @@ _CAMPOS_POPUP = {
     "espacamento_horizontal",
     "chips",
 }
+_CAMPOS_POPUP_OBRIGATORIOS = _CAMPOS_POPUP - {"marcacao"}
 _CAMPOS_CHIP = {
     "id",
     "tipo",
@@ -49,15 +51,56 @@ _CAMPOS_CHIP_OBRIGATORIOS = _CAMPOS_CHIP - {"acao", "referencia_regra"}
 
 @dataclass(frozen=True)
 class PopupInstancia:
-    """Instancia runtime imutavel por convencao de um popup aberto."""
+    """Instancia runtime de um popup aberto.
+
+    A declaracao e o envelope continuam sendo copias separadas e estaveis.
+    ``_estado`` e a unica parte mutavel: representa o cursor e as marcacoes
+    provisarias da modalidade ``marcacao`` durante a vida da mesma instancia.
+    """
 
     declaracao: dict
     conteudo: dict
+    _estado: dict = field(default_factory=dict, repr=False, compare=False)
 
     @property
     def id(self):
         """ID estrutural resolvido pela chave do mapa ``popups``."""
         return self.declaracao["_id"]
+
+    @property
+    def cursor_id(self):
+        """ID do item corrente; ``None`` para popup textual."""
+        return self._estado.get("cursor_id")
+
+    @property
+    def cursor(self):
+        """Alias legivel para o ID do cursor corrente."""
+        return self.cursor_id
+
+    @property
+    def marcados(self):
+        """IDs marcados na ordem logica declarada."""
+        return list(self._estado.get("marcados", ()))
+
+    @property
+    def marcacoes(self):
+        """Alias legivel para as marcacoes vivas."""
+        return self.marcados
+
+    @property
+    def formacao(self):
+        """Formacao fisica corrente: coluna, matriz ou linha."""
+        return self._estado.get("formacao")
+
+    @property
+    def grade(self):
+        """Grade fisica corrente sem placeholders navegaveis."""
+        return tuple(tuple(linha) for linha in self._estado.get("grade", ()))
+
+    @property
+    def ultimo_resultado(self):
+        """Ultimo resultado interno de navegacao ou marcacao."""
+        return self._estado.get("ultimo_resultado")
 
 
 def _raw_da_fonte(fonte):
@@ -144,7 +187,7 @@ def validar_declaracao_popup(declaracao, popup_id="popup_basico"):
         raise PopupErro(
             "conteudo concreto nao pertence a declaracao estrutural do popup"
         )
-    faltantes = sorted(_CAMPOS_POPUP - set(declaracao))
+    faltantes = sorted(_CAMPOS_POPUP_OBRIGATORIOS - set(declaracao))
     if faltantes:
         raise PopupErro(
             "declaracao de popup incompleta; ausente: {0}".format(
@@ -158,8 +201,16 @@ def validar_declaracao_popup(declaracao, popup_id="popup_basico"):
                 ", ".join(desconhecidos)
             )
         )
-    if declaracao["tipo"] != "texto":
-        raise PopupErro("popup suporta somente tipo 'texto' neste handoff")
+    if declaracao["tipo"] not in {"texto", "marcacao"}:
+        raise PopupErro("popup.tipo deve ser 'texto' ou 'marcacao'")
+    if declaracao["tipo"] == "texto":
+        if "marcacao" in declaracao:
+            raise PopupErro("popup textual nao aceita politica de marcacao")
+    else:
+        if declaracao.get("marcacao") not in {"exclusiva", "multipla"}:
+            raise PopupErro(
+                "popup.marcacao deve ser 'exclusiva' ou 'multipla'"
+            )
     _exigir_texto(declaracao["titulo"], "popup.titulo")
     if declaracao["alinhamento"] not in _ALINHAMENTOS:
         raise PopupErro(
@@ -222,28 +273,217 @@ def validar_popups(fonte):
 
 
 def validar_conteudo_popup(conteudo):
-    """Valida o envelope runtime textual pronto do chamador."""
+    """Valida o envelope runtime pronto, sem incorporar estado vivo."""
     if not isinstance(conteudo, dict):
         raise PopupErro("conteudo_popup deve ser objeto")
-    if conteudo.get("tipo") != "texto":
-        raise PopupErro("conteudo_popup.tipo deve ser 'texto'")
-    _exigir_texto(conteudo.get("texto"), "conteudo_popup.texto")
+    if conteudo.get("tipo") == "texto":
+        _exigir_texto(conteudo.get("texto"), "conteudo_popup.texto")
+        return copy.deepcopy(conteudo)
+    if conteudo.get("tipo") != "marcacao":
+        raise PopupErro("conteudo_popup.tipo deve ser 'texto' ou 'marcacao'")
+    campos = {"tipo", "instrucao", "itens", "marcados"}
+    desconhecidos = sorted(set(conteudo) - campos)
+    if desconhecidos:
+        raise PopupErro(
+            "conteudo_popup possui campos nao autorizados: {0}".format(
+                ", ".join(desconhecidos)
+            )
+        )
+    if set(conteudo) != campos:
+        raise PopupErro(
+            "conteudo_popup de marcacao exige tipo, instrucao, itens e marcados"
+        )
+    _exigir_texto(conteudo["instrucao"], "conteudo_popup.instrucao")
+    itens = conteudo["itens"]
+    if not isinstance(itens, list) or not itens:
+        raise PopupErro("conteudo_popup.itens deve ser lista nao vazia")
+    ids = []
+    for indice, item in enumerate(itens):
+        caminho = "conteudo_popup.itens[{0}]".format(indice)
+        if not isinstance(item, dict):
+            raise PopupErro("{0} deve ser objeto".format(caminho))
+        if set(item) != {"id", "texto"}:
+            raise PopupErro("{0} deve conter somente id e texto".format(caminho))
+        item_id = item["id"]
+        if not isinstance(item_id, str) or not item_id:
+            raise PopupErro("{0}.id invalido".format(caminho))
+        if item_id in ids:
+            raise PopupErro("ID duplicado em {0}.id".format(caminho))
+        _exigir_texto(item["texto"], caminho + ".texto")
+        ids.append(item_id)
+    marcados = conteudo["marcados"]
+    if not isinstance(marcados, list):
+        raise PopupErro("conteudo_popup.marcados deve ser lista")
+    if any(not isinstance(item_id, str) or not item_id for item_id in marcados):
+        raise PopupErro("conteudo_popup.marcados deve conter IDs textuais")
+    if len(set(marcados)) != len(marcados):
+        raise PopupErro("conteudo_popup.marcados nao pode conter duplicatas")
+    if any(item_id not in ids for item_id in marcados):
+        raise PopupErro("conteudo_popup.marcados referencia ID inexistente")
     return copy.deepcopy(conteudo)
+
+
+def _estado_inicial_marcacao(declaracao, conteudo):
+    """Cria o estado vivo sem copiar politica para o envelope."""
+    if conteudo.get("tipo") != "marcacao":
+        return {}
+    ids = [item["id"] for item in conteudo["itens"]]
+    marcados = [item_id for item_id in ids if item_id in conteudo["marcados"]]
+    if declaracao["marcacao"] == "exclusiva" and len(marcados) != 1:
+        raise PopupErro("marcacao exclusiva exige exatamente uma marcacao")
+    return {
+        "cursor_id": ids[0],
+        "marcados": marcados,
+        "formacao": "coluna",
+        "grade": [[item_id] for item_id in ids],
+        "colunas": [ids],
+        "ultimo_resultado": None,
+    }
 
 
 def abrir_popup(fonte, popup_id, conteudo):
     """Cria uma instancia sem consumir ou mutar a declaracao estrutural."""
     declaracao = resolver_popup(fonte, popup_id)
-    return PopupInstancia(declaracao, validar_conteudo_popup(conteudo))
+    envelope = validar_conteudo_popup(conteudo)
+    if declaracao["tipo"] == "texto" and envelope["tipo"] != "texto":
+        raise PopupErro("popup textual exige envelope tipo 'texto'")
+    if declaracao["tipo"] == "marcacao" and envelope["tipo"] != "marcacao":
+        raise PopupErro("popup de marcacao exige envelope tipo 'marcacao'")
+    estado = _estado_inicial_marcacao(declaracao, envelope)
+    return PopupInstancia(declaracao, envelope, estado)
 
 
 def consumir_tecla_popup(instancia, tecla):
-    """Consome qualquer tecla; Esc encerra com o resultado nao confirmatorio."""
+    """Consome a tecla na modalidade vigente; somente Esc encerra."""
     if not isinstance(instancia, PopupInstancia):
         raise PopupErro("instancia de popup invalida")
     if tecla == "\x1b":
         return {"status": "ABORTADO"}
+    if instancia.declaracao.get("tipo") != "marcacao":
+        return None
+    if tecla in {"\x1b[A", "\x1b[B", "\x1b[C", "\x1b[D"}:
+        resultado = _navegar_marcacao(instancia, tecla)
+        instancia._estado["ultimo_resultado"] = resultado
+        return resultado
+    if tecla == " ":
+        resultado = _alternar_marcacao(instancia)
+        instancia._estado["ultimo_resultado"] = resultado
+        return resultado
+    # Enter, CR e LF nao sao confirmacao nem fechamento nesta capacidade.
     return None
+
+
+def _ids_marcacao(instancia):
+    return [item["id"] for item in instancia.conteudo["itens"]]
+
+
+def _reconciliar_estado_marcacao(instancia):
+    """Mantem cursor/marcacoes validos por ID e na ordem declarada."""
+    estado = instancia._estado
+    ids = _ids_marcacao(instancia)
+    ids_validos = set(ids)
+    cursor = estado.get("cursor_id")
+    if cursor not in ids_validos:
+        estado["cursor_id"] = ids[0]
+    marcados = estado.get("marcados", [])
+    marcados_validos = set(marcados) & ids_validos
+    ordenados = [item_id for item_id in ids if item_id in marcados_validos]
+    if instancia.declaracao["marcacao"] == "exclusiva":
+        if not ordenados:
+            ordenados = [estado["cursor_id"]]
+        else:
+            ordenados = ordenados[:1]
+    estado["marcados"] = ordenados
+
+
+def _grade_para_formacao(ids, formacao, colunas=None):
+    if formacao == "coluna":
+        return [list(ids)], [[item_id] for item_id in ids]
+    if formacao == "linha":
+        return [list(ids)], [list(ids)]
+    if formacao != "matriz" or not colunas:
+        return [list(ids)], [[item_id] for item_id in ids]
+    linhas = max(len(coluna) for coluna in colunas)
+    grade = []
+    for linha in range(linhas):
+        grade.append([
+            coluna[linha]
+            for coluna in colunas
+            if linha < len(coluna)
+        ])
+    return [list(coluna) for coluna in colunas], grade
+
+
+def _posicoes_grade(grade):
+    posicoes = {}
+    for linha, ids_linha in enumerate(grade):
+        for coluna, item_id in enumerate(ids_linha):
+            posicoes[item_id] = (linha, coluna)
+    return posicoes
+
+
+def _ciclo(ids, atual, passo):
+    if len(ids) <= 1:
+        return None
+    indice = ids.index(atual)
+    return ids[(indice + passo) % len(ids)]
+
+
+def _navegar_marcacao(instancia, tecla):
+    estado = instancia._estado
+    _reconciliar_estado_marcacao(instancia)
+    grade = estado.get("grade") or [[estado["cursor_id"]]]
+    formacao = estado.get("formacao", "coluna")
+    posicoes = _posicoes_grade(grade)
+    atual = estado["cursor_id"]
+    linha, coluna = posicoes[atual]
+    if formacao == "coluna":
+        if tecla not in {"\x1b[A", "\x1b[B"}:
+            return {"movimento": "SEM_MOVIMENTO"}
+        ids_eixo = [ids_linha[0] for ids_linha in grade]
+        alvo = _ciclo(ids_eixo, atual, -1 if tecla == "\x1b[A" else 1)
+    elif formacao == "linha":
+        if tecla not in {"\x1b[C", "\x1b[D"}:
+            return {"movimento": "SEM_MOVIMENTO"}
+        ids_eixo = grade[0]
+        alvo = _ciclo(ids_eixo, atual, 1 if tecla == "\x1b[C" else -1)
+    else:
+        if tecla in {"\x1b[A", "\x1b[B"}:
+            ids_eixo = [ids_linha[coluna] for ids_linha in grade
+                        if coluna < len(ids_linha)]
+            alvo = _ciclo(ids_eixo, atual, -1 if tecla == "\x1b[A" else 1)
+        elif tecla in {"\x1b[C", "\x1b[D"}:
+            # O eixo horizontal conserva a linha e ignora somente as celulas
+            # vazias dessa mesma linha; nao ha compensacao vertical.
+            ids_eixo = list(grade[linha])
+            alvo = _ciclo(ids_eixo, atual, 1 if tecla == "\x1b[C" else -1)
+        else:
+            alvo = None
+    if alvo is None:
+        return {"movimento": "SEM_MOVIMENTO"}
+    estado["cursor_id"] = alvo
+    return {"movimento": "MOVIDO"}
+
+
+def _alternar_marcacao(instancia):
+    estado = instancia._estado
+    _reconciliar_estado_marcacao(instancia)
+    atual = estado["cursor_id"]
+    marcados = estado["marcados"]
+    if instancia.declaracao["marcacao"] == "exclusiva":
+        if marcados == [atual]:
+            return {"marcacao": "SEM_MUDANCA"}
+        estado["marcados"] = [atual]
+        return {"marcacao": "TRANSFERIDA"}
+    if atual in marcados:
+        estado["marcados"] = [item_id for item_id in marcados if item_id != atual]
+        return {"marcacao": "DESMARCADA"}
+    ids = _ids_marcacao(instancia)
+    estado["marcados"] = [
+        item_id for item_id in ids
+        if item_id in set(marcados + [atual])
+    ]
+    return {"marcacao": "MARCADA"}
 
 
 _VAO_ENTRE_CHIPS_POPUP = 2
@@ -374,9 +614,171 @@ def _distribuir_chips(chips, largura_util, estilo):
     return linhas
 
 
-def _layout_popup(instancia, estilo, largura_corpo=None):
+def _largura_grade(colunas):
+    larguras = [
+        max((_largura_sem_ansi(item_id) for item_id in coluna), default=0)
+        for coluna in colunas
+    ]
+    return sum(larguras) + max(0, len(larguras) - 1) * 2
+
+
+def _colunas_formacao(ids, larguras, quantidade):
+    if quantidade == 1:
+        return [list(ids)]
+    linhas = (len(ids) + quantidade - 1) // quantidade
+    return [
+        list(ids[indice * linhas:min((indice + 1) * linhas, len(ids))])
+        for indice in range(quantidade)
+    ]
+
+
+def _selecionar_formacao(ids, larguras, largura_util, linhas_disponiveis):
+    """Escolhe coluna, menor matriz cabivel ou linha, nessa ordem."""
+    largura_coluna = max(larguras)
+    if len(ids) <= linhas_disponiveis and largura_coluna <= largura_util:
+        return "coluna", _colunas_formacao(ids, larguras, 1)
+
+    for quantidade in range(2, len(ids)):
+        colunas = _colunas_formacao(ids, larguras, quantidade)
+        linhas = max(len(coluna) for coluna in colunas)
+        largura = _largura_grade([
+            ["x" * max(
+                (larguras[ids.index(item_id)] for item_id in coluna),
+                default=0,
+            ) for item_id in coluna]
+            for coluna in colunas
+        ])
+        if linhas <= linhas_disponiveis and largura <= largura_util:
+            return "matriz", colunas
+
+    largura_linha = sum(larguras) + max(0, len(ids) - 1) * 2
+    if linhas_disponiveis >= 1 and largura_linha <= largura_util:
+        return "linha", _colunas_formacao(ids, larguras, len(ids))
+
+    if largura_coluna > largura_util:
+        raise _erro_geometria("item de marcacao excede a largura util")
+    raise _erro_geometria("lista de marcacao excede a altura disponivel")
+
+
+def _texto_item_marcacao(instancia, item, estilo):
+    """Usa os indicadores universais resolvidos para foco e marcacao."""
+    item_id = item["id"]
+    estado = instancia._estado
+    marcado = item_id in estado.get("marcados", ())
+    focado = item_id == estado.get("cursor_id")
+    foco = getattr(estilo, "selecionado_simbolo", " ")
+    if not focado:
+        foco = getattr(estilo, "selecionado_off", " ")
+    marcado_visual = getattr(estilo, "incluido_on", "")
+    if not marcado:
+        marcado_visual = getattr(estilo, "incluido_off", "")
+    return "{}{} {}".format(foco, marcado_visual, item["texto"])
+
+
+def _largura_item_marcacao(texto, estilo):
+    foco = getattr(estilo, "selecionado_simbolo", " ")
+    foco_off = getattr(estilo, "selecionado_off", " ")
+    incluido_on = getattr(estilo, "incluido_on", "")
+    incluido_off = getattr(estilo, "incluido_off", "")
+    return max(
+        _largura_sem_ansi(foco), _largura_sem_ansi(foco_off)
+    ) + max(
+        _largura_sem_ansi(incluido_on), _largura_sem_ansi(incluido_off)
+    ) + 1 + _largura_sem_ansi(texto)
+
+
+def _layout_popup_marcacao(instancia, estilo, largura_corpo=None, altura_corpo=None):
+    _reconciliar_estado_marcacao(instancia)
+    declaracao = instancia.declaracao
+    conteudo = instancia.conteudo
+    margem = declaracao["espacamento_horizontal"]
+    itens = conteudo["itens"]
+    ids = [item["id"] for item in itens]
+    larguras = [
+        _largura_item_marcacao(item["texto"], estilo) for item in itens
+    ]
+    texto_instrucao = conteudo["instrucao"]
+    chips_uma_linha = " " * _VAO_ENTRE_CHIPS_POPUP
+    chips_uma_linha = chips_uma_linha.join(
+        _texto_chip_popup(chip, estilo) for chip in declaracao["chips"]
+    )
+    largura_linha = sum(larguras) + max(0, len(ids) - 1) * 2
+    largura_intrinseca = max(
+        len(declaracao["titulo"]) + 4,
+        3 + 2 * margem + max(
+            len(texto_instrucao), max(larguras), largura_linha,
+            _largura_sem_ansi(chips_uma_linha),
+        ),
+    )
+    if largura_corpo is None:
+        largura = largura_intrinseca
+    else:
+        if isinstance(largura_corpo, bool) or not isinstance(largura_corpo, int):
+            raise _erro_geometria("largura fisica do corpo nao inteira")
+        largura = min(largura_intrinseca, largura_corpo)
+    if largura < len(declaracao["titulo"]) + 4:
+        raise _erro_geometria("titulo nao cabe na moldura")
+    content_w = largura - 3
+    largura_util = content_w - 2 * margem
+    if largura_util <= 0:
+        raise _erro_geometria("largura util nao positiva")
+    linhas_instrucao = _quebrar_texto(texto_instrucao, largura_util)
+    linhas_chips = _distribuir_chips(declaracao["chips"], largura_util, estilo)
+    overhead = (
+        2
+        + declaracao["espacamento_superior"]
+        + len(linhas_instrucao)
+        + declaracao["espacamento_conteudo_chips"]
+        + len(linhas_chips)
+        + declaracao["espacamento_inferior"]
+    )
+    if altura_corpo is None:
+        linhas_disponiveis = len(ids)
+    else:
+        if isinstance(altura_corpo, bool) or not isinstance(altura_corpo, int):
+            raise _erro_geometria("altura fisica do corpo nao inteira")
+        linhas_disponiveis = altura_corpo - overhead
+    formacao, colunas = _selecionar_formacao(
+        ids, larguras, largura_util, linhas_disponiveis
+    )
+    colunas_ids, grade = _grade_para_formacao(
+        ids, formacao, colunas=colunas
+    )
+    instancia._estado["formacao"] = formacao
+    instancia._estado["colunas"] = colunas_ids
+    instancia._estado["grade"] = grade
+    _reconciliar_estado_marcacao(instancia)
+
+    itens_por_id = {item["id"]: item for item in itens}
+    linhas_itens = []
+    for ids_linha in grade:
+        partes = [
+            _texto_item_marcacao(instancia, itens_por_id[item_id], estilo)
+            for item_id in ids_linha
+        ]
+        linhas_itens.append("  ".join(partes))
+    altura = overhead + len(linhas_itens)
+    return {
+        "largura": largura,
+        "altura": altura,
+        "content_w": content_w,
+        "largura_util": largura_util,
+        "linhas_instrucao": linhas_instrucao,
+        "linhas_itens": linhas_itens,
+        "linhas_chips": linhas_chips,
+        "formacao": formacao,
+        "grade": grade,
+    }
+
+
+def _layout_popup(instancia, estilo, largura_corpo=None, altura_corpo=None):
     if not isinstance(instancia, PopupInstancia):
         raise PopupErro("instancia de popup invalida")
+    if instancia.declaracao.get("tipo") == "marcacao":
+        return _layout_popup_marcacao(
+            instancia, estilo, largura_corpo=largura_corpo,
+            altura_corpo=altura_corpo,
+        )
     declaracao = instancia.declaracao
     texto = instancia.conteudo["texto"]
     margem = declaracao["espacamento_horizontal"]
@@ -424,15 +826,20 @@ def _layout_popup(instancia, estilo, largura_corpo=None):
     }
 
 
-def geometria_popup(instancia, estilo, largura_corpo=None):
+def geometria_popup(instancia, estilo, largura_corpo=None, altura_corpo=None):
     """Calcula a geometria intrinseca ou limitada pelo corpo fisico."""
-    layout = _layout_popup(instancia, estilo, largura_corpo=largura_corpo)
+    layout = _layout_popup(
+        instancia, estilo, largura_corpo=largura_corpo,
+        altura_corpo=altura_corpo,
+    )
     return {"largura": layout["largura"], "altura": layout["altura"]}
 
 
-def renderizar_popup(instancia, estilo, largura=None):
+def renderizar_popup(instancia, estilo, largura=None, altura=None):
     """Renderiza a caixa do popup com wrapping e altura derivada."""
-    layout = _layout_popup(instancia, estilo, largura_corpo=largura)
+    layout = _layout_popup(
+        instancia, estilo, largura_corpo=largura, altura_corpo=altura
+    )
     declaracao = instancia.declaracao
     popup_largura = layout["largura"]
     content_w = layout["content_w"]
@@ -440,16 +847,25 @@ def renderizar_popup(instancia, estilo, largura=None):
     linhas = []
     vazio = " " * content_w
     linhas.extend([vazio] * declaracao["espacamento_superior"])
-    for indice, texto in enumerate(layout["linhas_texto"]):
+    linhas_texto = layout.get("linhas_texto", layout.get("linhas_instrucao"))
+    for indice, texto in enumerate(linhas_texto):
         linhas.append(
             _formatar_linha(
                 texto,
                 content_w,
                 declaracao["alinhamento"],
                 margem,
-                ultima=indice == len(layout["linhas_texto"]) - 1,
+                ultima=indice == len(linhas_texto) - 1,
             )
         )
+    if "linhas_itens" in layout:
+        for texto in layout["linhas_itens"]:
+            linhas.append(
+                _formatar_linha(
+                    texto, content_w, declaracao["alinhamento"], margem,
+                    ultima=True,
+                )
+            )
     linhas.extend([vazio] * declaracao["espacamento_conteudo_chips"])
     for texto in layout["linhas_chips"]:
         linhas.append(
@@ -481,8 +897,13 @@ def sobrepor_no_corpo(corpo, instancia, estilo, largura=None, altura=None):
     altura_corpo = len(linhas_corpo) if altura is None else altura
     if altura_corpo != len(linhas_corpo):
         raise PopupErro("altura fisica do corpo divergente da composicao")
-    medidas = _layout_popup(instancia, estilo, largura_corpo=largura_corpo)
-    caixa = renderizar_popup(instancia, estilo, largura=largura_corpo).split("\n")
+    medidas = _layout_popup(
+        instancia, estilo, largura_corpo=largura_corpo,
+        altura_corpo=altura_corpo,
+    )
+    caixa = renderizar_popup(
+        instancia, estilo, largura=largura_corpo, altura=altura_corpo
+    ).split("\n")
     largura_popup = medidas["largura"]
     if len(caixa) > altura_corpo:
         raise _erro_geometria("altura derivada nao cabe no corpo")

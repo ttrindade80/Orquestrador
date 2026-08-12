@@ -244,6 +244,58 @@
           "forma_exibicao": "ativo"
         }
       ]
+    },
+    "popup_lista_exclusiva": {
+      "tipo": "marcacao",
+      "marcacao": "exclusiva",
+      "titulo": "Lista exclusiva",
+      "alinhamento": "esquerda",
+      "espacamento_superior": 1,
+      "espacamento_conteudo_chips": 1,
+      "espacamento_inferior": 1,
+      "espacamento_horizontal": 2,
+      "chips": [
+        {
+          "id": "popup_lista_exclusiva_voltar",
+          "tipo": "especifico",
+          "tecla": "Esc",
+          "texto": "Voltar",
+          "referencia_regra": {
+            "resultado": {
+              "status": "ABORTADO"
+            }
+          },
+          "regra_existencia": "sempre",
+          "regra_ativo": "sempre",
+          "forma_exibicao": "ativo"
+        }
+      ]
+    },
+    "popup_lista_multipla": {
+      "tipo": "marcacao",
+      "marcacao": "multipla",
+      "titulo": "Lista múltipla",
+      "alinhamento": "esquerda",
+      "espacamento_superior": 1,
+      "espacamento_conteudo_chips": 1,
+      "espacamento_inferior": 1,
+      "espacamento_horizontal": 2,
+      "chips": [
+        {
+          "id": "popup_lista_multipla_voltar",
+          "tipo": "especifico",
+          "tecla": "Esc",
+          "texto": "Voltar",
+          "referencia_regra": {
+            "resultado": {
+              "status": "ABORTADO"
+            }
+          },
+          "regra_existencia": "sempre",
+          "regra_ativo": "sempre",
+          "forma_exibicao": "ativo"
+        }
+      ]
     }
   },
   "acionamentos": [
@@ -256,6 +308,16 @@
       "tipo": "popup",
       "tecla": "w",
       "popup": "popup_texto_dinamico"
+    },
+    {
+      "tipo": "popup",
+      "tecla": "e",
+      "popup": "popup_lista_exclusiva"
+    },
+    {
+      "tipo": "popup",
+      "tecla": "m",
+      "popup": "popup_lista_multipla"
     }
   ],
   "barra_de_menus": {
