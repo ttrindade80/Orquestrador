@@ -12,6 +12,7 @@ metadata:
     adrs_aplicadas:
       - docs/adr/ADR-0044-popup-modal-generico-de-decisao.md
       - docs/adr/ADR-0045-resize-responsivo-formacoes-popup-marcacao.md
+      - docs/adr/ADR-0046-alteracao-aplicacao-estilo-global-runtime.md
     reaproveitado_de_legado: false
   dependencias_nomenclatura:
     dependencias_obrigatorias:
@@ -284,6 +285,21 @@ O chamador declara o contrato de resultado que aceita. A confirmação só é
 compatível quando o valor produzido corresponde ao tipo de conteúdo e à forma
 de retorno prevista para a instância.
 
+### 9.1 Confirmação de aplicação de estilo (ADR-0046)
+
+O pop-up de aplicação do `ITEM-0010` reutiliza este sistema genérico com
+conteúdo `tipo: texto`; não constitui novo tipo de pop-up. O chamador pode
+fornecer à apresentação um override local temporário derivado do candidato,
+sob o qual também se renderiza o pop-up. Esse override não integra a declaração
+estrutural nem o envelope de conteúdo e não substitui o estilo global vigente.
+
+Nesse uso, o pop-up devolve somente `status: CONFIRMADO` ou `status: ABORTADO`,
+sem persistir estilo e sem publicar ou substituir a materialização global. A
+interpretação da decisão, a persistência e a eventual publicação continuam
+exclusivamente na lógica de negócio do chamador. Enquanto a instância estiver
+aberta, a tela e a `barra_de_menus` subjacentes permanecem suspensas para
+interação, conforme a natureza modal deste contrato.
+
 ## 10. Validação fechada
 
 Configuração, envelope de conteúdo e contrato esperado pelo chamador são
@@ -330,3 +346,6 @@ instância lógica é restaurada.
   `docs/nomenclatura/43_CARREGAMENTO_E_ASSOCIACAO_DE_CONTEUDO.md`: o envelope
   do pop-up não é envelope multinível do console e não declara origem,
   produtor ou loader.
+- ADR-0046: o pop-up textual de aplicação de estilo é consumidor deste sistema
+  genérico, aceita contexto visual local do chamador e não persiste nem publica
+  estilo.

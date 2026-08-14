@@ -14,6 +14,7 @@ metadata:
       - docs/adr/ADR-0022-ponto-entrada-tela-inicial-orquestrador.md
       - docs/adr/ADR-0030-carregamento-global-e-materializacao-do-estilo.md
       - docs/adr/ADR-0037-integracao-do-fluxo-focal-com-dry-run-e-restauracao-da-origem.md
+      - docs/adr/ADR-0046-alteracao-aplicacao-estilo-global-runtime.md
     reaproveitado_de_legado: false
   dependencias_nomenclatura:
     dependencias_obrigatorias:
@@ -43,10 +44,10 @@ separados com contratos próprios. Os demais domínios devem ser tratados em
 contratos próprios quando formalizados.
 
 Pela ADR-0021, `config/estilo.json` permanece em seu caminho atual. Pela
-ADR-0022, a tela inicial real poderá exibir acesso a estilos na
-`barra_de_menus`, mas a tela funcional de estilos, troca de borda, troca de
-envelope de chips e persistência da seleção de estilo continuam fora deste
-contrato e de sua aplicação documental.
+ADR-0046, este contrato também governa o ciclo normativo de materialização,
+edição candidata, demonstração local, persistência e publicação do estilo
+global para a funcionalidade do `ITEM-0010`; a implementação continua fora
+desta aplicação documental.
 
 ---
 
@@ -79,9 +80,12 @@ estrutural da respectiva tela. O estado vivo da execução também não pertence
 à biblioteca global de estilo.
 
 **Consumidores**: loader ou camada equivalente, renderer e demais componentes
-que precisem de valores de aparência. O loader carrega, valida e materializa
-o estilo uma única vez por sessão (ADR-0030 D8). Consumidores recebem o
-objeto de estilo resolvido — não relêem `config/estilo.json` em cada render.
+que precisem de valores de aparência. A sessão carrega, valida e realiza a
+materialização inicial a partir de `config/estilo.json`. Consumidores recebem
+o objeto de estilo resolvido — não relêem o arquivo em cada render. A
+ADR-0046 substitui a limitação de carga/materialização única por sessão: uma
+aplicação explicitamente confirmada e persistida pode publicar uma nova
+materialização global de forma controlada, conforme as seções 3.8 e 4.
 
 **Não pertencem à autoridade de `config/estilo.json`**: estado vivo de cursor
 corrente, itens incluídos em seleção, foco de corpo, página atual, modo verboso
@@ -180,9 +184,29 @@ global de `caixa_alta` independente do preset. O preset `"Colchete"` usa
 vazios): espaço representa "sem moldura visível", não ausência de campo —
 invariante equivalente ao da borda (seção 3.1).
 
-"Destaque Texto" e "Destaque Fundo" compartilham os mesmos delimitadores
-— a distinção visual vem exclusivamente da cor aplicada (`cor_texto` vs
+"Destaque Texto" e "Destaque Fundo" compartilham os mesmos delimitadores —
+a distinção visual primária vem da cor aplicada (`cor_texto` vs
 `cor_fundo`), não da moldura.
+
+O preset "Destaque Texto" (`DEC-ITEM0010-CHIP-04`) altera somente a cor do
+texto/conteúdo da unidade visual. O fundo normal do terminal é mantido em
+toda a unidade: um espaço normal à esquerda, o conteúdo com foreground na
+cor de destaque e um espaço normal à direita. A representação semântica é
+` PgUp/PgDn `: espaço esquerdo, conteúdo e espaço direito usam o fundo
+normal; somente `PgUp/PgDn` recebe a cor de destaque no foreground. Não
+existe fundo de destaque no lado direito nem assimetria de fundo. Essa
+semântica não exige `cor_fundo_esquerdo` nem `cor_fundo_direito`; esses
+campos não integram o schema vigente.
+
+O preset "Destaque Fundo" permanece intacto: `cor_fundo` aplica-se
+simetricamente à unidade.
+
+**Composição multitecla (ADR-0046).** Quando uma ação de chip é representada
+por duas ou mais teclas, a composição visual (unidade única, separador `/`,
+delimitadores externos) é regida por `contrato_chip.md` seção 10.1-10.5
+(`DEC-ITEM0010-CHIP-01`, `-02`, `-05`, `-06`). Este contrato permanece a
+autoridade do schema de campos e presets; a composição estrutural da
+unidade multitecla não é duplicada aqui, para evitar mecanismo concorrente.
 
 ### 3.3 Indicadores
 
@@ -302,6 +326,13 @@ exclusiva do renderer, nunca do schema de estilo (R-7).
 - o estado vivo que determina o destaque (ex.: `dry_run_ativo`) não pertence
   ao estilo global nem a `config/estilo.json`.
 
+**Preservação de `cor_inativo` (ADR-0046).** Chip existente funcionalmente
+ativo usa a aparência ativa; chip existente funcionalmente inativo usa
+`cor_inativo`. Composição, preset e aplicação de `cor_texto`/`cor_fundo`
+não apagam, sobrepõem nem neutralizam `cor_inativo`. Isso vale inclusive
+para Páginas e para `Enter/Aplicar` quando inativos. Esta preservação não
+cria política nova de estado.
+
 **Distinção fundamental (ADR-0004)**:
 
 - **Existência** de um elemento = propriedade estrutural, declarada pela
@@ -367,11 +398,17 @@ ciclo_posterior_H_0039:
   hardcodings_do_escopo_removidos: true
 ```
 
-Continuam fora do estado implementado (pendências futuras):
+As capacidades normatizadas pela ADR-0046 continuam fora do estado
+implementado nesta etapa documental:
 
 - tela de escolha de estilo;
-- persistência de escolha;
-- troca de estilo durante sessão;
+- persistência da escolha;
+- troca controlada de estilo durante a sessão;
+
+Seu comportamento normativo deixa de ser pendência documental e passa a ser
+regido pela seção 3.8 e pelas regras de uso deste contrato. Continuam como
+pendências futuras não abrangidas pela ADR-0046:
+
 - materialização de `cor_alerta` pelo loader e consumo pelo renderer
   (valor concreto já em `config/estilo.json`; ADR-0037 / Handoff 4);
 - `tiling`;
@@ -381,14 +418,68 @@ Continuam fora do estado implementado (pendências futuras):
 `cor_inativo: "cinza"` permanece materializado em `config/estilo.json`.
 O consumo completo de `cor_alerta` pelo runtime foi concluído e validado pelo H-0044; a capacidade correspondente do ITEM-0011 está encerrada.
 
+### 3.8 Estados, materialização, persistência e publicação (ADR-0046)
+
+O ciclo de estilo distingue normativamente quatro estados:
+
+| Estado | Definição e fronteira |
+|---|---|
+| Configuração persistida | Configuração concreta global e completa mantida em `config/estilo.json`; é a autoridade persistida e não contém estado vivo da sessão. |
+| Materialização global vigente | Único objeto integralmente resolvido que os consumidores globais usam na execução corrente. |
+| Configuração candidata | Estado de runtime separado, derivado da configuração persistida e acumulador das escolhas ainda não publicadas; não é configuração persistida nem estilo global vigente. |
+| Override local de demonstração | Materialização temporária derivada do candidato e limitada à apresentação da demonstração e de seu pop-up; não substitui o estilo global vigente nem vaza para outros consumidores. |
+
+A sessão produz a materialização global inicial a partir da configuração
+persistida. O candidato pode ser materializado integralmente para validação e
+demonstração sem publicação. Candidato e override local não contam como
+estilos globais concorrentes: em cada instante há somente uma materialização
+global vigente.
+
+No caminho confirmado, o chamador deve primeiro persistir uma configuração
+completa e válida e somente depois publicar, por substituição controlada, a
+materialização global correspondente. A substituição é atômica do ponto de
+vista dos consumidores: nenhum deles observa objeto global parcialmente
+alterado. Este contrato não impõe algoritmo físico específico de gravação.
+
+Para o `ITEM-0010` atual, somente os `preset_default` das categorias expostas
+`borda`, `chip`, `indicadores.selecionado` e `indicadores.incluido` são
+alterados; todos os demais valores persistidos permanecem preservados. Antes
+da publicação, o conteúdo gravado deve representar integralmente a
+configuração escolhida e ser válido segundo este contrato.
+
+Falha de persistência não confirma a aplicação nem publica o candidato. A
+configuração persistida anterior e a materialização global anterior permanecem
+vigentes, e o candidato continua disponível como estado de runtime para nova
+tentativa ou edição.
+
+No fluxo do `ITEM-0010`, o resultado `ABORTADO` do pop-up de demonstração
+encerra a demonstração e retorna à tela de seleção de estilos. A configuração
+candidata é preservada integralmente; a baseline persistida — a última
+configuração persistida conhecida pelo fluxo — permanece inalterada, assim
+como o estilo global materializado vigente. Nenhuma persistência é realizada.
+`ABORTADO` cancela somente a tentativa de aplicação, não a edição do
+candidato.
+
+Após `CONFIRMADO`, persistência completa e válida e publicação bem-sucedida do
+novo estilo global, a configuração recém-persistida passa a ser a nova
+baseline persistida do fluxo. O candidato deve ser atualizado e sincronizado
+com essa mesma configuração, de modo que candidato e baseline sejam
+semanticamente equivalentes. O novo estilo permanece globalmente vigente, o
+fluxo retorna à tela de seleção e recalcula o estado contextual de
+`Enter/Aplicar`; como não há divergência nesse instante, a ação fica inativa.
+Edições posteriores passam a ser comparadas contra essa nova baseline. Uma
+aplicação confirmada anteriormente não é desfeita por alterações posteriores
+que sejam abandonadas sem nova confirmação.
+
 ---
 
 ## 4. Regras de uso
 
 **R-1. Unicidade do schema em tempo de execução.**
-Existe exatamente um objeto de estilo ativo por sessão. Todas as classes de
-tela e todos os renderers leem desse objeto — nenhum mantém cópia local de
-valores de estilo.
+Existe exatamente uma materialização global de estilo vigente em cada
+instante. Todas as classes de tela e todos os renderers fora de uma
+demonstração sob override leem desse objeto. Candidato e override local não
+são estilos globais concorrentes.
 
 **R-2. Proibição de hardcoding.**
 Decorre da seção 2 deste contrato. Aplica-se a qualquer símbolo, cor,
@@ -401,9 +492,11 @@ tiling, bem como aos estados dinâmicos de cor da seção 3.5 (`cor_inativo` e
 Um schema de estilo que omita qualquer campo obrigatório listado nas seções
 3.1, 3.2, 3.3, 3.4 e 3.5 é inválido e não deve ser aceito pelo sistema.
 
-**R-4. Imutabilidade em tempo de execução.**
-O schema de estilo não é alterado enquanto uma tela está aberta. Mudança de
-estilo requer reconstrução da tela.
+**R-4. Substituição controlada em tempo de execução (ADR-0046).**
+O objeto global vigente não é mutado parcialmente. Após persistência completa,
+válida e bem-sucedida, ele pode ser substituído de forma controlada durante a
+sessão, e os consumidores passam a usar imediatamente a nova materialização,
+sem exigir reconstrução integral da tela ou reinício da execução.
 
 **R-5. Independência de tela e classe.**
 O schema não carrega referência a nenhuma tela ou classe específica. É
@@ -434,12 +527,53 @@ As categorias `borda`, `chip`, `indicadores.selecionado` e
 inexistente no catálogo e o catálogo vazio são erros de validação. Não existe
 fallback silencioso — configuração inválida não produz estilo degradado.
 
-**R-10. Carregamento único e materialização integral (ADR-0030 D8).**
-O loader carrega `config/estilo.json` uma única vez por sessão. Valida a
-estrutura, resolve todas as seções e produz a representação de runtime. Não
-relê `config/estilo.json` em cada chamada de renderização. Configura-
-ção parcialmente resolvida não pode ser usada pelo renderer nem por nenhum
-consumidor de aparência.
+**R-10. Materialização inicial e materializações de aplicação (ADR-0030 D8;
+ADR-0046).**
+A sessão carrega `config/estilo.json`, valida a estrutura, resolve todas as
+seções e produz a materialização global inicial. Não relê o arquivo em cada
+chamada de renderização. Materializações adicionais são admitidas para validar
+ou demonstrar um candidato sem publicá-lo e, após aplicação confirmada e
+persistida com sucesso, para substituir o único estilo global vigente.
+Configuração parcialmente resolvida não pode ser usada pelo renderer nem por
+nenhum consumidor de aparência.
+
+**R-11. Ordem de persistência e publicação (ADR-0046).**
+A publicação do candidato obedece obrigatoriamente à ordem persistência
+completa e válida → substituição da materialização global. Falha de
+persistência mantém a configuração persistida anterior e o estilo global
+anterior como vigentes.
+
+**R-12. Isolamento de candidato e override (ADR-0046).**
+Editar ou demonstrar um candidato não persiste configuração e não altera o
+estilo global vigente. O override local pertence apenas à apresentação da
+demonstração e de seu pop-up e deve cessar ao sair desse contexto.
+
+**R-13. Transições do fluxo de aplicação do `ITEM-0010` (ADR-0046).**
+`ABORTADO` encerra a demonstração, retorna à seleção, preserva integralmente o
+candidato e deixa inalterados a baseline persistida e o estilo global vigente;
+ele cancela somente a tentativa de aplicação. Depois de `CONFIRMADO` seguido
+de persistência completa e válida e publicação bem-sucedida, a configuração
+persistida torna-se a nova baseline, o candidato é equalizado a ela, o estilo
+global publicado permanece vigente e `Enter/Aplicar` fica inativo por ausência
+de divergência. Qualquer edição posterior é comparada contra essa nova
+baseline.
+
+**R-14. Composição multitecla e contenção de estilo (ADR-0046).**
+Quando um chip representa ação multitecla, a composição segue a unidade
+única definida em `contrato_chip.md` seção 10.1: delimitadores do preset
+somente nas extremidades externas, teclas separadas pelo caractere canônico
+`/` (seção 10.3), sem delimitador completo independente por tecla. Cor e
+fundo do chip ficam contidos à unidade visual do chip; não vazam para o
+texto descritivo da ação nem para o chip seguinte. Esta regra se aplica à
+`barra_de_menus` real, não somente à demonstração de estilo. Composição,
+preset e contenção não neutralizam `cor_inativo` (seção 3.5).
+
+**R-15. Largura visual efetiva (ADR-0046).**
+A composição e o alinhamento de chips, incluindo unidades multitecla,
+consideram a largura visual efetiva ocupada no terminal; sequências ANSI
+usadas para cor não ocupam célula e não entram nessa largura. A unidade
+técnica de medição não é fixada por este contrato (mesma fronteira da seção
+3.7).
 
 ---
 
@@ -465,6 +599,29 @@ consumidor de aparência.
 - [ ] Dado um objeto de estilo com valores substituídos, o renderer produz
       saída com os valores fornecidos, não com os defaults.
 - [ ] Nenhuma classe de tela altera o objeto de estilo recebido.
+- [ ] A sessão cria a materialização global inicial a partir da configuração
+      válida de `config/estilo.json` e mantém exatamente uma materialização
+      global vigente em cada instante.
+- [ ] Materializar, editar ou demonstrar um candidato não altera a
+      materialização global vigente nem persiste estado vivo no JSON.
+- [ ] O override do candidato alcança somente a demonstração e seu pop-up e
+      deixa de ser consumido quando esse contexto termina.
+- [ ] Para o `ITEM-0010`, somente os `preset_default` das quatro categorias
+      expostas são modificados, com preservação integral dos demais valores.
+- [ ] A publicação ocorre somente depois de a configuração escolhida estar
+      completa, válida e persistida com sucesso.
+- [ ] Falha de persistência preserva a configuração persistida anterior e a
+      materialização global anterior, sem descartar o candidato.
+- [ ] Chip que representa ação multitecla é composto como unidade visual
+      única, com delimitadores do preset apenas nas extremidades e teclas
+      separadas por `/` — sem delimitador completo por tecla
+      (`contrato_chip.md` seção 10.1).
+- [ ] Cor ou fundo aplicados a um chip não aparecem no texto descritivo da
+      ação nem no chip seguinte.
+- [ ] Chip existente funcionalmente inativo usa `cor_inativo`; composição,
+      preset e aplicação de cor/fundo não a neutralizam.
+- [ ] O alinhamento e a largura de chips usam largura visual efetiva,
+      desconsiderando sequências ANSI que não ocupam célula.
 - [ ] O renderer traduz nomes semânticos de cor para valores de terminal — o
       schema não contém nenhuma lógica de tradução de cor (R-7).
 - [ ] Os três presets de borda ("Borda Curva", "Borda Reta", "Linha") estão

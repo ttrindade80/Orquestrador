@@ -104,19 +104,39 @@
       "off": " ",
       "preset_default": "Seta",
       "presets": {
-        "Seta": {"simbolo": "→"},
-        "Mão": {"simbolo": "☛"},
-        "Alvo": {"simbolo": "◎"},
-        "Ponta": {"simbolo": "➤"}
+        "Seta": {
+          "simbolo": "→"
+        },
+        "Mão": {
+          "simbolo": "☛"
+        },
+        "Alvo": {
+          "simbolo": "◎"
+        },
+        "Ponta": {
+          "simbolo": "➤"
+        }
       }
     },
     "incluido": {
       "preset_default": "Círculo",
       "presets": {
-        "Círculo": {"on": "●", "off": "○"},
-        "Quadrado": {"on": "■", "off": "□"},
-        "Estrela": {"on": "★", "off": "☆"},
-        "Check": {"on": "✔", "off": "✕"}
+        "Círculo": {
+          "on": "●",
+          "off": "○"
+        },
+        "Quadrado": {
+          "on": "■",
+          "off": "□"
+        },
+        "Estrela": {
+          "on": "★",
+          "off": "☆"
+        },
+        "Check": {
+          "on": "✔",
+          "off": "✕"
+        }
       }
     }
   },

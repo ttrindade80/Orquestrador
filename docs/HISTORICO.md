@@ -414,3 +414,11 @@ Nenhum item registrado.
 **Data:** 2026-08-12
 **Referências:** docs/adr/ADR-0045-resize-responsivo-formacoes-popup-marcacao.md; docs/handoff/H-0060-resize-responsivo-formacoes-popup-marcacao.md; docs/relatorios/RELATORIO_VALIDACAO_MANUAL_H-0060.md
 **Resumo:** ITEM-0028 concluído com ADR-0045 e H-0060: resize coluna → matriz → linha antes de terminal pequeno; correção focal da integração da altura física em `tela/renderizacao/tela.py`; QA automatizado final aprovado (23 testes de integração, 63 do pop-up, 15 de demo e 1175 canônicos); validação manual TTY aprovada; fechamento em 2026-08-12.
+
+### ITEM-0010 — Tela de escolha do estilo global
+
+**Resultado:** CONCLUIDO
+**Origem:** backlog
+**Data:** 2026-08-14
+**Referências:** docs/adr/ADR-0046-alteracao-aplicacao-estilo-global-runtime.md; docs/handoff/H-0071-correcao-chips-multitecla-barra-menus-estilo.md; docs/relatorios/RELATORIO_FECHAMENTO_H-0071_ADR-0046.md
+**Resumo:** Escolha e aplicação do estilo global concluídas com a composição reconciliada de chips multitecla, distinção Curva `╭`/`╮` × Ornamental `❲`/`❳`, paginação `[PgUp/PgDn]` como unidade visual única e preservação de `cor_inativo`; o fechamento registrou validação manual TTY aprovada e a suíte final de 1381 testes aprovados e uma falha conhecida não causal do H-0071 P05.

@@ -73,6 +73,8 @@ Estados transitórios de migração não são apresentados como termos vigentes.
 - autoridade implementacional da compatibilidade
 - falha fechada de resolução
 - ação legada não classificada
+- configuração candidata de estilo (como estado de runtime)
+- override local de demonstração (como apresentação temporária de runtime)
 
 ## 4. Definições
 
@@ -119,6 +121,13 @@ Estados transitórios de migração não são apresentados como termos vigentes.
 Cursor atual, página atual, filtro ativo, modo verboso, seleção atual e item
 focado são estado de execução, não configuração. O JSON pode declarar defaults
 iniciais; o estado vivo pertence à execução.
+
+No fluxo de estilo da ADR-0046, `config/estilo.json` continua sendo
+configuração concreta global e não representa uma sessão. A configuração
+candidata de estilo é estado de runtime separado; o override local de
+demonstração é estado/apresentação temporária de runtime. Nenhum dos dois é
+persistido como estado vivo no JSON. As regras comportamentais de
+materialização, persistência e publicação pertencem a `contrato_estilo.md`.
 
 No controle universal da ADR-0040, a configuração concreta é declarada pelo
 objeto raiz opcional e fechado `controle_execucao` do `tela.json`, que contém
@@ -178,6 +187,7 @@ camadas.
 | `orquestrador.py` × `demo/demo.py` | Ponto de entrada futuro do produto real × ponto de entrada da demonstração atual |
 | `controle_execucao` × modo corrente | Objeto raiz fechado de configuração concreta, com exatamente `modo_inicial` × estado de runtime único por instância, não persistido |
 | contrato semântico do registro × arquitetura física | Regras de categoria, compatibilidade, resolução e falha fechada × localização e estrutura internas reversíveis, não decididas aqui |
+| `config/estilo.json` × candidato/override de estilo | O arquivo contém configuração concreta global; candidato e override são estados de runtime não persistidos como estado vivo no JSON |
 
 ## 6. Relação com contratos
 
@@ -198,6 +208,8 @@ camadas.
   do registro de ações.
 - ADR-0044: separação entre configuração estrutural do pop-up, conteúdo pronto
   recebido e estado vivo da instância.
+- ADR-0046: separação entre configuração concreta persistida de estilo,
+  candidato de runtime e override local temporário de demonstração.
 
 ## 8. Aliases ou termos descontinuados relacionados
 

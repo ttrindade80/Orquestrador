@@ -56,11 +56,22 @@
         "regra_ativo": "quando_navegacao_disponivel"
       },
       {
-        "id": "paginas",
-        "tipo": "informativo",
-        "tecla": "PgUp][PgDn",
+        "id": "chip_pagina_anterior",
+        "tipo": "navegacao",
+        "tecla": "PgUp",
+        "texto": "",
+        "regra_existencia": "console_com_paginacao",
+        "regra_ativo": "pagina_nao_e_primeira",
+        "forma_exibicao": "visivel_ativo"
+      },
+      {
+        "id": "chip_pagina_proxima",
+        "tipo": "navegacao",
+        "tecla": "PgDn",
         "texto": "Páginas",
-        "regra_ativo": "quando_paginacao"
+        "regra_existencia": "console_com_paginacao",
+        "regra_ativo": "pagina_nao_e_ultima",
+        "forma_exibicao": "visivel_ativo"
       },
       {
         "id": "selecionar",

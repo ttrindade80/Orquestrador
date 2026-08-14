@@ -133,6 +133,31 @@ def _linhas_apresentacao_hierarquia_com_mapa(
     selecoes = set(selecoes or ())
     possui_inclusao = bool(incluir_selecao)
 
+    def prefixo_filho_sem_designador(
+        no, prefixo_indicador, prefixo_inclusao, recuo, nivel, marcador
+    ):
+        """Compõe o prefixo ``ec → tg → tx`` quando o filho não tem designador.
+
+        O caso e deliberadamente estreito: somente um nivel focalizavel com
+        indicador ativo, sem designador, recebe esta composicao. Niveis com
+        designador continuam no caminho generico anterior.
+        """
+        designador = nivel.designador if nivel is not None else None
+        if (
+            possui_indicador
+            and nivel is not None
+            and not designador
+            and _no_selecionavel(no)
+            and not marcador
+        ):
+            # H-0071: ordem vigente ``ec → tg → tx``. A indentação aplica-se
+            # ao prefixo visual completo da linha filha; cursor e toggle
+            # ocupam colunas distintas, estáveis com ou sem cursor.
+            return "{0}{1}{2}".format(
+                recuo, prefixo_indicador, prefixo_inclusao
+            )
+        return None
+
     # H-0037: pre-calcula largura maxima dos designadores do nivel raiz para
     # alinhamento de coluna estavel em modo verboso (dois niveis).
     largura_desig_raiz = 0
@@ -181,11 +206,18 @@ def _linhas_apresentacao_hierarquia_com_mapa(
                     marc_fmt = marcador.ljust(largura_desig_raiz)
                 else:
                     marc_fmt = marcador
-                prefixo = "{0}{1}{2}".format(
-                    prefixo_indicador + prefixo_inclusao + recuo,
-                    marc_fmt,
-                    " " if marc_fmt else "",
+                prefixo_sem_designador = prefixo_filho_sem_designador(
+                    no, prefixo_indicador, prefixo_inclusao, recuo,
+                    nivel, marcador,
                 )
+                if prefixo_sem_designador is not None:
+                    prefixo = prefixo_sem_designador
+                else:
+                    prefixo = "{0}{1}{2}".format(
+                        prefixo_indicador + prefixo_inclusao + recuo,
+                        marc_fmt,
+                        " " if marc_fmt else "",
+                    )
                 largura_disp = max(10, content_w - len(prefixo))
                 fragmentos = _quebrar_texto(texto, largura_disp)
                 linhas_do_no = ["{0}{1}".format(prefixo, fragmentos[0])]
@@ -193,7 +225,13 @@ def _linhas_apresentacao_hierarquia_com_mapa(
                 for frag in fragmentos[1:]:
                     linhas_do_no.append("{0}{1}".format(indent_cont, frag))
             else:
-                if marcador:
+                prefixo_sem_designador = prefixo_filho_sem_designador(
+                    no, prefixo_indicador, prefixo_inclusao, recuo,
+                    nivel, marcador,
+                )
+                if prefixo_sem_designador is not None:
+                    prefixo_linha = prefixo_sem_designador
+                elif marcador:
                     prefixo_linha = "{0}{1}{2} ".format(
                         prefixo_indicador + prefixo_inclusao,
                         recuo, marcador

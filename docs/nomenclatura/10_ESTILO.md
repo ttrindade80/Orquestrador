@@ -55,8 +55,16 @@ em tempo de execução.
 - preset ativo / `preset_default`
 - preset resolvido
 - materialização
+- configuração persistida de estilo
+- materialização global vigente
+- configuração candidata de estilo
+- override local de demonstração
 - `cor_inativo`
 - `cor_alerta`
+- separador canônico `/` de composição multitecla
+- unidade visual de chip multitecla
+- largura visual efetiva
+- contenção de estilo do chip
 - `tiling` (como campo de preferência global)
 - existência vs ativo/inativo (distinção do §4.7)
 - configuração de aparência vs estado vivo de execução
@@ -129,6 +137,24 @@ do chip. A capitalização NÃO é definida pela declaração do chip no `tela.j
 A área de chips do pop-up também reutiliza a forma visual universal do chip;
 esta remissão não cria estilo específico do pop-up.
 
+**Composição multitecla e separador canônico `/` (ADR-0046).** Quando uma
+ação de chip é representada por duas ou mais teclas, a composição visual é
+uma unidade única: delimitadores do preset apenas nas extremidades externas,
+teclas separadas pelo caractere canônico `/`. O comportamento completo é
+propriedade de `contrato_chip.md`; este módulo apenas nomeia o termo.
+
+**Destaque Texto (ADR-0046 `DEC-ITEM0010-CHIP-04`).** O preset altera somente
+o foreground do conteúdo da unidade visual. Fundo normal em toda a unidade:
+um espaço normal à esquerda, o conteúdo e um espaço normal à direita. Não
+há fundo destacado lateral nem assimetria de fundo. O preset "Destaque
+Fundo" permanece simétrico via `cor_fundo`.
+
+**Largura visual efetiva e contenção de estilo (ADR-0046).** Composição e
+alinhamento de chips usam a largura visual efetiva no terminal — sequências
+ANSI de cor não contam. Cor e fundo do chip ficam contidos à sua própria
+unidade visual, sem vazar para o texto descritivo nem para o chip seguinte.
+Composição, preset e contenção não neutralizam `cor_inativo`.
+
 ### 4.4 Indicadores
 
 | Indicador | Natureza | Símbolos (default) |
@@ -190,14 +216,17 @@ preferência do usuário sempre vale quando aplicada.
   do conteúdo atual. Ex.: `[<][>]` existe, mas fica **inativo** (usa
   `cor_inativo`) quando há só 1 página no momento.
 
-### 4.8 Materialização e carregamento global (ADR-0030)
+### 4.8 Materialização e ciclo de vida global (ADR-0030; ADR-0046)
 
 **Materialização** é o processo pelo qual o loader converte a estrutura de
 `config/estilo.json` — catálogos, `preset_default`, campos diretos — em uma
 representação de runtime com campos planos que os consumidores usam.
 
-O loader carrega `config/estilo.json` **uma única vez por sessão**. O resultado
-(objeto de estilo resolvido) é imutável durante a sessão:
+A sessão realiza uma materialização inicial a partir de `config/estilo.json`.
+Existe um único estilo global materializado vigente por vez. Após uma aplicação
+explicitamente confirmada e persistida com sucesso, esse objeto global pode ser
+substituído de forma controlada durante a sessão; os consumidores passam a usar
+imediatamente a nova materialização, sem observar objeto parcialmente alterado.
 
 | Seção em `config/estilo.json` | Resultado da materialização |
 |---|---|
@@ -215,12 +244,46 @@ pode ser usada.
 no objeto de runtime como campos planos. "Resolver um preset" = identificar o
 preset indicado por `preset_default`, validar e extrair seus campos.
 
+As camadas do ciclo de edição permanecem distintas:
+
+| Camada | Natureza |
+|---|---|
+| Configuração persistida de estilo | Configuração concreta global em `config/estilo.json`; continua sendo a autoridade persistida. |
+| Materialização global vigente | Objeto resolvido e único consumido globalmente pela execução corrente. |
+| Configuração candidata de estilo | Estado de runtime separado, derivado da configuração persistida e ainda não publicado; não é configuração persistida nem estilo global vigente. |
+| Override local de demonstração | Visão temporária derivada do candidato, pertencente à apresentação da demonstração; não substitui nem concorre com o estilo global vigente. |
+
+Um candidato pode ser materializado para validação e demonstração sem ser
+publicado. Na aplicação confirmada, a ordem normativa é configuração completa e
+válida persistida → publicação/substituição da materialização global. Falha de
+persistência mantém como vigentes tanto a configuração persistida anterior
+quanto a materialização global anterior; candidato e override permanecem fora
+do estado global.
+
+No fluxo de seleção do `ITEM-0010`, `ABORTADO` no pop-up de demonstração
+encerra a demonstração e retorna à seleção de estilos sem descartar o
+candidato. A configuração candidata é preservada integralmente; a baseline
+persistida, entendida como a última configuração persistida conhecida pelo
+fluxo, e o estilo global materializado vigente permanecem inalterados, e não há
+persistência. Portanto, `ABORTADO` cancela somente a tentativa de aplicação,
+não a edição.
+
+Depois de `CONFIRMADO`, persistência completa e válida e publicação
+bem-sucedida, a configuração recém-persistida é a nova baseline do fluxo e o
+candidato é sincronizado/equalizado com ela. O estilo global publicado
+continua vigente, o fluxo retorna à seleção e o estado de `Enter/Aplicar` é
+recalculado: candidato e baseline estão equivalentes, então a ação fica
+inativa. Edições posteriores são comparadas contra essa nova baseline; uma
+aplicação já confirmada não é perdida se alterações posteriores forem
+abandonadas sem nova confirmação.
+
 ### 4.9 Configuração de aparência vs estado vivo de execução (ADR-0030 D10)
 
 | Tipo | Origem | Exemplos |
 |---|---|---|
-| Configuração de aparência | `config/estilo.json` via loader | caracteres de borda, preset de chip, símbolos de indicadores |
-| Estado vivo de execução | produzido e mantido pela execução corrente | cursor corrente, itens incluídos, foco de corpo, página atual, modo verboso ativo |
+| Configuração de aparência persistida | `config/estilo.json` via loader | caracteres de borda, preset de chip, símbolos de indicadores |
+| Estado vivo de execução | produzido e mantido pela execução corrente | cursor corrente, itens incluídos, foco de corpo, página atual, modo verboso ativo, configuração candidata de estilo |
+| Apresentação temporária de runtime | fornecida localmente à apresentação | override local de demonstração do candidato |
 
 Estado vivo **não pertence** a `config/estilo.json` e não é armazenado nele.
 Os símbolos de cursor (`selecionado_simbolo`) e de inclusão (`incluido_on`,
@@ -236,7 +299,9 @@ e **quais** itens estão incluídos são estado vivo.
 | `cor_inativo` × existência de chip | `cor_inativo` indica estado inativo de chip que existe; um chip pode existir e estar inativo — são propriedades independentes |
 | `cor_alerta` × `cor_inativo` | `cor_alerta` destaca elemento operável ou valor que exige atenção; `cor_inativo` marca elemento não operável — não são intercambiáveis (ADR-0037) |
 | chip como forma visual × chip como entidade de interface | A forma visual (campos de estilo) pertence a este módulo; a entidade declarativa de interface pertence ao módulo `31` e ao `contrato_chip.md` |
-| configuração de aparência × estado vivo | Configuração: carregada uma vez de `config/estilo.json`, imutável na sessão; estado vivo: produzido e mantido pela execução (cursor, inclusão, foco, página) |
+| configuração persistida × materialização global vigente | A primeira é a configuração concreta em `config/estilo.json`; a segunda é o único objeto resolvido consumido globalmente no runtime. A materialização inicial deriva do arquivo e uma aplicação confirmada só substitui o global depois de persistir com sucesso. |
+| configuração candidata × estilo global vigente | O candidato é estado de runtime editável e não publicado; não altera nem concorre com o único estilo global vigente. |
+| override local de demonstração × estilo global vigente | O override é temporário e limitado à apresentação da demonstração; não substitui o estilo consumido pelas demais telas. |
 | preset resolvido × valor hardcoded | Preset resolvido: extraído do catálogo pelo loader a partir de `preset_default`; hardcoded: violação contratual (ADR-0030 D1) |
 | símbolo materializado × estado de inclusão | O símbolo `●`/`○` vem do preset de `incluido` (configuração); quais itens estão incluídos é estado vivo de execução |
 
@@ -256,9 +321,16 @@ e **quais** itens estão incluídos são estado vivo.
 - ADR-0014: regra de alteração por termo específico completo.
 - ADR-0030: formaliza catálogo + `preset_default` como padrão canônico; materialização
   integral de todas as seções de `config/estilo.json`; `caixa_alta` per-preset;
-  distinção configuração de aparência vs estado vivo; carregamento único por sessão.
+  distinção configuração de aparência vs estado vivo; sua limitação a
+  carregamento único por sessão é substituída pela ADR-0046.
 - ADR-0037: concretiza `cor_alerta: amarelo` no estilo global; distingue elemento
   ativo destacado de elemento inativo; condição de destaque como estado vivo.
+- ADR-0046: admite substituição controlada do único estilo global vigente após
+  persistência bem-sucedida e separa configuração persistida, candidato e
+  override local de demonstração. O patch P02 fecha a composição
+  multitecla de chips, o separador canônico `/`, o preset "Destaque Texto"
+  como foreground destacado com fundo normal simétrico, e a largura visual
+  efetiva. Preserva Ponto, Destaque Fundo e `cor_inativo`.
 
 ## 8. Aliases ou termos descontinuados relacionados
 
@@ -282,7 +354,7 @@ apenas os referencia para indicar o contexto de estilo/arranjo.
 origem_no_monolito:
   secao: "§1 (linhas 109-233)"
   intervalo_ou_bloco: "NOM-LEV-006"
-origem_normativa: ADR-0004, ADR-0011, ADR-0013, ADR-0014, ADR-0030, ADR-0037
+origem_normativa: ADR-0004, ADR-0011, ADR-0013, ADR-0014, ADR-0030, ADR-0037, ADR-0046
 contratos_relacionados:
   - contrato_estilo.md
   - contrato_barra_de_menus.md
@@ -295,6 +367,7 @@ adrs_relacionadas:
   - ADR-0014
   - ADR-0030
   - ADR-0037
+  - ADR-0046
 tratamento:
   - PRESERVADO
   - SEPARADO_DE_REGRA_COMPORTAMENTAL

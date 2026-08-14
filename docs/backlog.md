@@ -124,21 +124,13 @@ esta lista.
 **Pre-requisitos:** Existencia de uma tela e de dados reais que justifiquem o primeiro contrato especializado.
 **Proxima acao:** Definir o primeiro caso real de uso e criar o contrato de conteudo correspondente.
 
-### ITEM-0010 — Tela de escolha do estilo global
+### ITEM-0012 — Tiling por tela
 **Tipo:** implementacao
 **Prioridade:** media
 **Status:** planejado
-**Descricao:** Implementar uma tela para visualizar, escolher, pre-visualizar, persistir e restaurar presets do estilo global.
-**Pre-requisitos:** Carregamento global e materializacao do estilo concluidos pelo H-0039.
-**Proxima acao:** Realizar levantamento focal da interacao e criar ADR propria.
-
-### ITEM-0012 — Tiling de elementos ou conteudo
-**Tipo:** implementacao
-**Prioridade:** media
-**Status:** planejado
-**Descricao:** Definir e implementar a finalidade e o comportamento do atributo `tiling`.
-**Pre-requisitos:** Decisao sobre escopo, consumidores e interacao com as regras de distribuicao existentes.
-**Proxima acao:** Realizar levantamento focal e decisao arquitetural.
+**Descricao:** Definir e implementar alteracao contextual do tiling/arranjo somente da tela corrente. O tiling fica fora do ITEM-0010 e nao sera oferecido como preferencia global na tela de estilos. O acionamento futuro previsto e a tecla `|`; ao aciona-la, a funcionalidade devera partir do tiling/arranjo da tela corrente e afetar somente essa tela. Persistencia, contrato de alteracao e demais detalhes permanecem para especificacao propria deste item.
+**Pre-requisitos:** Semantica vigente de `corpo.arranjo` e decisao propria sobre ciclo de vida/persistencia da alteracao por tela.
+**Proxima acao:** Realizar especificacao focal propria antes de ADR ou implementacao.
 
 ### ITEM-0013 — Promocao do estado dos metadados de estilo
 **Tipo:** documentacao
@@ -171,3 +163,34 @@ esta lista.
 **Descricao:** Adotar algoritmo canônico/global de composição de parágrafo e justificação para todas as ocorrências de texto justificado da TUI, evitando soluções locais independentes por componente.
 **Pre-requisitos:** Ciclo próprio de especificação.
 **Proxima acao:** Iniciar ciclo futuro próprio, sem implementar nesta etapa.
+
+### ITEM-0029 — Ajuda global por F1 e ajuda declarativa dos chips
+**Tipo:** implementacao
+**Prioridade:** media
+**Status:** planejado
+**Descricao:** Padronizar F1 como tecla universal de Ajuda, substituindo o acionamento universal atualmente associado a `?`, e tornar a ajuda derivável das declarações reais da interface. O trabalho deve cobrir F1 como comando universal de Ajuda; substituição de `[?] Ajuda` pelo acionamento correspondente a F1; texto de ajuda correspondente à função do chip em toda declaração de chip; apresentação, em cada tela, das funções das teclas/chips efetivamente mostrados na `barra_de_menus`; apresentação de todas as teclas F globais formalmente definidas; e prevenção de uma segunda lista manual de ajuda desconectada das declarações vigentes.
+**Pre-requisitos:** Contratos vigentes de chip, barra de menus e mecanismo de ajuda.
+**Proxima acao:** Especificar schema declarativo do texto de ajuda, composição da ajuda contextual e migração de `?` para F1.
+
+### ITEM-0030 — F11 para tela cheia
+**Tipo:** implementacao
+**Prioridade:** media
+**Status:** planejado
+**Descricao:** Avaliar e implementar F11 como comando global associado à experiência de tela cheia do Orquestrador, respeitando as capacidades e limitações reais do terminal/ambiente hospedeiro.
+**Pre-requisitos:** Levantamento focal do tratamento de F11 pelo terminal e do limite de responsabilidade do Orquestrador.
+**Proxima acao:** Realizar levantamento e especificação focal antes de ADR.
+
+### ITEM-0031 — Mapa global de teclas de função
+**Tipo:** documentacao
+**Prioridade:** media
+**Status:** planejado
+**Descricao:** Consolidar o mapa global de teclas de função, registrando as teclas já reservadas: F1 = Ajuda, F4 = Estilo e F11 = Tela Cheia. A implementação e a definição comportamental de F11 continuam subordinadas ao trabalho específico de tela cheia, ITEM-0030. F2, F3 e F5 ainda estão sem função: não recebem função concreta neste momento; qualquer reserva futura depende de necessidade real e deve considerar convenções conhecidas dessas teclas, que não devem ser ocupadas apenas porque estão disponíveis.
+**Relações:** ITEM-0029 — política de Ajuda por F1 e exposição das teclas F na ajuda; ITEM-0030 — definição própria de F11/tela cheia.
+
+### ITEM-0032 — Organização global da Barra de Menus
+**Tipo:** implementacao
+**Prioridade:** media
+**Status:** planejado
+**Descricao:** Definir e implementar a política sistêmica de organização/ordenação global da Barra de Menus, cobrindo a ordenação global dos itens canônicos, a posição global de `[✥]` e o algoritmo futuro que preserve a ordem canônica independentemente da declaração local da tela. Origem documental: deferimento histórico em H-0054 §10.1; observação manual `O-H0063-MANUAL-002` classificada como `TRABALHO_FUTURO_DEFERIDO` após `VALIDACAO_MANUAL_APROVADA_FINAL` de H-0063. Este item não altera H-0063, não fecha o ITEM-0010 e não cobre ajuda por F1 (`ITEM-0029`) nem o mapa de teclas F (`ITEM-0031`).
+**Pre-requisitos:** Contrato vigente de `barra_de_menus` (ordem canônica §7 e política de ordem por declaração §17); deferimento H-0054 §10.1; ciclo próprio de especificação/ADR antes de handoff.
+**Proxima acao:** Realizar levantamento focal e especificação própria da política global, sem criar ADR nem implementar nesta etapa.

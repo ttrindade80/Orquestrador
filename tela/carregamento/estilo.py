@@ -1,6 +1,10 @@
-"""Carregamento e materialização do estilo global."""
+"""Carregamento, materialização e aplicação controlada do estilo global."""
 
+import copy
 import json
+import os
+import tempfile
+from collections.abc import Mapping
 from dataclasses import dataclass
 
 from tela.carregamento.caminho_base import _para_base
@@ -12,7 +16,7 @@ class EstiloResolvido:
     """Representacao de runtime do estilo global resolvido (H-0039 D6.2).
 
     ``frozen=True`` impede alteracao acidental em runtime (contrato_estilo.md
-    R-4). Os 20 campos cobrem borda (7), chip (5), indicadores (6),
+    R-4). Os campos cobrem borda (7), chip (7), indicadores (6),
     ``cor_inativo`` (1; H-0041 P04) e ``cor_alerta`` (1; H-0044 / ADR-0037).
     Nenhum campo pode ser omitido -- a configuracao parcialmente resolvida
     nao pode produzir instancia de ``EstiloResolvido``.
@@ -44,6 +48,27 @@ class EstiloResolvido:
     # exige ambos os campos no JSON (sem fallback silencioso).
     cor_inativo: str = "padrão"
     cor_alerta: str = "padrão"
+    # Campos opcionais de assimetria de fundo do chip (contrato 3.2).
+    cor_fundo_esquerdo: str = None
+    cor_fundo_direito: str = None
+
+
+CAMINHOS_PRESET_DEFAULT_PERMITIDOS = (
+    ("borda", "preset_default"),
+    ("chip", "preset_default"),
+    ("indicadores", "selecionado", "preset_default"),
+    ("indicadores", "incluido", "preset_default"),
+)
+"""Caminhos que podem ser alterados por um candidato do ITEM-0010."""
+
+
+@dataclass(frozen=True)
+class _EstadoEstiloRuntime:
+    """Estado privado trocado integralmente no runtime."""
+
+    baseline: dict
+    candidato: dict
+    global_vigente: EstiloResolvido
 
 
 def carregar_estilo(caminho_base=None):
@@ -63,37 +88,55 @@ def carregar_estilo(caminho_base=None):
     usa a raiz do repositorio derivada de
     ``Path(__file__).resolve().parent.parent``.
     """
+    return materializar_configuracao_estilo(
+        _ler_configuracao_estilo(caminho_base)
+    )
+
+
+def _ler_configuracao_estilo(caminho_base=None):
+    """Le o documento completo de estilo sem descartar campos extras."""
     base = _para_base(caminho_base)
     caminho = base / "config" / "estilo.json"
 
-    # V-01: arquivo ausente -- erro explicito, encerramento imediato.
     if not caminho.is_file():
-        raise EstiloErro(
-            "Arquivo de estilo ausente: {0}".format(caminho)
-        )
-
-    # V-02: conteudo nao e JSON valido.
+        raise EstiloErro("Arquivo de estilo ausente: {0}".format(caminho))
     try:
         texto = caminho.read_text(encoding="utf-8")
     except OSError as exc:
         raise EstiloErro(
             "Falha ao ler arquivo de estilo {0}: {1}".format(caminho, exc)
-        )
+        ) from exc
     try:
         dados = json.loads(texto)
     except json.JSONDecodeError as exc:
         raise EstiloErro(
             "JSON invalido em {0}: {1}".format(caminho, exc)
-        )
-
+        ) from exc
     if not isinstance(dados, dict):
         raise EstiloErro(
             "Raiz de {0} deve ser um objeto JSON; encontrado: {1}".format(
                 caminho, type(dados).__name__
             )
         )
+    return dados
 
-    # V-03 a V-05: secoes obrigatórias.
+
+def carregar_configuracao_estilo(caminho_base=None):
+    """Retorna snapshot completo e validado da configuração persistida."""
+    dados = _ler_configuracao_estilo(caminho_base)
+    materializar_configuracao_estilo(dados)
+    return copy.deepcopy(dados)
+
+
+def materializar_configuracao_estilo(configuracao):
+    """Valida e resolve uma configuração completa somente em memória."""
+    if not isinstance(configuracao, Mapping):
+        raise EstiloErro(
+            "Configuracao de estilo deve ser um objeto; encontrado: {0}".format(
+                type(configuracao).__name__
+            )
+        )
+    dados = dict(configuracao)
     for secao in ("borda", "chip", "indicadores"):
         if secao not in dados:
             raise EstiloErro(
@@ -102,20 +145,13 @@ def carregar_estilo(caminho_base=None):
                 )
             )
 
-    borda_cfg = dados["borda"]
-    chip_cfg = dados["chip"]
-    indicadores_cfg = dados["indicadores"]
-
-    borda = _resolver_borda(borda_cfg)
-    chip = _resolver_chip(chip_cfg)
+    borda = _resolver_borda(dados["borda"])
+    chip = _resolver_chip(dados["chip"])
     concluido_on, concluido_off, selecionado_simbolo, selecionado_off, \
-        incluido_on, incluido_off = _resolver_indicadores(indicadores_cfg)
+        incluido_on, incluido_off = _resolver_indicadores(dados["indicadores"])
     cor_inativo = _resolver_cor_inativo(dados)
     cor_alerta = _resolver_cor_alerta(dados)
 
-    # V-29: so se chega aqui com todos os campos materializados; a construcao
-    # abaixo falharia com TypeError se algum campo estivesse ausente, mas as
-    # validacoes acima ja garantem presenca e tipo de cada valor.
     return EstiloResolvido(
         canto_superior_esquerdo=borda["canto_superior_esquerdo"],
         canto_superior_direito=borda["canto_superior_direito"],
@@ -129,6 +165,8 @@ def carregar_estilo(caminho_base=None):
         cor_texto=chip["cor_texto"],
         caixa_alta=chip["caixa_alta"],
         cor_fundo=chip["cor_fundo"],
+        cor_fundo_esquerdo=chip["cor_fundo_esquerdo"],
+        cor_fundo_direito=chip["cor_fundo_direito"],
         concluido_on=concluido_on,
         concluido_off=concluido_off,
         selecionado_simbolo=selecionado_simbolo,
@@ -138,6 +176,225 @@ def carregar_estilo(caminho_base=None):
         cor_inativo=cor_inativo,
         cor_alerta=cor_alerta,
     )
+
+
+def criar_candidato_estilo(baseline):
+    """Cria candidato independente a partir de um snapshot completo."""
+    if not isinstance(baseline, Mapping):
+        raise EstiloErro(
+            "Baseline de estilo deve ser um objeto; encontrado: {0}".format(
+                type(baseline).__name__
+            )
+        )
+    candidato = copy.deepcopy(dict(baseline))
+    materializar_configuracao_estilo(candidato)
+    return candidato
+
+
+def _normalizar_caminho_preset(caminho):
+    if isinstance(caminho, str):
+        partes = tuple(caminho.split("."))
+    elif isinstance(caminho, (tuple, list)):
+        partes = tuple(caminho)
+    else:
+        partes = ()
+    if partes not in CAMINHOS_PRESET_DEFAULT_PERMITIDOS:
+        raise EstiloErro(
+            "Caminho de candidato nao editavel: {0!r}".format(caminho)
+        )
+    return partes
+
+
+def definir_preset_candidato(candidato, caminho, preset):
+    """Altera somente um dos quatro ``preset_default`` permitidos."""
+    if not isinstance(candidato, dict):
+        raise EstiloErro(
+            "Candidato de estilo deve ser um objeto mutavel; encontrado: {0}".format(
+                type(candidato).__name__
+            )
+        )
+    partes = _normalizar_caminho_preset(caminho)
+    if not isinstance(preset, str):
+        raise EstiloErro("preset_default do candidato deve ser texto")
+
+    secao = candidato
+    for parte in partes[:-1]:
+        secao = secao.get(parte)
+        if not isinstance(secao, dict):
+            raise EstiloErro(
+                "Estrutura ausente no candidato em {0!r}".format(partes)
+            )
+    catalogo = secao.get("presets")
+    if not isinstance(catalogo, dict) or preset not in catalogo:
+        raise EstiloErro(
+            "Preset {0!r} nao existe no catalogo de {1}".format(
+                preset, ".".join(partes[:-1])
+            )
+        )
+    secao[partes[-1]] = preset
+    return candidato
+
+
+def comparar_configuracoes_estilo(esquerda, direita):
+    """Compara documentos completos sem depender de ordenação textual."""
+    if not isinstance(esquerda, Mapping) or not isinstance(direita, Mapping):
+        raise EstiloErro("Comparacao exige duas configuracoes objeto")
+    return dict(esquerda) == dict(direita)
+
+
+def materializar_estilo_local(candidato):
+    """Materializa um candidato sem persistir e sem publicar globalmente."""
+    return materializar_configuracao_estilo(candidato)
+
+
+def _exigir_candidato_dict(candidato):
+    if not isinstance(candidato, Mapping):
+        raise EstiloErro(
+            "Candidato de estilo deve ser um objeto; encontrado: {0}".format(
+                type(candidato).__name__
+            )
+        )
+    documento = copy.deepcopy(dict(candidato))
+    materializar_configuracao_estilo(documento)
+    return documento
+
+
+def persistir_configuracao_estilo(candidato, caminho_destino):
+    """Persiste candidato completo com substituição atômica no destino dado."""
+    if caminho_destino is None:
+        raise EstiloErro("Destino de persistencia deve ser fornecido")
+    documento = _exigir_candidato_dict(candidato)
+    destino = os.fspath(caminho_destino)
+    if not destino:
+        raise EstiloErro("Destino de persistencia nao pode ser vazio")
+
+    temporario = None
+    try:
+        diretorio = os.path.dirname(os.path.abspath(destino))
+        os.makedirs(diretorio, exist_ok=True)
+        nome = os.path.basename(destino)
+        fd, temporario = tempfile.mkstemp(
+            prefix=".{0}.".format(nome), suffix=".tmp", dir=diretorio
+        )
+        with os.fdopen(fd, "w", encoding="utf-8") as arquivo:
+            json.dump(
+                documento,
+                arquivo,
+                ensure_ascii=False,
+                indent=2,
+                allow_nan=False,
+            )
+            arquivo.write("\n")
+            arquivo.flush()
+            os.fsync(arquivo.fileno())
+        os.replace(temporario, destino)
+        temporario = None
+    except (OSError, TypeError, ValueError) as exc:
+        raise EstiloErro(
+            "Falha ao persistir estilo em {0}: {1}".format(destino, exc)
+        ) from exc
+    finally:
+        if temporario is not None:
+            try:
+                os.unlink(temporario)
+            except OSError:
+                pass
+    return destino
+
+
+class EstadoEstiloRuntime:
+    """Mantém baseline, candidato e materialização global separados."""
+
+    def __init__(self, caminho_base=None):
+        self._caminho_base = _para_base(caminho_base)
+        baseline = carregar_configuracao_estilo(self._caminho_base)
+        global_vigente = materializar_configuracao_estilo(baseline)
+        self._estado = _EstadoEstiloRuntime(
+            baseline=baseline,
+            candidato=copy.deepcopy(baseline),
+            global_vigente=global_vigente,
+        )
+
+    @property
+    def baseline(self):
+        return copy.deepcopy(self._estado.baseline)
+
+    @property
+    def candidato(self):
+        return copy.deepcopy(self._estado.candidato)
+
+    @property
+    def global_vigente(self):
+        return self._estado.global_vigente
+
+    @property
+    def materializacao_global(self):
+        return self._estado.global_vigente
+
+    @property
+    def caminho_destino(self):
+        """Caminho canonico somente-leitura de ``config/estilo.json`` (H-0068).
+
+        Mesma composicao ja usada por ``_ler_configuracao_estilo``. Nao
+        resolve caminho de forma independente nem admite atribuicao.
+        """
+        return self._caminho_base / "config" / "estilo.json"
+
+    def criar_candidato(self):
+        candidato = criar_candidato_estilo(self._estado.baseline)
+        self._estado = _EstadoEstiloRuntime(
+            baseline=self._estado.baseline,
+            candidato=candidato,
+            global_vigente=self._estado.global_vigente,
+        )
+        return copy.deepcopy(candidato)
+
+    def materializar_local(self, candidato):
+        documento = _exigir_candidato_dict(candidato)
+        materializacao = materializar_estilo_local(documento)
+        self._estado = _EstadoEstiloRuntime(
+            baseline=self._estado.baseline,
+            candidato=documento,
+            global_vigente=self._estado.global_vigente,
+        )
+        return materializacao
+
+    def comparar_candidato_baseline(self, candidato=None):
+        documento = self._estado.candidato if candidato is None else candidato
+        return comparar_configuracoes_estilo(documento, self._estado.baseline)
+
+    def persistir_candidato(self, candidato, caminho_destino):
+        """Persiste candidato sem publicar nem promover baseline."""
+        documento = _exigir_candidato_dict(candidato)
+        self._estado = _EstadoEstiloRuntime(
+            baseline=self._estado.baseline,
+            candidato=documento,
+            global_vigente=self._estado.global_vigente,
+        )
+        return persistir_configuracao_estilo(documento, caminho_destino)
+
+    def aplicar_candidato(self, candidato, caminho_destino):
+        """Persiste e somente depois publica e promove o candidato."""
+        documento = _exigir_candidato_dict(candidato)
+        materializacao = materializar_estilo_local(documento)
+        estado_anterior = self._estado
+        self._estado = _EstadoEstiloRuntime(
+            baseline=estado_anterior.baseline,
+            candidato=documento,
+            global_vigente=estado_anterior.global_vigente,
+        )
+        persistir_configuracao_estilo(documento, caminho_destino)
+
+        # Uma única troca substitui global, baseline e candidato sincronizado.
+        self._estado = _EstadoEstiloRuntime(
+            baseline=copy.deepcopy(documento),
+            candidato=copy.deepcopy(documento),
+            global_vigente=materializacao,
+        )
+        return materializacao
+
+
+RuntimeEstilo = EstadoEstiloRuntime
 
 
 def _resolver_cor_inativo(dados):
@@ -298,7 +555,7 @@ def _resolver_borda(borda_cfg):
 
 
 def _resolver_chip(chip_cfg):
-    """Resolve o preset ativo de chip e materializa os 5 campos."""
+    """Resolve o preset ativo de chip e materializa campos opcionais."""
     if not isinstance(chip_cfg, dict):
         raise EstiloErro("Secao 'chip' deve ser um objeto")
     preset_default = _resolver_preset_default(chip_cfg, "chip")
@@ -344,6 +601,17 @@ def _resolver_chip(chip_cfg):
             )
         )
 
+    campos_fundo_laterais = {}
+    for campo in ("cor_fundo_esquerdo", "cor_fundo_direito"):
+        valor = ativo.get(campo, cor_fundo)
+        if not isinstance(valor, str):
+            raise EstiloErro(
+                "chip.presets[{0!r}].{1} deve ser texto".format(
+                    preset_default, campo
+                )
+            )
+        campos_fundo_laterais[campo] = valor
+
     return {
         "caractere_esquerdo": _validar_caractere(
             caractere_esquerdo,
@@ -356,6 +624,7 @@ def _resolver_chip(chip_cfg):
         "cor_texto": cor_texto,
         "caixa_alta": caixa_alta,
         "cor_fundo": cor_fundo,
+        **campos_fundo_laterais,
     }
 
 

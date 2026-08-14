@@ -17,6 +17,7 @@ from tela.renderizacao.geometria_caixa import (
     _contar_linhas,
 )
 from tela.renderizacao.popup import sobrepor_no_corpo
+from tela.renderizacao.texto_ansi import _largura_sem_ansi
 
 
 def _quadro_minimo_global(total_w, altura):
@@ -235,6 +236,7 @@ def renderizar_tela(
     executar_disponivel=None,
     paginas_atuais=None,
     popup=None,
+    aplicar_disponivel=None,
 ) -> str:
     """Renderiza ModeloTela como string visual declarativa (H-0010A).
 
@@ -339,6 +341,7 @@ def renderizar_tela(
         largura_navegacao=largura_navegacao, selecoes=selecoes,
         chips_destacados=chips_destacados, executar_disponivel=executar_disponivel,
         paginas_atuais=paginas_atuais, modelo=modelo,
+        aplicar_disponivel=aplicar_disponivel,
     )
 
     total_w = TOTAL_WIDTH if largura is None else largura
@@ -408,7 +411,9 @@ def renderizar_tela(
         linhas_corpo = bloco_corpo.split("\n")
         if linhas_corpo and linhas_corpo[-1] == "":
             linhas_corpo.pop()
-        largura_corpo = max((len(linha) for linha in linhas_corpo), default=0)
+        largura_corpo = max(
+            (_largura_sem_ansi(linha) for linha in linhas_corpo), default=0
+        )
         altura_corpo = len(linhas_corpo)
         if l_corpo_disponivel is not None:
             # H-0060/P01: a altura natural do corpo subjacente nao representa

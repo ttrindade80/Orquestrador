@@ -1,11 +1,19 @@
 """Testes focais do popup textual H-0056."""
 
 import copy
+import re
 
 import pytest
 
 from tela.carregamento.estilo import carregar_estilo
 from tela.renderizacao import popup
+
+_RE_ANSI_TESTE = re.compile(r"\x1b\[[0-9;]*[A-Za-z]")
+
+
+def _visivel(texto):
+    """Texto sem sequencias SGR, para comparar composicao por coluna visual."""
+    return _RE_ANSI_TESTE.sub("", texto)
 
 
 def _declaracao():
@@ -378,6 +386,116 @@ def test_overlay_usa_largura_fisica_do_corpo_e_posicao_deterministica(estilo):
     assert primeira == segunda
     assert popup.geometria_popup(instancia, estilo, largura_corpo=24)["largura"] <= 24
     assert primeira.count("Mensagem") == 1
+
+
+def test_overlay_corpo_com_ansi_usa_largura_visual_e_preserva_borda(estilo):
+    """Regressao generica H-0067-P01: uma linha do corpo com SGR ANSI (cujo
+    ``len`` bruto excede a largura visual) fora do retangulo do popup nao
+    pode inflar ``largura_corpo`` nem deslocar a centralizacao; a borda e o
+    conteudo ANSI dessa linha devem sobreviver intactos, byte a byte."""
+    instancia = _instancia_texto("confirma")
+    intrinseca = popup.geometria_popup(instancia, estilo)["largura"]
+    largura_visual = intrinseca + 20
+    altura = 12
+    ansi_cor = "\x1b[34m"
+    ansi_reset = "\x1b[39m"
+
+    linha_plana = "│" + "x" * (largura_visual - 2) + "│"
+    linha_ansi = (
+        "│" + "x" * 3 + ansi_cor + "Ab" + ansi_reset
+        + "x" * (largura_visual - 2 - 3 - 2) + "│"
+    )
+    assert popup._largura_sem_ansi(linha_ansi) == largura_visual
+    assert len(linha_ansi) > largura_visual  # delta introduzido pelo SGR
+
+    linhas_corpo = [linha_plana] * altura
+    linhas_corpo[0] = linha_ansi
+    linhas_corpo[-1] = linha_ansi
+    corpo = "\n".join(linhas_corpo)
+
+    sobreposto = popup.sobrepor_no_corpo(corpo, instancia, estilo, altura=altura)
+    linhas = sobreposto.split("\n")
+    if linhas and linhas[-1] == "":
+        linhas.pop()
+
+    # Nenhuma linha final excede visualmente a viewport do corpo.
+    assert all(
+        popup._largura_sem_ansi(linha) == largura_visual for linha in linhas
+    )
+
+    # Linhas fora do retangulo do popup (extremos, aqui) sao preservadas
+    # byte a byte -- inclusive o SGR e a borda direita "│".
+    assert linhas[0] == linha_ansi
+    assert linhas[-1] == linha_ansi
+
+    # Centralizacao usa a largura VISUAL (identica ao caso sem ANSI), nao o
+    # ``len`` bruto inflado pelo SGR das linhas 0/-1.
+    largura_popup = popup.geometria_popup(
+        instancia, estilo, largura_corpo=largura_visual
+    )["largura"]
+    x = (largura_visual - largura_popup) // 2
+    altura_popup = popup.geometria_popup(
+        instancia, estilo, largura_corpo=largura_visual, altura_corpo=altura,
+    )["altura"]
+    y = (altura - altura_popup) // 2
+    linha_topo_popup = linhas[y]
+    assert linha_topo_popup[:x] == linha_plana[:x]
+    assert linha_topo_popup[-x:] == linha_plana[-x:] if x else True
+    assert "Voltar" in sobreposto
+
+
+def test_overlay_corta_segmento_ansi_no_meio_sem_corromper_sequencia(estilo):
+    """Regressao generica H-0067-P01: quando o retangulo do popup CORTA um
+    trecho colorido do corpo (abre antes de x, fecha depois de x+largura),
+    a composicao final nao pode truncar a sequencia SGR nem embaralhar
+    colunas -- o texto visivel (sem SGR) precisa reconstruir exatamente
+    prefixo + linha_do_popup + sufixo, coluna a coluna."""
+    instancia = _instancia_texto("confirma")
+    largura_popup_esperado = popup.geometria_popup(instancia, estilo)["largura"]
+    largura_visual = largura_popup_esperado + 40
+    altura = 8
+    ansi_cor = "\x1b[34m"
+    ansi_reset = "\x1b[39m"
+    x = (largura_visual - largura_popup_esperado) // 2
+
+    antes = x - 2
+    depois = largura_visual - 2 - antes - (largura_popup_esperado + 4)
+    assert antes >= 0 and depois >= 0
+    linha_original = (
+        "│" + "x" * antes + ansi_cor + "x" * (largura_popup_esperado + 4)
+        + ansi_reset + "x" * depois + "│"
+    )
+    assert popup._largura_sem_ansi(linha_original) == largura_visual
+
+    corpo = "\n".join([linha_original] * altura)
+    sobreposto = popup.sobrepor_no_corpo(corpo, instancia, estilo, altura=altura)
+    linhas = sobreposto.split("\n")
+    if linhas and linhas[-1] == "":
+        linhas.pop()
+
+    assert all(
+        popup._largura_sem_ansi(linha) == largura_visual for linha in linhas
+    )
+
+    largura_popup = popup.geometria_popup(
+        instancia, estilo, largura_corpo=largura_visual
+    )["largura"]
+    altura_popup = popup.geometria_popup(
+        instancia, estilo, largura_corpo=largura_visual, altura_corpo=altura,
+    )["altura"]
+    y = (altura - altura_popup) // 2
+    caixa = popup.renderizar_popup(
+        instancia, estilo, largura=largura_visual, altura=altura,
+    ).split("\n")
+
+    for offset, linha_popup in enumerate(caixa):
+        linha_final = linhas[y + offset]
+        assert "\x1b" not in _visivel(linha_final)
+        assert _visivel(linha_final) == (
+            _visivel(linha_original)[:x]
+            + _visivel(linha_popup)
+            + _visivel(linha_original)[x + largura_popup:]
+        )
 
 
 def test_overlay_sinaliza_altura_inviavel_sem_remover_conteudo(estilo):
@@ -898,6 +1016,76 @@ def test_enter_sem_regra_compativel_e_texto_permanecem_abertos(estilo):
     textual = popup.abrir_popup(_fonte(), "popup_basico", _conteudo())
     assert popup.consumir_tecla_popup(textual, "\n") is None
     assert popup.consumir_tecla_popup(textual, "\x1b") == {"status": "ABORTADO"}
+
+
+def _declaracao_texto_com_enter():
+    declaracao = _declaracao()
+    declaracao["chips"].append(
+        {
+            "id": "popup_texto_confirmar",
+            "tipo": "especifico",
+            "tecla": "Enter",
+            "texto": "Confirmar",
+            "referencia_regra": {"resultado": {"status": "CONFIRMADO"}},
+            "regra_existencia": "sempre",
+            "regra_ativo": "sempre",
+            "forma_exibicao": "ativo",
+        }
+    )
+    return declaracao
+
+
+def test_texto_com_enter_declaracao_valida_e_confirmado_sem_valor(estilo):
+    declaracao = _declaracao_texto_com_enter()
+    validada = popup.validar_declaracao_popup(declaracao)
+    assert len(validada["chips"]) == 2
+    assert validada["chips"][1]["tecla"] == "Enter"
+
+    fonte = {"popups": {"popup_texto_confirmacao": declaracao}}
+    instancia = popup.abrir_popup(
+        fonte, "popup_texto_confirmacao", _conteudo()
+    )
+    resultado = popup.consumir_tecla_popup(instancia, "\r")
+    assert resultado == {"status": "CONFIRMADO"}
+    assert "valor" not in resultado
+    assert set(resultado) == {"status"}
+    # Segunda confirmacao apos terminal nao reabre contrato.
+    assert popup.consumir_tecla_popup(instancia, "\n") is None
+
+
+def test_texto_com_enter_lf_equivalente_e_esc_abortado(estilo):
+    fonte = {"popups": {"popup_texto_confirmacao": _declaracao_texto_com_enter()}}
+    instancia = popup.abrir_popup(
+        fonte, "popup_texto_confirmacao", _conteudo()
+    )
+    assert popup.consumir_tecla_popup(instancia, "\n") == {"status": "CONFIRMADO"}
+
+    instancia = popup.abrir_popup(
+        fonte, "popup_texto_confirmacao", _conteudo()
+    )
+    resultado = popup.consumir_tecla_popup(instancia, "\x1b")
+    assert resultado == {"status": "ABORTADO"}
+    assert "valor" not in resultado
+
+
+def test_texto_com_enter_invalido_continua_rejeitado():
+    declaracao = _declaracao_texto_com_enter()
+    declaracao["chips"][1]["texto"] = "Aplicar"
+    with pytest.raises(popup.PopupErro):
+        popup.validar_declaracao_popup(declaracao)
+
+    declaracao = _declaracao_texto_com_enter()
+    declaracao["chips"][1]["referencia_regra"] = {
+        "resultado": {"status": "ABORTADO"}
+    }
+    with pytest.raises(popup.PopupErro):
+        popup.validar_declaracao_popup(declaracao)
+
+    # Marcacao continua exigida para politica exclusiva.
+    declaracao = _declaracao()
+    declaracao["marcacao"] = "exclusiva"
+    with pytest.raises(popup.PopupErro):
+        popup.validar_declaracao_popup(declaracao)
 
 
 @pytest.mark.parametrize(

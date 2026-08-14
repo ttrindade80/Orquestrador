@@ -24,6 +24,7 @@ metadata:
       - docs/adr/ADR-0041-paginacao-universal-por-pageup-e-pagedown.md
       - docs/adr/ADR-0043-ajuda-universal-e-chip-contextual-de-expandir-recolher.md
       - docs/adr/ADR-0044-popup-modal-generico-de-decisao.md
+      - docs/adr/ADR-0046-alteracao-aplicacao-estilo-global-runtime.md
     reaproveitado_de_legado: false
   dependencias_nomenclatura:
     dependencias_obrigatorias:
@@ -246,6 +247,11 @@ nessa lista canônica, declaradas individualmente pela classe no `tela.json`.
 Esta ordem canônica pertence exclusivamente à `barra_de_menus`; não é
 reutilizada como ordem implícita na área de chips do pop-up.
 
+A partir da ADR-0046, quando a ação correspondente a uma dessas notações é
+multitecla, a composição visual real segue a unidade única definida na
+seção 10.1 — a notação em colchetes desta seção identifica a ação
+documentalmente e não prescreve mais a forma renderizada.
+
 ---
 
 ## 8. Regra de existência (`regra_existencia`)
@@ -311,6 +317,13 @@ Um chip inativo:
 - não reage a acionamento do usuário;
 - não desaparece da `barra_de_menus`.
 
+Chip existente funcionalmente ativo usa a aparência ativa. Chip existente
+funcionalmente inativo usa `cor_inativo`. Composição visual, preset e
+aplicação de cor ou fundo não podem apagar, sobrepor nem neutralizar
+`cor_inativo`. Isso vale inclusive para Páginas e para `Enter/Aplicar`
+quando o estado funcional correspondente estiver inativo (ADR-0046). Esta
+preservação não cria política nova de estado.
+
 Um chip pode estar **ativo e simultaneamente destacado**: o destaque usa
 `cor_alerta` e **não** altera `regra_ativo`. Destaque não implica inatividade.
 
@@ -358,9 +371,12 @@ anterior é exclusivamente `PageUp`; para próxima página, exclusivamente
 `PageDown` (ADR-0041 D-PGU-01, D-PGU-02) — tradução de tecla física para
 esses valores permanece de implementação. Os caracteres `,`, `<`, `.` e `>`
 deixam de ter qualquer função de paginação — não são alias, atalho nem
-fallback (ADR-0041 D-PGU-04). A apresentação visual passa a ser `[PgUp]` e
-`[PgDn]`, representação canônica `[PgUp][PgDn] Páginas` (ADR-0041 D-PGU-03),
-em substituição a `[<][>]`.
+fallback (ADR-0041 D-PGU-04). A identificação documental das duas teclas/controles permanece `[PgUp]` e
+`[PgDn]`; a notação documental da ação é `[PgUp][PgDn] Páginas` (ADR-0041
+D-PGU-03), em substituição a `[<][>]`. A forma física renderizada da ação
+única, no preset Colchete, é `[PgUp/PgDn] Páginas` (ADR-0046
+`DEC-ITEM0010-CHIP-01`). `[PgUp][PgDn] Páginas` não é representação física
+nem visual canônica.
 
 **Nota sobre `[Ins] Dry-Run` (ADR-0037)**: chip específico do fluxo focal do
 Handoff 4 — tipo `alternancia`. Permanece ativo nos estados ligado e
@@ -437,6 +453,86 @@ O layout final detalhado da `barra_de_menus` não é fechado por este contrato.
 respeita o schema de estilo ativo e a ordem canônica definida em
 `contrato_barra_de_menus.md` seção 7.
 
+### 10.1 Composição multitecla — unidade visual única (ADR-0046)
+
+Quando uma mesma ação de chip é representada por duas ou mais teclas — por
+exemplo, a paginação (`PgUp`/`PgDn`, ver seção 7) ou o ajuste de colunas
+(`-`/`+`) — a composição visual não concatena um delimitador completo por
+tecla. Regras obrigatórias (`DEC-ITEM0010-CHIP-01`):
+
+- a ação ocupa **uma única unidade visual de chip**;
+- as teclas, dentro da unidade, são separadas pelo caractere canônico `/`
+  (seção 10.3);
+- `caractere_esquerdo` e `caractere_direito` do preset ativo (seção 12)
+  aparecem somente nas **extremidades externas** da unidade — não existe
+  delimitador completo independente por tecla;
+- chips de **uma única tecla** permanecem com a composição vigente
+  (delimitador de abertura, tecla, delimitador de fechamento) — esta regra
+  não os altera;
+- `texto` (a descrição da ação, ex.: "Páginas", "Colunas") permanece **fora**
+  da unidade visual do chip, como já definido na seção 4;
+- `regra_existencia` e `regra_ativo` de cada tecla dentro da unidade
+  continuam avaliadas independentemente, conforme já definido nas seções 8 e
+  9 deste contrato e em `contrato_barra_de_menus.md` — por exemplo, `[PgUp]`
+  pode estar inativo enquanto `[PgDn]` permanece ativo dentro da mesma
+  unidade. Esta seção governa apenas o agrupamento e os delimitadores da
+  unidade visual; não altera regra de existência nem de ativo/inativo por
+  tecla.
+
+Exemplos normativos de forma (presets Colchete, Curva, Ornamental, Traço):
+Colchete `[PgUp/PgDn]`, Curva `╭PgUp/PgDn╮`, Ornamental `❲PgUp/PgDn❳`, Traço `-PgUp/PgDn-`.
+
+Esta unidade única substitui, para composição multitecla, a concatenação
+individual por tecla anteriormente exemplificada como `[PgUp][PgDn]`
+(`H-0070`). Essa notação permanece válida apenas como **identificador
+documental** das duas teclas/controles (seção 7;
+`contrato_barra_de_menus.md` seção 5) — não é forma renderizável concorrente
+à unidade única definida aqui. A forma física renderizada de uma única ação
+multitecla, no preset Colchete, é `[PgUp/PgDn] Páginas`. A notação
+`[PgUp][PgDn] Páginas` não é representação física nem visual canônica.
+
+### 10.2 Preset Ponto — delimitadores assimétricos em multitecla (ADR-0046)
+
+No preset "Ponto" (seção 12), `caractere_esquerdo` é um espaço e
+`caractere_direito` é um ponto. Em ação multitecla, aplica-se a mesma
+unidade única da seção 10.1: espaço, teclas separadas por `/`, ponto. Forma
+normativa (`DEC-ITEM0010-CHIP-02`): ` PgUp/PgDn.`.
+
+### 10.3 Separador canônico `/` (ADR-0046)
+
+O caractere `/` é o separador estrutural canônico entre teclas de uma mesma
+unidade multitecla (`DEC-ITEM0010-CHIP-05`). Ele não é campo do preset de
+chip, não é valor configurável por tela e sua presença não constitui
+hardcoding de aparência pelo renderer: é um invariante estrutural universal
+da composição de chip, documentado por este contrato e consumido de forma
+uniforme por todo renderer que componha um chip multitecla — análogo ao
+invariante já vigente de que o espaço da moldura sempre existe
+(`contrato_estilo.md` seção 3.1). Não é reinterpretado como preferência
+visual variável por preset, por tela ou por renderer; não existe segundo
+mecanismo de separação de teclas concorrente a `/`.
+
+### 10.4 Contenção de estilo do chip (ADR-0046)
+
+A cor e o fundo aplicados a um chip — incluindo a composição multitecla das
+seções 10.1-10.2 — ficam contidos à extensão da própria unidade visual do
+chip. Nenhum valor de `cor_texto` ou `cor_fundo` pode vazar para o `texto`
+descritivo da ação, nem para o chip seguinte na `barra_de_menus`
+(`DEC-ITEM0010-CHIP-03`). Este é o mesmo consumo que se aplica à
+`barra_de_menus` real, não apenas à demonstração da tela de Estilo (ver
+`contrato_barra_de_menus.md` seção 18). Contenção e preset não
+neutralizam `cor_inativo` da seção 9.
+
+### 10.5 Largura visual efetiva (ADR-0046)
+
+A composição e o alinhamento de qualquer chip, incluindo unidades
+multitecla, devem considerar a largura visual efetiva ocupada no terminal
+(`DEC-ITEM0010-CHIP-06`). Sequências de controle (ANSI) usadas para aplicar
+cor não ocupam célula e não entram nessa largura. Este contrato não fixa a
+unidade técnica de medição (code point, grapheme cluster ou largura de
+terminal) — mesma fronteira já registrada em `contrato_estilo.md` seção 3.7
+para o comprimento de símbolo de 1 caractere; essa decisão pertence à
+implementação/handoff.
+
 ---
 
 ## 11. Texto e tecla
@@ -490,6 +586,13 @@ nomeado, se o schema do `tela.json` permitir futuramente.
 
 Hardcoding de qualquer valor de cor, caractere de moldura ou símbolo de chip no
 renderer é violação contratual.
+
+No preset "Destaque Texto" (`DEC-ITEM0010-CHIP-04`), somente o foreground do
+conteúdo da unidade visual recebe a cor de destaque. O fundo normal do
+terminal permanece em toda a unidade: um espaço normal à esquerda, o
+conteúdo e um espaço normal à direita. Não há fundo destacado lateral nem
+assimetria de fundo. Os campos `cor_fundo_esquerdo` e `cor_fundo_direito`
+não são requisito normativo desse preset e não integram o schema vigente.
 
 ---
 

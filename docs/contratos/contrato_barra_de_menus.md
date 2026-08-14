@@ -22,6 +22,7 @@ metadata:
       - docs/adr/ADR-0040-padronizacao-universal-do-controle-de-execucao-real-e-dry-run.md
       - docs/adr/ADR-0041-paginacao-universal-por-pageup-e-pagedown.md
       - docs/adr/ADR-0043-ajuda-universal-e-chip-contextual-de-expandir-recolher.md
+      - docs/adr/ADR-0046-alteracao-aplicacao-estilo-global-runtime.md
     reaproveitado_de_legado: false
   dependencias_nomenclatura:
     dependencias_obrigatorias:
@@ -142,8 +143,9 @@ inicial real `orquestrador` deverá declarar, no mínimo, `Esc`, `?` e acesso a
 estilos. Pela ADR-0043, `[?] Ajuda` deixou de ser específico dessa instância e
 é obrigatório em toda tela; a restrição de não transformar a regra em lista
 global aplica-se somente a `Esc` e ao acesso a estilos. O item de estilos
-deverá permanecer sem navegação para destino inexistente até que a tela
-funcional de estilos seja decidida e implementada por ciclo próprio.
+é especializado pela ADR-0046: `F4` é o acionamento global da funcionalidade
+de Estilo neste ciclo. Essa especialização não torna `Esc` globalmente
+obrigatório nem cria outro comando de tecla de função.
 
 ---
 
@@ -281,7 +283,7 @@ configuração da tela declara a capacidade correspondente no `tela.json`.
 
 | Chip canônico / notação documental | Rótulo documental | Condição de existência | Notas de estado dinâmico |
 |---|---|---|---|
-| `[PgUp][PgDn]` | Páginas | instância de `console` declara `paginacao: com` | Topologia limitada, sem wrap entre primeira e última página (ADR-0038 D-PAG-01); inativo quando há apenas 1 página no momento, inclusive com conjunto vazio (`página 1/1`); estado calculado pela página do console focado; tecla e representação canônica especializadas pela ADR-0041 — ver seção 24 |
+| `[PgUp][PgDn]` | Páginas | instância de `console` declara `paginacao: com` | Topologia limitada, sem wrap entre primeira e última página (ADR-0038 D-PAG-01); inativo quando há apenas 1 página no momento, inclusive com conjunto vazio (`página 1/1`); estado calculado pela página do console focado; teclas identificadas documentalmente pela ADR-0041; forma física renderizada `[PgUp/PgDn]` (ADR-0046) — ver seção 24 |
 | `[-][+]` | Colunas | instância de `console` declara `colunas_ajustavel: com` | `[-]` inativo em `n_col` mínimo; `[+]` inativo em `n_col` máximo pela largura atual |
 | `[#]` | Grupos | instância de `console` declara `filtro_de_grupo: com` | Chip de filtro declarativo — ver seção 13 |
 | `[⇆]` | Alternar | tela possui pelo menos dois consoles focalizáveis (ADR-0031 D14) | Move foco entre consoles focalizáveis — não confundir com `[✥]` (ver nota abaixo e seção 20) |
@@ -361,6 +363,18 @@ não guarda estado entre renders.
 
 `[⏎]` fica **inativo** (usa `cor_inativo` do schema de estilo) quando não há
 alvo válido sob o cursor ou quando o item em foco não tem ação declarada.
+
+### 10.1 `Enter/Aplicar` na funcionalidade de Estilo (ADR-0046)
+
+Na funcionalidade do `ITEM-0010`, Enter representa a ação contextual
+`Aplicar`. Ela fica ativa somente quando a configuração candidata diverge da
+baseline persistida; quando ambas são equivalentes, permanece inativa e o
+acionamento não abre demonstração nem confirmação. Chip existente
+funcionalmente inativo — inclusive `Enter/Aplicar` e Páginas — usa
+`cor_inativo`; composição, preset e aplicação de cor/fundo não a
+neutralizam (seção 18). Esta é uma especialização do consumidor de Estilo e
+não redefine a semântica de `[⏎]` nas demais telas nem cria política nova
+de estado.
 
 ---
 
@@ -567,16 +581,15 @@ transformam processamento em tipo de corpo. Nenhuma regra de `[✥]` muda.
 ### 16.1 Acesso a estilos na tela real inicial
 
 Pela ADR-0022, o acesso a estilos da tela inicial real é item específico da
-instância `orquestrador`. Ele deve estar visível desde a tela inicial real,
-mas não autoriza criar tela funcional de estilos, destino inexistente, ação
-temporária, fallback para demonstração, troca de borda, troca de envelope de
-chips ou persistência de seleção de estilo.
+instância `orquestrador`. A ADR-0046 especializa o acionamento: `F4` abre a
+funcionalidade global de Estilo no ciclo do `ITEM-0010`. A escolha de presets,
+a demonstração e a aplicação pertencem ao fluxo chamador e ao contrato de
+estilo; a barra apenas expõe e aciona os comandos aplicáveis.
 
-Enquanto a tela funcional correspondente não existir, o item de estilos deve
-ser inicialmente declarativo e não navegável somente se os contratos ativos
-permitirem essa forma. Se a validação vigente exigir ação ou `tela_destino`
-existente para todo item visível, a criação física da tela real deverá
-aguardar decisão adicional do usuário.
+Na tela de Estilo, `Enter/Aplicar` segue a ativação contextual da seção 10.1.
+Quando o pop-up de confirmação estiver aberto sobre a demonstração, a tela
+subjacente permanece suspensa e sua `barra_de_menus` não recebe interação até
+o encerramento modal.
 
 ---
 
@@ -670,8 +683,37 @@ Um chip com estado `cor_inativo` aplicado:
 - não reage a acionamento do usuário;
 - não desaparece da `barra_de_menus`.
 
+Chip existente funcionalmente ativo usa a aparência ativa; chip existente
+funcionalmente inativo usa `cor_inativo`. Composição, preset e aplicação de
+cor ou fundo não apagam, sobrepõem nem neutralizam `cor_inativo`. Isso vale
+inclusive para Páginas e para `Enter/Aplicar` quando inativos (ADR-0046).
+Esta preservação não cria política nova de estado.
+
 Um chip com `cor_alerta` aplicado permanece operável: destaque não implica
 inatividade (ADR-0037).
+
+### 18.1 Composição de chips multitecla — consumo uniforme (ADR-0046)
+
+Quando um chip da `barra_de_menus` real representa ação multitecla (ex.:
+Páginas, identificada documentalmente como `[PgUp][PgDn]`; Colunas, como
+`[-][+]`), a composição visual efetiva segue exclusivamente a unidade única
+definida em `contrato_chip.md` seção 10.1-10.5: delimitadores do preset
+somente nas extremidades externas, teclas separadas pelo caractere canônico
+`/`, sem delimitador completo independente por tecla, e sem vazamento de
+cor para o texto descritivo ou para o chip seguinte. A forma física
+renderizada de Páginas, no preset Colchete, é `[PgUp/PgDn] Páginas`. A
+Barra real consome o mesmo estilo global e a mesma composição usados pela
+demonstração da tela de Estilo — não existe mecanismo visual paralelo
+(ADR-0046 `DEC-ITEM0010-CHIP-03`).
+
+As notações documentais em colchetes por tecla (`[PgUp][PgDn]`, `[-][+]` —
+seções 5, 7, 8.3, 24) identificam as duas teclas/controles nesta
+documentação; não prescrevem a forma renderizada quando a ação é
+multitecla. `[PgUp][PgDn] Páginas` não é representação física nem visual
+canônica. Regras de existência e de ativo/inativo por tecla dentro da
+unidade (seções 8.3 e 24) não são alteradas por esta seção; `cor_inativo`
+permanece obrigatório quando a tecla ou a ação estiver funcionalmente
+inativa.
 
 ---
 
@@ -737,6 +779,18 @@ executada.
 O chip `[✥]` e as setas do teclado controlam somente cursor de `console`
 navegável. `lancador` e `dashboard` não participam da condição de existência
 nem de ativação de `[✥]` (ADR-0005).
+
+**R-13. Integração contextual de Estilo (ADR-0046).**
+`F4` aciona globalmente a funcionalidade do `ITEM-0010`. Dentro dela,
+`Enter/Aplicar` só fica ativo diante de divergência entre candidato e baseline
+persistida. Durante o pop-up de confirmação, a barra subjacente permanece
+suspensa para interação.
+
+**R-14. Composição multitecla sem mecanismo paralelo (ADR-0046).**
+A `barra_de_menus` real não define nem duplica regra própria de composição
+visual para chips multitecla. Consome a unidade única de `contrato_chip.md`
+seção 10.1 e o estilo global vigente (`contrato_estilo.md` seção 3.2 e
+seção 4), com a mesma aplicação usada na demonstração da tela de Estilo.
 
 ---
 
@@ -821,9 +875,18 @@ nem de ativação de `[✥]` (ADR-0005).
 - [ ] `[?] Ajuda` existe obrigatoriamente em toda tela, permanece em estados,
       páginas e focos da mesma tela e não pode ser omitido para caber; falta de
       largura produz `erro_layout`.
+- [ ] `F4` aciona a funcionalidade global de Estilo do `ITEM-0010`.
+- [ ] Na tela de Estilo, `Enter/Aplicar` fica ativo somente quando o candidato
+      diverge da baseline persistida.
+- [ ] Enquanto o pop-up de confirmação estiver aberto, a
+      `barra_de_menus` subjacente não recebe interação.
 - [ ] A distinção `barra_de_menus` vs objeto `lancador` do corpo é verificável:
       chips dos itens do `lancador` não são chips da `barra_de_menus`; nenhuma
       regra de layout de `contrato_lancador.md` é aplicada ao renderer da barra.
+- [ ] Chips multitecla da Barra real (`[PgUp][PgDn]`, `[-][+]`, e demais)
+      são compostos como unidade única com separador `/` e delimitadores
+      externos, sem mecanismo visual paralelo ao definido em
+      `contrato_chip.md`.
 
 ---
 
@@ -1083,11 +1146,12 @@ divisão original de D-SEL-21 da ADR-0034).
 A ADR-0038 (2026-07-29) fecha a paginação interativa do `console`, deferida
 pela ADR-0031 (D15) para o `ITEM-0003`. A ADR-0041 (2026-08-07) especializa
 pontualmente, para toda paginação comum do Orquestrador, a tecla de
-acionamento e a representação visual dos controles fixados pela ADR-0038,
-substituindo `,`/`<`/`.`/`>` e a notação `[<][>]` por `PageUp`/`PageDown` e
-`[PgUp][PgDn] Páginas`. Esta seção propaga as decisões que afetam a
-`barra_de_menus`; a semântica comportamental completa da página pertence a
-`contrato_console.md` seção 24.
+acionamento, substituindo `,`/`<`/`.`/`>` e a notação `[<][>]` por
+`PageUp`/`PageDown` e pelo identificador documental `[PgUp][PgDn]`. A
+ADR-0046 especializa a forma física renderizada da ação única:
+`[PgUp/PgDn] Páginas` no preset Colchete. Esta seção propaga as decisões
+que afetam a `barra_de_menus`; a semântica comportamental completa da
+página pertence a `contrato_console.md` seção 24.
 
 ### 24.1 Topologia limitada
 
@@ -1123,12 +1187,19 @@ pagina_anterior:
   entradas_aceitas: ["PageUp"]
 proxima_pagina:
   entradas_aceitas: ["PageDown"]
-chips_exibidos:
+identificador_documental:
   anterior: "[PgUp]"
   proxima: "[PgDn]"
-representacao_canonica: "[PgUp][PgDn] Páginas"
+  acao: "[PgUp][PgDn]"
+forma_fisica_renderizada: "[PgUp/PgDn] Páginas"
 caracteres_sem_funcao_de_paginacao: ["<", ">", ",", "."]
 ```
+
+A partir da ADR-0046 (`DEC-ITEM0010-CHIP-01`), a forma física renderizada
+de uma única ação multitecla é a unidade única (`contrato_chip.md` seção
+10.1): um único envelope de delimitadores com as teclas separadas por `/`.
+`[PgUp]` e `[PgDn]` identificam documentalmente as duas teclas/controles;
+`[PgUp][PgDn] Páginas` não é representação física nem visual canônica.
 
 A tradução de tecla física para `PageUp`/`PageDown` permanece de
 implementação. Os caracteres `,`, `<`, `.` e `>` deixam de ter qualquer
@@ -1147,7 +1218,8 @@ fixada na seção 8.3.
 ### 24.6 Remissões
 
 - `docs/adr/ADR-0038-paginacao-interativa-limitada-em-console.md` — decisões D-PAG-01 a D-PAG-14;
-- `docs/adr/ADR-0041-paginacao-universal-por-pageup-e-pagedown.md` — decisões D-PGU-01 a D-PGU-08, especialização de tecla e representação visual;
+- `docs/adr/ADR-0041-paginacao-universal-por-pageup-e-pagedown.md` — decisões D-PGU-01 a D-PGU-08, especialização de tecla e identificador documental `[PgUp][PgDn]`;
+- `docs/adr/ADR-0046-alteracao-aplicacao-estilo-global-runtime.md` — forma física renderizada `[PgUp/PgDn]`;
 - `docs/contratos/contrato_console.md` — seção 24: comportamento completo da paginação;
 - `docs/contratos/contrato_chip.md` — regras de existência e ativo/inativo de `[PgUp][PgDn]` e `[✥]`;
 - `docs/nomenclatura/21_LAYOUT_REDIMENSIONAMENTO_E_PAGINACAO.md` — indicador de paginação e termos de página;

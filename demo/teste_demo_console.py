@@ -390,9 +390,11 @@ def teste_h0054_selecao_multinivel_carrega_renderiza_e_preserva_paginas():
     linha_ajuda = next(
         linha for linha in quadro.splitlines() if "[?] Ajuda" in linha
     )
-    assert linha_ajuda.index("[PgUp][PgDn] Páginas") < linha_ajuda.index(
+    linha_ajuda_visivel = re.sub(r"\x1b\[[0-9;]*m", "", linha_ajuda)
+    assert linha_ajuda_visivel.index("[PgUp/PgDn] Páginas") < linha_ajuda_visivel.index(
         "[␣] Selecionar"
     )
+    assert "[PgUp][PgDn]" not in linha_ajuda_visivel
     assert linha_ajuda.index("[␣] Selecionar") < linha_ajuda.index("[?] Ajuda")
     assert "[✥] Navegar" in linha_ajuda
 
@@ -414,7 +416,9 @@ def teste_h0054_selecao_multinivel_carrega_renderiza_e_preserva_paginas():
     quadro_pagina_dois = renderizar_estado(
         pagina_dois, modelo, largura=90, altura=30
     )
-    assert "[PgUp][PgDn] Páginas" in quadro_pagina_dois
+    quadro_pagina_dois_visivel = re.sub(r"\x1b\[[0-9;]*m", "", quadro_pagina_dois)
+    assert "[PgUp/PgDn] Páginas" in quadro_pagina_dois_visivel
+    assert "[PgUp][PgDn]" not in quadro_pagina_dois_visivel
     assert "●" not in quadro_pagina_dois
     assert "[✥] Navegar" in quadro_pagina_dois
     assert "[Esc] Limpar" in quadro_pagina_dois
@@ -445,7 +449,9 @@ def teste_h0055_fixture_runtime_chips_modo_e_paginacao():
     ]
     quadro = renderizar_estado(inicial, modelo, largura=90, altura=24)
     assert "→" in quadro and "●" in quadro and "○" in quadro
-    assert "[PgUp][PgDn] Páginas" in quadro
+    quadro_visivel = re.sub(r"\x1b\[[0-9;]*m", "", quadro)
+    assert "[PgUp/PgDn] Páginas" in quadro_visivel
+    assert "[PgUp][PgDn]" not in quadro_visivel
     assert "[␣] Selecionar" in quadro
     assert "[␣] Expandir" not in quadro
     assert "[Esc] Sair" in quadro
@@ -884,15 +890,18 @@ def teste_h0053_ponto_de_entrada_real_preserva_foco_cursor_navegacao_e_arvore(
     assert "[␣] Recolher" in quadros[0]
     assert "●" not in saida and "○" not in saida
 
+    def _visivel(quadro):
+        return re.sub(r"\x1b\[[0-9;]*m", "", quadro)
+
     assert "1.2.1" not in quadros[1]
-    assert "[␣] Expandir" in quadros[1]
+    assert "[␣] Expandir" in _visivel(quadros[1])
     assert "1.2.1" in quadros[2]
     assert "→" in quadros[3] and "1.1" in quadros[3]
     assert "→" in quadros[4] and "1.2" in quadros[4]
     assert "1.2.1" not in quadros[5]
-    assert "[␣] Expandir" in quadros[5]
+    assert "[␣] Expandir" in _visivel(quadros[5])
     assert "1.2.1" in quadros[6]
-    assert "[␣] Expandir" in quadros[7]
+    assert "[␣] Expandir" in _visivel(quadros[7])
 
 
 def teste_h0053_fixture_hierarquia_e_multiline():

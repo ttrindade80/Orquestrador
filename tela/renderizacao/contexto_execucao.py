@@ -52,6 +52,8 @@ _navegacao_atual = {
     # (H-0044): selecao nao vazia fica ativa somente se True. None preserva
     # H-0041 (Executar inativo).
     "executar_disponivel": None,
+    # H-0062: disponibilidade contextual do chip Aplicar.
+    "aplicar_disponivel": None,
     "paginas_atuais": {},
 }
 
@@ -287,6 +289,7 @@ def _preparar_contexto_navegacao(
     foco_console=None, cursores=None, lista_foco=None,
     largura_navegacao=None, selecoes=None, chips_destacados=None,
     executar_disponivel=None, paginas_atuais=None, modelo=None,
+    aplicar_disponivel=None,
 ):
     """Repopula o contexto de runtime ``_navegacao_atual`` (H-0045-P05).
 
@@ -342,3 +345,4 @@ def _preparar_contexto_navegacao(
     else:
         _navegacao_atual["chips_destacados"] = frozenset(chips_destacados)
     _navegacao_atual["executar_disponivel"] = executar_disponivel
+    _navegacao_atual["aplicar_disponivel"] = aplicar_disponivel

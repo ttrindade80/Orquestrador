@@ -1,0 +1,174 @@
+{
+  "id": "h0063_estilo_estrutura_navegacao_dois_niveis",
+  "schema": "tela.v1",
+  "cabecalho": {
+    "titulo": "Estilo",
+    "descricao": "Estrutura e navegacao em dois niveis de presets",
+    "apresentacao": {
+      "titulo": {
+        "posicao": "esquerda",
+        "recuo_lateral": 0,
+        "capitalizacao": "maiusculas",
+        "formato_na_borda": "com_espacos_laterais"
+      },
+      "descricao": {
+        "max_caracteres": 120,
+        "alinhamento": "esquerda",
+        "recuo": 1,
+        "capitalizacao": "preservar"
+      }
+    }
+  },
+  "corpo": {
+    "arranjo": "vertical",
+    "elementos": [
+      {
+        "id": "console_h0063_estilo",
+        "tipo": "console",
+        "titulo": "Categorias e presets",
+        "itens": [],
+        "origem_dados": {"tipo": "declarados"},
+        "politica_composicao": {"tipo": "manual"},
+        "politica_navegacao": {
+          "navegavel": true,
+          "tipo": "dois_niveis_por_foco"
+        },
+        "politica_selecao": "multipla",
+        "politica_paginacao": "com",
+        "politica_exibicao": {"verboso": false}
+      }
+    ]
+  },
+  "barra_de_menus": {
+    "distribuicao": {
+      "modo": "horizontal_responsiva",
+      "ordem": {
+        "politica": "declaracao",
+        "ancoras": {}
+      },
+      "tentativa_inicial": "linha_unica",
+      "quebra": "multilinha_quando_nao_couber",
+      "preenchimento_multilinha": "coluna_a_coluna",
+      "preenchimentos_multilinha_suportados": ["coluna_a_coluna", "linha_a_linha"],
+      "linhas": {"minimo": 1, "maximo": 3, "preferir_menor_numero": true},
+      "alinhamento_linhas": "esquerda",
+      "espacamentos": {
+        "margem_horizontal":         {"minimo": 1, "maximo": null},
+        "vao_chip_texto":            {"minimo": 1, "maximo": 3},
+        "vao_entre_chips":           {"minimo": 2, "maximo": 6},
+        "vao_entre_colunas":         {"minimo": 2, "maximo": 8},
+        "vao_vertical_entre_linhas": {"minimo": 0, "maximo": 0}
+      },
+      "colunas": {
+        "largura": "por_maior_item_da_coluna",
+        "subcolunas": {
+          "chip":  {"alinhamento": "esquerda"},
+          "texto": {"alinhamento": "esquerda"}
+        }
+      },
+      "overflow": {
+        "quando_nao_couber": "erro_layout",
+        "nao_omitir_chips":  true,
+        "nao_truncar_texto": true,
+        "nao_reordenar":     true
+      }
+    },
+    "chips": [
+      {
+        "id": "chip_sair",
+        "tipo": "acao",
+        "tecla": "Esc",
+        "texto": "Sair",
+        "regra_ativo": "sempre"
+      },
+      {
+        "id": "chip_navegar",
+        "tipo": "informativo",
+        "tecla": "✥",
+        "texto": "Navegar",
+        "regra_ativo": "quando_navegacao_disponivel"
+      },
+      {
+        "id": "chip_pagina_anterior",
+        "tipo": "navegacao",
+        "tecla": "PgUp",
+        "texto": "",
+        "regra_existencia": "console_com_paginacao",
+        "regra_ativo": "pagina_nao_e_primeira",
+        "forma_exibicao": "visivel_ativo"
+      },
+      {
+        "id": "chip_pagina_proxima",
+        "tipo": "navegacao",
+        "tecla": "PgDn",
+        "texto": "Páginas",
+        "regra_existencia": "console_com_paginacao",
+        "regra_ativo": "pagina_nao_e_ultima",
+        "forma_exibicao": "visivel_ativo"
+      },
+      {
+        "id": "chip_selecionar",
+        "tipo": "acao",
+        "tecla": "␣",
+        "texto": "Selecionar",
+        "forma_exibicao": "rotulo_dinamico",
+        "regra_ativo": "sempre"
+      },
+      {
+        "id": "chip_aplicar",
+        "tipo": "acao",
+        "tecla": "⏎",
+        "texto": "Aplicar",
+        "regra_ativo": "candidato_divergente"
+      },
+      {
+        "id": "chip_ajuda",
+        "tipo": "ajuda",
+        "tecla": "?",
+        "texto": "Ajuda",
+        "regra_ativo": "sempre"
+      }
+    ]
+  },
+  "popups": {
+    "popup_confirmacao_aplicacao_estilo": {
+      "tipo": "texto",
+      "titulo": "Aplicar estilo",
+      "alinhamento": "centralizado",
+      "espacamento_superior": 1,
+      "espacamento_conteudo_chips": 1,
+      "espacamento_inferior": 1,
+      "espacamento_horizontal": 2,
+      "chips": [
+        {
+          "id": "popup_confirmacao_aplicacao_estilo_voltar",
+          "tipo": "especifico",
+          "tecla": "Esc",
+          "texto": "Voltar",
+          "referencia_regra": {
+            "resultado": {
+              "status": "ABORTADO"
+            }
+          },
+          "regra_existencia": "sempre",
+          "regra_ativo": "sempre",
+          "forma_exibicao": "ativo"
+        },
+        {
+          "id": "popup_confirmacao_aplicacao_estilo_confirmar",
+          "tipo": "especifico",
+          "tecla": "Enter",
+          "texto": "Confirmar",
+          "referencia_regra": {
+            "resultado": {
+              "status": "CONFIRMADO"
+            }
+          },
+          "regra_existencia": "sempre",
+          "regra_ativo": "sempre",
+          "forma_exibicao": "ativo"
+        }
+      ]
+    }
+  }
+}

@@ -122,6 +122,14 @@ from tela.loader import (
     carregar_tela,
     carregar_conteudo_externo,
     carregar_estilo,
+    EstiloErro,
+    RuntimeEstilo,
+)
+from tela.estilo import (
+    ControladorTelaEstilo,
+    ID_POPUP_CONFIRMACAO_APLICACAO_ESTILO,
+    ID_TELA_ESTILO,
+    SolicitacaoAplicacaoEstilo,
 )
 from tela.modelo import construir_modelo, ModeloTela
 from tela.renderizador import (
@@ -132,6 +140,7 @@ from tela.renderizador import (
     _largura_sem_ansi,
     _texto_chip_barra,
     geometria_console,
+    associar_conteudo_estilo,
 )
 from tela.renderizacao.popup import (
     abrir_popup,
@@ -218,8 +227,15 @@ ALTURA_MINIMA_TELA = 6
 # ","/"<"/"."/">" (H-0045), sem alias nem fallback residual desses caracteres.
 TECLA_PAGE_UP = "\x1b[5~"
 TECLA_PAGE_DOWN = "\x1b[6~"
+TECLA_F4 = "F4"
+_SEQUENCIAS_F4 = ("\x1bOS", "\x1b[13~")
 
 _RAIZ_TELAS_DEMO = os.path.join("config", "telas", "demo")
+_ID_TELA_H0063 = ID_TELA_ESTILO
+# H-0069: demonstracao integrada (Cabecalho + Console + Dashboard + Barra)
+# aberta sob a materializacao local do candidato, entre Enter/Aplicar e o
+# popup de confirmacao ja existente (H-0067/H-0068). ADR-0046 secao 5.
+_ID_TELA_H0069_DEMONSTRACAO = "h0069_estilo_demonstracao_integrada"
 
 # H-0036 / ADR-0026 / ADR-0027: catalogo interno de associacao entre cenario e
 # documento externo de conteudo. A associacao pertence ao ponto de entrada
@@ -306,6 +322,109 @@ def criar_estado_inicial():
         "popup": None,
         "popup_resultado": None,
     }
+
+
+def _anexar_tela_estilo(estado):
+    """Cria a sessao de Estilo; cada instancia nova forma candidato (H-0065)."""
+    if estado.get("tela_atual") != _ID_TELA_H0063:
+        novo = dict(estado)
+        novo.pop("tela_estilo", None)
+        # H-0069: a demonstracao local (e sua origem) so faz sentido dentro
+        # da visita a tela de Estilo; sair dela encerra qualquer resquicio.
+        novo.pop("_sessao_demonstracao_estilo", None)
+        novo.pop("_modelo_origem_demonstracao_estilo", None)
+        novo.pop("estilo_demonstracao_local", None)
+        return novo
+    runtime = estado.get("estilo_runtime")
+    if runtime is None:
+        return dict(estado)
+    atual = estado.get("tela_estilo")
+    if isinstance(atual, ControladorTelaEstilo) and atual.runtime is runtime:
+        return dict(estado)
+    novo = dict(estado)
+    novo["tela_estilo"] = ControladorTelaEstilo(runtime)
+    return novo
+
+
+def _encerrar_demonstracao_estilo(estado, remover_solicitacao=True):
+    """Encerra integralmente a tentativa local de demonstracao H-0069."""
+    novo = dict(estado)
+    for chave in (
+        "_sessao_demonstracao_estilo",
+        "_modelo_origem_demonstracao_estilo",
+        "estilo_demonstracao_local",
+    ):
+        novo.pop(chave, None)
+    if remover_solicitacao:
+        novo.pop("solicitacao_aplicacao_estilo", None)
+    return novo
+
+
+def _preparar_modelo_estilo(modelo, estado):
+    """Injeta a projecao dinamica de presets no shell declarativo H-0063."""
+    if estado.get("tela_atual") != _ID_TELA_H0063:
+        return modelo
+    controlador = estado.get("tela_estilo")
+    if not isinstance(controlador, ControladorTelaEstilo):
+        return modelo
+    associar_conteudo_estilo(modelo, controlador.conteudo)
+    return modelo
+
+
+def _preparar_estado_estilo(estado, modelo):
+    """Inicializa/reconcilia selecoes a partir do candidato (H-0065)."""
+    if estado.get("tela_atual") != _ID_TELA_H0063:
+        return estado
+    controlador = estado.get("tela_estilo")
+    if not isinstance(controlador, ControladorTelaEstilo):
+        return estado
+    modelo = _preparar_modelo_estilo(modelo, estado)
+    console = controlador.console_do_modelo(modelo)
+    novo = dict(estado)
+    if console is not None and console.id not in (novo.get("selecoes") or {}):
+        novo = controlador.inicializar_estado(novo, modelo)
+    elif console is not None:
+        # Redraw/resize: elimina residual divergente antes de observar.
+        novo = controlador.reconciliar_selecoes_com_candidato(novo, modelo)
+    if console is not None:
+        paginas = dict(novo.get("pagina_atual") or {})
+        paginas.setdefault(console.id, 1)
+        novo["pagina_atual"] = paginas
+    return _preparar_estado_h0055(novo, modelo)
+
+
+def _descartar_visita_estilo(estado, modelo=None):
+    """Saida efetiva: candidato←baseline, selecoes reconciliado, depois sair."""
+    controlador = estado.get("tela_estilo")
+    if not isinstance(controlador, ControladorTelaEstilo):
+        runtime = estado.get("estilo_runtime")
+        if runtime is not None:
+            runtime.criar_candidato()
+        return dict(estado)
+    return controlador.descartar_visita(estado, modelo)
+
+
+def _estado_estilo_observavel(estado, modelo=None):
+    controlador = estado.get("tela_estilo")
+    if not isinstance(controlador, ControladorTelaEstilo):
+        return None
+    if modelo is None or estado.get("tela_atual") != _ID_TELA_H0063:
+        return (
+            None,
+            False,
+            dict(controlador.escolhas_iniciais),
+        )
+    console = controlador.console_do_modelo(modelo)
+    cursor = None
+    em_filhos = False
+    if console is not None:
+        cursor = (estado.get("cursores") or {}).get(console.id)
+        em_filhos = navegacao.em_nivel_filhos(estado, console)
+    return (
+        cursor,
+        em_filhos,
+        controlador.escolhas_de(estado, modelo),
+    )
 
 
 def _registro_acoes_h0050():
@@ -702,6 +821,18 @@ def processar_comando(estado, comando, modelo=None):
         # comandos; nunca persiste em JSON (NC-005/D-SEL-01).
         "selecoes": dict(estado.get("selecoes", {})),
     }
+    for chave in (
+        "estilo",
+        "estilo_runtime",
+        "tela_estilo",
+        "solicitacao_aplicacao_estilo",
+        # H-0069: demonstracao local (materializacao + modelo + origem).
+        "estilo_demonstracao_local",
+        "_sessao_demonstracao_estilo",
+        "_modelo_origem_demonstracao_estilo",
+    ):
+        if chave in estado:
+            novo[chave] = estado[chave]
     if "popup" in estado:
         novo["popup"] = estado.get("popup")
     if "popup_resultado" in estado:
@@ -761,7 +892,12 @@ def processar_comando(estado, comando, modelo=None):
     # A tela e o modelo subjacentes permanecem intocados; somente resultados
     # terminais fecham o modal. Resultados internos de navegacao/marcacao
     # apenas deixam a mesma instancia aberta.
+    # H-0067/H-0068: no popup de confirmacao de estilo, ABORTADO descarta
+    # a tentativa sem saida efetiva H-0065; CONFIRMADO aplica o snapshot
+    # retido no mesmo evento (validar+persistir+publicar+baseline).
     if novo.get("popup") is not None:
+        popup_antes = novo["popup"]
+        popup_id = getattr(popup_antes, "id", None)
         resultado_popup = consumir_tecla_popup(novo["popup"], comando)
         if (
             isinstance(resultado_popup, dict)
@@ -769,10 +905,60 @@ def processar_comando(estado, comando, modelo=None):
         ):
             novo["popup"] = None
             novo["popup_resultado"] = resultado_popup
+            if popup_id == ID_POPUP_CONFIRMACAO_APLICACAO_ESTILO:
+                if resultado_popup.get("status") == "CONFIRMADO":
+                    solicitacao = novo.get("solicitacao_aplicacao_estilo")
+                    controlador = novo.get("tela_estilo")
+                    if (
+                        isinstance(solicitacao, SolicitacaoAplicacaoEstilo)
+                        and isinstance(controlador, ControladorTelaEstilo)
+                    ):
+                        # H-0069: ``modelo`` pode ser o da demonstracao (o
+                        # loop repassa o ultimo resolvido por
+                        # ``_modelo_corrente``); a reconciliacao de selecoes
+                        # exige o modelo real da tela de Estilo.
+                        modelo_estilo = (
+                            novo.get("_modelo_origem_demonstracao_estilo")
+                            or modelo
+                        )
+                        try:
+                            novo, materializacao = (
+                                controlador.aplicar_solicitacao_confirmada(
+                                    solicitacao, novo, modelo_estilo
+                                )
+                            )
+                            if materializacao is not None:
+                                novo["estilo"] = materializacao
+                        except EstiloErro:
+                            pass
+                # A limpeza ocorre depois da aplicacao definitiva, quando
+                # CONFIRMADO ainda precisa da origem para reconciliar a tela
+                # de Estilo. ABORTADO e CONFIRMADO encerram a mesma tentativa.
+                novo = _encerrar_demonstracao_estilo(novo)
+        return novo
+
+    # H-0063: F4 abre a tela normal de Estilo pelo dispatcher vigente.
+    # Navegacao, Esc e resize seguem o pipeline normal da tela declarativa.
+    if comando == TECLA_F4 and novo.get("tela_atual") != _ID_TELA_H0063:
+        runtime = novo.get("estilo_runtime")
+        if runtime is not None:
+            novo["pilha_telas"].append(novo["tela_atual"])
+            novo["tela_atual"] = _ID_TELA_H0063
+            novo["tela_estilo"] = ControladorTelaEstilo(runtime)
+            # Nova entrada: escolhas observacionais reiniciam no prepare.
+            selecoes = dict(novo.get("selecoes") or {})
+            cursores = dict(novo.get("cursores") or {})
+            selecoes.pop("console_h0063_estilo", None)
+            cursores.pop("console_h0063_estilo", None)
+            novo["selecoes"] = selecoes
+            novo["cursores"] = cursores
         return novo
 
     # Boundary de estado: uma árvore focalizada com nós visíveis não chega a
     # chip/renderer sem o cursor reconciliado pela navegação vigente.
+    if modelo is not None and novo.get("tela_atual") == _ID_TELA_H0063:
+        modelo = _preparar_modelo_estilo(modelo, novo)
+        novo = _preparar_estado_estilo(novo, modelo)
     novo = _reconciliar_cursor_focalizado(novo, modelo)
     if modelo is not None:
         novo = _preparar_estado_h0055(novo, modelo)
@@ -896,10 +1082,19 @@ def processar_comando(estado, comando, modelo=None):
                 novo = selecao.limpar(novo, console_foco)
                 return novo
         if novo["pilha_telas"]:
+            # H-0065: saida efetiva da tela de Estilo descarta candidato e
+            # reconcilia selecoes antes de concluir o pop.
+            if novo.get("tela_atual") == _ID_TELA_H0063:
+                novo = _descartar_visita_estilo(novo, modelo)
             novo["tela_atual"] = novo["pilha_telas"][-1]
             novo["pilha_telas"] = novo["pilha_telas"][:-1]
             novo.pop("ramos_fechados", None)
+            novo.pop("tela_estilo", None)
+            novo = _anexar_tela_estilo(novo)
         else:
+            if novo.get("tela_atual") == _ID_TELA_H0063:
+                novo = _descartar_visita_estilo(novo, modelo)
+                novo.pop("tela_estilo", None)
             novo["saindo"] = True
         return novo
 
@@ -1022,12 +1217,90 @@ def processar_comando(estado, comando, modelo=None):
                         nav_estado = navegacao.entrar_nivel_filhos(
                             nav_estado, console
                         )
+                    elif (
+                        nav_estado.get("tela_atual") == _ID_TELA_H0063
+                        and navegacao.tipo_navegacao_efetivo(console)
+                        == "dois_niveis_por_foco"
+                        and navegacao.em_nivel_filhos(nav_estado, console)
+                        and isinstance(
+                            nav_estado.get("tela_estilo"), ControladorTelaEstilo
+                        )
+                    ):
+                        # H-0065: Espaco atomico — candidato aceito → selecoes.
+                        nav_estado = nav_estado["tela_estilo"].aplicar_espaco_filho(
+                            nav_estado, modelo
+                        )
                     else:
                         item = navegacao.item_selecionado(console, nav_estado)
                         if isinstance(item, dict):
                             nav_estado = selecao.alternar(
                                 nav_estado, console, item.get("id")
                             )
+                elif (
+                    comando in ("\r", "\n")
+                    and nav_estado.get("tela_atual") == _ID_TELA_H0063
+                    and isinstance(
+                        nav_estado.get("tela_estilo"), ControladorTelaEstilo
+                    )
+                ):
+                    # H-0066/H-0067/H-0069: na tela de Estilo, Enter e a acao
+                    # especializada Aplicar (nao Todos/Executar), independente
+                    # do nivel (pais ou filhos). Inativo -> no-op; ativo ->
+                    # produz a solicitacao estrutural imutavel, materializa o
+                    # candidato somente localmente (``materializar_local``,
+                    # sem tocar baseline/global_vigente) e, no mesmo evento,
+                    # abre a demonstracao integrada com o popup generico de
+                    # confirmacao (tipo texto) sobre ela. Sem persistencia,
+                    # sem publicacao, sem promocao de baseline.
+                    solicitacao = nav_estado["tela_estilo"].solicitar_aplicacao()
+                    if solicitacao is not None:
+                        materializacao_local = (
+                            nav_estado["tela_estilo"].runtime.materializar_local(
+                                solicitacao.candidato
+                            )
+                        )
+                        modelo_demonstracao = _carregar_modelo_por_id(
+                            _ID_TELA_H0069_DEMONSTRACAO
+                        )
+                        conteudo = ControladorTelaEstilo.conteudo_popup_confirmacao(
+                            solicitacao
+                        )
+                        instancia = abrir_popup(
+                            modelo,
+                            ID_POPUP_CONFIRMACAO_APLICACAO_ESTILO,
+                            conteudo,
+                        )
+                        console_demo = navegacao.lista_foco(modelo_demonstracao)
+                        cursores = dict(nav_estado.get("cursores") or {})
+                        selecoes = dict(nav_estado.get("selecoes") or {})
+                        paginas = dict(nav_estado.get("pagina_atual") or {})
+                        if console_demo:
+                            console_demo_id = console_demo[0].id
+                            itens_demo = (
+                                console_demo[0]._campos_inertes.get("itens") or []
+                            )
+                            cursores[console_demo_id] = 0
+                            selecoes[console_demo_id] = [
+                                item.get("id")
+                                for indice, item in enumerate(itens_demo)
+                                if isinstance(item, dict)
+                                and indice % 2 == 1
+                                and item.get("id")
+                            ]
+                            paginas[console_demo_id] = 1
+                        nav_estado = dict(
+                            nav_estado,
+                            solicitacao_aplicacao_estilo=solicitacao,
+                            popup=instancia,
+                            popup_resultado=None,
+                            estilo_demonstracao_local=materializacao_local,
+                            _sessao_demonstracao_estilo=modelo_demonstracao,
+                            _modelo_origem_demonstracao_estilo=modelo,
+                            foco_console=0,
+                            cursores=cursores,
+                            selecoes=selecoes,
+                            pagina_atual=paginas,
+                        )
                 elif (
                     comando in ("\r", "\n")
                     and navegacao.tipo_navegacao_efetivo(console)
@@ -1073,6 +1346,26 @@ def processar_comando(estado, comando, modelo=None):
         else:
             novo.pop("ramos_fechados", None)
         novo["pagina_atual"] = dict(nav_estado.get("pagina_atual", {}))
+        if "solicitacao_aplicacao_estilo" in nav_estado:
+            novo["solicitacao_aplicacao_estilo"] = nav_estado[
+                "solicitacao_aplicacao_estilo"
+            ]
+        if "estilo_demonstracao_local" in nav_estado:
+            novo["estilo_demonstracao_local"] = nav_estado[
+                "estilo_demonstracao_local"
+            ]
+        if "_sessao_demonstracao_estilo" in nav_estado:
+            novo["_sessao_demonstracao_estilo"] = nav_estado[
+                "_sessao_demonstracao_estilo"
+            ]
+        if "_modelo_origem_demonstracao_estilo" in nav_estado:
+            novo["_modelo_origem_demonstracao_estilo"] = nav_estado[
+                "_modelo_origem_demonstracao_estilo"
+            ]
+        if "popup" in nav_estado:
+            novo["popup"] = nav_estado.get("popup")
+        if "popup_resultado" in nav_estado:
+            novo["popup_resultado"] = nav_estado.get("popup_resultado")
         return novo
 
     # H-0037: tecla V (maiuscula) ou v (minuscula) alterna verbosidade
@@ -1131,6 +1424,17 @@ def renderizar_estado(estado, modelo, largura=None, altura=None):
     materializar o indicador de cursor no console focado e aplicar as regras
     dinamicas de existencia dos chips ``[⇆]``/``[✥]`` (D11/D12/D14).
     """
+    # H-0069: enquanto a demonstracao local esta aberta, ``modelo`` ja e o
+    # modelo da demonstracao (resolvido por ``_modelo_corrente``), nao o
+    # shell dinamico de H-0063 — a preparacao dos presets nao se aplica.
+    if (
+        modelo is not None
+        and estado.get("tela_atual") == _ID_TELA_H0063
+        and estado.get("_sessao_demonstracao_estilo") is None
+    ):
+        modelo = _preparar_modelo_estilo(modelo, estado)
+        estado = _preparar_estado_estilo(estado, modelo)
+
     estado_render = _preparar_estado_h0055(
         _reconciliar_cursor_focalizado(estado, modelo), modelo
     )
@@ -1148,13 +1452,31 @@ def renderizar_estado(estado, modelo, largura=None, altura=None):
         chips_destacados = fluxo.chips_destacados()
         if not fluxo.resultado_ativo:
             executar_disponivel = fluxo.executar_disponivel(estado_render)
+    # H-0066: aplicar_disponivel deriva de comparar_candidato_baseline via
+    # ControladorTelaEstilo.aplicar_disponivel (nunca flag independente).
+    aplicar_disponivel = None
+    controlador_estilo = estado_render.get("tela_estilo")
+    if (
+        estado_render.get("tela_atual") == _ID_TELA_H0063
+        and isinstance(controlador_estilo, ControladorTelaEstilo)
+    ):
+        aplicar_disponivel = controlador_estilo.aplicar_disponivel
+    # H-0069: sob a demonstracao local, a materializacao usada para
+    # renderizar (tela e popup) e a do candidato (``estilo_demonstracao_
+    # local``), nunca ``estado["estilo"]`` (global vigente, preservado
+    # intocado — ADR-0046 secao 5, isolamento).
+    estilo_render = (
+        estado_render["estilo_demonstracao_local"]
+        if estado_render.get("_sessao_demonstracao_estilo") is not None
+        else estado_render["estilo"]
+    )
     marcador_anterior = _navegacao_atual.get("ramos_fechados")
     _navegacao_atual["ramos_fechados"] = dict(
         estado_render.get("ramos_fechados", {})
     )
     try:
         quadro = renderizar_tela(
-            modelo_render, estado_render["estilo"], largura=largura, altura=altura,
+            modelo_render, estilo_render, largura=largura, altura=altura,
             verboso=_verboso_efetivo(estado_render, modelo_render),
             foco_console=estado_render.get("foco_console"),
             cursores=estado_render.get("cursores", {}),
@@ -1165,11 +1487,12 @@ def renderizar_estado(estado, modelo, largura=None, altura=None):
             executar_disponivel=executar_disponivel,
             paginas_atuais=estado_render.get("pagina_atual", {}),
             popup=estado_render.get("popup"),
+            aplicar_disponivel=aplicar_disponivel,
         )
         if contexto_chip is not None:
             chip, estado_chip = contexto_chip
             quadro = _aplicar_inatividade_chip_arvore(
-                quadro, chip, estado_chip, estado_render["estilo"], modelo_render
+                quadro, chip, estado_chip, estilo_render, modelo_render
             )
             _navegacao_atual.setdefault("estado_ativo_chips", {})[
                 chip.get("id")
@@ -1225,9 +1548,11 @@ def _modelo_com_chip_arvore(estado, modelo):
                 and navegacao.tipo_navegacao_efetivo(console)
                 == "dois_niveis_por_foco"
             ):
-                chip["texto"] = navegacao.rotulo_esc_dois_niveis(
+                rotulo = navegacao.rotulo_esc_dois_niveis(
                     estado, console
                 )
+                # Vocabulario canonico de navegacao (filhos: Voltar; pais: Sair).
+                chip["texto"] = rotulo
             else:
                 chip["texto"] = selecao.rotulo_esc(
                     estado, console, chip.get("texto")
@@ -1590,7 +1915,30 @@ def _estabelecer_foco_paginacao_inicial(estado, modelo):
 
 
 def _modelo_corrente(estado, modelo):
-    """Resolve o modelo a apresentar (origem ou resultado H-0044/H-0050)."""
+    """Resolve o modelo a apresentar (origem ou resultado H-0044/H-0050/H-0069)."""
+    # H-0069: enquanto a demonstracao local esta aberta, apresenta seu
+    # proprio modelo. Depois do encerramento, a sessao nao preserva modelo de
+    # origem: se o loop ainda carrega o modelo da demonstracao, resolve a tela
+    # de Estilo pela tela atual, sem reter chave privada da tentativa.
+    sessao_demonstracao_estilo = estado.get("_sessao_demonstracao_estilo")
+    if sessao_demonstracao_estilo is not None:
+        return sessao_demonstracao_estilo
+    if (
+        estado.get("tela_atual") == _ID_TELA_H0063
+        and (
+            modelo is None
+            or getattr(modelo, "id", None) == _ID_TELA_H0069_DEMONSTRACAO
+        )
+    ):
+        # Overlay H-0069 encerra sem mudar tela_atual: o loop ainda carrega
+        # o modelo da demonstracao. Recarregar o shell de Estilo nao basta:
+        # o conteudo de dois niveis nao vem do catalogo; e associado em
+        # runtime. Sem essa preparacao, o calculo pos-comando de estilo
+        # recebe console com conteudo_externo=None.
+        return _preparar_modelo_estilo(
+            _carregar_modelo_por_id(_ID_TELA_H0063),
+            estado,
+        )
     sessao_controle = estado.get("_sessao_resultado_controle")
     if sessao_controle is not None:
         return sessao_controle.modelo
@@ -1821,6 +2169,8 @@ def _ler_tecla_sessao(fd=None):
         if not proximo:
             break
         sequencia += proximo.decode("latin-1")
+    if sequencia in _SEQUENCIAS_F4:
+        return TECLA_F4
     return sequencia
 
 
@@ -2221,11 +2571,16 @@ def main(argv=None, estado_inicial=None):
     # historico e preservado integralmente.
     if estado_inicial is not None:
         estado = dict(estado_inicial)
-    # H-0039 / ADR-0030: carrega o estilo global uma unica vez por sessao a
-    # partir de config/estilo.json. O EstiloResolvido e imutavel e repassado
-    # ao renderer via estado["estilo"]; nao e recarregado por comando/render.
-    estilo = carregar_estilo()
-    estado = dict(estado, estilo=estilo)
+    # H-0061/H-0062: uma unica instancia de runtime separa baseline,
+    # candidato e materializacao global durante toda a sessao.
+    runtime_estilo = estado.get("estilo_runtime")
+    if runtime_estilo is None:
+        runtime_estilo = RuntimeEstilo()
+    estado = dict(
+        estado,
+        estilo_runtime=runtime_estilo,
+        estilo=runtime_estilo.global_vigente,
+    )
     tela_inicial = _tela_inicial_de_argv(argv)
     if tela_inicial != estado["tela_atual"]:
         estado = dict(estado, tela_atual=tela_inicial)
@@ -2233,8 +2588,12 @@ def main(argv=None, estado_inicial=None):
     # vigentes carregam modelo fixo uma unica vez (sem regeneracao).
     casos_val.id_caso_de_entrada(tela_inicial)
     modelo = _carregar_modelo_por_id(estado["tela_atual"])
+    estado = _anexar_tela_estilo(estado)
+    modelo = _preparar_modelo_estilo(modelo, estado)
     estado = _preparar_estado_h0053(estado, modelo)
-    estado = _preparar_estado_h0055(estado, modelo)
+    estado = _preparar_estado_estilo(estado, modelo)
+    if estado["tela_atual"] != _ID_TELA_H0063:
+        estado = _preparar_estado_h0055(estado, modelo)
     if estado["tela_atual"] == _ID_TELA_H0044:
         estado = _anexar_fluxo_h0044(estado, modelo)
     else:
@@ -2322,6 +2681,7 @@ def main(argv=None, estado_inicial=None):
                             continue
                     ch = _ler_tecla_sessao(fd=fd)
                     tela_antes = estado["tela_atual"]
+                    estilo_antes = _estado_estilo_observavel(estado, modelo)
                     verboso_antes = estado.get("modo_verboso", False)
                     foco_antes = estado.get("foco_console")
                     cursores_antes = dict(estado.get("cursores", {}))
@@ -2354,11 +2714,17 @@ def main(argv=None, estado_inicial=None):
                         break
                     if estado["tela_atual"] != tela_antes:
                         modelo = _carregar_modelo_por_id(estado["tela_atual"])
-                        if estado["tela_atual"] == _ID_TELA_H0044:
+                        if estado["tela_atual"] == _ID_TELA_H0063:
+                            estado = _anexar_tela_estilo(estado)
+                            modelo = _preparar_modelo_estilo(modelo, estado)
+                            estado = _preparar_estado_estilo(estado, modelo)
+                        elif estado["tela_atual"] == _ID_TELA_H0044:
                             estado = _anexar_fluxo_h0044(estado, modelo)
                         else:
                             estado = _anexar_controle_execucao(estado, modelo)
-                        estado = _preparar_estado_h0055(estado, modelo)
+                            estado = _anexar_tela_estilo(estado)
+                        if estado["tela_atual"] != _ID_TELA_H0063:
+                            estado = _preparar_estado_h0055(estado, modelo)
                         if estado.get("modo_verboso_forcado") is True:
                             estado = dict(estado, modo_verboso=True)
                         else:
@@ -2395,8 +2761,10 @@ def main(argv=None, estado_inicial=None):
                         _estado_popup_observavel(estado.get("popup"))
                         != popup_antes
                     )
+                    estilo_mudou = _estado_estilo_observavel(estado, modelo) != estilo_antes
                     if (
                         estado["tela_atual"] != tela_antes
+                        or estilo_mudou
                         or verboso_mudou
                         or foco_mudou
                         or cursores_mudou
@@ -2432,8 +2800,8 @@ def main(argv=None, estado_inicial=None):
                 _encerrar_sessao_tui(fd, atributos_originais)
     else:
         tamanho_terminal = shutil.get_terminal_size(fallback=(80, 24))
-        largura = tamanho_terminal.columns
-        altura = tamanho_terminal.lines
+        largura = int(estado.get("largura") or tamanho_terminal.columns)
+        altura = int(estado.get("altura") or tamanho_terminal.lines)
         estado = dict(
             estado,
             largura=largura,
@@ -2444,8 +2812,12 @@ def main(argv=None, estado_inicial=None):
         # nao cabe (RenderizadorErro), em vez de traceback no smoke non-TTY.
         print(_resolver_conteudo(estado, modelo, largura, altura), end="")
         for linha in sys.stdin:
-            comando = linha.strip()
+            entrada = linha.rstrip("\r\n")
+            # Preserva a linha de um unico Espaco no modo non-TTY; os demais
+            # comandos textuais mantem a tolerancia historica a espacos.
+            comando = entrada if entrada == " " else entrada.strip()
             tela_antes = estado["tela_atual"]
+            estilo_antes = _estado_estilo_observavel(estado, modelo)
             verboso_antes = estado.get("modo_verboso", False)
             foco_antes = estado.get("foco_console")
             cursores_antes = dict(estado.get("cursores", {}))
@@ -2477,11 +2849,17 @@ def main(argv=None, estado_inicial=None):
                 break
             if estado["tela_atual"] != tela_antes:
                 modelo = _carregar_modelo_por_id(estado["tela_atual"])
-                if estado["tela_atual"] == _ID_TELA_H0044:
+                if estado["tela_atual"] == _ID_TELA_H0063:
+                    estado = _anexar_tela_estilo(estado)
+                    modelo = _preparar_modelo_estilo(modelo, estado)
+                    estado = _preparar_estado_estilo(estado, modelo)
+                elif estado["tela_atual"] == _ID_TELA_H0044:
                     estado = _anexar_fluxo_h0044(estado, modelo)
                 else:
                     estado = _anexar_controle_execucao(estado, modelo)
-                estado = _preparar_estado_h0055(estado, modelo)
+                    estado = _anexar_tela_estilo(estado)
+                if estado["tela_atual"] != _ID_TELA_H0063:
+                    estado = _preparar_estado_h0055(estado, modelo)
                 if estado.get("modo_verboso_forcado") is True:
                     estado = dict(estado, modo_verboso=True)
                 else:
@@ -2516,8 +2894,12 @@ def main(argv=None, estado_inicial=None):
             popup_mudou = (
                 _estado_popup_observavel(estado.get("popup")) != popup_antes
             )
+            estilo_mudou = (
+                _estado_estilo_observavel(estado, modelo) != estilo_antes
+            )
             if (
                 estado["tela_atual"] != tela_antes
+                or estilo_mudou
                 or verboso_mudou
                 or foco_mudou
                 or cursores_mudou

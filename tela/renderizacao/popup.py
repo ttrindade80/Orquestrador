@@ -15,7 +15,7 @@ from tela.renderizacao.geometria_caixa import (
     _borda_de_estilo,
     _caixa,
 )
-from tela.renderizacao.texto_ansi import _largura_sem_ansi
+from tela.renderizacao.texto_ansi import _largura_sem_ansi, _ljust_sem_ansi
 
 
 class PopupErro(RenderizadorErro):
@@ -262,8 +262,8 @@ def validar_declaracao_popup(declaracao, popup_id="popup_basico"):
         raise PopupErro("popup deve declarar no maximo um chip Enter")
     if chips_esc[0]["texto"] != "Voltar":
         raise PopupErro("o chip Esc demonstrativo deve ter texto 'Voltar'")
-    if declaracao["tipo"] == "texto" and chips_enter:
-        raise PopupErro("popup textual nao aceita regra de confirmacao")
+    # tipo texto pode declarar Enter/Confirmar (CONFIRMADO sem valor); ausente
+    # Enter permanece valido (popups textuais legados sem contrato de confirmacao).
     if chips_enter and chips_enter[0]["texto"] != "Confirmar":
         raise PopupErro("o chip Enter demonstrativo deve ter texto 'Confirmar'")
     copia = copy.deepcopy(declaracao)
@@ -383,6 +383,15 @@ def abrir_popup(fonte, popup_id, conteudo):
     return PopupInstancia(declaracao, envelope, estado)
 
 
+def _confirmar_texto(instancia):
+    """Confirma popup textual com Enter declarado; sem payload de marcacao."""
+    if _regra_confirmacao_declarada(instancia) is None:
+        return None
+    resultado = {"status": "CONFIRMADO"}
+    instancia._estado["_resultado_terminal"] = True
+    return resultado
+
+
 def consumir_tecla_popup(instancia, tecla):
     """Consome a tecla na modalidade vigente e produz resultados terminais."""
     if not isinstance(instancia, PopupInstancia):
@@ -393,7 +402,12 @@ def consumir_tecla_popup(instancia, tecla):
         resultado = {"status": "ABORTADO"}
         instancia._estado["_resultado_terminal"] = True
         return resultado
-    if instancia.declaracao.get("tipo") != "marcacao":
+    tipo = instancia.declaracao.get("tipo")
+    if tipo == "texto":
+        if tecla in {"\r", "\n"}:
+            return _confirmar_texto(instancia)
+        return None
+    if tipo != "marcacao":
         return None
     if tecla in {"\x1b[A", "\x1b[B", "\x1b[C", "\x1b[D"}:
         resultado = _navegar_marcacao(instancia, tecla)
@@ -580,6 +594,88 @@ def _texto_chip_popup(chip, estilo):
 
 def _erro_geometria(motivo):
     return PopupErro("popup geometria insuficiente: {0}".format(motivo))
+
+
+_RE_SGR_NUMERO_POPUP = re.compile(r"\A\x1b\[(\d*)m\Z")
+
+
+def _categoria_sgr(codigo):
+    """Classifica um SGR simples (numero unico) em fg/bg/reset_*/outro."""
+    match = _RE_SGR_NUMERO_POPUP.match(codigo)
+    if match is None:
+        return "outro"
+    numero = int(match.group(1)) if match.group(1) else 0
+    if numero == 0:
+        return "reset_total"
+    if numero == 39:
+        return "reset_fg"
+    if numero == 49:
+        return "reset_bg"
+    if 30 <= numero <= 37 or 90 <= numero <= 97:
+        return "fg"
+    if 40 <= numero <= 47 or 100 <= numero <= 107:
+        return "bg"
+    return "outro"
+
+
+def _dividir_visual(texto, corte):
+    """Divide ``texto`` em (prefixo, sufixo) na coluna visual ``corte``.
+
+    Sequencias SGR sao preservadas integralmente (nunca cortadas no meio).
+    O estado de cor de primeiro/segundo plano ainda aberto no ponto de
+    corte (sem reset ``39``/``49``/``0`` correspondente) e reaberto no
+    inicio do sufixo, para que a continuidade visual sobreviva ao trecho
+    descartado entre prefixo e sufixo (ver composicao em
+    ``sobrepor_no_corpo``). Um segmento SGR ja fechado dentro do trecho
+    descartado (o caso comum de ``amostra_chip``, que abre e fecha antes
+    do fim da amostra) nao deixa nenhum residuo no sufixo.
+    """
+    if corte <= 0:
+        return "", texto
+    if _largura_sem_ansi(texto) <= corte:
+        return texto, ""
+    partes = []
+    fg_ativo = None
+    bg_ativo = None
+    outros_ativos = []
+    n = 0
+    i = 0
+    comprimento = len(texto)
+    while i < comprimento:
+        ch = texto[i]
+        if ch == "\x1b" and i + 1 < comprimento and texto[i + 1] == "[":
+            j = i + 2
+            while j < comprimento:
+                fim = texto[j]
+                j += 1
+                if "A" <= fim <= "Z" or "a" <= fim <= "z":
+                    break
+            codigo = texto[i:j]
+            partes.append(codigo)
+            categoria = _categoria_sgr(codigo)
+            if categoria == "reset_total":
+                fg_ativo = None
+                bg_ativo = None
+                outros_ativos = []
+            elif categoria == "reset_fg":
+                fg_ativo = None
+            elif categoria == "reset_bg":
+                bg_ativo = None
+            elif categoria == "fg":
+                fg_ativo = codigo
+            elif categoria == "bg":
+                bg_ativo = codigo
+            else:
+                outros_ativos.append(codigo)
+            i = j
+            continue
+        if n >= corte:
+            break
+        partes.append(ch)
+        n += 1
+        i += 1
+    estado = "".join(c for c in (fg_ativo, bg_ativo) if c) + "".join(outros_ativos)
+    return "".join(partes), estado + texto[i:]
 
 
 def _quebrar_texto(texto, largura_util):
@@ -997,7 +1093,7 @@ def sobrepor_no_corpo(corpo, instancia, estilo, largura=None, altura=None):
         linhas_corpo.pop()
     if not linhas_corpo:
         raise PopupErro("popup exige corpo materializado")
-    largura_corpo = max(len(linha) for linha in linhas_corpo)
+    largura_corpo = max(_largura_sem_ansi(linha) for linha in linhas_corpo)
     altura_corpo = len(linhas_corpo) if altura is None else altura
     if altura_corpo != len(linhas_corpo):
         raise PopupErro("altura fisica do corpo divergente da composicao")
@@ -1015,11 +1111,9 @@ def sobrepor_no_corpo(corpo, instancia, estilo, largura=None, altura=None):
     y = (altura_corpo - len(caixa)) // 2
     for indice, linha in enumerate(caixa):
         linha_atual = linhas_corpo[y + indice]
-        if len(linha_atual) < largura_corpo:
-            linha_atual = linha_atual.ljust(largura_corpo)
-        linhas_corpo[y + indice] = (
-            linha_atual[:x]
-            + linha
-            + linha_atual[x + largura_popup:]
-        )
+        if _largura_sem_ansi(linha_atual) < largura_corpo:
+            linha_atual = _ljust_sem_ansi(linha_atual, largura_corpo)
+        prefixo, resto = _dividir_visual(linha_atual, x)
+        _, sufixo = _dividir_visual(resto, largura_popup)
+        linhas_corpo[y + indice] = prefixo + linha + sufixo
     return "\n".join(linhas_corpo)

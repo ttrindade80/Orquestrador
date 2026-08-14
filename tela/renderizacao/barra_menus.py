@@ -13,11 +13,12 @@ from tela.controle_execucao import ControleExecucaoRepresentacao
 from tela.renderizacao.erros import RenderizadorErro
 from tela.renderizacao.texto_ansi import (
     _ANSI_POR_NOME_SEMANTICO,
-    _ANSI_RESET_FG,
     _cortar_sem_ansi,
-    _codigo_ansi_de_cor,
     _largura_sem_ansi,
     _ljust_sem_ansi,
+)
+from tela.renderizacao.estilo import (
+    compor_chip_multitecla,
 )
 
 _DISTRIBUICAO_HORIZONTAL_RESPONSIVA_DEFAULT = {
@@ -59,7 +60,7 @@ _PREENCHIMENTOS_MULTILINHA_VALIDOS = ("coluna_a_coluna", "linha_a_linha")
 def _avaliar_regra_ativo(
     regra, *, selecao_vazia=None, item_focalizado_selecionavel=None,
     executar_disponivel=None, pagina_nao_e_primeira=None,
-    pagina_nao_e_ultima=None,
+    pagina_nao_e_ultima=None, candidato_divergente=None,
 ):
     """Avalia ``regra_ativo`` do chip e devolve o estado logico ATIVO.
 
@@ -112,27 +113,34 @@ def _avaliar_regra_ativo(
         if pagina_nao_e_ultima is None:
             return True
         return bool(pagina_nao_e_ultima)
+    if regra == "candidato_divergente":
+        if candidato_divergente is None:
+            return True
+        return bool(candidato_divergente)
     return True
 
 
-def _texto_chip_barra(chip, estilo, vao=1, inativo=False, destacado=False):
-    """Monta o texto de um chip da barra no formato ``"{ec}{tecla}{ed}{padding}{texto}"``.
+def _texto_chip_barra(
+    chip, estilo, vao=1, inativo=False, destacado=False,
+    aplicar_estilo=False,
+):
+    """Monta o texto de um chip com estilo contido na unidade visual.
 
     H-0039 / ADR-0030 D5: os delimitadores e a capitalizacao do rotulo vêm do
     ``EstiloResolvido`` (``caractere_esquerdo``, ``caractere_direito``,
     ``caixa_alta``), nunca hardcoded. ``caixa_alta`` aplica-se apenas ao
     rotulo (``texto``) -- a tecla permanece como declarada no JSON, para nao
-    quebrar identificadores como ``Esc``. ``cor_texto``/``cor_fundo`` são
-    lidos do estilo; enquanto nao houver traducao de nome semantico para
-    ANSI, o valor ``"padrão"`` preserva o comportamento vigente (sem cor
-    diferenciada, sem cor concreta nova).
+    quebrar identificadores como ``Esc``. ``cor_texto``/``cor_fundo`` sao
+    lidos do estilo pela composicao compartilhada. O padding e o texto
+    descritivo ficam fora da unidade visual estilizada.
 
     H-0041 P04: quando ``inativo=True``, o chip recebe ``estilo.cor_inativo``
     (nome semantico resolvido pelo loader a partir de ``config/estilo.json``),
     traduzido pela paleta canônica do renderer (R-7). A capitalizacao normal
     do rotulo e preservada — caixa baixa como indicacao de inatividade e
     proibida. A sequencia de cor e delimitada e seguida de restauracao do
-    foreground (``_ANSI_RESET_FG``), sem vazar para chips posteriores.
+    foreground (``_ANSI_RESET_FG``), sem vazar para o texto descritivo ou
+    chips posteriores.
     O estado logico continua vindo de ``regra_ativo`` / ``estado_ativo_chips``,
     nunca inferido pelo rotulo. Consoles sem selecao multipla preservam o
     comportamento anterior (``inativo`` default ``False``).
@@ -144,31 +152,38 @@ def _texto_chip_barra(chip, estilo, vao=1, inativo=False, destacado=False):
     """
     tecla = chip.get("tecla", "")
     texto = chip.get("texto", "")
-    cor_texto = estilo.cor_texto   # H-0039: "padrão" → sem ANSI nova
-    cor_fundo = estilo.cor_fundo   # H-0039: "padrão" → sem ANSI nova
     if estilo.caixa_alta:
         texto = texto.upper()
-    base = "{ec}{tecla}{ed}{padding}{rotulo}".format(
-        ec=estilo.caractere_esquerdo,
-        ed=estilo.caractere_direito,
-        tecla=tecla,
-        rotulo=texto,
-        padding=" " * vao,
+    visual = compor_chip_multitecla(
+        [tecla], estilo, estados=(inativo,), destaques=(destacado,)
     )
-    # Referencia material a cor_texto/cor_fundo (H-0039); sem efeito enquanto
-    # o valor semantico for ``"padrão"``.
-    _ = (cor_texto, cor_fundo)
-    if inativo:
-        codigo = _codigo_ansi_de_cor(estilo.cor_inativo)
-        if not codigo:
-            return base
-        return "{0}{1}{2}".format(codigo, base, _ANSI_RESET_FG)
-    if destacado:
-        codigo = _codigo_ansi_de_cor(getattr(estilo, "cor_alerta", "padrão"))
-        if not codigo:
-            return base
-        return "{0}{1}{2}".format(codigo, base, _ANSI_RESET_FG)
-    return base
+    return "{0}{1}{2}".format(visual, " " * vao, texto)
+
+
+def _conteudo_chip_multitecla(
+    teclas, estilo, familia, estados, destaques
+):
+    """Compatibilidade interna para a composição compartilhada."""
+    return compor_chip_multitecla(
+        teclas, estilo, estados=estados, destaques=destaques
+    )
+
+
+def _texto_chip_multitecla(
+    anterior, proxima, estilo, vao, estados, destaques
+):
+    """Monta o par de paginação como uma unidade visual única."""
+    texto = proxima.get("texto", "")
+    if estilo.caixa_alta:
+        texto = texto.upper()
+    chip = _conteudo_chip_multitecla(
+        [anterior.get("tecla", ""), proxima.get("tecla", "")],
+        estilo,
+        None,
+        estados,
+        destaques,
+    )
+    return "{0}{1}{2}".format(chip, " " * vao, texto)
 
 
 def _normalizar_distribuicao(distribuicao):
@@ -814,6 +829,7 @@ def _linhas_barra(barra_de_menus, estilo, content_w, controle_execucao=None):
     # selecionabilidade do item sob cursor, recalculada a cada movimento.
     estado_ativo_chips = {}
     executar_disponivel = _navegacao_atual.get("executar_disponivel")
+    candidato_divergente = _navegacao_atual.get("aplicar_disponivel")
     for c in chips:
         chip_id = c.get("id")
         ativo = _avaliar_regra_ativo(
@@ -823,6 +839,7 @@ def _linhas_barra(barra_de_menus, estilo, content_w, controle_execucao=None):
             executar_disponivel=executar_disponivel,
             pagina_nao_e_primeira=pagina_nao_e_primeira,
             pagina_nao_e_ultima=pagina_nao_e_ultima,
+            candidato_divergente=candidato_divergente,
         )
         if chip_id is not None:
             estado_ativo_chips[chip_id] = ativo
@@ -857,11 +874,11 @@ def _linhas_barra(barra_de_menus, estilo, content_w, controle_execucao=None):
         chips_destacados.add(representacao.chip_id)
     # H-0051 / D-PGU-01 a D-PGU-03: agrupamento focal exclusivo de
     # ``chip_pagina_anterior`` + ``chip_pagina_proxima`` (contiguos na
-    # ordem declarada) como sequencia visual unica "[PgUp][PgDn] Páginas",
-    # sem separador entre os dois. Cada chip preserva id, regra_existencia
-    # e regra_ativo proprios (avaliados acima, em ``estado_ativo_chips``);
-    # apenas a concatenacao textual dos dois e alterada aqui. Nenhum outro
-    # par de chips e afetado.
+    # ordem declarada). Todos os presets formam uma unidade visual multitecla
+    # com separador estrutural ``/``.
+    # Cada chip preserva id, regra_existencia e regra_ativo proprios
+    # (avaliados acima, em ``estado_ativo_chips``); nenhum outro par de chips
+    # e afetado.
     texto_chips = []
     pular_proximo = False
     for idx, c in enumerate(chips):
@@ -875,18 +892,23 @@ def _linhas_barra(barra_de_menus, estilo, content_w, controle_execucao=None):
             and proximo is not None
             and proximo.get("id") == "chip_pagina_proxima"
         ):
-            texto_ant = _texto_chip_barra(
-                c, estilo, vao=0,
-                inativo=not estado_ativo_chips.get(chip_id, True),
-                destacado=(chip_id in chips_destacados),
-            )
             prox_id = proximo.get("id")
-            texto_prox = _texto_chip_barra(
-                proximo, estilo, vao=vao_ct,
-                inativo=not estado_ativo_chips.get(prox_id, True),
-                destacado=(prox_id in chips_destacados),
+            texto_chips.append(
+                _texto_chip_multitecla(
+                    c,
+                    proximo,
+                    estilo,
+                    vao_ct,
+                    (
+                        not estado_ativo_chips.get(chip_id, True),
+                        not estado_ativo_chips.get(prox_id, True),
+                    ),
+                    (
+                        chip_id in chips_destacados,
+                        prox_id in chips_destacados,
+                    ),
+                )
             )
-            texto_chips.append(texto_ant + texto_prox)
             pular_proximo = True
             continue
         texto_chips.append(

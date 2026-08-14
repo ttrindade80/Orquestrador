@@ -52,9 +52,14 @@ Comportamento completo de cada comando permanece nos contratos
 - ativo destacado (via `cor_alerta`; ADR-0037)
 - paginação limitada de `[PgUp][PgDn]` (ADR-0038; tecla e notação especializadas pela ADR-0041)
 - teclas universais de paginação `PageUp`/`PageDown` (ADR-0041)
-- representação canônica `[PgUp][PgDn] Páginas` (ADR-0041)
+- identificador documental `[PgUp][PgDn]` (ADR-0041)
+- forma física renderizada `[PgUp/PgDn]` (ADR-0046)
 - Ajuda universal (`[?] Ajuda`) e chip contextual de árvore (`[␣] Expandir` /
   `[␣] Recolher`) (ADR-0043)
+- acesso global à funcionalidade de Estilo por `F4` e ação contextual
+  `Enter/Aplicar` do `ITEM-0010` (ADR-0046)
+- composição multitecla de chip — unidade visual única e separador canônico
+  `/` (ADR-0046)
 
 ## 4. Definições
 
@@ -88,7 +93,7 @@ ou símbolo acionável — ou informativo — exibido na região da tela.
 | Chip | Rótulo | Condição de existência |
 |---|---|---|
 | `[Esc]` | Sair / Voltar / Limpar | declarativa por tela |
-| `[PgUp][PgDn]` | Páginas | classe declara `paginacao: com`; topologia limitada, sem wrap entre primeira e última página (ADR-0038); tecla e representação canônica fixadas pela ADR-0041 |
+| `[PgUp][PgDn]` | Páginas | classe declara `paginacao: com`; topologia limitada, sem wrap entre primeira e última página (ADR-0038); teclas identificadas documentalmente pela ADR-0041; forma física `[PgUp/PgDn]` (ADR-0046) |
 | `[-][+]` | Colunas | classe declara `colunas_ajustavel: com` (tipo `console`) |
 | `[#]` | Grupos | classe declara filtro por grupo |
 | `[⇆]` | Alternar | tela possui pelo menos dois consoles focalizáveis (ADR-0031 D14) |
@@ -112,6 +117,18 @@ aplicável e antes de `[V]` e `[?]`. Sua representação deriva do item corrente
 `[␣] Expandir` e `[␣] Recolher` são distintos de `[␣] Selecionar` por
 semântica, não por uma nova tecla física ou sinônimo técnico.
 
+### 4.3.1 Composição multitecla — unidade visual única (ADR-0046)
+
+Quando um chip da ordem canônica representa ação multitecla (`[PgUp][PgDn]`,
+`[-][+]`), a forma física renderizada é uma única unidade visual, com
+delimitadores do preset apenas nas extremidades e teclas separadas pelo
+caractere canônico `/` — não delimitador completo por tecla. No preset
+Colchete: `[PgUp/PgDn] Páginas`. As notações em colchetes por tecla usadas
+nesta tabela são identificadores documentais das duas teclas/controles;
+`[PgUp][PgDn] Páginas` não é representação física nem visual canônica. O
+comportamento normativo completo pertence a `contrato_chip.md` seção 10.1 e
+a `contrato_estilo.md` seção 3.2 e seção 4.
+
 ### 4.4 Estado ativo e inativo
 
 - **Existência** = propriedade estática declarada pela classe (para a maioria dos chips).
@@ -119,6 +136,12 @@ semântica, não por uma nova tecla física ou sinônimo técnico.
   `cor_inativo` (definida no módulo `10`).
 - **Ativo destacado** (ADR-0037) = chip operável cujo texto usa `cor_alerta`
   sem usar `cor_inativo`; destaque não altera a condição de ativo.
+
+Chip existente funcionalmente ativo usa a aparência ativa; chip existente
+funcionalmente inativo usa `cor_inativo`. Composição, preset e aplicação de
+cor ou fundo não apagam, sobrepõem nem neutralizam `cor_inativo`. Isso vale
+inclusive para Páginas e para `Enter/Aplicar` quando inativos (ADR-0046).
+Esta preservação não cria política nova de estado.
 
 O chip continua ocupando sua posição/ordem quando inativo — não desaparece,
 só muda de cor e para de reagir ao acionamento.
@@ -139,8 +162,11 @@ implementação e reconciliação dessa escolha com o padrão universal.
 ### 4.4.2 Paginação limitada de `[PgUp][PgDn]` (ADR-0038; especializada pela ADR-0041)
 
 `[PgUp][PgDn]` são chips canônicos de tipo `navegacao` (existência
-declarativa via `paginacao: com`), representação canônica fixada pela
-ADR-0041 em substituição a `[<][>]`. A topologia entre páginas é limitada,
+declarativa via `paginacao: com`), identificador documental das duas
+teclas/controles fixado pela ADR-0041 em substituição a `[<][>]`. A forma
+física renderizada da ação única é `[PgUp/PgDn] Páginas` no preset
+Colchete (ADR-0046); `[PgUp][PgDn] Páginas` não é representação física nem
+visual canônica. A topologia entre páginas é limitada,
 não circular: `[PgUp]` inativo na primeira página; `[PgDn]` inativo na
 última; ambos inativos com uma única página (`página 1/1`), inclusive com
 conjunto vazio de itens visíveis. O estado ativo/inativo é avaliado
@@ -193,6 +219,18 @@ rótulo que muda conforme o estado atual.
 
 **`[Esc]`:** se há seleção ativa → `Limpar`; sem seleção → `Sair`/`Voltar`.
 
+### 4.5.1 Integração da funcionalidade de Estilo (ADR-0046)
+
+No ciclo do `ITEM-0010`, `F4` é o acionamento global da funcionalidade de
+Estilo. Dentro dessa funcionalidade, `Enter/Aplicar` é uma ação contextual:
+fica ativa somente quando a configuração candidata diverge da baseline
+persistida e permanece inativa quando ambas são equivalentes. Enquanto o
+pop-up modal de confirmação estiver aberto, a barra da tela subjacente fica
+suspensa e não recebe interação.
+
+Estas regras especializam somente o consumidor `ITEM-0010`; não criam mapa de
+outras teclas de função nem alteram as semânticas canônicas das demais telas.
+
 ### 4.6 Tipos de chip específico
 
 | Tipo | Natureza |
@@ -237,6 +275,7 @@ barra não é alterada nem transferida.
 | `[⇆]` × `[✥]` | `[⇆]` muda o foco entre consoles focalizáveis; `[✥]` move o cursor entre itens do console focado |
 | `barra_de_menus.distribuicao = "horizontal"` × `corpo.arranjo = "horizontal"` | São termos diferentes em regiões diferentes — não colapsam |
 | paginação limitada (entre páginas) × navegação toroidal por eixo (dentro da página) | `[PgUp][PgDn]` não fazem wrap entre primeira e última página (ADR-0038); o toróide por eixo (ADR-0031) só se aplica ao cursor dentro de uma mesma página |
+| `[PgUp][PgDn]` (identificador documental) × `[PgUp/PgDn]` (forma física) | `[PgUp][PgDn]` nomeia as duas teclas/controles; `[PgUp/PgDn]` é a unidade visual renderizada da ação única (ADR-0046) |
 
 ## 6. Relação com contratos
 
@@ -254,12 +293,18 @@ barra não é alterada nem transferida.
 - ADR-0037: chip específico `[Ins] Dry-Run`; distinção ativo/inativo/ativo destacado; supersessão pontual da proibição de chip de `dry-run` (D-SEL-19); `ITEM-0020` permanece aberto para padronização genérica.
 - ADR-0040: controle universal de execução real e `dry-run`, distinto da especialização focal da ADR-0037.
 - ADR-0038: fecha, para `[PgUp][PgDn]`, a topologia limitada e a avaliação pelo console focado; especializa, para `[✥]`, o universo de avaliação restrito à página atual do console focado.
-- ADR-0041: especializa, para toda paginação comum do Orquestrador, a tecla de acionamento (`PageUp`/`PageDown`) e a representação canônica (`[PgUp][PgDn] Páginas`), substituindo `,`/`<`/`.`/`>` e `[<][>]` em todos os documentos normativos; nenhuma outra decisão D-PAG-01 a D-PAG-13 é reaberta.
+- ADR-0041: especializa, para toda paginação comum do Orquestrador, a tecla de acionamento (`PageUp`/`PageDown`) e o identificador documental (`[PgUp][PgDn]`), substituindo `,`/`<`/`.`/`>` e `[<][>]`; nenhuma outra decisão D-PAG-01 a D-PAG-13 é reaberta.
 - ADR-0043: torna `[?] Ajuda` universal, sempre ativa e última; distingue
   `[␣] Expandir`/`[␣] Recolher` de `[␣] Selecionar` e os posiciona na faixa de
   específicos/contextuais para `arvore_colapsavel`.
 - ADR-0044: distingue a área de chips do pop-up da `barra_de_menus` e
   preserva a ordem canônica desta barra.
+- ADR-0046: fixa `F4` como acesso global a Estilo, condiciona
+  `Enter/Aplicar` à divergência do candidato e suspende a barra subjacente
+  durante a confirmação modal. O patch P02 fecha a composição multitecla
+  como unidade visual única com `/` (`[PgUp/PgDn]` é a forma física;
+  `[PgUp][PgDn]` permanece identificador documental), preserva `cor_inativo`
+  e aplica a mesma composição à Barra real.
 
 ## 8. Aliases ou termos descontinuados relacionados
 
@@ -291,6 +336,7 @@ adrs_relacionadas:
   - ADR-0031
   - ADR-0038
   - ADR-0041
+  - ADR-0046
 tratamento:
   - PRESERVADO
   - SEPARADO_DE_REGRA_COMPORTAMENTAL

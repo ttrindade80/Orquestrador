@@ -59,13 +59,26 @@ def _estado_inicial_paginado(modelo):
 
 def _sem_ansi(texto):
     """Remove sequencias ANSI de cor (H-0051): o agrupamento contiguo
-    ``[PgUp][PgDn] Páginas`` (D-PGU-01 a D-PGU-03) e uma propriedade do
-    conteudo VISIVEL; cada chip mantem seu proprio envelope de cor
+    ``<delimitador>PgUp/PgDn<delimitador> PÁGINAS`` (D-PGU-01 a D-PGU-03) e
+    uma propriedade do conteudo VISIVEL; cada chip mantem seu proprio envelope de cor
     inativo/ativo, o que insere codigos ANSI entre os dois quando um deles
     esta inativo. Comparar o literal exige ignorar esses codigos.
     """
     import re
     return re.sub(r"\x1b\[[0-9;]*m", "", texto)
+
+
+def _chip_paginas(estilo=None):
+    """Forma visual efetiva do chip agrupado no estilo recebido."""
+    estilo = estilo or carregar_estilo()
+    rotulo = "PÁGINAS" if estilo.caixa_alta else "Páginas"
+    return (
+        estilo.caractere_esquerdo
+        + "PgUp/PgDn"
+        + estilo.caractere_direito
+        + " "
+        + rotulo
+    )
 
 
 def _ler_caractere_tty(byte_unico):
@@ -162,12 +175,12 @@ def test_demo_h0045_p01_cadeia_tty_quatro_caracteres_e_chips_pagina_1():
 
     saida_inicial = renderizar_estado(estado, modelo, largura=80, altura=24)
     assert "página 1/3" in saida_inicial
-    assert "[PgUp][PgDn] Páginas" in _sem_ansi(saida_inicial)
+    assert _chip_paginas(estado["estilo"]) in _sem_ansi(saida_inicial)
     estados_chips = _rend._navegacao_atual.get("estado_ativo_chips") or {}
     assert estados_chips.get("chip_pagina_anterior") is False
     assert estados_chips.get("chip_pagina_proxima") is True
     # Inativo permanece visivel com cor_inativo (nao removido).
-    assert "\x1b[90m[PgUp]" in saida_inicial
+    assert "\x1b[90mPgUp" in saida_inicial
 
     ch_pgdn, estado, saida = _passo_tty(estado, modelo, b"\x1b[6~")
     assert ch_pgdn == _demo.TECLA_PAGE_DOWN
@@ -185,7 +198,7 @@ def test_demo_h0045_p01_cadeia_tty_quatro_caracteres_e_chips_pagina_1():
     estados = _rend._navegacao_atual.get("estado_ativo_chips") or {}
     assert estados.get("chip_pagina_anterior") is True
     assert estados.get("chip_pagina_proxima") is False
-    assert "\x1b[90m[PgDn]" in saida
+    assert "\x1b[90mPgDn" in saida
 
     # Extremo: ``PageDown`` sem wrap.
     ch_pgdn3, estado, _saida = _passo_tty(estado, modelo, b"\x1b[6~")
@@ -215,14 +228,17 @@ def test_demo_h0045_p01_cadeia_tty_quatro_caracteres_e_chips_pagina_1():
     ch_pgup4, estado, saida = _passo_tty(estado, modelo, b"\x1b[5~")
     assert ch_pgup4 == _demo.TECLA_PAGE_UP
     assert estado["pagina_atual"][console.id] == 1
-    assert "[PgUp]" in saida
+    # H-0071: chip unico multitecla com delimitadores externos.
+    visivel = _sem_ansi(saida)
+    assert _chip_paginas(estado["estilo"]) in visivel
+    assert visivel.count("PgUp/PgDn") == 1
     assert _rend._navegacao_atual.get("estado_ativo_chips", {}).get(
         "chip_pagina_anterior"
     ) is False
 
 
 def test_demo_h0045_p01_chips_visiveis_sem_foco_ambos_inativos():
-    """D-TEC-12/D-PAG-13: sem foco, ``[PgUp]``/``[PgDn]`` existem e ficam inativos."""
+    """D-TEC-12/D-PAG-13: controles de pagina ficam visiveis e inativos."""
     modelo = _modelo()
     estado = criar_estado_inicial()
     estado.update({"estilo": carregar_estilo(), "largura": 80, "altura": 24})
@@ -230,7 +246,7 @@ def test_demo_h0045_p01_chips_visiveis_sem_foco_ambos_inativos():
 
     saida = renderizar_estado(estado, modelo, largura=80, altura=24)
     assert "página 1/3" in saida
-    assert "[PgUp][PgDn] Páginas" in _sem_ansi(saida)
+    assert _chip_paginas(estado["estilo"]) in _sem_ansi(saida)
     estados = _rend._navegacao_atual.get("estado_ativo_chips") or {}
     assert estados.get("chip_pagina_anterior") is False
     assert estados.get("chip_pagina_proxima") is False
@@ -255,7 +271,7 @@ def test_demo_h0045_p02_sequencia_resize_barra_sem_residuo():
         linhas = [ln for ln in saida.split("\n") if ln]
         bar = next(
             ln for ln in linhas
-            if "[Esc]" in ln and "[PgUp][PgDn] Páginas" in re.sub(
+            if "[Esc]" in ln and _chip_paginas(estado["estilo"]) in re.sub(
                 r"\x1b\[[0-9;]*m", "", ln
             )
         )
@@ -264,7 +280,7 @@ def test_demo_h0045_p02_sequencia_resize_barra_sem_residuo():
         assert plain.startswith("│") and plain.endswith("│")
         assert plain.count("│") == 2
         assert "││" not in plain
-        assert "[Esc]" in plain and "[PgUp][PgDn] Páginas" in plain
+        assert "[Esc]" in plain and _chip_paginas(estado["estilo"]) in plain
         assert "[✥]" in plain
         assert "página 1/3" in saida
         for ln in linhas:
@@ -275,10 +291,10 @@ def test_demo_h0045_p02_sequencia_resize_barra_sem_residuo():
     _, saida_reduzida = saidas[1]
     _, saida_max = saidas[2]
     assert _largura_sem_ansi(
-        next(ln for ln in saida_reduzida.split("\n") if "[Esc]" in ln and "[PgUp]" in ln)
+        next(ln for ln in saida_reduzida.split("\n") if "[Esc]" in ln and "PgUp/PgDn" in _sem_ansi(ln))
     ) == 60
     assert _largura_sem_ansi(
-        next(ln for ln in saida_max.split("\n") if "[Esc]" in ln and "[PgUp]" in ln)
+        next(ln for ln in saida_max.split("\n") if "[Esc]" in ln and "PgUp/PgDn" in _sem_ansi(ln))
     ) == 100
 
 
@@ -295,7 +311,7 @@ def test_demo_h0045_p02_apresentar_quadro_limpa_residuo_apos_reducao():
     ansi = "\x1b[90m"
     # Linha visualmente curta se pad usasse len() bruto (bug pre-P02).
     linha_ansi = (
-        "│  [Esc] Sair  {0}[PgUp]{1}[PgDn] Páginas  [✥] Navegar".format(
+        "│  [Esc] Sair  {0}[PgUp/PgDn]{1} Páginas  [✥] Navegar".format(
             ansi, _ANSI_RESET_FG
         )
     )
@@ -489,7 +505,7 @@ def _modelo_com_pagina_intermediaria_sem_navegaveis():
 def test_demo_h0045_p03_pagina_sem_navegaveis_e_a_unica_sem_cursor():
     """VM-H0045-R03-003: dentro de um console FOCALIZAVEL e paginado (com
     itens navegaveis nas demais paginas), a UNICA pagina cujos itens sao
-    todos nao-navegaveis nao exibe cursor -- mas os controles ``[PgUp]``/``[PgDn]``
+    todos nao-navegaveis nao exibe cursor -- mas os controles de pagina
     e o chip ``[✥]`` permanecem, pois o console como um todo tem itens
     navegaveis (D-TEC-12/D-PAG-13, propriedade estatica do console)."""
     modelo = _modelo_com_pagina_intermediaria_sem_navegaveis()
@@ -512,7 +528,7 @@ def test_demo_h0045_p03_pagina_sem_navegaveis_e_a_unica_sem_cursor():
     saida1 = renderizar_estado(estado, modelo, largura=80, altura=10)
     assert "página 1/18" in saida1
     assert "[✥]" in saida1
-    assert "[PgUp][PgDn] Páginas" in _sem_ansi(saida1)
+    assert _chip_paginas(carregar_estilo()) in _sem_ansi(saida1)
     assert _cursor_visivel_no_item(saida1, simbolo, "item_01")
 
     # Pagina 9 (info_a/info_b): a unica sem navegavel -- sem cursor, sem
@@ -523,10 +539,10 @@ def test_demo_h0045_p03_pagina_sem_navegaveis_e_a_unica_sem_cursor():
     assert "página 9/18" in saida_vazia
     assert "info_a" in saida_vazia and "info_b" in saida_vazia
     assert simbolo not in saida_vazia
-    assert "[PgUp][PgDn] Páginas" in _sem_ansi(saida_vazia)
+    assert _chip_paginas(carregar_estilo()) in _sem_ansi(saida_vazia)
     # "[✥]" exige > 1 item navegavel NA PAGINA CORRENTE (D14); nesta pagina
     # (0 navegaveis) ele corretamente nao aparece -- distinto de
-    # "[PgUp]"/"[PgDn]", que sao propriedade ESTATICA do console
+    # controles de pagina, que sao propriedade ESTATICA do console
     # (D-TEC-12/D-PAG-13).
     assert "[✥]" not in saida_vazia
 
@@ -2042,7 +2058,7 @@ def _modelo_conjunto_vazio():
 def test_demo_h0045_p11_conjunto_vazio_zero_itens_pagina_unica_chips_inativos_e_resize():
     """P11 / VM-H0045-R07-003 (retoma teste manual 16/17): ``itens: []``
     real via o mesmo ponto de entrada da demo -- zero itens navegaveis,
-    pagina 1/1, sem cursor, ``[PgUp]``/``[PgDn]`` visiveis e INATIVOS (nunca
+    pagina 1/1, sem cursor, controles de pagina visiveis e INATIVOS (nunca
     omitidos), comandos de pagina/setas sem efeito, resize preserva o
     estado, nenhum conteudo default introduzido."""
     modelo = _modelo_conjunto_vazio()
@@ -2072,14 +2088,13 @@ def test_demo_h0045_p11_conjunto_vazio_zero_itens_pagina_unica_chips_inativos_e_
     assert "página 1/1" in saida
     # 4) nenhum cursor.
     assert carregar_estilo().selecionado_simbolo not in saida
-    # 5/6) [PgUp]/[PgDn] visiveis e inativos.
-    assert "[PgUp]" in saida and "[PgDn]" in saida
+    # 5/6) unidade multitecla visivel e inativa.
+    assert _chip_paginas(carregar_estilo()) in _sem_ansi(saida)
     estados_chips = _rend._navegacao_atual.get("estado_ativo_chips") or {}
     assert estados_chips.get("chip_pagina_anterior") is False
     assert estados_chips.get("chip_pagina_proxima") is False
     codigo_inativo = _rend._codigo_ansi_de_cor(carregar_estilo().cor_inativo)
-    assert codigo_inativo + "[PgUp]" in saida
-    assert codigo_inativo + "[PgDn]" in saida
+    assert codigo_inativo + "PgUp" in saida
     # 10) nenhum conteudo default/sintetico (os quatro itens "aviso_NN"
     # observados na validacao manual anterior nao podem reaparecer).
     assert "aviso_" not in saida
@@ -2100,7 +2115,7 @@ def test_demo_h0045_p11_conjunto_vazio_zero_itens_pagina_unica_chips_inativos_e_
     assert estado_redim["cursores"] == {}
     saida_redim = renderizar_estado(estado_redim, modelo, largura=100, altura=30)
     assert "página 1/1" in saida_redim
-    assert "[PgUp]" in saida_redim and "[PgDn]" in saida_redim
+    assert _chip_paginas(carregar_estilo()) in _sem_ansi(saida_redim)
     estados_chips_redim = _rend._navegacao_atual.get("estado_ativo_chips") or {}
     assert estados_chips_redim.get("chip_pagina_anterior") is False
     assert estados_chips_redim.get("chip_pagina_proxima") is False
@@ -2240,7 +2255,7 @@ def test_demo_h0045_p12_seis_casos_caminho_real_multiplas_geometrias():
             elif entrada.endswith("vazio"):
                 assert console._campos_inertes["itens"] == []
                 assert "página 1/1" in saida
-                assert "[PgUp]" in saida and "[PgDn]" in saida
+                assert _chip_paginas(carregar_estilo()) in _sem_ansi(saida)
                 assert carregar_estilo().selecionado_simbolo not in saida
                 for cmd in (_demo.TECLA_PAGE_UP, _demo.TECLA_PAGE_DOWN, "\x1b[A"):
                     novo = processar_comando(estado, cmd, modelo)
@@ -2437,11 +2452,20 @@ def test_demo_h0045_p12_pty_continuacao_e_vazio_ponto_de_entrada_real():
 
         vazio = _ler_ate(
             5.0, 0.4,
-            predicado=lambda b: b"p\xc3\xa1gina 1/1" in b and b"[PgUp]" in b,
+            predicado=lambda b: b"p\xc3\xa1gina 1/1" in b and b"PgUp/PgDn" in b,
         )
         assert proc.poll() is None
         assert b"p\xc3\xa1gina 1/1" in vazio
-        assert b"[PgUp]" in vazio and b"[PgDn]" in vazio
+        vazio_texto = vazio.decode("utf-8", errors="replace")
+        vazio_visivel = _sem_ansi(vazio_texto)
+        chip_paginas = _chip_paginas(carregar_estilo())
+        assert chip_paginas in vazio_visivel
+        assert "[PgUp][PgDn]" not in vazio_visivel
+        if "\x1b[" in vazio_texto:
+            import re as _re_ansi
+            assert _re_ansi.search(
+                r"\[\x1b\[[0-9;]*mPgUp", vazio_texto
+            )
         assert b"\xe2\x86\x92" not in vazio
         # Comando de pagina sem efeito: sem redesenho; o quadro inicial
         # ja comprovou 1/1 e chips presentes.
@@ -3749,10 +3773,11 @@ def test_p23_ausencia_truncamento_reordenacao_chips_na_barra_normal():
     saida = _resolver_conteudo_p23(estado, modelo, 80, 24)
     # Todos os chips presentes, [Esc] primeiro.
     assert "[Esc]" in saida
-    assert "[PgUp][PgDn] Páginas" in _sem_ansi(saida)
+    assert _chip_paginas(estado["estilo"]) in _sem_ansi(saida)
     assert "[␣]" in saida
     assert "[⏎]" in saida
-    assert saida.index("[Esc]") < saida.index("[PgUp]")
+    saida_visivel = _sem_ansi(saida)
+    assert saida_visivel.index("[Esc]") < saida_visivel.index("[PgUp/PgDn]")
 
 
 def test_p23_preservacao_rotulo_dinamico_esc():

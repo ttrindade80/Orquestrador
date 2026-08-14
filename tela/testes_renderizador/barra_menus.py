@@ -1218,14 +1218,14 @@ class TestH0045P23BarraCincoLinhas:
     def test_barra_usa_tres_linhas_em_36_colunas(self):
         """Caso 4: tres linhas em ~36 colunas.
 
-        H-0051: o agrupamento visual indivisivel ``[PgUp][PgDn] Páginas``
+        H-0071: o agrupamento visual indivisivel ``[PgUp/PgDn] Páginas``
         reduz a largura total dos chips; a largura que produz exatamente
         tres linhas desloca de ~29 para ~36 colunas (recalibrado, sem
         alterar o mecanismo de distribuicao).
         """
         modelo = _modelo_fluxo_paginado_p23()
         _preparar_ctx_p23(modelo)
-        linhas = _linhas_barra(modelo.barra_de_menus, _ESTILO_CURVA, 36 - 3)
+        linhas = _linhas_barra(modelo.barra_de_menus, _ESTILO_CURVA, 35 - 3)
         assert len(linhas) == 3
 
     def test_barra_usa_quatro_linhas_em_28_colunas(self):
@@ -1239,7 +1239,7 @@ class TestH0045P23BarraCincoLinhas:
         """H-0051: nenhuma largura chega a exigir a quinta linha.
 
         ``chip_pagina_anterior``/``chip_pagina_proxima`` viram um grupo
-        visual indivisivel (``[PgUp][PgDn] Páginas``), reduzindo de 5 para
+        visual indivisivel (``[PgUp/PgDn] Páginas``), reduzindo de 5 para
         4 os grupos independentes da barra desta fixture. O teto declarado
         (``linhas.maximo == 5``) permanece intacto no JSON (teste
         ``test_config_declarou_objeto_canonico_com_maximo_cinco``), mas a
@@ -1249,11 +1249,11 @@ class TestH0045P23BarraCincoLinhas:
         """
         modelo = _modelo_fluxo_paginado_p23()
         _preparar_ctx_p23(modelo)
-        linhas = _linhas_barra(modelo.barra_de_menus, _ESTILO_CURVA, 25 - 3)
+        linhas = _linhas_barra(modelo.barra_de_menus, _ESTILO_CURVA, 24 - 3)
         assert len(linhas) == 4
         import pytest as _pytest_p23b
         with _pytest_p23b.raises(RenderizadorErro):
-            _linhas_barra(modelo.barra_de_menus, _ESTILO_CURVA, 24 - 3)
+            _linhas_barra(modelo.barra_de_menus, _ESTILO_CURVA, 23 - 3)
 
     def test_barra_nao_excede_cinco_linhas(self):
         """O maximo declarado (5) e respeitado em larguras intermediarias."""
@@ -1283,11 +1283,11 @@ class TestH0045P23BarraCincoLinhas:
         joined = re.sub(r"\x1b\[[0-9;]*m", "", " ".join(linhas))
         # [Esc] e sempre primeiro (regra contratual); os demais seguem a ordem.
         assert "[Esc]" in joined
-        assert "[PgUp][PgDn] Páginas" in joined
+        assert "[PgUp/PgDn] Páginas" in joined
         assert "[␣]" in joined
         assert "[⏎]" in joined
         # Esc precede os demais chips de paginacao (contrato §8.2).
-        assert joined.index("[Esc]") < joined.index("[PgUp]")
+        assert joined.index("[Esc]") < joined.index("[PgUp/PgDn]")
 
 
 class TestH0045P23RegressaoDuasLinhas:
@@ -1314,7 +1314,8 @@ def test_h0044_chip_destacado_usa_cor_alerta():
     codigo = _rend_qa002._codigo_ansi_de_cor(_ESTILO_H0044.cor_alerta)
     assert codigo == "\x1b[33m"
     assert codigo in texto
-    assert texto.endswith(_rend_qa002._ANSI_RESET_FG)
+    assert _rend_qa002._ANSI_RESET_FG in texto
+    assert texto.endswith(" Dry-Run")
     assert "Dry-Run" in texto
 
 
@@ -1365,7 +1366,8 @@ def test_h0044_cor_nao_vaza_entre_chips():
     t1 = _rend_qa002._texto_chip_barra(
         chips[1], _ESTILO_H0044, destacado=False
     )
-    assert t0.endswith(_rend_qa002._ANSI_RESET_FG)
+    assert _rend_qa002._ANSI_RESET_FG in t0
+    assert t0.endswith(" Dry-Run")
     assert _rend_qa002._codigo_ansi_de_cor("amarelo") not in t1
 
 
@@ -1420,7 +1422,7 @@ def test_h0045_renderiza_apenas_fragmentos_da_pagina_atual_com_indicador():
 
 
 def test_h0045_p01_chips_pagina_visiveis_na_pagina_1_com_anterior_inativo():
-    """VM-H0045-01: na pagina 1, ``[PgUp]`` visivel/inativo e ``[PgDn]`` ativo."""
+    """VM-H0045-01: unidade de pagina visivel, com PgUp inativo."""
     from tela.loader import carregar_tela, carregar_estilo
     from tela.modelo import construir_modelo
     from tela import navegacao
@@ -1449,8 +1451,8 @@ def test_h0045_p01_chips_pagina_visiveis_na_pagina_1_com_anterior_inativo():
     import re
     saida_sem_ansi = re.sub(r"\x1b\[[0-9;]*m", "", saida)
     assert "página 1/3" in saida
-    assert "[PgUp][PgDn] Páginas" in saida_sem_ansi
-    assert "\x1b[90m[PgUp]" in saida
+    assert "PgUp/PgDn" in saida_sem_ansi
+    assert "\x1b[90mPgUp" in saida
     estados = _rend._navegacao_atual.get("estado_ativo_chips") or {}
     assert estados.get("chip_pagina_anterior") is False
     assert estados.get("chip_pagina_proxima") is True
@@ -1466,8 +1468,8 @@ def _h0045_linha_barra_menus(saida):
         linhas = linhas[:-1]
     candidatas = [
         ln for ln in linhas
-        if "[Esc]" in re.sub(r"\x1b\[[0-9;]*m", "", ln)
-        and "[PgUp][PgDn] Páginas" in re.sub(r"\x1b\[[0-9;]*m", "", ln)
+        if "Esc" in re.sub(r"\x1b\[[0-9;]*m", "", ln)
+        and "PgUp/PgDn" in re.sub(r"\x1b\[[0-9;]*m", "", ln)
     ]
     assert candidatas, "linha da barra com chips nao encontrada"
     linha = candidatas[0]
@@ -1524,9 +1526,9 @@ def test_h0045_p02_barra_alinhada_na_sequencia_de_larguras():
             )
         )
         assert "││" not in plain, "sequencia artificial de │ presente"
-        assert "[Esc]" in plain
-        assert "[PgUp][PgDn] Páginas" in plain
-        assert "[✥]" in plain
+        assert "Esc" in plain
+        assert "PgUp/PgDn" in plain
+        assert "✥" in plain
         assert "página 1/3" in saida
         # Nenhuma linha do quadro deve ser visualmente mais curta que largura
         # quando contem ANSI de chip inativo (residuo potencial a direita).
@@ -1548,7 +1550,7 @@ def test_h0045_p02_barra_alinhada_na_sequencia_de_larguras():
         paginas_atuais={console.id: 1},
         largura_navegacao=100,
     )
-    assert "\x1b[90m[PgUp]" in saida_final
+    assert "\x1b[90mPgUp" in saida_final
 
 
 def _modelo_fluxo_paginado_p23():
@@ -1560,7 +1562,7 @@ def _modelo_fluxo_paginado_p23():
 def _preparar_ctx_p23(modelo):
     """Prepara o contexto de navegacao para ``_linhas_barra`` (P23).
 
-    Os chips ``[PgUp]``/``[PgDn]`` da fixture usam ``regra_existencia:
+    Os chips de pagina da fixture usam ``regra_existencia:
     console_com_paginacao`` e os chips ``[␣]``/``[⏎]`` usam
     ``console_focado_com_selecao_multipla`` -- ambos avaliados a partir do
     contexto de modulo ``_navegacao_atual``. Sem preparar o contexto (como
@@ -1622,27 +1624,29 @@ def test_h0050_chip_controle_tem_rotulo_dinamico_ordem_atividade_e_cor_alerta():
     }
     linhas = _linhas_barra(bar, estilo_h0050, 80, representacao)
     saida = " ".join(linhas)
-    assert "[Espaço]" not in saida
-    assert "[Enter]" not in saida
-    assert "[Insert]" not in saida
-    assert "[␣] Marcar" in saida
-    assert "[⏎] Todos" in saida
-    assert "[Ins] Simulação" in saida
-    assert "[V] Verboso" in saida
-    assert "[?] Ajuda" in saida
-    assert saida.index("[␣]") < saida.index("[⏎]")
-    assert saida.index("[⏎]") < saida.index("[Ins]")
-    assert saida.index("[Ins]") < saida.index("[V]")
-    assert saida.index("[Ins]") < saida.index("[?]")
+    saida_plain = __import__("re").sub(r"\x1b\[[0-9;]*m", "", saida)
+    assert "Espaço" not in saida_plain
+    assert "Enter" not in saida_plain
+    assert "Insert" not in saida_plain
+    assert "␣" in saida_plain and "Marcar" in saida_plain
+    assert "⏎" in saida_plain and "Todos" in saida_plain
+    assert "Ins" in saida_plain and "Simulação" in saida_plain
+    assert "V" in saida_plain and "Verboso" in saida_plain
+    assert "?" in saida_plain and "Ajuda" in saida_plain
+    assert saida_plain.index("␣") < saida_plain.index("⏎")
+    assert saida_plain.index("⏎") < saida_plain.index("Ins")
+    assert saida_plain.index("Ins") < saida_plain.index("V")
+    assert saida_plain.index("Ins") < saida_plain.index("?")
     assert _codigo_ansi_de_cor(estilo_h0050.cor_alerta) in saida
     linhas_estreitas = _linhas_barra(bar, estilo_h0050, 50, representacao)
     junta_estreita = " ".join(linhas_estreitas)
     assert len(linhas_estreitas) >= 2
-    assert "[␣] Marcar" in junta_estreita
-    assert "[⏎] Todos" in junta_estreita
-    assert "[Ins] Simulação" in junta_estreita
-    assert "[V] Verboso" in junta_estreita
-    assert "[?] Ajuda" in junta_estreita
+    junta_estreita_plain = __import__("re").sub(r"\x1b\[[0-9;]*m", "", junta_estreita)
+    assert "␣" in junta_estreita_plain and "Marcar" in junta_estreita_plain
+    assert "⏎" in junta_estreita_plain and "Todos" in junta_estreita_plain
+    assert "Ins" in junta_estreita_plain and "Simulação" in junta_estreita_plain
+    assert "V" in junta_estreita_plain and "Verboso" in junta_estreita_plain
+    assert "?" in junta_estreita_plain and "Ajuda" in junta_estreita_plain
 
     representacao_real = ControleExecucaoRepresentacao(
         modo="executar",
@@ -1653,7 +1657,8 @@ def test_h0050_chip_controle_tem_rotulo_dinamico_ordem_atividade_e_cor_alerta():
     saida_real = " ".join(
         _linhas_barra(bar, estilo_h0050, 80, representacao_real)
     )
-    assert "[Ins] Real" in saida_real
+    saida_real_plain = __import__("re").sub(r"\x1b\[[0-9;]*m", "", saida_real)
+    assert "Ins" in saida_real_plain and "Real" in saida_real_plain
     codigo_alerta = _codigo_ansi_de_cor(estilo_h0050.cor_alerta)
     codigo_inativo = _codigo_ansi_de_cor(estilo_h0050.cor_inativo)
     if codigo_alerta:

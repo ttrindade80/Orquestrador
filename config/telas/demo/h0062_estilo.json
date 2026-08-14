@@ -1,0 +1,82 @@
+{
+  "id": "h0062_estilo",
+  "schema": "tela.v1",
+  "cabecalho": {
+    "titulo": "Estilo",
+    "descricao": "Selecao interativa de presets",
+    "apresentacao": {
+      "titulo": {
+        "posicao": "esquerda",
+        "recuo_lateral": 0,
+        "capitalizacao": "maiusculas",
+        "formato_na_borda": "com_espacos_laterais"
+      },
+      "descricao": {
+        "max_caracteres": 120,
+        "alinhamento": "esquerda",
+        "recuo": 1,
+        "capitalizacao": "preservar"
+      }
+    }
+  },
+  "corpo": {
+    "arranjo": "vertical",
+    "elementos": [
+      {
+        "id": "console_h0062_estilo",
+        "tipo": "console",
+        "titulo": "Presets de estilo",
+        "itens": [],
+        "origem_dados": {"tipo": "declarados"},
+        "politica_composicao": {"tipo": "manual"},
+        "politica_navegacao": {
+          "navegavel": true,
+          "tipo": "dois_niveis_por_foco"
+        },
+        "politica_selecao": "multipla",
+        "politica_paginacao": "sem",
+        "politica_exibicao": {"verboso": false}
+      }
+    ]
+  },
+  "barra_de_menus": {
+    "chips": [
+      {
+        "id": "chip_sair",
+        "tipo": "acao",
+        "tecla": "Esc",
+        "texto": "Sair",
+        "regra_ativo": "sempre"
+      },
+      {
+        "id": "chip_navegar",
+        "tipo": "informativo",
+        "tecla": "✥",
+        "texto": "Navegar",
+        "regra_ativo": "sempre"
+      },
+      {
+        "id": "chip_selecionar",
+        "tipo": "acao",
+        "tecla": "␣",
+        "texto": "Selecionar",
+        "forma_exibicao": "rotulo_dinamico",
+        "regra_ativo": "sempre"
+      },
+      {
+        "id": "chip_aplicar",
+        "tipo": "acao",
+        "tecla": "⏎",
+        "texto": "Aplicar",
+        "regra_ativo": "candidato_divergente"
+      },
+      {
+        "id": "chip_ajuda",
+        "tipo": "ajuda",
+        "tecla": "?",
+        "texto": "Ajuda",
+        "regra_ativo": "sempre"
+      }
+    ]
+  }
+}

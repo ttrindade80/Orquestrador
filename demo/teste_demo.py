@@ -86,6 +86,7 @@ while _this_dir in sys.path:
     sys.path.remove(_this_dir)
 
 import pytest  # noqa: E402
+import re  # noqa: E402
 import signal  # noqa: E402
 import subprocess  # noqa: E402
 import os  # noqa: E402
@@ -4161,9 +4162,11 @@ def test_h0050_espaco_parcial_insert_nao_altera_selecao_nem_semantica_todos():
     ]
     saida = _demo_mod.renderizar_estado(estado, modelo, largura=80, altura=24)
     assert saida.count("●") == 4
-    assert "[Ins] Simulação" in saida
-    assert "[Ins] " + "Executar" not in saida
-    assert "[Ins] " + "Dry-Run" not in saida
+    saida_visivel = re.sub(r"\x1b\[[0-9;]*m", "", saida)
+    assert "[Ins] Simulação" in saida_visivel
+    assert "[Ins] " + "Executar" not in saida_visivel
+    assert "[Ins] " + "Dry-Run" not in saida_visivel
+    assert re.search(r"\[\x1b\[[0-9;]*mIns\x1b\[[0-9;]*m\]", saida)
 
 
 def test_h0050_execucao_parcial_dry_run_resultado_retorno_preserva_instancia():
@@ -4335,10 +4338,12 @@ def test_h0050_renderiza_chip_com_rotulo_corrente():
     )
     estado = dict(estado, estilo=carregar_estilo())
     saida = _demo_mod.renderizar_estado(estado, modelo, largura=80, altura=24)
-    assert "[Ins] Simulação" in saida
-    assert "[Ins] " + "Executar" not in saida
-    assert "[Ins] " + "Dry-Run" not in saida
-    assert "[Insert]" not in saida
+    saida_visivel = re.sub(r"\x1b\[[0-9;]*m", "", saida)
+    assert "[Ins] Simulação" in saida_visivel
+    assert "[Ins] " + "Executar" not in saida_visivel
+    assert "[Ins] " + "Dry-Run" not in saida_visivel
+    assert "[Insert]" not in saida_visivel
+    assert re.search(r"\[\x1b\[[0-9;]*mIns\x1b\[[0-9;]*m\]", saida)
 
 
 def _saida_h0050(identidade, largura=80, altura=24, comando=None):
@@ -4362,12 +4367,15 @@ def test_h0050_simbolos_unicode_e_ausencia_de_literais_espaco_enter():
         "h0050_controle_execucao_universal_dry_run_inicial",
     ):
         _, _, saida = _saida_h0050(identidade)
-        assert "[␣] Marcar" in saida
-        assert "[⏎]" in saida
-        assert "[Espaço]" not in saida
-        assert "[Enter]" not in saida
-        assert "[Ins]" in saida
-        assert "[Insert]" not in saida
+        saida_visivel = re.sub(r"\x1b\[[0-9;]*m", "", saida)
+        assert "[␣] Marcar" in saida_visivel
+        assert "[⏎]" in saida_visivel
+        assert "[Espaço]" not in saida_visivel
+        assert "[Enter]" not in saida_visivel
+        assert "[Ins]" in saida_visivel
+        assert "[Insert]" not in saida_visivel
+        if "[Ins]" not in saida:
+            assert re.search(r"\[\x1b\[[0-9;]*mIns\x1b\[[0-9;]*m\]", saida)
 
 
 def test_h0050_barra_apresenta_verboso_ajuda_e_ordem_apos_ins():

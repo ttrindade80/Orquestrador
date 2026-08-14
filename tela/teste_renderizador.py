@@ -138,6 +138,163 @@ from tela.testes_renderizador.selecao import (
 
 from tela.testes_renderizador.runner import main
 
+import re as _re_h0071
+
+from tela.testes_renderizador.comum import (
+    _ESTILO_CURVA as _h0071_ESTILO_CURVA,
+    _RAIZ_TELAS_DEMO as _h0071_RAIZ_TELAS_DEMO,
+)
+from tela.testes_renderizador.selecao import (
+    _barra_chip as _h0071_barra_chip,
+    _carregar_fixture_h0041_p03 as _h0071_carregar_fixture_h0041_p03,
+    _renderizar_h0041_p03 as _h0071_renderizar_h0041_p03,
+    _rend_qa002 as _h0071_rend_qa002,
+)
+from tela.testes_renderizador.integracao import (
+    _p12_montar_caso_render as _h0071_p12_montar_caso_render,
+)
+
+
+def _h0071_sem_ansi(texto):
+    return _re_h0071.sub(r"\x1b\[[0-9;]*m", "", texto)
+
+
+def test_h0041_manual_001_espaco_ativo_em_item_selecionavel_com_selecao():
+    modelo, lista, console, estilo = _h0071_carregar_fixture_h0041_p03()
+    saida, chips = _h0071_renderizar_h0041_p03(
+        modelo, lista, console, estilo,
+        foco=2, selecoes={console.id: ["item_01"]},
+    )
+    assert chips["chip_espaco"] is True
+    assert chips["chip_enter"] is False
+    barra = _h0071_barra_chip(saida, "␣")
+    assert "Marcar" in barra
+    assert "Executar" in saida
+    assert "executar" not in saida
+    codigo = _h0071_rend_qa002._codigo_ansi_de_cor(estilo.cor_inativo)
+    reset = _h0071_rend_qa002._ANSI_RESET_FG
+    assert "{0}[␣]".format(codigo) not in barra
+    assert "[␣] Marcar" in barra
+    barra_visivel = _h0071_sem_ansi(barra)
+    assert "[⏎] Executar" in barra_visivel
+    assert "[{0}⏎{1}] Executar".format(codigo, reset) in barra
+
+
+def test_h0041_p04_chip_inativo_usa_cor_inativo_e_restaura():
+    modelo, lista, console, estilo = _h0071_carregar_fixture_h0041_p03()
+    saida, chips = _h0071_renderizar_h0041_p03(
+        modelo, lista, console, estilo,
+        foco=1, selecoes={console.id: ["item_01"]},
+    )
+    assert chips["chip_espaco"] is False
+    assert chips["chip_enter"] is False
+    codigo = _h0071_rend_qa002._codigo_ansi_de_cor(estilo.cor_inativo)
+    reset = _h0071_rend_qa002._ANSI_RESET_FG
+    assert estilo.cor_inativo == "cinza"
+    assert codigo == "\x1b[90m"
+    barra = _h0071_barra_chip(saida, "␣")
+    idx_cor = barra.find(codigo)
+    idx_marcar = barra.find("Marcar")
+    idx_reset = barra.find(reset, idx_cor)
+    assert idx_cor != -1
+    assert idx_marcar != -1
+    assert idx_reset != -1
+    assert idx_cor < idx_reset < idx_marcar
+    assert "Executar" in saida
+    assert "marcar" not in saida
+    assert "executar" not in saida
+
+
+def test_h0041_p04_texto_chip_barra_nao_usa_lower():
+    chip = {"tecla": "⏎", "texto": "Executar"}
+    texto = _h0071_rend_qa002._texto_chip_barra(
+        chip, _h0071_ESTILO_CURVA, vao=1, inativo=True
+    )
+    assert "Executar" in texto
+    assert "executar" not in texto
+    codigo = _h0071_rend_qa002._codigo_ansi_de_cor("cinza")
+    reset = _h0071_rend_qa002._ANSI_RESET_FG
+    assert codigo in texto
+    assert reset in texto
+    assert texto.index(codigo) < texto.index(reset) < texto.index("Executar")
+
+
+def test_h0045_p11_conjunto_vazio_chips_pagina_visiveis_e_inativos():
+    from tela import navegacao
+    from tela import renderizador as _rend
+    from tela.loader import carregar_tela
+    from tela.modelo import construir_modelo
+    from tela.renderizador import renderizar_tela
+
+    modelo = construir_modelo(
+        carregar_tela(None, "h0045_paginacao_conjunto_vazio", _h0071_RAIZ_TELAS_DEMO)
+    )
+    console = modelo.corpo.elementos[0]
+    assert console._campos_inertes.get("itens") == []
+    assert navegacao.console_e_focalizavel(console) is False
+    assert navegacao.lista_foco(modelo) == []
+
+    saida = renderizar_tela(
+        modelo,
+        _h0071_ESTILO_CURVA,
+        largura=80,
+        altura=24,
+        foco_console=None,
+        cursores={},
+        lista_foco=navegacao.lista_foco(modelo),
+        paginas_atuais={},
+    )
+    assert "página 1/1" in saida
+    saida_visivel = _h0071_sem_ansi(saida)
+    assert "[PgUp/PgDn]" in saida_visivel
+    assert "[PgUp][PgDn]" not in saida_visivel
+    codigo_inativo = _rend._codigo_ansi_de_cor(_h0071_ESTILO_CURVA.cor_inativo)
+    reset = _rend._ANSI_RESET_FG
+    unidade_inativa = (
+        "[" + codigo_inativo + "PgUp" + reset
+        + "/" + codigo_inativo + "PgDn" + reset + "]"
+    )
+    assert unidade_inativa in saida
+    estados = _rend._navegacao_atual.get("estado_ativo_chips") or {}
+    assert estados.get("chip_pagina_anterior") is False
+    assert estados.get("chip_pagina_proxima") is False
+    assert _rend._navegacao_atual.get("cursores") == {}
+    assert "aviso_" not in saida
+    assert "info_0" not in saida
+
+
+def test_h0045_p12_vazio_chips_visiveis_inativos_e_autoridade_geometrica():
+    from tela import renderizador as _rend
+    from tela.renderizador import geometria_console
+    from demo.demo import processar_comando, renderizar_estado
+    from tela import navegacao
+
+    for largura, altura in ((80, 24), (80, 40), (50, 20)):
+        estado, modelo, caso = _h0071_p12_montar_caso_render(
+            "h0045_validacao_vazio", largura, altura
+        )
+        console = modelo.corpo.elementos[0]
+        assert console._campos_inertes.get("itens") == []
+        saida = renderizar_estado(estado, modelo, largura, altura)
+        assert "página 1/1" in saida
+        saida_visivel = _h0071_sem_ansi(saida)
+        assert "[PgUp/PgDn]" in saida_visivel
+        assert "[PgUp][PgDn]" not in saida_visivel
+        assert _h0071_ESTILO_CURVA.selecionado_simbolo not in saida
+        estados = _rend._navegacao_atual.get("estado_ativo_chips") or {}
+        assert estados.get("chip_pagina_anterior") is False
+        assert estados.get("chip_pagina_proxima") is False
+        for cmd in (",", ".", "\x1b[A", "\x1b[B"):
+            novo = processar_comando(estado, cmd, modelo)
+            assert novo["cursores"] == {}
+        geo = geometria_console(
+            modelo, _h0071_ESTILO_CURVA, largura, altura, False,
+            console=console, foco_console=None, cursores={},
+            lista_foco=navegacao.lista_foco(modelo),
+            paginas_atuais={},
+        )
+        assert geo is not None
+        assert geo["altura_interna"] == caso["C"]
 
 
 if __name__ == "__main__":

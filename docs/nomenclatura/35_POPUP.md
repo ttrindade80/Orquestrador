@@ -119,6 +119,16 @@ marcação pertence à configuração e não ao envelope.
 produz `status: CONFIRMADO` e valor conforme o tipo. O rótulo do chip não é
 ação de negócio.
 
+### 6.1 Consumidor de confirmação de estilo (ADR-0046)
+
+O pop-up de aplicação do `ITEM-0010` é consumidor do sistema genérico já
+definido. Usa conteúdo `texto` para perguntar pela aplicação do estilo
+demonstrado e pode ser renderizado sob override local temporário fornecido pelo
+chamador. Nesse uso, devolve somente `CONFIRMADO` ou `ABORTADO`: não persiste
+estilo, não publica materialização global e não incorpora lógica de negócio,
+que permanece no chamador. O override não cria estilo próprio do pop-up nem
+novo tipo de conteúdo.
+
 ## 7. Relação com outros módulos
 
 - `02_ARTEFATOS_CONFIGURACAO_E_RUNTIME.md`: distingue configuração, conteúdo
@@ -142,3 +152,6 @@ ação de negócio.
 - ADR-0045: especializa o resize responsivo das formações físicas do conteúdo
   `tipo: marcacao`, sem alterar a propriedade deste módulo sobre a
   terminologia do pop-up.
+- ADR-0046: usa o pop-up genérico de conteúdo `texto` para confirmação da
+  aplicação de estilo, sob override local do chamador e sem persistência ou
+  publicação pelo pop-up.

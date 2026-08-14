@@ -963,21 +963,109 @@ def teste_alternancia_borda():
         "carregar_estilo(" not in texto_mod,
     )
 
-    # H-0039: cor_texto e cor_fundo do EstiloResolvido sao consultados
-    # materialmente no caminho de renderizacao (_texto_chip_barra).
+    # H-0039 / H-0071 P04: cor_texto e cor_fundo do EstiloResolvido sao
+    # consumidos materialmente no caminho da Barra real. A Barra delega a
+    # composicao a tela.renderizacao.estilo.compor_chip_multitecla; o
+    # compositor compartilhado e quem consome as cores, sem campos laterais
+    # de fundo. Hardcoding e compositor paralelo na Barra permanecem
+    # proibidos (CA-H0071-20..22).
+    def _fonte_definicao(texto_modulo, nome):
+        marca = "def {0}(".format(nome)
+        inicio = texto_modulo.find(marca)
+        if inicio < 0:
+            return ""
+        cursor = inicio + len(marca)
+        while cursor < len(texto_modulo):
+            if (
+                texto_modulo.startswith("\ndef ", cursor)
+                or texto_modulo.startswith("\nclass ", cursor)
+            ):
+                break
+            cursor += 1
+        return texto_modulo[inicio:cursor]
+
+    def _corpo_executavel(definicao):
+        """Corpo apos assinatura e docstring imediata."""
+        fim_assinatura = definicao.find("):\n")
+        if fim_assinatura < 0:
+            fim_assinatura = definicao.find("):")
+            if fim_assinatura < 0:
+                return definicao
+            resto = definicao[fim_assinatura + 2:].lstrip()
+        else:
+            resto = definicao[fim_assinatura + 3:].lstrip()
+        for marca in ('"""', "'''"):
+            if resto.startswith(marca):
+                fim = resto.find(marca, len(marca))
+                if fim < 0:
+                    return resto
+                return resto[fim + len(marca):].lstrip("\n")
+        return resto
+
+    fonte_barra = (
+        (_BASE_PADRAO / "tela" / "renderizacao" / "barra_menus.py")
+        .read_text(encoding="utf-8")
+    )
+    fonte_estilo = (
+        (_BASE_PADRAO / "tela" / "renderizacao" / "estilo.py")
+        .read_text(encoding="utf-8")
+    )
+    texto_chip = _fonte_definicao(fonte_barra, "_texto_chip_barra")
+    wrapper_multi = _fonte_definicao(fonte_barra, "_conteudo_chip_multitecla")
+    texto_multi = _fonte_definicao(fonte_barra, "_texto_chip_multitecla")
+    compositor = _fonte_definicao(fonte_estilo, "compor_chip_multitecla")
+    nucleo = _fonte_definicao(fonte_estilo, "_conteudo_chip")
+    caminhos_chip_barra = (
+        _corpo_executavel(texto_chip)
+        + _corpo_executavel(wrapper_multi)
+        + _corpo_executavel(texto_multi)
+    )
+
+    importa_compartilhado = (
+        "from tela.renderizacao.estilo import" in fonte_barra
+        and "compor_chip_multitecla" in fonte_barra
+    )
+    delega_barra_real = (
+        "compor_chip_multitecla(" in texto_chip
+        and "compor_chip_multitecla(" in wrapper_multi
+        and "_conteudo_chip_multitecla(" in texto_multi
+    )
+    compositor_usa_nucleo = "_conteudo_chip(" in compositor
+    sem_hardcoding_local = (
+        "_codigo_ansi_de_cor(" not in caminhos_chip_barra
+        and "_codigo_ansi_de_fundo(" not in caminhos_chip_barra
+        and "\\x1b[" not in caminhos_chip_barra
+        and "\\033[" not in caminhos_chip_barra
+        and "_ANSI_RESET_FG" not in caminhos_chip_barra
+        and "_ANSI_RESET_BG" not in caminhos_chip_barra
+    )
+    sem_compositor_paralelo = (
+        _fonte_definicao(fonte_barra, "_conteudo_chip") == ""
+        and _fonte_definicao(fonte_barra, "compor_chip_multitecla") == ""
+        and _fonte_definicao(fonte_barra, "_codigo_ansi_de_cor") == ""
+        and _fonte_definicao(fonte_barra, "_codigo_ansi_de_fundo") == ""
+    )
+    cadeia_compartilhada = (
+        importa_compartilhado
+        and delega_barra_real
+        and compositor_usa_nucleo
+        and sem_hardcoding_local
+        and sem_compositor_paralelo
+    )
+
     _registrar(
-        "renderer acessa estilo.cor_texto no caminho de renderizacao",
-        "estilo.cor_texto" in (
-            (_BASE_PADRAO / "tela" / "renderizacao" / "barra_menus.py")
-            .read_text(encoding="utf-8")
-        ),
+        "Barra real consome cor_texto do estilo via compositor compartilhado",
+        cadeia_compartilhada
+        and '_valor_estilo(dados, "cor_texto"' in nucleo
+        and "_codigo_ansi_de_cor(cor_texto)" in nucleo,
     )
     _registrar(
-        "renderer acessa estilo.cor_fundo no caminho de renderizacao",
-        "estilo.cor_fundo" in (
-            (_BASE_PADRAO / "tela" / "renderizacao" / "barra_menus.py")
-            .read_text(encoding="utf-8")
-        ),
+        "Barra real consome cor_fundo do estilo via compositor compartilhado",
+        cadeia_compartilhada
+        and '_valor_estilo(dados, "cor_fundo"' in nucleo
+        and "_codigo_ansi_de_fundo(cor_fundo)" in nucleo
+        and "cor_fundo_esquerdo" not in nucleo
+        and "cor_fundo_direito" not in nucleo,
     )
 
 

@@ -37,11 +37,13 @@ sys.path.insert(0, str(_BASE_PADRAO))
 from tela import loader  # noqa: E402
 from tela.loader import (  # noqa: E402
     ARRANJOS_CORPO_VALIDOS,
+    CAMINHOS_PRESET_DEFAULT_PERMITIDOS,
     MODOS_DISTRIBUICAO_CORPO_VALIDOS,
     TIPOS_CORPO_VALIDOS,
     TIPOS_ESTRUTURAIS_VALIDOS,
     EstiloErro,
     EstiloResolvido,
+    EstadoEstiloRuntime,
     TelaArquivoNaoEncontrado,
     TelaCampoObrigatorioAusente,
     TelaElementoSemId,
@@ -53,9 +55,15 @@ from tela.loader import (  # noqa: E402
     TelaIdNaoCoincideComArquivo,
     TelaJsonInvalido,
     TelaTipoDesconhecido,
+    carregar_configuracao_estilo,
     carregar_conteudo_externo,
     carregar_estilo,
     carregar_tela,
+    comparar_configuracoes_estilo,
+    criar_candidato_estilo,
+    definir_preset_candidato,
+    materializar_estilo_local,
+    persistir_configuracao_estilo,
     validar_conteudo_externo,
 )
 
@@ -4554,6 +4562,168 @@ def test_h0044_cor_alerta_tipo_invalido_erro(tmp_path):
     )
     with pytest.raises(EstiloErro):
         carregar_estilo(tmp_path)
+
+
+def _h0061_valor_em_caminho(documento, caminho):
+    valor = documento
+    for parte in caminho:
+        valor = valor[parte]
+    return valor
+
+
+def _h0061_preset_alternativo(candidato, caminho):
+    secao = candidato
+    for parte in caminho[:-1]:
+        secao = secao[parte]
+    atual = secao["preset_default"]
+    return next(nome for nome in secao["presets"] if nome != atual)
+
+
+def _h0061_candidato_b(runtime):
+    candidato = runtime.criar_candidato()
+    for caminho in CAMINHOS_PRESET_DEFAULT_PERMITIDOS:
+        definir_preset_candidato(
+            candidato,
+            caminho,
+            _h0061_preset_alternativo(candidato, caminho),
+        )
+    return candidato
+
+
+def test_h0061_candidato_local_comparacao_e_persistencia_isolada(tmp_path):
+    """H-0061: candidato B é local, completo e preserva a configuração."""
+    import copy
+
+    baseline = carregar_configuracao_estilo(_BASE_PADRAO)
+    runtime = EstadoEstiloRuntime(_BASE_PADRAO)
+    candidato = _h0061_candidato_b(runtime)
+
+    # A mutação do candidato não alcança o snapshot de baseline.
+    assert baseline == runtime.baseline
+    assert runtime.candidato != candidato
+    assert comparar_configuracoes_estilo(candidato, baseline) is False
+
+    # A comparação ignora a ordem textual dos objetos JSON.
+    reordenado = {
+        chave: candidato[chave]
+        for chave in reversed(list(candidato))
+    }
+    assert comparar_configuracoes_estilo(candidato, reordenado) is True
+
+    global_a = runtime.global_vigente
+    local_b = runtime.materializar_local(candidato)
+    assert isinstance(local_b, EstiloResolvido)
+    assert runtime.global_vigente == global_a
+    assert runtime.baseline == baseline
+    assert runtime.candidato == candidato
+
+    destino = tmp_path / "config" / "estilo.json"
+    persistir_configuracao_estilo(candidato, destino)
+    persistido = json.loads(destino.read_text(encoding="utf-8"))
+    esperado = copy.deepcopy(baseline)
+    for caminho in CAMINHOS_PRESET_DEFAULT_PERMITIDOS:
+        alvo = esperado
+        origem = candidato
+        for parte in caminho[:-1]:
+            alvo = alvo[parte]
+            origem = origem[parte]
+        alvo[caminho[-1]] = origem[caminho[-1]]
+    assert persistido == esperado
+    assert all(
+        _h0061_valor_em_caminho(persistido, caminho)
+        == _h0061_valor_em_caminho(candidato, caminho)
+        for caminho in CAMINHOS_PRESET_DEFAULT_PERMITIDOS
+    )
+    assert carregar_configuracao_estilo(_BASE_PADRAO) == baseline
+
+    with pytest.raises(EstiloErro):
+        definir_preset_candidato(candidato, "_meta.status", "novo")
+
+
+def test_h0061_demonstracao_sucesso_persistencia_antes_publicacao(tmp_path, monkeypatch):
+    """H-0061: demonstra A -> B e a troca integral após persistência."""
+    import tela.carregamento.estilo as modulo_estilo
+
+    runtime = EstadoEstiloRuntime(_BASE_PADRAO)
+    baseline_a = runtime.baseline
+    global_a = runtime.global_vigente
+    candidato_b = _h0061_candidato_b(runtime)
+    destino = tmp_path / "sucesso" / "config" / "estilo.json"
+    eventos = []
+    persistir_original = modulo_estilo.persistir_configuracao_estilo
+
+    def persistir_rastreado(candidato, caminho_destino):
+        eventos.append(("antes_persistencia", runtime.global_vigente))
+        resultado = persistir_original(candidato, caminho_destino)
+        eventos.append(("depois_persistencia", runtime.global_vigente))
+        return resultado
+
+    monkeypatch.setattr(
+        modulo_estilo,
+        "persistir_configuracao_estilo",
+        persistir_rastreado,
+    )
+    materializacao_b = runtime.aplicar_candidato(candidato_b, destino)
+
+    assert eventos[0] == ("antes_persistencia", global_a)
+    assert eventos[1] == ("depois_persistencia", global_a)
+    assert runtime.global_vigente == materializacao_b
+    assert runtime.baseline == candidato_b
+    assert runtime.candidato == candidato_b
+    assert comparar_configuracoes_estilo(runtime.candidato, runtime.baseline)
+    assert json.loads(destino.read_text(encoding="utf-8")) == candidato_b
+    assert runtime.baseline != baseline_a
+    assert runtime.global_vigente != global_a
+
+
+def test_h0061_falha_persistencia_preserva_global_baseline_e_candidato(
+    tmp_path, monkeypatch
+):
+    """H-0061: falha fechada não publica nem descarta o candidato B."""
+    import tela.carregamento.estilo as modulo_estilo
+
+    runtime = EstadoEstiloRuntime(_BASE_PADRAO)
+    baseline_a = runtime.baseline
+    global_a = runtime.global_vigente
+    candidato_b = _h0061_candidato_b(runtime)
+    destino = tmp_path / "falha" / "config" / "estilo.json"
+    destino.parent.mkdir(parents=True)
+    destino.write_text(json.dumps(baseline_a, ensure_ascii=False), encoding="utf-8")
+
+    def persistir_falha(candidato, caminho_destino):
+        raise EstiloErro("falha controlada de persistencia")
+
+    monkeypatch.setattr(
+        modulo_estilo,
+        "persistir_configuracao_estilo",
+        persistir_falha,
+    )
+    with pytest.raises(EstiloErro, match="falha controlada"):
+        runtime.aplicar_candidato(candidato_b, destino)
+
+    assert json.loads(destino.read_text(encoding="utf-8")) == baseline_a
+    assert runtime.global_vigente == global_a
+    assert runtime.baseline == baseline_a
+    assert runtime.candidato == candidato_b
+
+
+def test_h0068_acessor_publico_caminho_destino(tmp_path):
+    """H-0068: caminho canonico somente-leitura de config/estilo.json."""
+    runtime_padrao = EstadoEstiloRuntime()
+    assert runtime_padrao.caminho_destino == _BASE_PADRAO / "config" / "estilo.json"
+    with pytest.raises(AttributeError):
+        runtime_padrao.caminho_destino = _BASE_PADRAO / "outro.json"
+
+    destino = tmp_path / "config" / "estilo.json"
+    destino.parent.mkdir(parents=True)
+    destino.write_text(
+        (_BASE_PADRAO / "config" / "estilo.json").read_text(encoding="utf-8"),
+        encoding="utf-8",
+    )
+    runtime = EstadoEstiloRuntime(tmp_path)
+    assert runtime.caminho_destino == tmp_path / "config" / "estilo.json"
+    with pytest.raises(AttributeError):
+        runtime.caminho_destino = destino
 
 
 def test_h0043_carregar_tela_resultado_execucao():

@@ -20,7 +20,20 @@ from tela.carregamento.erros import (
     TelaJsonInvalido,
     TelaTipoDesconhecido,
 )
-from tela.carregamento.estilo import EstiloResolvido, carregar_estilo
+from tela.carregamento.estilo import (
+    CAMINHOS_PRESET_DEFAULT_PERMITIDOS,
+    EstiloResolvido,
+    EstadoEstiloRuntime,
+    RuntimeEstilo,
+    carregar_configuracao_estilo,
+    carregar_estilo,
+    comparar_configuracoes_estilo,
+    criar_candidato_estilo,
+    definir_preset_candidato,
+    materializar_configuracao_estilo,
+    materializar_estilo_local,
+    persistir_configuracao_estilo,
+)
 from tela.carregamento.conteudo_externo import (
     carregar_conteudo_externo,
     validar_conteudo_externo,

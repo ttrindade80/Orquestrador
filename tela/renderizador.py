@@ -55,3 +55,4 @@ from tela.renderizacao.tela import (
     geometria_console,
     renderizar_tela,
 )
+from tela.renderizacao.estilo import associar_conteudo_estilo
