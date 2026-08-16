@@ -191,6 +191,8 @@ def teste_catalogo():
         "h0053_arvore_colapsavel": "h0053_arvore_colapsavel_conteudo",
         "h0054_selecao_multinivel": "h0054_selecao_multinivel_conteudo",
         "h0055_dois_niveis_por_foco": "h0055_dois_niveis_por_foco_conteudo",
+        "h0072_formatacao_generica_dois_niveis_por_foco":
+            "h0072_formatacao_generica_dois_niveis_por_foco_conteudo",
     }
     _registrar("catalogo associa os cenarios com conteudo",
                _CATALOGO_CONTEUDO_EXTERNO == esperado,
@@ -450,6 +452,43 @@ def teste_h0055_fixture_runtime_chips_modo_e_paginacao():
     quadro = renderizar_estado(inicial, modelo, largura=90, altura=24)
     assert "→" in quadro and "●" in quadro and "○" in quadro
     quadro_visivel = re.sub(r"\x1b\[[0-9;]*m", "", quadro)
+    formato_filho = console.formato_filho_dois_niveis
+    assert formato_filho is not None
+    assert formato_filho["designador"]["tipo"] == "alfabetico_maiusculo"
+    assert formato_filho["designador"]["sufixo"] == ")"
+    assert formato_filho["apresentacao"] == "texto"
+    assert formato_filho["tabulacao"] == {"minimo": 5, "maximo": 10}
+    def _miolo(linha):
+        return linha.split("│", 1)[1] if "│" in linha else linha
+
+    def _coluna_cursor(quadro):
+        for linha in quadro.splitlines():
+            miolo = _miolo(linha)
+            if "→" in miolo:
+                return miolo.index("→")
+        raise AssertionError("cursor ausente")
+
+    linhas_filhos = [
+        linha for linha in quadro_visivel.splitlines()
+        if "Filho 01." in _miolo(linha)
+    ]
+    assert linhas_filhos
+    assert any("A)" in linha and "Filho 01.01" in linha for linha in linhas_filhos)
+    assert any("B)" in linha and "Filho 01.02" in linha for linha in linhas_filhos)
+    assert any("C)" in linha and "Filho 01.03" in linha for linha in linhas_filhos)
+    assert any("D)" in linha and "Filho 01.04" in linha for linha in linhas_filhos)
+    coluna_pai = _coluna_cursor(quadro_visivel)
+    for linha in linhas_filhos:
+        corpo = _miolo(linha)
+        assert "A)" in corpo or "B)" in corpo or "C)" in corpo or "D)" in corpo
+        assert " A " not in corpo
+        pos_tg = min(i for i in (corpo.find("●"), corpo.find("○")) if i >= 0)
+        pos_desig = min(
+            corpo.find(marca) for marca in ("A)", "B)", "C)", "D)")
+            if marca in corpo
+        )
+        pos_texto = corpo.find("Filho")
+        assert pos_tg < pos_desig < pos_texto
     assert "[PgUp/PgDn] Páginas" in quadro_visivel
     assert "[PgUp][PgDn]" not in quadro_visivel
     assert "[␣] Selecionar" in quadro
@@ -462,6 +501,21 @@ def teste_h0055_fixture_runtime_chips_modo_e_paginacao():
 
     filhos = processar_comando(inicial, " ", modelo)
     assert filhos["cursores"][console.id] == 1
+    quadro_nivel_filhos = re.sub(
+        r"\x1b\[[0-9;]*m", "",
+        renderizar_estado(filhos, modelo, largura=90, altura=24),
+    )
+    coluna_filho = _coluna_cursor(quadro_nivel_filhos)
+    assert 5 <= coluna_filho - coluna_pai <= 10
+    linha_corrente = next(
+        linha for linha in quadro_nivel_filhos.splitlines()
+        if "→" in _miolo(linha) and "A)" in linha
+    )
+    miolo_corrente = _miolo(linha_corrente)
+    assert miolo_corrente.index("→") < miolo_corrente.index("●")
+    assert miolo_corrente.index("●") < miolo_corrente.index("A)")
+    assert miolo_corrente.index("A)") < miolo_corrente.index("Filho")
+    assert miolo_corrente.index("A)") - coluna_filho >= 0
     cursor = processar_comando(filhos, "\x1b[B", modelo)
     assert cursor["cursores"][console.id] == 2
     assert cursor["selecoes"] == filhos["selecoes"]
@@ -1058,3 +1112,4 @@ def main():
 
 if __name__ == "__main__":
     sys.exit(main())
+\n

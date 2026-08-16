@@ -30,7 +30,7 @@ from tela.carregamento.estilo import definir_preset_candidato
 from tela.carregamento.erros import EstiloErro
 from tela.modelo import ConteudoExterno, NivelConteudo, NoConteudo
 from tela import navegacao
-from tela.renderizacao.estilo import compor_titulo_com_amostra
+from tela.renderizacao.estilo import amostra_de_preset, compor_titulo_com_amostra
 from tela.renderizacao.texto_ansi import _largura_sem_ansi
 
 
@@ -169,6 +169,7 @@ class ControladorTelaEstilo:
                         ),
                         "categoria": categoria,
                         "preset": nome,
+                        "amostra": amostra_de_preset(categoria, preset.dados),
                     },
                     filhos=[],
                 )
@@ -536,3 +537,4 @@ __all__ = [
     "PresetEstilo",
     "SolicitacaoAplicacaoEstilo",
 ]
+\n

@@ -1854,3 +1854,124 @@ sobre cursor e página, nunca sobre a seleção.
 - `docs/contratos/contrato_chip.md` — regras de existência e ativo/inativo de `[PgUp][PgDn]`, entradas aceitas;
 - `docs/nomenclatura/21_LAYOUT_REDIMENSIONAMENTO_E_PAGINACAO.md` — terminologia de paginação limitada e repaginação;
 - `docs/nomenclatura/32_CONSOLE.md` — terminologia de página como estado independente por console.
+
+---
+
+## 25. Formatação dos filhos de `dois_niveis_por_foco` (ADR-0047)
+
+A ADR-0047 (2026-08-15) fecha a evolução exclusiva de apresentação/formatação
+dos filhos da política `dois_niveis_por_foco` (§22.16; ADR-0042), sem
+redesenhar navegação, seleção ou o schema semântico já fechados. O schema
+literal declarativo está em `contrato_tela_json.md` §36. Esta seção propaga
+o comportamento correspondente.
+
+### 25.1 Escopo
+
+Esta seção aplica-se exclusivamente à formatação física dos filhos quando
+`politica_navegacao.tipo = "dois_niveis_por_foco"`. Ela não redefine
+`dois_niveis_por_foco` como política de navegação (§22.16), não altera a
+seleção exclusiva obrigatória de filho por pai, não cria terceiro nível e
+não transforma o console em passivo.
+
+### 25.2 Ordem física do filho e tabulação
+
+A ordem física do filho é:
+
+```text
+tabulacao → ec → tg, quando existir → designador, quando existir → conteúdo
+```
+
+A tabulação começa antes de `ec`, como recuo aplicado antes do início da
+estrutura `ec`/`tg`/`tx` já fixada por `docs/nomenclatura/32_CONSOLE.md`
+§4.4. Cursor do filho, toggle do filho, designador do filho e conteúdo do
+filho são deslocados para a direita como uma unidade inteira — nunca
+apenas o texto. O cursor do filho fica sempre para dentro do primeiro
+caractere visual do item pai. É proibido recuar somente o texto deixando
+`ec` ou `tg` alinhados ao pai: os dois espaços continuam coexistindo em
+posições distintas e adjacentes, sem sobreposição.
+
+Os limites de tabulação são declarados em
+`formato.dois_niveis_por_foco.filho.tabulacao` (`contrato_tela_json.md`
+§36.3), nunca no documento externo de conteúdo. O renderer usa o maior
+valor de tabulação que couber dentro do intervalo declarado: o mínimo se
+somente o mínimo couber, um valor intermediário se este couber, ou o
+máximo se o máximo couber. Sobra após o máximo permanece à direita da
+apresentação, sem ampliação artificial de tabulação. Os valores concretos
+pertencem à configuração de cada tela — para as telas desta atividade,
+mínimo 5 e máximo 10 — e não são hardcoded no renderer.
+
+### 25.3 Designador
+
+O designador do nível filho usa exclusivamente os mecanismos já existentes
+no schema semântico multinível (`contrato_json_console.md` §12.3). Nenhuma
+identidade lógica nova é criada, e a ausência de designador é estritamente
+visual.
+
+Para tipos visuais (`decimal_composto`, `alfabetico_maiusculo`), o
+renderer emite:
+
+```text
+designador_visual = prefixo + designador_base + sufixo
+```
+
+Ausência de `prefixo` ou `sufixo` equivale a string vazia. Para
+`tipo: nenhum`, nenhum designador é emitido.
+
+### 25.4 Apresentação tabular local
+
+`apresentacao = "tabela"` (`contrato_tela_json.md` §36.5) é exclusivamente
+forma de apresentação dos filhos. Ela não altera `politica_navegacao.tipo`,
+não transforma a política em `tabela` (§22.13), não torna o console
+passivo e não cria terceiro nível. Cada filho continua sendo um único item
+lógico — cada linha física da apresentação tabular pertence ao mesmo item
+lógico filho (distinção item lógico × linha física já fixada por §22.4 e
+`docs/nomenclatura/32_CONSOLE.md` §4.4).
+
+A apresentação tabular local não possui cabeçalho, linha separadora, borda
+própria nem título próprio.
+
+### 25.5 Colunas
+
+A largura natural de cada coluna deriva do conteúdo real. O cálculo
+considera todos os filhos do console, inclusive filhos de pais diferentes:
+não existe grade independente por pai. Trocar o pai em foco não faz as
+colunas mudarem horizontalmente. O JSON não armazena largura física final,
+posição final, quebra física pronta nem geometria calculada de colunas
+(§19.4) — esses resultados pertencem exclusivamente ao renderer.
+
+### 25.6 Espaçamento entre colunas
+
+Os limites de espaçamento entre colunas são declarados em
+`formato.dois_niveis_por_foco.filho.tabela.espacamento`
+(`contrato_tela_json.md` §36.5). O renderer usa o maior valor que couber
+entre mínimo e máximo. Se o máximo couber e ainda houver largura
+disponível, a sobra fica à direita de toda a tabela — as colunas não são
+artificialmente ampliadas para consumi-la. Os valores concretos pertencem
+à configuração de cada tela — para a configuração desta atividade, mínimo
+3 e máximo 8.
+
+### 25.7 Quebra de conteúdo
+
+Quando a apresentação não couber mesmo após reduzir tabulação e
+espaçamento até seus mínimos, células quebram em múltiplas linhas. O item
+lógico permanece único: a linha de continuação não cria cursor, não cria
+toggle e não cria identidade lógica — o mesmo princípio já aplicado a
+linhas de continuação em modo verboso (§21.3, §22.6; módulo `44` §8B).
+
+Resize recalcula a geometria — tabulação efetiva, larguras de coluna,
+espaçamento entre colunas e quebras — preservando o item lógico, na mesma
+linha já fixada para o console em geral (ADR-0031 D10; §21.8, §22.5). Nenhuma
+nova exceção a essa regra é criada para `dois_niveis_por_foco`.
+
+### 25.8 Remissões
+
+- `docs/adr/ADR-0047-formatacao-filhos-dois-niveis-por-foco.md` — decisões
+  D-DNF-01 a D-DNF-11 e schema literal fechado em §4.13;
+- `contrato_tela_json.md` — seção 36: schema literal declarativo;
+- `contrato_json_console.md` — seção 15: fronteira com o documento externo
+  de conteúdo;
+- `docs/nomenclatura/44_APRESENTACOES_E_MODOS_MULTINIVEL_DO_CONSOLE.md` —
+  terminologia canônica da ADR-0047;
+- `docs/nomenclatura/32_CONSOLE.md` — unidade inteira do filho deslocada,
+  `ec`, `tg`, item lógico.
+\n

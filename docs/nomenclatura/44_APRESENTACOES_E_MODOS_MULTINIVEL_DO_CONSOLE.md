@@ -46,6 +46,11 @@ nova ADR.
 - modo padrão da tela
 - modo configurável
 - navegação multinível como fronteira referenciada (ADR-0042)
+- apresentação dos filhos de `dois_niveis_por_foco` (ADR-0047)
+- tabulação pai→filho (ADR-0047)
+- apresentação tabular local de filhos (ADR-0047)
+- colunas da apresentação tabular local (ADR-0047)
+- espaçamento entre colunas (ADR-0047)
 
 ## 4. Definições
 
@@ -101,6 +106,41 @@ Ao encontrar `modo não verboso`, não reescrever como `modo normal`.
 | `modo padrão da tela` | Modo declarado na tela quando nenhum override por nível está presente |
 | `modo configurável` | Modo que pode ser sobrescrito por configuração de tela |
 
+### 4.6 Apresentação dos filhos de `dois_niveis_por_foco` (ADR-0047)
+
+A ADR-0047 fecha a evolução exclusiva de apresentação/formatação dos
+filhos da política `dois_niveis_por_foco` (ADR-0042). Autoridade
+comportamental completa em `contrato_console.md` §25; schema literal em
+`contrato_tela_json.md` §36.
+
+| Termo | Definição |
+|---|---|
+| **apresentação dos filhos de `dois_niveis_por_foco`** | Configuração declarativa, por tela, de como os filhos de `dois_niveis_por_foco` são exibidos: tabulação em relação ao pai, designador local e forma de apresentação (`texto` ou `tabela`). Não altera a política de navegação nem a seleção exclusiva obrigatória de filho por pai. |
+| **tabulação pai→filho** | Recuo declarativo (limites mínimo/máximo) aplicado antes de `ec`, que desloca `ec`, `tg`, designador e conteúdo do filho como unidade inteira em relação ao pai. O valor físico efetivo é calculado pelo renderer dentro do intervalo declarado. |
+| **apresentação tabular local de filhos** | Forma de apresentação (`apresentacao: "tabela"`) em que os dados de um filho de `dois_niveis_por_foco` são exibidos em colunas alinhadas, sem cabeçalho, linha separadora, borda ou título próprios. Cada filho permanece um único item lógico; cada linha física da apresentação pertence a esse mesmo item lógico. |
+| **colunas da apresentação tabular local** | Conjunto ordenado de referências a campos semânticos do conteúdo (`tabela.colunas[].campo`), cuja ordem no array é a ordem visual e cuja quantidade determina o número de colunas. A largura física de cada coluna é calculada pelo renderer a partir do conteúdo real, considerando todos os filhos do console, inclusive de pais diferentes. |
+| **espaçamento entre colunas** | Limites declarativos (mínimo/máximo) do vão físico entre colunas da apresentação tabular local. O valor efetivo é calculado pelo renderer dentro do intervalo declarado. |
+
+**Distinção obrigatória — configuração de apresentação × conteúdo/dados**:
+a tabulação, o designador local, a apresentação (`texto`/`tabela`) e o
+espaçamento entre colunas pertencem exclusivamente à configuração
+estrutural da tela (`formato.dois_niveis_por_foco.filho` do elemento
+`console`). O documento externo de conteúdo fornece somente os dados
+semânticos referenciados por `tabela.colunas[].campo` — nunca a
+configuração de como esses dados são apresentados (`contrato_json_console.md`
+§15).
+
+**Distinção obrigatória — apresentação tabular local × `tabela` como
+política de navegação**: a apresentação tabular local (ADR-0047) é
+exclusivamente uma forma de exibir o conteúdo de um filho já navegável de
+`dois_niveis_por_foco`; ela não torna a política de navegação passiva, não
+substitui `politica_navegacao.tipo`, não remove o cursor nem o foco do
+filho. `tabela` como política de navegação (§4.10 do módulo `32`; ADR-0042)
+é uma política inteiramente distinta e passiva, sem cursor entre linhas.
+As duas não compartilham propriedade por homonímia — o mesmo princípio já
+fixado por `docs/nomenclatura/32_CONSOLE.md` para `tabela` como política ×
+`tabela` como apresentação.
+
 ## 5. Distinções obrigatórias
 
 | Par | Distinção normativa |
@@ -110,6 +150,8 @@ Ao encontrar `modo não verboso`, não reescrever como `modo normal`.
 | `modo não verboso` × `modo normal` | Divergência ativa: ambos referenciam o mesmo conceito; reconciliação deferida para nova ADR (ADR-0028) |
 | `apresentação por tela` × `schema semântico` | Apresentação por tela: como o dado é exibido; schema semântico (módulo 42): o que o dado significa |
 | `apresentações multinível` × `carregamento conjunto` | Apresentações multinível (ADR-0028): como o dado é exibido em cada nível; carregamento conjunto (ADR-0027): como múltiplos envelopes são associados — módulo `43` |
+| `apresentação tabular local de filhos` × `tabela` como política de navegação | A apresentação tabular local (ADR-0047) é forma de exibição de um filho já navegável de `dois_niveis_por_foco`; `tabela` como política (ADR-0042, módulo `32`) é política de navegação passiva e distinta — sem propriedade por homonímia |
+| `configuração de apresentação` (tabulação, designador local, apresentação, colunas, espaçamento) × `conteúdo/dados` | Configuração de apresentação pertence exclusivamente ao JSON estrutural da tela; conteúdo/dados pertence exclusivamente ao documento externo (ADR-0047; `contrato_json_console.md` §15) |
 
 ## 6. Relação com contratos
 
@@ -124,6 +166,7 @@ Ao encontrar `modo não verboso`, não reescrever como `modo normal`.
 - ADR-0027: carregamento conjunto que precede as apresentações (parcial — carregamento no módulo 43).
 - ADR-0031: D10 (mudança de modo preserva item lógico); linhas de continuação não recebem indicador; navegação multinível fora do escopo comportamental desta ADR.
 - ADR-0042: autoridade comportamental referenciada para navegação multinível do console.
+- ADR-0047: apresentação dos filhos de `dois_niveis_por_foco` — tabulação pai→filho, apresentação tabular local, colunas e espaçamento entre colunas; autoridade comportamental completa em `contrato_console.md` §25; schema literal em `contrato_tela_json.md` §36.
 
 ## 8. Aliases ou termos descontinuados relacionados
 
@@ -174,6 +217,7 @@ Autoridade comportamental completa em `contrato_console.md` §§21–22.
 - Regras comportamentais completas de apresentação → `contrato_console.md`.
 - Reconciliação da divergência `modo normal` × `modo não verboso` → aguarda nova ADR.
 - Navegação simples e seleção única → `contrato_console.md` §22 e módulo `32`.
+- Unidade inteira do filho deslocada (`ec`, `tg`, item lógico) em `dois_niveis_por_foco` → módulo `32`.
 
 ## 10. Proveniência da migração
 
@@ -196,3 +240,4 @@ tratamento:
 partes_NAO_CONFIRMADAS:
   - "Divergência 'modo normal' × 'modo não verboso': dois termos coexistentes para o mesmo conceito, reconciliação deferida para nova ADR (ADR-0028 registra mas não resolve)"
 ```
+\n

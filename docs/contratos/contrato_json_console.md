@@ -1841,3 +1841,62 @@ da tela de origem, o retorno e a restauração.
 - `docs/contratos/contrato_barra_de_menus.md` — seção 23: rótulos dinâmicos e chip `Espaço`;
 - `docs/nomenclatura/42_DADOS_EXTERNOS_MULTINIVEL.md` — terminologia de envelope multinível;
 - `docs/nomenclatura/43_CARREGAMENTO_E_ASSOCIACAO_DE_CONTEUDO.md` — terminologia de carregamento do temporário.
+
+---
+
+## 15. Fronteira com a formatação dos filhos de `dois_niveis_por_foco` (ADR-0047)
+
+A ADR-0047 (2026-08-15) fecha, para a política `dois_niveis_por_foco`
+(§7.1; `contrato_console.md` §22.16), a evolução exclusiva de
+apresentação/formatação dos filhos: tabulação, designador local e
+apresentação/tabela. O schema literal dessas três capacidades está fechado
+em `contrato_tela_json.md` §36, no elemento `console` do JSON estrutural da
+tela — não neste envelope declarativo do documento externo de conteúdo.
+
+Esta seção apenas fixa a fronteira: o documento externo de conteúdo
+(seções 11 a 14 deste contrato) continua fornecendo exclusivamente dados
+semânticos. Ele não declara:
+
+- `formato.dois_niveis_por_foco.filho`;
+- tabulação de tela;
+- apresentação tabular da tela;
+- espaçamento físico entre colunas;
+- geometria física calculada.
+
+Os campos referenciados por `tabela.colunas[].campo`
+(`contrato_tela_json.md` §36.5) pertencem ao conteúdo — continuam a existir
+somente no documento externo —, mas a escolha de apresentá-los como
+colunas pertence exclusivamente à configuração da tela. Esta seção não
+copia configuração visual para os dados nem estende o mecanismo `conteudo`
+do schema semântico multinível (§12.3) com campos de apresentação.
+
+### 15.1 Extensão da projeção de H-0063
+
+A especialização de H-0063 (ADR-0047 §4.11.1) estende de forma compatível a
+projeção semântica entregue ao console, sem alterar o conteúdo visível:
+
+- `preset` é campo semântico já existente da projeção e permanece
+  inalterado;
+- `amostra` é campo semântico adicional da projeção e representa a mesma
+  amostra já existente no fluxo; a proveniência semântica é o mesmo
+  componente real que já produz essa amostra antes da composição final de
+  `titulo`; é proibido produzir `amostra` extraindo ou fazendo parsing de
+  `titulo`;
+- `titulo` permanece disponível com o mesmo valor e significado; nenhum
+  consumidor preexistente de `titulo` é invalidado;
+- nenhum campo existente é removido, renomeado ou redefinido.
+
+`amostra` é dado semântico — não é geometria nem configuração. A presença
+de `amostra` não transforma o documento de conteúdo em configuração da
+tela. A decisão de apresentar `preset` e `amostra` como duas colunas
+permanece exclusivamente no JSON estrutural da tela
+(`contrato_tela_json.md` §36.8).
+
+### 15.2 Remissões
+
+- `docs/adr/ADR-0047-formatacao-filhos-dois-niveis-por-foco.md` — schema
+  literal fechado em §4.13 e extensão da projeção de H-0063 em §4.11.1;
+- `contrato_tela_json.md` — seção 36: schema literal declarativo e
+  especialização H-0063 (§36.8);
+- `contrato_console.md` — seção 25: comportamento de formatação.
+\n

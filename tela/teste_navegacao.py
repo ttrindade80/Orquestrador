@@ -2138,3 +2138,152 @@ def teste_h0055_tab_reseta_cursor_sem_alterar_escolhas_e_preserva_resize():
     redimensionado = navegacao.redimensionar(focado, 120, 35)
     assert redimensionado["cursores"] == focado["cursores"]
     assert redimensionado["selecoes"] == focado["selecoes"]
+
+
+def _formato_filho_h0055():
+    return {
+        "tabulacao": {"minimo": 5, "maximo": 10},
+        "designador": {"tipo": "alfabetico_maiusculo", "sufixo": ")"},
+        "apresentacao": "texto",
+    }
+
+
+def _arvore_h0055_com_formato_filho():
+    console = _arvore_h0055()
+    console.formato_filho_dois_niveis = _formato_filho_h0055()
+    return console
+
+
+def _arvore_h0055_renderizavel():
+    pais = [
+        NoConteudo(
+            id="pai_a",
+            nivel="pai",
+            campos={"navegavel": True, "selecionavel": False, "titulo": "Pai A"},
+            filhos=[
+                NoConteudo(
+                    id="a1", nivel="filho",
+                    campos={
+                        "navegavel": True, "selecionavel": True, "titulo": "Um",
+                    },
+                    filhos=[],
+                ),
+                NoConteudo(
+                    id="a2", nivel="filho",
+                    campos={
+                        "navegavel": True, "selecionavel": True, "titulo": "Dois",
+                    },
+                    filhos=[],
+                ),
+                NoConteudo(
+                    id="a3", nivel="filho",
+                    campos={
+                        "navegavel": True, "selecionavel": True, "titulo": "Tres",
+                    },
+                    filhos=[],
+                ),
+            ],
+        ),
+        NoConteudo(
+            id="pai_b",
+            nivel="pai",
+            campos={"navegavel": True, "selecionavel": False, "titulo": "Pai B"},
+            filhos=[
+                NoConteudo(
+                    id="b1", nivel="filho",
+                    campos={
+                        "navegavel": True, "selecionavel": True, "titulo": "Quatro",
+                    },
+                    filhos=[],
+                ),
+                NoConteudo(
+                    id="b2", nivel="filho",
+                    campos={
+                        "navegavel": True, "selecionavel": True, "titulo": "Cinco",
+                    },
+                    filhos=[],
+                ),
+            ],
+        ),
+    ]
+    console = _dois_niveis(nos=pais)
+    console.conteudo_externo.niveis = [
+        NivelConteudo(
+            id="pai", tipo="container", conteudo="titulo",
+            designador={"tipo": "decimal", "sufixo": "."},
+        ),
+        NivelConteudo(
+            id="filho", tipo="conteudo", conteudo="titulo",
+            designador={"tipo": "nenhum"},
+        ),
+    ]
+    console.formato_filho_dois_niveis = _formato_filho_h0055()
+    return console
+
+
+def teste_h0055_formato_filho_nao_altera_navegacao_nem_selecao():
+    from tela import selecao
+
+    console = _arvore_h0055_com_formato_filho()
+    assert console.formato_filho_dois_niveis["designador"]["sufixo"] == ")"
+    assert navegacao.tipo_navegacao_efetivo(console) == "dois_niveis_por_foco"
+
+    estado = _estado([console], foco=0, cursores={console.id: 0})
+    estado = selecao.inicializar_escolhas_dois_niveis(estado, console)
+    assert estado["selecoes"][console.id] == ["a1", "b1"]
+
+    estado = navegacao.mover_cima(estado, console)
+    assert estado["cursores"][console.id] == 4
+    estado = navegacao.mover_baixo(estado, console)
+    assert estado["cursores"][console.id] == 0
+
+    filhos = navegacao.entrar_nivel_filhos(estado, console)
+    assert filhos["cursores"][console.id] == 1
+    movido = navegacao.mover_baixo(filhos, console)
+    assert movido["cursores"][console.id] == 2
+    transferido = selecao.alternar(movido, console, "a2")
+    assert transferido["selecoes"][console.id] == ["a2", "b1"]
+    pais = navegacao.retornar_nivel_pais(transferido, console)
+    assert pais["cursores"][console.id] == 0
+    assert pais["selecoes"] == transferido["selecoes"]
+
+
+def teste_h0055_formato_filho_produz_designador_com_sufixo():
+    from tela.renderizacao import conteudo_externo
+
+    console = _arvore_h0055_renderizavel()
+    config = console.formato_filho_dois_niveis
+    assert config["designador"]["tipo"] == "alfabetico_maiusculo"
+    assert config["designador"]["sufixo"] == ")"
+    assert config["apresentacao"] == "texto"
+    assert config["tabulacao"] == {"minimo": 5, "maximo": 10}
+    assert "tabela" not in config
+
+    entradas = conteudo_externo._linhas_dois_niveis_formatado_com_mapa(
+        console.conteudo_externo, config, content_w=60,
+        no_corrente_id="a1", indicador="●", indicador_off="○",
+        selecoes={"a1", "b1"}, incluir_selecao=True,
+        incluido_on="◆", incluido_off="◇",
+    )
+    por_id = {entrada["id"]: entrada["linhas"][0] for entrada in entradas}
+    assert "A)" in por_id["a1"]
+    assert "B)" in por_id["a2"]
+    assert "C)" in por_id["a3"]
+    assert "A)" in por_id["b1"]
+    assert "B)" in por_id["b2"]
+    assert " A " not in por_id["a1"]
+    assert config["designador"]["sufixo"] == ")"
+    assert "A" + config["designador"]["sufixo"] == "A)"
+
+    linha = por_id["a1"]
+    recuo = len(linha) - len(linha.lstrip(" "))
+    assert 5 <= recuo <= 10
+    corpo = linha.lstrip(" ")
+    pos_ec = corpo.find("●")
+    pos_tg = corpo.find("◆")
+    pos_desig = corpo.find("A)")
+    pos_texto = corpo.find("Um")
+    assert 0 <= pos_ec < pos_tg < pos_desig < pos_texto
+    assert linha[:recuo] == " " * recuo
+    assert linha[recuo:].startswith("●")
+\n

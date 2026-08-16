@@ -422,3 +422,11 @@ Nenhum item registrado.
 **Data:** 2026-08-14
 **Referências:** docs/adr/ADR-0046-alteracao-aplicacao-estilo-global-runtime.md; docs/handoff/H-0071-correcao-chips-multitecla-barra-menus-estilo.md; docs/relatorios/RELATORIO_FECHAMENTO_H-0071_ADR-0046.md
 **Resumo:** Escolha e aplicação do estilo global concluídas com a composição reconciliada de chips multitecla, distinção Curva `╭`/`╮` × Ornamental `❲`/`❳`, paginação `[PgUp/PgDn]` como unidade visual única e preservação de `cor_inativo`; o fechamento registrou validação manual TTY aprovada e a suíte final de 1381 testes aprovados e uma falha conhecida não causal do H-0071 P05.
+
+### ADR-0047 / H-0072 / H-0073 — Formatação de filhos em dois níveis por foco
+
+**Resultado:** CONCLUIDO
+**Data:** 2026-08-16
+**Referências:** docs/adr/ADR-0047-formatacao-filhos-dois-niveis-por-foco.md; docs/handoff/H-0072-formatacao-generica-filhos-dois-niveis-por-foco.md; docs/handoff/H-0073-aplicacao-formatacao-telas-dois-niveis-por-foco.md; docs/relatorios/RELATORIO_REVALIDACAO_MANUAL_H-0073_POS_H0072_P05_P06.md
+**Resumo:** Capacidade genérica concluída para formatar filhos de `dois_niveis_por_foco`, com tabulação estrutural dinâmica 5..10, designador configurável por prefixo/sufixo, apresentações texto/tabela, alinhamento global, wrap e correção ANSI no resize. Aplicação real concluída em H-0055 (preservando `A)`) e H-0063 (tabela `preset`/`amostra`, espaçamento 3..8 e fundo de “Destaque Fundo” restrito ao chip). A revalidação manual final foi aprovada, com VM-H0073-001 e VM-H0073-002 resolvidos. H-0070 permanece resíduo histórico não causal, fora deste ciclo.
+\n

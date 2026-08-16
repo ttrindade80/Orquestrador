@@ -58,6 +58,8 @@ assume co-propriedade nem redefine o artefato.
 - dado heterogêneo entre níveis
 - documento de resultado de execução (ADR-0034)
 - envelope de erro multinível (ADR-0034)
+- projeção semântica
+- extensão compatível da projeção semântica (ADR-0047)
 
 ## 4. Definições
 
@@ -118,6 +120,14 @@ propósito específico (apresentar resultado/erro de execução), com campos
 fixos próprios em vez do vocabulário livre de níveis do conteúdo do
 console.
 
+### 4.6 Extensão compatível da projeção semântica (ADR-0047)
+
+A `projeção semântica` é o conjunto de campos semânticos entregues ao
+console. Uma `extensão compatível da projeção semântica` expõe
+separadamente um dado semântico que já existe no fluxo, preservando os
+campos antigos para compatibilidade. Não constitui alteração do conteúdo
+visível nem do significado dos dados.
+
 ## 5. Distinções obrigatórias
 
 | Par | Distinção normativa |
@@ -130,6 +140,7 @@ console.
 | `schema semântico` × `schema de configuração` | Schema semântico: descreve campos de dado por nível; schema de configuração: descreve campos da tela, do console ou do contrato |
 | `JSON externo de conteúdo` (genérico) × `documento de resultado de execução` (ADR-0034) | Conteúdo genérico: dados de domínio apresentados pelo console em operação; documento de resultado: resultado ou erro estruturado de uma operação focal executada sobre um lote reconciliado — campos fixos, não vocabulário livre de níveis |
 | `envelope de entrada do pop-up` × `envelope declarativo multinível` | O envelope do pop-up pertence ao domínio `35` e transporta conteúdo pronto de uma abertura; não é o envelope multinível do console e não declara níveis, produtor ou origem de dados |
+| `extensão compatível da projeção semântica` × `alteração do conteúdo visível` | Uma projeção pode expor separadamente um dado semântico já existente no fluxo, preservando os campos antigos para compatibilidade. Isso não altera o conteúdo visível. A extensão não transfere configuração, tabulação, colunas, espaçamento nem geometria para os dados |
 
 ## 6. Relação com contratos
 
@@ -146,6 +157,9 @@ console.
 - ADR-0034: documento de resultado de execução; envelope de erro multinível;
   obrigação de preservação literal do texto inválido fixada em
   `contrato_json_console.md` §14.6.
+- ADR-0047: extensão compatível da projeção semântica, distinta de
+  alteração do conteúdo visível; tabulação, apresentação tabular e
+  geometria não pertencem a este módulo.
 
 ## 8. Aliases ou termos descontinuados relacionados
 
@@ -193,3 +207,4 @@ tratamento:
   - SEPARADO_DE_REGRA_COMPORTAMENTAL
 partes_NAO_CONFIRMADAS: []
 ```
+\n

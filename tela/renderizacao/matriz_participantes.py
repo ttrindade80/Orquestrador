@@ -21,6 +21,7 @@ from tela.renderizacao.conteudo_externo import (
     _participantes_de_conteudo_externo,
     _quebrar_texto,
 )
+from tela.renderizacao.texto_ansi import _cortar_sem_ansi
 
 def _aplicar_indicador_linhas(linhas, elemento, content_w, largura_grade):
     """Prefixa a coluna do indicador em cada linha de console (D12).
@@ -50,7 +51,8 @@ def _aplicar_indicador_linhas(linhas, elemento, content_w, largura_grade):
         # sem marca visual. PN-0008: nenhum símbolo em console nao focado.
         off2 = off + " "
         return [
-            (off2 + ln)[:content_w] if content_w is not None else off2 + ln
+            _cortar_sem_ansi(off2 + ln, content_w)
+            if content_w is not None else off2 + ln
             for ln in linhas
         ]
     # Console focado: marcar a primeira linha física do item corrente.
@@ -66,7 +68,7 @@ def _aplicar_indicador_linhas(linhas, elemento, content_w, largura_grade):
         marcador = simbolo if eh_primeira_do_corrente else off
         novo = marcador + " " + ln
         if content_w is not None:
-            novo = novo[:content_w]
+            novo = _cortar_sem_ansi(novo, content_w)
         resultado.append(novo)
     return resultado
 
@@ -531,3 +533,4 @@ def _larguras_mapa_fisico_matricial(
                 for celula in resultado_recalculado["celulas"]
             }
     return larguras
+\n

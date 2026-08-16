@@ -1812,3 +1812,205 @@ Quando uma configuração adotar a capacidade, a compatibilidade entre sua
 declaração, o envelope runtime e o contrato de resultado esperado pelo
 chamador deve ser validada antes da materialização, conforme
 `contrato_popup.md`.
+
+---
+
+## 36. Formato de apresentação dos filhos de `dois_niveis_por_foco` (ADR-0047)
+
+A ADR-0047 (2026-08-15) fecha, para a política `dois_niveis_por_foco`
+(ADR-0042; `contrato_console.md` §22.16), a evolução exclusiva de
+apresentação/formatação dos filhos: tabulação declarativa entre pai e
+filhos, designador do nível filho, apresentação tabular local e
+espaçamento entre colunas. Esta seção materializa o schema literal fechado
+pela ADR-0047 §4.13, no mesmo local estrutural já usado pelo precedente
+`console.formato.excesso.politica_modo` (§33.6.1).
+
+### 36.1 Localização e condição de existência
+
+O bloco pertence exclusivamente ao elemento `console` do JSON estrutural da
+tela, dentro do campo `formato` já existente, preservando campos
+preexistentes (como `formato.excesso`, quando presente). Ele só pode
+existir quando `politica_navegacao.tipo = "dois_niveis_por_foco"`
+(`contrato_json_console.md` §7.1). Não é declarado no documento externo de
+conteúdo (ver `contrato_json_console.md` §15).
+
+### 36.2 Schema literal do bloco `formato.dois_niveis_por_foco.filho`
+
+```json
+"formato": {
+  "...campos preexistentes preservados...": "...",
+
+  "dois_niveis_por_foco": {
+    "filho": {
+      "tabulacao": {
+        "minimo": 5,
+        "maximo": 10
+      },
+
+      "designador": {
+        "tipo": "<decimal_composto|alfabetico_maiusculo|nenhum>",
+        "prefixo": "<string opcional>",
+        "sufixo": "<string opcional>"
+      },
+
+      "apresentacao": "texto",
+
+      "tabela": {
+        "colunas": [
+          { "campo": "<campo_semantico_do_conteudo>" }
+        ],
+        "espacamento": {
+          "minimo": 3,
+          "maximo": 8
+        }
+      }
+    }
+  }
+}
+```
+
+O bloco `tabela` só existe quando `apresentacao = "tabela"` (§36.5).
+
+### 36.3 Campo `tabulacao`
+
+Local literal `formato.dois_niveis_por_foco.filho.tabulacao`. Obrigatório
+para toda apresentação de `dois_niveis_por_foco`. Campos `minimo` e
+`maximo`, ambos inteiros positivos, com `minimo <= maximo`. Os valores
+concretos pertencem à configuração de cada tela; não são hardcoded no
+renderer. O renderer usa o maior valor que couber dentro do intervalo
+declarado; a sobra permanece à direita da apresentação. O comportamento
+físico completo está em `contrato_console.md` §25.
+
+### 36.4 Campo `designador`
+
+Local literal `formato.dois_niveis_por_foco.filho.designador`. Objeto
+fechado com `tipo` obrigatório. Os únicos valores válidos de `tipo`
+nesta capacidade são `decimal_composto`, `alfabetico_maiusculo` e
+`nenhum`; qualquer outro tipo é inválido. Usa exclusivamente os
+mecanismos de designador já existentes no schema semântico multinível
+(`contrato_json_console.md` §12.3). Esta ADR não cria tipo novo de
+designador.
+
+Campos opcionais, ambos strings: `prefixo` e `sufixo`. São configuração
+de apresentação deste bloco estrutural; não pertencem ao documento de
+conteúdo. Ausência de `prefixo` ou `sufixo` equivale a string vazia para
+tipos visuais (`decimal_composto`, `alfabetico_maiusculo`). Para esses
+tipos, o resultado visual é `prefixo + designador_base_do_tipo + sufixo`.
+
+Para `tipo: nenhum`, não existe designador visual; `prefixo` e `sufixo`
+devem estar ausentes.
+
+Chaves desconhecidas são inválidas conforme a política de validação
+fechada já vigente. Não há herança automática, campo `fonte`, campo
+`herdar` nem parsing do designador do documento de conteúdo.
+
+### 36.5 Campo `apresentacao` e bloco `tabela`
+
+Local literal `formato.dois_niveis_por_foco.filho.apresentacao`, valor
+exatamente `"texto"` ou `"tabela"`.
+
+- se `apresentacao = "texto"`: o bloco `tabela` não é usado;
+- se `apresentacao = "tabela"`: o bloco
+  `formato.dois_niveis_por_foco.filho.tabela` é obrigatório.
+
+Dentro de `tabela`:
+
+- `colunas` é array com no mínimo 1 elemento; cada item possui exatamente o
+  campo literal `campo`, referência semântica a um dado já existente no
+  documento de conteúdo; a ordem do array é a ordem visual das colunas; a
+  quantidade de elementos determina a quantidade de colunas; não existe
+  `numero_colunas`;
+- `espacamento.minimo` e `espacamento.maximo`, ambos inteiros positivos,
+  com `minimo <= maximo`.
+
+O comportamento físico completo da apresentação tabular local e do
+espaçamento está em `contrato_console.md` §25.
+
+### 36.6 Proibição de geometria física
+
+O bloco `formato.dois_niveis_por_foco.filho` não armazena largura física
+final, posição final, linha física pronta, quebra calculada nem geometria
+calculada. Esses resultados pertencem exclusivamente ao renderer
+(`contrato_console.md` §19.4).
+
+### 36.7 Cardinalidade única por tela
+
+A configuração aparece uma única vez na configuração da tela — nunca é
+repetida em cada filho.
+
+### 36.8 Especialização da tela de Estilo (H-0063)
+
+O schema genérico de `formato.dois_niveis_por_foco.filho` (§36.2–§36.5)
+permanece inalterado. A configuração estrutural futura de H-0063
+(`h0063_estilo_estrutura_navegacao_dois_niveis.json`) instancia esse
+schema com exatamente:
+
+```yaml
+formato.dois_niveis_por_foco.filho:
+  tabulacao:
+    minimo: 5
+    maximo: 10
+
+  designador:
+    tipo: nenhum
+
+  apresentacao: tabela
+
+  tabela:
+    colunas:
+      - campo: preset
+      - campo: amostra
+
+    espacamento:
+      minimo: 3
+      maximo: 8
+```
+
+Os nomes `preset` e `amostra` são referências a campos semânticos do
+conteúdo — não dados copiados para a configuração. A decisão de
+apresentá-los como duas colunas permanece exclusivamente nesta
+configuração estrutural da tela (COMO apresentar). Tabulação, colunas,
+espaçamento e geometria não pertencem aos dados. Como a especialização
+usa `tipo: nenhum`, o bloco `designador` não declara `prefixo` nem
+`sufixo`; nenhum desses campos deve ser adicionado.
+
+### 36.9 Especialização de H-0055
+
+O schema genérico de `formato.dois_niveis_por_foco.filho` (§36.2–§36.5)
+permanece inalterado. A configuração estrutural futura de H-0055
+(`h0055_dois_niveis_por_foco.json`) instancia esse schema com exatamente:
+
+```yaml
+formato.dois_niveis_por_foco.filho:
+  tabulacao:
+    minimo: 5
+    maximo: 10
+
+  designador:
+    tipo: alfabetico_maiusculo
+    sufixo: ")"
+
+  apresentacao: texto
+```
+
+Essa configuração produz `A)`, `B)`, `C)`, `D)` e assim por diante. Não
+é equivalente documentar `A`, `B`, `C`, `D` sem o sufixo. O documento
+externo `config/telas/demo/h0055_dois_niveis_por_foco_conteudo.json`
+permanece integralmente inalterado: o designador existente no conteúdo
+pode continuar existindo para compatibilidade, mas a configuração
+estrutural não depende de herança desse valor.
+
+### 36.10 Remissões
+
+- `docs/adr/ADR-0047-formatacao-filhos-dois-niveis-por-foco.md` — decisões
+  D-DNF-01 a D-DNF-11, schema literal fechado em §4.13, especialização
+  H-0063 em §4.11/§4.11.1 e especialização H-0055 em §4.11.2;
+- `contrato_console.md` — seção 22.16 (política) e seção 25 (comportamento
+  de formatação, ADR-0047);
+- `contrato_json_console.md` — seção 7.1 (`politica_navegacao.tipo`) e
+  seção 15 (fronteira com o documento externo de conteúdo e extensão da
+  projeção de H-0063, ADR-0047);
+- `docs/nomenclatura/44_APRESENTACOES_E_MODOS_MULTINIVEL_DO_CONSOLE.md` —
+  terminologia canônica da ADR-0047;
+- `docs/nomenclatura/32_CONSOLE.md` — unidade inteira do filho deslocada.
+\n

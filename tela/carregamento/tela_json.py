@@ -7,6 +7,9 @@ from tela.carregamento.caminho_base import _para_base
 from tela.carregamento.d23_console import _validar_d23_console
 from tela.carregamento.distribuicao_corpo import _validar_distribuicao_corpo
 from tela.carregamento.envelope_pre_adr_0028 import _console_em_escopo_d23
+from tela.carregamento.formato_dois_niveis_por_foco import (
+    _validar_formato_dois_niveis_filho,
+)
 from tela.carregamento.erros import (
     TelaArquivoNaoEncontrado,
     TelaCampoObrigatorioAusente,
@@ -445,6 +448,17 @@ def carregar_tela(caminho_base, id_tela, raiz_telas=None):
                     id_tela=id_interno,
                     em_escopo=_console_em_escopo_d23(elemento, id_interno),
                 )
+                # H-0072 / ADR-0047: valida formato.dois_niveis_por_foco.filho
+                # independentemente do escopo D23 (a regra V-DNF-11 depende
+                # apenas de politica_navegacao.tipo, nao do envelope).
+                _pol_nav_elem = elemento.get("politica_navegacao")
+                _tipo_nav_elem = (
+                    _pol_nav_elem.get("tipo")
+                    if isinstance(_pol_nav_elem, dict) else None
+                )
+                _validar_formato_dois_niveis_filho(
+                    elemento, id_elemento, _tipo_nav_elem
+                )
         elementos_internos.append(elemento)
 
     # H-0045-P04 / QA-H0045-P03-001: IDs de console devem ser unicos no escopo
@@ -511,3 +525,4 @@ def carregar_tela(caminho_base, id_tela, raiz_telas=None):
         "_raw": dados,
         "_config_lancador": config_lancador,
     }
+\n

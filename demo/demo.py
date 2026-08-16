@@ -261,6 +261,11 @@ _CATALOGO_CONTEUDO_EXTERNO = {
     "h0053_arvore_colapsavel": "h0053_arvore_colapsavel_conteudo",
     "h0054_selecao_multinivel": "h0054_selecao_multinivel_conteudo",
     "h0055_dois_niveis_por_foco": "h0055_dois_niveis_por_foco_conteudo",
+    # H-0072 / ADR-0047: capacidade generica de formatacao dos filhos de
+    # dois_niveis_por_foco (tabulacao/designador/apresentacao/tabela). Cenario
+    # dedicado, nunca h0055/h0063.
+    "h0072_formatacao_generica_dois_niveis_por_foco":
+        "h0072_formatacao_generica_dois_niveis_por_foco_conteudo",
 }
 
 # H-0043 / ADR-0036: cenarios da tela padrao de resultado. Todos resolvem para
@@ -2918,3 +2923,4 @@ def main(argv=None, estado_inicial=None):
 
 if __name__ == "__main__":
     sys.exit(main())
+\n

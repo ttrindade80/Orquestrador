@@ -2,6 +2,11 @@
 
 from tela.renderizacao.designadores import _texto_designador, _texto_no_conteudo
 from tela.renderizacao.erros import RenderizadorErro
+from tela.renderizacao.texto_ansi import (
+    _largura_sem_ansi,
+    _ljust_sem_ansi,
+    _quebrar_sem_ansi,
+)
 
 
 def _campo_no(no, nome, padrao=None):
@@ -58,8 +63,10 @@ def _quebrar_texto(texto, largura):
     A quebra ocorre em limites de palavra (espaco). Quando uma palavra excede
     a largura disponivel, e colocada em linha propria sem truncamento adicional.
     Retorna lista com pelo menos um elemento (texto vazio produz lista com
-    string vazia).
+    string vazia). Texto com SGR usa largura visual e nao parte CSI.
     """
+    if texto and "\x1b" in texto:
+        return _quebrar_sem_ansi(texto, largura)
     if largura is None or largura <= 0:
         return [texto] if texto else [""]
     if not texto:
@@ -253,6 +260,285 @@ def _linhas_apresentacao_hierarquia_com_mapa(
 
     recorrer(conteudo.nos, 0, [])
     return entradas
+
+
+_MIN_UTIL_DOIS_NIVEIS_FILHO = 10
+
+
+def _escolher_maior_que_cabe(minimo, maximo, cabe):
+    """Maior valor em ``[minimo, maximo]`` para o qual ``cabe(valor)`` e True.
+
+    ``cabe`` e monotonica decrescente (quanto maior o candidato, mais dificil
+    caber): a busca para no primeiro candidato que nao cabe. Usa ``minimo``
+    quando nem ele cabe (H-0072 §12/§17: "usa o maior valor que couber";
+    sobra permanece a direita sem ampliacao artificial).
+    """
+    melhor = minimo
+    for candidato in range(minimo, maximo + 1):
+        if cabe(candidato):
+            melhor = candidato
+        else:
+            break
+    return melhor
+
+
+def _linhas_dois_niveis_formatado_com_mapa(
+    conteudo, config_filho, content_w=None, verboso=False,
+    no_corrente_id=None, indicador=None, indicador_off=None,
+    selecoes=None, incluir_selecao=False, incluido_on="●", incluido_off="○",
+):
+    """Formatacao generica dos filhos de ``dois_niveis_por_foco`` (H-0072).
+
+    Aplica ``formato.dois_niveis_por_foco.filho`` (ADR-0047) — tabulacao,
+    designador, apresentacao ``texto``/``tabela``, colunas e espacamento —
+    exclusivamente aos nos de nivel FILHO. Os nos de nivel PAI preservam a
+    mesma composicao ``ec``/``tg``/designador/texto ja vigente em
+    ``_linhas_apresentacao_hierarquia_com_mapa`` (recuo zero — a tabulacao
+    entre pai e filho e responsabilidade exclusiva deste handoff, nunca a
+    formatacao do pai). Retorna a mesma forma de saida:
+    ``[{"id":..., "linhas": [...]}, ...]`` em pre-ordem (pai, seus filhos, o
+    proximo pai, ...), consumida identicamente por
+    ``tela.renderizacao.console``.
+
+    Ordem fisica obrigatoria por filho (H-0072 §13):
+    ``tabulacao -> ec -> tg (quando existir) -> designador (quando existir)
+    -> conteudo`` — a unidade inteira desloca-se junto, nunca so o texto.
+    """
+    niveis = {n.id: n for n in conteudo.niveis}
+    possui_indicador = indicador is not None
+    indicador_off_simb = indicador_off if indicador_off is not None else " "
+    selecoes = set(selecoes or ())
+    possui_inclusao = bool(incluir_selecao)
+    ind_w = 2 if possui_indicador else 0
+    tg_w = 2 if possui_inclusao else 0
+
+    tabulacao_cfg = config_filho.get("tabulacao") or {}
+    t_min = int(tabulacao_cfg.get("minimo", 0))
+    t_max = int(tabulacao_cfg.get("maximo", t_min))
+    designador_cfg = config_filho.get("designador") or {"tipo": "nenhum"}
+    apresentacao_filho = config_filho.get("apresentacao", "texto")
+    tabela_cfg = config_filho.get("tabela") or {}
+    colunas_cfg = list(tabela_cfg.get("colunas") or [])
+    espacamento_cfg = tabela_cfg.get("espacamento") or {}
+    e_min = int(espacamento_cfg.get("minimo", 1))
+    e_max = int(espacamento_cfg.get("maximo", e_min))
+
+    def _prefixo_indicadores(no):
+        prefixo_indicador = ""
+        if possui_indicador:
+            simbolo = indicador if no.id == no_corrente_id else indicador_off_simb
+            prefixo_indicador = "{0} ".format(simbolo)
+        prefixo_inclusao = ""
+        if possui_inclusao:
+            if _no_selecionavel(no):
+                simbolo_inclusao = incluido_on if no.id in selecoes else incluido_off
+            else:
+                simbolo_inclusao = " "
+            prefixo_inclusao = "{0} ".format(simbolo_inclusao)
+        return prefixo_indicador, prefixo_inclusao
+
+    # H-0072 §16 (alinhamento global): designador e colunas dos filhos sao
+    # medidos sobre TODOS os filhos do console, nunca por pai isoladamente —
+    # trocar o pai corrente nao pode deslocar horizontalmente as colunas.
+    designadores_por_filho = {}
+    designador_w = 0
+    ordinal_pai = 0
+    for pai in conteudo.nos:
+        ordinal_pai += 1
+        ordinal_filho = 0
+        for filho in pai.filhos:
+            ordinal_filho += 1
+            texto_desig = _texto_designador(
+                designador_cfg, ordinal_filho, [ordinal_pai]
+            )
+            designadores_por_filho[filho.id] = texto_desig
+            designador_w = max(designador_w, len(texto_desig))
+
+    larguras_col = []
+    linhas_celulas_por_filho = {}
+    if apresentacao_filho == "tabela" and colunas_cfg:
+        larguras_col = [0] * len(colunas_cfg)
+        for pai in conteudo.nos:
+            for filho in pai.filhos:
+                celulas = [
+                    "{0}".format(filho.campos.get(col.get("campo"), ""))
+                    for col in colunas_cfg
+                ]
+                linhas_celulas_por_filho[filho.id] = celulas
+                for indice, texto_cel in enumerate(celulas):
+                    larguras_col[indice] = max(
+                        larguras_col[indice], _largura_sem_ansi(texto_cel)
+                    )
+
+    entradas = []
+    ordinal_pai = 0
+    for pai in conteudo.nos:
+        ordinal_pai += 1
+        nivel_pai = niveis.get(pai.nivel)
+        marcador_pai = _texto_designador(
+            nivel_pai.designador if nivel_pai else {}, ordinal_pai, []
+        )
+        texto_pai = _texto_no_conteudo(pai, nivel_pai)
+        prefixo_indicador, prefixo_inclusao = _prefixo_indicadores(pai)
+        if marcador_pai:
+            prefixo_pai = "{0}{1}{2} ".format(
+                prefixo_indicador, prefixo_inclusao, marcador_pai
+            )
+        else:
+            prefixo_pai = prefixo_indicador + prefixo_inclusao
+        if verboso and content_w is not None:
+            largura_disp_pai = max(
+                _MIN_UTIL_DOIS_NIVEIS_FILHO, content_w - len(prefixo_pai)
+            )
+            fragmentos_pai = _quebrar_texto(texto_pai, largura_disp_pai)
+            linhas_pai = ["{0}{1}".format(prefixo_pai, fragmentos_pai[0])]
+            indent_pai = " " * len(prefixo_pai)
+            for frag in fragmentos_pai[1:]:
+                linhas_pai.append("{0}{1}".format(indent_pai, frag))
+        else:
+            if content_w is not None:
+                texto_visivel_pai = _truncar_com_marcador(
+                    texto_pai, max(0, content_w - len(prefixo_pai))
+                )
+            else:
+                texto_visivel_pai = texto_pai
+            linhas_pai = ["{0}{1}".format(prefixo_pai, texto_visivel_pai)]
+        entradas.append({"id": pai.id, "linhas": linhas_pai})
+
+        for filho in pai.filhos:
+            texto_desig = designadores_por_filho[filho.id]
+            desig_fmt = (
+                texto_desig.ljust(designador_w) if designador_w else texto_desig
+            )
+            prefixo_indicador, prefixo_inclusao = _prefixo_indicadores(filho)
+
+            # A tabulacao deve ser a maior que ainda permite a apresentacao
+            # minima do proprio filho. O limite fixo de utilidade continua
+            # protegendo texto curto; para tabelas, porem, a largura minima
+            # real e a soma das colunas com o espacamento minimo. Sem essa
+            # medida, a largura do terminal chegava ao calculo, mas a
+            # tabulacao permanecia em 10 enquanto a tabela ja precisava
+            # compactar para caber.
+            nivel_filho = niveis.get(filho.nivel)
+            texto_filho = _texto_no_conteudo(filho, nivel_filho)
+            if apresentacao_filho == "tabela" and colunas_cfg:
+                largura_minima_filho = (
+                    sum(larguras_col)
+                    + (len(colunas_cfg) - 1) * e_min
+                )
+            else:
+                largura_minima_filho = max(
+                    _MIN_UTIL_DOIS_NIVEIS_FILHO,
+                    _largura_sem_ansi(texto_filho),
+                )
+
+            def _cabe_tabulacao(candidato, desig_fmt=desig_fmt):
+                if content_w is None:
+                    return True
+                fixo = (
+                    candidato + ind_w + tg_w + len(desig_fmt)
+                    + (1 if desig_fmt else 0)
+                )
+                return (content_w - fixo) >= largura_minima_filho
+
+            tabulacao_efetiva = _escolher_maior_que_cabe(
+                t_min, t_max, _cabe_tabulacao
+            )
+            recuo = " " * tabulacao_efetiva
+            desig_sep = "{0} ".format(desig_fmt) if desig_fmt else ""
+            prefixo_filho = "{0}{1}{2}{3}".format(
+                recuo, prefixo_indicador, prefixo_inclusao, desig_sep
+            )
+            largura_disponivel = (
+                None if content_w is None
+                else max(0, content_w - len(prefixo_filho))
+            )
+
+            if apresentacao_filho == "tabela" and colunas_cfg:
+                celulas = linhas_celulas_por_filho[filho.id]
+                n_col = len(celulas)
+
+                def _cabe_espacamento(candidato):
+                    if largura_disponivel is None:
+                        return True
+                    total = sum(larguras_col) + (n_col - 1) * candidato
+                    return total <= largura_disponivel
+
+                espacamento_efetivo = _escolher_maior_que_cabe(
+                    e_min, e_max, _cabe_espacamento
+                )
+                sep = " " * espacamento_efetivo
+                partes_fixas = [
+                    _ljust_sem_ansi(celulas[i], larguras_col[i])
+                    for i in range(n_col - 1)
+                ]
+                prefixo_ultima = sep.join(partes_fixas)
+                if partes_fixas:
+                    prefixo_ultima += sep
+                ultima = celulas[n_col - 1]
+                if largura_disponivel is not None:
+                    largura_ultima = max(
+                        1,
+                        largura_disponivel - _largura_sem_ansi(prefixo_ultima),
+                    )
+                    if _largura_sem_ansi(ultima) <= largura_ultima:
+                        fragmentos = [ultima]
+                    else:
+                        fragmentos = _quebrar_texto(ultima, largura_ultima)
+                else:
+                    fragmentos = [ultima]
+                linhas_filho = [
+                    "{0}{1}{2}".format(
+                        prefixo_filho, prefixo_ultima, fragmentos[0]
+                    )
+                ]
+                indent_cont = " " * (
+                    _largura_sem_ansi(prefixo_filho)
+                    + _largura_sem_ansi(prefixo_ultima)
+                )
+                for frag in fragmentos[1:]:
+                    linhas_filho.append("{0}{1}".format(indent_cont, frag))
+            else:
+                if verboso and largura_disponivel is not None:
+                    largura_disp = max(
+                        _MIN_UTIL_DOIS_NIVEIS_FILHO, largura_disponivel
+                    )
+                    fragmentos = _quebrar_texto(texto_filho, largura_disp)
+                    linhas_filho = [
+                        "{0}{1}".format(prefixo_filho, fragmentos[0])
+                    ]
+                    indent_cont = " " * len(prefixo_filho)
+                    for frag in fragmentos[1:]:
+                        linhas_filho.append("{0}{1}".format(indent_cont, frag))
+                else:
+                    if largura_disponivel is not None:
+                        texto_visivel = _truncar_com_marcador(
+                            texto_filho, largura_disponivel
+                        )
+                    else:
+                        texto_visivel = texto_filho
+                    linhas_filho = [
+                        "{0}{1}".format(prefixo_filho, texto_visivel)
+                    ]
+            entradas.append({"id": filho.id, "linhas": linhas_filho})
+
+    return entradas
+
+
+def _linhas_dois_niveis_formatado(
+    conteudo, config_filho, content_w=None, verboso=False,
+    no_corrente_id=None, indicador=None, indicador_off=None,
+    selecoes=None, incluir_selecao=False, incluido_on="●", incluido_off="○",
+):
+    """Achata ``_linhas_dois_niveis_formatado_com_mapa`` em lista de linhas."""
+    entradas = _linhas_dois_niveis_formatado_com_mapa(
+        conteudo, config_filho, content_w, verboso,
+        no_corrente_id=no_corrente_id, indicador=indicador,
+        indicador_off=indicador_off, selecoes=selecoes,
+        incluir_selecao=incluir_selecao, incluido_on=incluido_on,
+        incluido_off=incluido_off,
+    )
+    return [linha for entrada in entradas for linha in entrada["linhas"]]
 
 
 def _linhas_apresentacao_hierarquia(
@@ -519,3 +805,4 @@ def _participantes_de_conteudo_externo(conteudo):
 
     recorrer(conteudo.nos, [])
     return participantes
+\n

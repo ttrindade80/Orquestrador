@@ -1,0 +1,145 @@
+{
+  "id": "h0072_formatacao_generica_dois_niveis_por_foco",
+  "schema": "tela.v1",
+  "cabecalho": {
+    "titulo": "H-0072 Formatação genérica dos filhos",
+    "descricao": "Tabulação, designador e apresentação declarativos por console",
+    "apresentacao": {
+      "titulo": {
+        "posicao": "esquerda",
+        "recuo_lateral": 0,
+        "capitalizacao": "maiusculas",
+        "formato_na_borda": "com_espacos_laterais"
+      },
+      "descricao": {
+        "max_caracteres": 120,
+        "alinhamento": "esquerda",
+        "recuo": 1,
+        "capitalizacao": "preservar"
+      }
+    }
+  },
+  "corpo": {
+    "arranjo": "vertical",
+    "distribuicao": {"modo": "fracao", "valores": [1, 1, 1]},
+    "elementos": [
+      {
+        "id": "console_h0072_texto",
+        "tipo": "console",
+        "titulo": "Filhos em texto (designador decimal_composto)",
+        "itens": [],
+        "origem_dados": {"tipo": "declarados"},
+        "politica_composicao": {"tipo": "manual"},
+        "politica_navegacao": {
+          "navegavel": true,
+          "tipo": "dois_niveis_por_foco"
+        },
+        "politica_selecao": "multipla",
+        "politica_paginacao": "sem",
+        "politica_exibicao": {"verboso": false},
+        "formato": {
+          "dois_niveis_por_foco": {
+            "filho": {
+              "tabulacao": {"minimo": 5, "maximo": 10},
+              "designador": {"tipo": "decimal_composto"},
+              "apresentacao": "texto"
+            }
+          }
+        }
+      },
+      {
+        "id": "console_h0072_tabela",
+        "tipo": "console",
+        "titulo": "Filhos em tabela (designador alfabetico_maiusculo)",
+        "itens": [],
+        "origem_dados": {"tipo": "declarados"},
+        "politica_composicao": {"tipo": "manual"},
+        "politica_navegacao": {
+          "navegavel": true,
+          "tipo": "dois_niveis_por_foco"
+        },
+        "politica_selecao": "multipla",
+        "politica_paginacao": "sem",
+        "politica_exibicao": {"verboso": false},
+        "formato": {
+          "dois_niveis_por_foco": {
+            "filho": {
+              "tabulacao": {"minimo": 5, "maximo": 10},
+              "designador": {
+                "tipo": "alfabetico_maiusculo",
+                "prefixo": "(",
+                "sufixo": ")"
+              },
+              "apresentacao": "tabela",
+              "tabela": {
+                "colunas": [
+                  {"campo": "responsavel"},
+                  {"campo": "prazo"}
+                ],
+                "espacamento": {"minimo": 3, "maximo": 8}
+              }
+            }
+          }
+        }
+      },
+      {
+        "id": "console_h0072_sem_designador",
+        "tipo": "console",
+        "titulo": "Filhos sem designador",
+        "itens": [],
+        "origem_dados": {"tipo": "declarados"},
+        "politica_composicao": {"tipo": "manual"},
+        "politica_navegacao": {
+          "navegavel": true,
+          "tipo": "dois_niveis_por_foco"
+        },
+        "politica_selecao": "multipla",
+        "politica_paginacao": "sem",
+        "politica_exibicao": {"verboso": false},
+        "formato": {
+          "dois_niveis_por_foco": {
+            "filho": {
+              "tabulacao": {"minimo": 5, "maximo": 10},
+              "designador": {"tipo": "nenhum"},
+              "apresentacao": "texto"
+            }
+          }
+        }
+      }
+    ]
+  },
+  "barra_de_menus": {
+    "chips": [
+      {
+        "id": "sair",
+        "tipo": "acao",
+        "tecla": "Esc",
+        "texto": "Sair",
+        "regra_ativo": "sempre"
+      },
+      {
+        "id": "navegar",
+        "tipo": "informativo",
+        "tecla": "✥",
+        "texto": "Navegar",
+        "regra_ativo": "quando_navegacao_disponivel"
+      },
+      {
+        "id": "selecionar",
+        "tipo": "acao",
+        "tecla": "␣",
+        "texto": "Selecionar",
+        "forma_exibicao": "rotulo_dinamico",
+        "regra_ativo": "sempre"
+      },
+      {
+        "id": "ajuda",
+        "tipo": "ajuda",
+        "tecla": "?",
+        "texto": "Ajuda",
+        "regra_ativo": "sempre"
+      }
+    ]
+  }
+}
+\n

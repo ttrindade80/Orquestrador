@@ -1,0 +1,68 @@
+{
+  "id": "h0072_formatacao_generica_dois_niveis_por_foco_conteudo",
+  "schema": "conteudo.v1",
+  "tipo": "multinivel",
+  "apresentacao": "hierarquia",
+  "formato": {
+    "apresentacao": "hierarquia",
+    "niveis": [
+      {
+        "id": "pai",
+        "tipo": "container",
+        "conteudo": "titulo",
+        "designador": {"tipo": "decimal", "sufixo": "."}
+      },
+      {
+        "id": "filho",
+        "tipo": "conteudo",
+        "conteudo": "titulo",
+        "designador": {"tipo": "nenhum"}
+      }
+    ]
+  },
+  "dados": [
+    {
+      "id": "h0072_pai_01", "nivel": "pai", "navegavel": true,
+      "selecionavel": false, "titulo": "Equipe Alfa",
+      "filhos": [
+        {
+          "id": "h0072_filho_01_01", "nivel": "filho", "navegavel": true,
+          "selecionavel": true, "titulo": "Revisar especificação do módulo de autenticação",
+          "responsavel": "Camila Duarte", "prazo": "12/09"
+        },
+        {
+          "id": "h0072_filho_01_02", "nivel": "filho", "navegavel": true,
+          "selecionavel": true, "titulo": "Homologar ambiente de testes",
+          "responsavel": "Bento", "prazo": "15/09"
+        },
+        {
+          "id": "h0072_filho_01_03", "nivel": "filho", "navegavel": true,
+          "selecionavel": true, "titulo": "Publicar relatório semanal",
+          "responsavel": "Yasmin Albuquerque Pereira", "prazo": "19/09"
+        }
+      ]
+    },
+    {
+      "id": "h0072_pai_02", "nivel": "pai", "navegavel": true,
+      "selecionavel": false, "titulo": "Equipe Beta",
+      "filhos": [
+        {
+          "id": "h0072_filho_02_01", "nivel": "filho", "navegavel": true,
+          "selecionavel": true, "titulo": "Atualizar documentação de contratos",
+          "responsavel": "Igor", "prazo": "20/09"
+        },
+        {
+          "id": "h0072_filho_02_02", "nivel": "filho", "navegavel": true,
+          "selecionavel": true, "titulo": "Validar migração de dados históricos",
+          "responsavel": "Priscila Nogueira", "prazo": "22/09"
+        },
+        {
+          "id": "h0072_filho_02_03", "nivel": "filho", "navegavel": true,
+          "selecionavel": true, "titulo": "Planejar retrospectiva do trimestre",
+          "responsavel": "Danilo", "prazo": "26/09"
+        }
+      ]
+    }
+  ]
+}
+\n

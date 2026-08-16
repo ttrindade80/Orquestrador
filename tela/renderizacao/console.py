@@ -3,6 +3,8 @@
 from tela.renderizacao.conteudo_externo import _linhas_conteudo_externo
 from tela.renderizacao.conteudo_externo import (
     _linhas_apresentacao_hierarquia_com_mapa,
+    _linhas_dois_niveis_formatado,
+    _linhas_dois_niveis_formatado_com_mapa,
 )
 from tela.renderizacao.geometria_caixa import _PLACEHOLDER_CONSOLE
 from tela.renderizacao.contexto_execucao import _navegacao_atual
@@ -160,6 +162,27 @@ def _linhas_console(elemento, content_w=None, verboso=False):
             selecionados, incluido_on, incluido_off,
         ) = _parametros_renderizacao_multinivel(elemento)
         largura_conteudo = _largura_renderizada_multinivel(content_w, focalizavel)
+        # H-0072 / ADR-0047: quando o console declara
+        # formato.dois_niveis_por_foco.filho, a formatacao generica dos
+        # filhos (tabulacao/designador/apresentacao/tabela) substitui a
+        # composicao hierarquica generica SOMENTE para este console. Consoles
+        # dois_niveis_por_foco sem a configuracao (ex.: h0055/h0063) e
+        # consoles selecao_multinivel preservam o caminho vigente intocado.
+        config_filho = getattr(elemento, "formato_filho_dois_niveis", None)
+        if config_filho is not None:
+            return _linhas_dois_niveis_formatado(
+                conteudo,
+                config_filho,
+                largura_conteudo,
+                verboso,
+                no_corrente_id=corrente_id,
+                indicador=indicador,
+                indicador_off=indicador_off,
+                selecoes=selecionados,
+                incluir_selecao=True,
+                incluido_on=incluido_on,
+                incluido_off=incluido_off,
+            )
         return _linhas_conteudo_externo(
             conteudo,
             largura_conteudo,
@@ -229,18 +252,34 @@ def mapa_fisico_de_itens(
         largura_conteudo = _largura_renderizada_multinivel(
             largura_conteudo, focalizavel
         )
-        entradas = _linhas_apresentacao_hierarquia_com_mapa(
-            elemento.conteudo_externo,
-            largura_conteudo,
-            verboso,
-            no_corrente_id=corrente_id,
-            indicador=indicador,
-            indicador_off=indicador_off,
-            selecoes=selecionados,
-            incluir_selecao=True,
-            incluido_on=incluido_on,
-            incluido_off=incluido_off,
-        )
+        config_filho = getattr(elemento, "formato_filho_dois_niveis", None)
+        if config_filho is not None:
+            entradas = _linhas_dois_niveis_formatado_com_mapa(
+                elemento.conteudo_externo,
+                config_filho,
+                largura_conteudo,
+                verboso,
+                no_corrente_id=corrente_id,
+                indicador=indicador,
+                indicador_off=indicador_off,
+                selecoes=selecionados,
+                incluir_selecao=True,
+                incluido_on=incluido_on,
+                incluido_off=incluido_off,
+            )
+        else:
+            entradas = _linhas_apresentacao_hierarquia_com_mapa(
+                elemento.conteudo_externo,
+                largura_conteudo,
+                verboso,
+                no_corrente_id=corrente_id,
+                indicador=indicador,
+                indicador_off=indicador_off,
+                selecoes=selecionados,
+                incluir_selecao=True,
+                incluido_on=incluido_on,
+                incluido_off=incluido_off,
+            )
         from tela.navegacao import _nos_em_pre_ordem, no_multinivel_navegavel
 
         nos = _nos_em_pre_ordem(elemento.conteudo_externo.nos)
@@ -302,3 +341,4 @@ def mapa_fisico_de_itens(
             }
         )
     return entradas
+\n

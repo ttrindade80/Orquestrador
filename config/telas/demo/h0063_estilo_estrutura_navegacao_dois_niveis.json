@@ -35,7 +35,23 @@
         },
         "politica_selecao": "multipla",
         "politica_paginacao": "com",
-        "politica_exibicao": {"verboso": false}
+        "politica_exibicao": {"verboso": false},
+        "formato": {
+          "dois_niveis_por_foco": {
+            "filho": {
+              "tabulacao": { "minimo": 5, "maximo": 10 },
+              "designador": { "tipo": "nenhum" },
+              "apresentacao": "tabela",
+              "tabela": {
+                "colunas": [
+                  { "campo": "preset" },
+                  { "campo": "amostra" }
+                ],
+                "espacamento": { "minimo": 3, "maximo": 8 }
+              }
+            }
+          }
+        }
       }
     ]
   },
@@ -172,3 +188,4 @@
     }
   }
 }
+\n

@@ -73,6 +73,17 @@ def _eh_dois_niveis_por_foco(elemento):
     return tipo_navegacao_efetivo(elemento) == "dois_niveis_por_foco"
 
 
+def formato_filho_dois_niveis(elemento):
+    """Configuracao declarativa de formatacao dos filhos (H-0072 / ADR-0047).
+
+    Retorna o dict validado ``formato.dois_niveis_por_foco.filho`` do
+    ``elemento``, ou ``None`` quando ausente (console dois_niveis_por_foco
+    sem a capacidade generica declarada). Leitura pura: nao calcula
+    geometria, nao altera navegacao nem selecao.
+    """
+    return getattr(elemento, "formato_filho_dois_niveis", None)
+
+
 def estrutura_dois_niveis_valida(elemento):
     """Valida a topologia fechada de pais e filhos diretos do H-0055."""
     conteudo = getattr(elemento, "conteudo_externo", None)
@@ -1193,3 +1204,4 @@ def console_focado(estado):
     if foco < 0 or foco >= len(lista):
         return None
     return lista[foco]
+\n

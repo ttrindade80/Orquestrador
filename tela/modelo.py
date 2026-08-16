@@ -74,6 +74,13 @@ class ElementoCorpo:
     # modo_inicial: valor inicial de verbosidade para politica 'alternavel',
     # extraido de formato.excesso.modo_inicial. None para politicas fixas.
     modo_inicial: str | None = field(default=None, repr=False)
+    # H-0072 / ADR-0047: configuracao declarativa de formatacao dos filhos de
+    # dois_niveis_por_foco, extraida de formato.dois_niveis_por_foco.filho.
+    # None quando ausente (console dois_niveis_por_foco sem a capacidade
+    # generica, ou elemento de outro tipo). O loader ja validou o schema
+    # fechado (V-DNF-01..11) antes de chegar aqui; o modelo apenas transporta
+    # o dict fiel, sem defaults estruturais e sem logica geometrica.
+    formato_filho_dois_niveis: dict | None = field(default=None, repr=False)
 
 
 @dataclass
@@ -361,6 +368,10 @@ def _construir_elementos_recursivo(elementos_raw, id_pai, parametros_lancador=No
             excesso = sub_el.get("formato", {}).get("excesso", {})
             pm = excesso.get("politica_modo") if sub_tipo == "console" else None
             mi = excesso.get("modo_inicial") if sub_tipo == "console" else None
+            ffd = (
+                sub_el.get("formato", {}).get("dois_niveis_por_foco", {}).get("filho")
+                if sub_tipo == "console" else None
+            )
             resultado.append(
                 ElementoCorpo(
                     id=sub_id,
@@ -370,6 +381,7 @@ def _construir_elementos_recursivo(elementos_raw, id_pai, parametros_lancador=No
                     distribuicao_matricial=dm,
                     politica_modo=pm,
                     modo_inicial=mi,
+                    formato_filho_dois_niveis=ffd,
                 )
             )
         else:
@@ -489,6 +501,10 @@ def construir_modelo(tela_raw: dict, conteudo_externo=None) -> ModeloTela:
             excesso = elemento.get("formato", {}).get("excesso", {})
             pm = excesso.get("politica_modo") if tipo == "console" else None
             mi = excesso.get("modo_inicial") if tipo == "console" else None
+            ffd = (
+                elemento.get("formato", {}).get("dois_niveis_por_foco", {}).get("filho")
+                if tipo == "console" else None
+            )
             elementos.append(
                 ElementoCorpo(
                     id=elemento["id"],
@@ -498,6 +514,7 @@ def construir_modelo(tela_raw: dict, conteudo_externo=None) -> ModeloTela:
                     distribuicao_matricial=dm,
                     politica_modo=pm,
                     modo_inicial=mi,
+                    formato_filho_dois_niveis=ffd,
                 )
             )
 
@@ -525,3 +542,4 @@ def construir_modelo(tela_raw: dict, conteudo_externo=None) -> ModeloTela:
         _raw=tela_raw["_raw"],
         conteudo_externo=conteudo,
     )
+\n

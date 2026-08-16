@@ -77,6 +77,7 @@ Não redefinir `grupo` como nó estrutural; esse sentido pertence ao módulo `40
 - `selecao_multinivel` (ADR-0042)
 - `dois_niveis_por_foco` (ADR-0042)
 - seleção exclusiva obrigatória de filho por pai (ADR-0042)
+- unidade inteira do filho deslocada (ADR-0047)
 
 ## 4. Definições
 
@@ -310,6 +311,26 @@ contextual. Esta relação não cria algoritmo de reconciliação, política de
 borda ou nova regra de paginação. Foco, cursor e seleção continuam distintos:
 `foco ≠ cursor ≠ seleção`.
 
+### 4.11 Unidade inteira do filho deslocada (ADR-0047)
+
+A ADR-0047 fecha a evolução exclusiva de apresentação/formatação dos
+filhos de `dois_niveis_por_foco` (§4.10). Autoridade comportamental
+completa em `contrato_console.md` §25; schema literal da tabulação e da
+apresentação em `contrato_tela_json.md` §36 — ambos fora do escopo deste
+módulo (ver módulo `44` para os termos proprietários de apresentação).
+
+| Termo | Definição |
+|---|---|
+| **unidade inteira do filho deslocada** | Em `dois_niveis_por_foco`, o conjunto formado por `ec`, `tg` (quando existir), designador (quando existir) e conteúdo do filho, deslocado como um só bloco pela tabulação declarada em relação ao pai. Nenhum desses elementos se desloca isoladamente. |
+
+O deslocamento preserva integralmente a estrutura `ec`/`tg`/`tx` já fixada
+em §4.4: a tabulação é um recuo aplicado antes do início dessa estrutura,
+não uma redefinição dela. O cursor do filho (`ec`) permanece sempre para
+dentro do primeiro caractere visual do item pai. É proibido recuar somente
+o texto (`tx`) mantendo `ec` ou `tg` alinhados ao pai — os dois espaços
+continuam coexistindo em posições distintas e adjacentes, sem sobreposição
+(§4.4).
+
 ## 5. Distinções obrigatórias
 
 | Par | Distinção normativa |
@@ -327,6 +348,7 @@ borda ou nova regra de paginação. Foco, cursor e seleção continuam distintos
 | item não selecionável × unanimidade | Item não selecionável não possui estado de seleção, não recebe `tg` e não participa da unanimidade |
 | seleção única × seleção exclusiva obrigatória de filho por pai | Seleção única é o item sob cursor da ADR-0031; seleção exclusiva obrigatória de filho por pai mantém uma escolha persistente e exclusiva por pai em `dois_niveis_por_foco` |
 | navegação × paginação | Navegação move o cursor conforme a política ativa; paginação permanece independente e subordinada à ADR-0041, sem troca implícita de página pelo cursor |
+| unidade inteira do filho deslocada × `ec`/`tg` individualmente | A tabulação desloca `ec`, `tg`, designador e conteúdo do filho como um só bloco; nenhum desses elementos é deslocado isoladamente, e a coexistência adjacente de `ec` e `tg` (§4.4) permanece preservada dentro do bloco deslocado |
 | chip contextual × seleção | `[␣] Expandir`/`[␣] Recolher` refletem o item corrente de `arvore_colapsavel`; `[␣] Selecionar` pertence à seleção múltipla — a tecla física compartilhada não funde as semânticas |
 
 ## 6. Relação com contratos
@@ -348,6 +370,10 @@ borda ou nova regra de paginação. Foco, cursor e seleção continuam distintos
 - ADR-0043: Ajuda universal e chip contextual de expansão/recolhimento em
   `arvore_colapsavel`; fecha a relação semântica entre console focalizado,
   item corrente, cursor válido e chip contextual.
+- ADR-0047: unidade inteira do filho deslocada em `dois_niveis_por_foco` —
+  `ec`, `tg`, designador e conteúdo do filho movidos juntos pela tabulação
+  declarada; apresentação e tabulação em si são terminologia proprietária
+  do módulo `44` e autoridade comportamental de `contrato_console.md` §25.
 
 ## 8. Aliases ou termos descontinuados relacionados
 
@@ -388,3 +414,4 @@ partes_NAO_CONFIRMADAS:
   - "Pendência tx: regras de ajuste do texto quando não cabe — classificada como PENDENCIA (NOM-LEV-017)"
   - "Relação [#] × [␣]: explicitamente adiada, não é pendência normativa atual"
 ```
+\n
