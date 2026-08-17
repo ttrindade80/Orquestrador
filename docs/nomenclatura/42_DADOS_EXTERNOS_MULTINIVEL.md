@@ -60,6 +60,8 @@ assume co-propriedade nem redefine o artefato.
 - envelope de erro multinível (ADR-0034)
 - projeção semântica
 - extensão compatível da projeção semântica (ADR-0047)
+- escolha ativa persistida (ADR-0048)
+- literal público `filho_default` (ADR-0048, D-0026-12)
 
 ## 4. Definições
 
@@ -128,6 +130,29 @@ separadamente um dado semântico que já existe no fluxo, preservando os
 campos antigos para compatibilidade. Não constitui alteração do conteúdo
 visível nem do significado dos dados.
 
+### 4.7 Escolha ativa persistida de filho por pai (ADR-0048)
+
+Para cada pai sujeito à política `dois_niveis_por_foco`
+(`docs/nomenclatura/32_CONSOLE.md` §4.10; ADR-0042), a `escolha ativa
+persistida` é o dado semântico, fornecido explicitamente pelo produtor no
+documento externo de conteúdo, que identifica exatamente um filho ativo.
+Não é resultado físico calculado, não é geometria e não é configuração de
+apresentação da tela.
+
+A escolha ativa persistida é distinta de:
+
+- seleção exclusiva obrigatória de filho por pai
+  (`docs/nomenclatura/32_CONSOLE.md` §4.10) — mecanismo comportamental de
+  runtime que transfere a escolha por Espaço; a escolha ativa persistida é o
+  dado de origem/destino desse mecanismo quando carregado ou aplicado;
+- posição do primeiro filho — não é tratada como autoridade persistida da
+  escolha (comportamento predecessor da capacidade, ADR-0042).
+
+Autoridade comportamental completa do ciclo de baseline, candidato e
+aplicação: `contrato_console.md` §26. Literal público fechado:
+`filho_default` (D-0026-12, patch `P02`; ver `contrato_json_console.md`
+§16.7).
+
 ## 5. Distinções obrigatórias
 
 | Par | Distinção normativa |
@@ -141,6 +166,7 @@ visível nem do significado dos dados.
 | `JSON externo de conteúdo` (genérico) × `documento de resultado de execução` (ADR-0034) | Conteúdo genérico: dados de domínio apresentados pelo console em operação; documento de resultado: resultado ou erro estruturado de uma operação focal executada sobre um lote reconciliado — campos fixos, não vocabulário livre de níveis |
 | `envelope de entrada do pop-up` × `envelope declarativo multinível` | O envelope do pop-up pertence ao domínio `35` e transporta conteúdo pronto de uma abertura; não é o envelope multinível do console e não declara níveis, produtor ou origem de dados |
 | `extensão compatível da projeção semântica` × `alteração do conteúdo visível` | Uma projeção pode expor separadamente um dado semântico já existente no fluxo, preservando os campos antigos para compatibilidade. Isso não altera o conteúdo visível. A extensão não transfere configuração, tabulação, colunas, espaçamento nem geometria para os dados |
+| `escolha ativa persistida` (ADR-0048) × `seleção exclusiva obrigatória de filho por pai` (ADR-0042, módulo `32`) | A escolha ativa persistida é o dado semântico do documento externo que declara o filho ativo por pai; a seleção exclusiva obrigatória de filho por pai é o mecanismo comportamental de runtime que a lê, transfere por Espaço e, quando confirmado, converte um candidato em novo valor a persistir |
 
 ## 6. Relação com contratos
 
@@ -148,7 +174,9 @@ visível nem do significado dos dados.
   recebe dados externos.
 - `contrato_json_console.md`: schema dos campos do console; o envelope declarativo
   é fornecido externamente e não coincide com o schema do contrato; seção 14
-  fecha o documento de resultado de execução e o envelope de erro multinível.
+  fecha o documento de resultado de execução e o envelope de erro multinível;
+  seção 16 fecha a escolha ativa persistida e o literal público
+  `filho_default` (ADR-0048, D-0026-12).
 
 ## 7. Relação com ADRs
 
@@ -160,6 +188,11 @@ visível nem do significado dos dados.
 - ADR-0047: extensão compatível da projeção semântica, distinta de
   alteração do conteúdo visível; tabulação, apresentação tabular e
   geometria não pertencem a este módulo.
+- ADR-0048: escolha ativa persistida de filho por pai como dado semântico do
+  documento externo, distinta da posição do primeiro filho e da seleção
+  exclusiva obrigatória de runtime (módulo `32`); literal público
+  `filho_default` fechado por D-0026-12 (patch `P02`); autoridade
+  comportamental completa em `contrato_console.md` §26.
 
 ## 8. Aliases ou termos descontinuados relacionados
 
@@ -207,4 +240,3 @@ tratamento:
   - SEPARADO_DE_REGRA_COMPORTAMENTAL
 partes_NAO_CONFIRMADAS: []
 ```
-\n

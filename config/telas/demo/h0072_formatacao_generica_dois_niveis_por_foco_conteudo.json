@@ -24,6 +24,7 @@
     {
       "id": "h0072_pai_01", "nivel": "pai", "navegavel": true,
       "selecionavel": false, "titulo": "Equipe Alfa",
+      "filho_default": "h0072_filho_01_02",
       "filhos": [
         {
           "id": "h0072_filho_01_01", "nivel": "filho", "navegavel": true,
@@ -45,6 +46,7 @@
     {
       "id": "h0072_pai_02", "nivel": "pai", "navegavel": true,
       "selecionavel": false, "titulo": "Equipe Beta",
+      "filho_default": "h0072_filho_02_03",
       "filhos": [
         {
           "id": "h0072_filho_02_01", "nivel": "filho", "navegavel": true,
@@ -65,4 +67,3 @@
     }
   ]
 }
-\n

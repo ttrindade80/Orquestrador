@@ -1974,4 +1974,177 @@ nova exceção a essa regra é criada para `dois_niveis_por_foco`.
   terminologia canônica da ADR-0047;
 - `docs/nomenclatura/32_CONSOLE.md` — unidade inteira do filho deslocada,
   `ec`, `tg`, item lógico.
-\n
+
+---
+
+## 26. Persistência da escolha de filho por pai (ADR-0048)
+
+A ADR-0048 (2026-08-16) fecha o ciclo de persistência da escolha exclusiva
+obrigatória de filho por pai (§22.16; ADR-0042), sem redesenhar navegação,
+seleção, toroides, cursor, geometria ou apresentação dos filhos (§25;
+ADR-0047). O dado semântico persistido está fechado em
+`contrato_json_console.md` §16.
+
+### 26.1 Escopo
+
+Esta seção aplica-se exclusivamente ao ciclo de persistência da escolha
+ativa de filho por pai quando `politica_navegacao.tipo =
+"dois_niveis_por_foco"` (§22.16). Não altera a semântica estrutural de pai e
+filhos, os toroides, o cursor, a geometria ou a apresentação já fechados por
+ADR-0042 e ADR-0047. Não antecipa `ITEM-0023` nem `ITEM-0024`.
+
+### 26.2 Camadas de estado
+
+| Camada | Conteúdo | Persiste? |
+|---|---|---|
+| Escolha ativa persistida | Dado semântico do documento externo de conteúdo — exatamente um filho ativo por pai aplicável (`contrato_json_console.md` §16) | Sim |
+| Baseline persistida da tela | A escolha ativa persistida tal como carregada; referência de comparação | Substituída somente por aplicação confirmada e bem-sucedida |
+| Candidato de runtime | Estado vivo separado, acumulando as escolhas feitas pelo usuário durante a sessão | Não |
+| Cursor | Mecanismo de navegação, independente da escolha (§22.4, §22.16) | Não |
+
+Cursor e escolha permanecem mecanismos independentes (§22.16). Esta seção não
+cria nova relação entre eles.
+
+### 26.3 Carga e baseline
+
+Ao carregar o documento externo de conteúdo, a escolha ativa persistida —
+`filho_default` de cada pai (`contrato_json_console.md` §16.7) — torna-se a
+baseline persistida da tela. O candidato de runtime inicia equivalente a
+essa baseline.
+
+### 26.4 Alteração interativa produz somente candidato
+
+Alterar a escolha por Espaço, conforme já fixado em §22.16, atualiza somente
+o candidato de runtime:
+
+- não grava imediatamente o documento externo;
+- não altera a estrutura pai-filho;
+- não move o cursor como efeito colateral;
+- não altera a baseline persistida.
+
+### 26.5 `Aplicar` e divergência
+
+`Aplicar` representa a tentativa explícita de persistir o candidato:
+
+- quando candidato e baseline são equivalentes, não há alteração a aplicar e
+  `Aplicar` permanece sem efeito;
+- quando há divergência entre candidato e baseline, `Aplicar` inicia o fluxo
+  de confirmação.
+
+Esta condição de divergência segue a mesma filosofia já empregada no fluxo de
+Estilo (`contrato_estilo.md` §3.8; ADR-0046) — a analogia é de filosofia, não
+de autoridade: o Estilo não se torna autoridade dos dados desta capacidade.
+
+### 26.6 Confirmação pelo pop-up genérico
+
+A confirmação reutiliza o sistema genérico de pop-up já existente
+(`contrato_popup.md`). Não se cria um novo sistema de pop-up para esta
+capacidade.
+
+O pop-up:
+
+- apresenta a confirmação;
+- devolve a decisão ao chamador;
+- não persiste dados;
+- não conhece o documento externo de conteúdo;
+- não executa o script produtor/atualizador;
+- não contém lógica de negócio desta capacidade.
+
+Os resultados permanecem os estados canônicos vigentes `CONFIRMADO` e
+`ABORTADO`.
+
+### 26.7 Persistência delegada à camada responsável pelos dados
+
+Após `CONFIRMADO`, o chamador encaminha a alteração à camada responsável
+pelos dados. A gravação persistente não pertence ao renderer nem ao pop-up.
+
+Esta seção não fecha: nome de função, nome ou caminho concreto do script,
+assinatura interna, algoritmo físico de escrita nem mecanismo específico de
+escrita atômica. Esses detalhes executivos permanecem para etapa própria.
+
+### 26.8 Sucesso
+
+Após persistência completa e válida:
+
+- a alteração conta como aplicada;
+- o estado gravado substitui, no documento externo, o `filho_default`
+  daquele pai (`contrato_json_console.md` §16.7) e passa a ser a nova
+  baseline persistida;
+- o candidato é equalizado a essa nova baseline;
+- o fluxo retorna à tela de seleção;
+- `Aplicar` deixa de ter efeito até nova divergência.
+
+Uma aplicação confirmada anteriormente não é desfeita por uma edição
+candidata posterior abandonada.
+
+### 26.9 `ABORTADO`
+
+`ABORTADO` cancela somente a tentativa de aplicação:
+
+- nenhum documento externo é alterado; `filho_default` de nenhum pai é
+  modificado;
+- nenhum script de atualização é executado para persistir a mudança;
+- a baseline permanece inalterada;
+- o candidato de runtime é preservado;
+- o fluxo retorna à seleção, podendo o usuário continuar editando ou tentar
+  aplicar novamente.
+
+### 26.10 Falha de persistência (fail-closed)
+
+Se a gravação não concluir com sucesso:
+
+- a aplicação não é considerada confirmada;
+- a baseline persistida permanece a anterior; `filho_default` de nenhum pai
+  é alterado autoritativamente;
+- persistência parcial nunca é tratada como sucesso;
+- o candidato permanece disponível para nova tentativa ou edição.
+
+Esta seção não determina o algoritmo físico usado para garantir a gravação.
+
+### 26.11 Restauração em nova execução
+
+Em nova carga da tela, o estado ativo é obtido novamente do `filho_default`
+persistido de cada pai no documento externo de conteúdo
+(`contrato_json_console.md` §16.5, §16.7). A tela não depende do estado de
+runtime de sessão anterior para reconstruir qual filho está ativo.
+
+### 26.12 Transições do fluxo
+
+| Estado | Evento | Próximo estado | Efeito obrigatório |
+|---|---|---|---|
+| Carga da tela | documento externo carregado | Seleção | Escolha ativa persistida vira baseline; candidato inicia equivalente à baseline |
+| Seleção | mudança de escolha (Espaço) | Seleção | Atualiza somente o candidato |
+| Seleção | `Aplicar` sem divergência | Seleção | Nenhum efeito |
+| Seleção | `Aplicar` com divergência | Confirmação | Abre o pop-up genérico de confirmação |
+| Confirmação | `ABORTADO` | Seleção | Nenhum documento alterado; baseline inalterada; candidato preservado |
+| Confirmação | `CONFIRMADO` e persistência bem-sucedida | Seleção | Estado gravado vira a nova baseline; candidato equalizado; `Aplicar` inativo até nova divergência |
+| Confirmação | `CONFIRMADO` e falha de persistência | Seleção não confirmada | Baseline anterior mantida; candidato disponível para nova tentativa |
+| Nova execução | nova carga da tela | Carga da tela | Estado ativo obtido novamente do documento externo persistido |
+
+### 26.13 Fronteiras deste contrato aplicado
+
+Permanecem fora desta seção: apresentação `Pai: filho_ativo` e promoção
+visual (`ITEM-0023`); distribuição geométrica de grupos (`ITEM-0024`); nova
+geometria ou paginação de grupos; nova política de navegação; alteração dos
+toroides; nova semântica de cursor; registro/dispatcher genérico de ações
+(`ITEM-0004`); novo sistema de pop-up; lógica de persistência no renderer;
+persistência no JSON estrutural da tela; nome definitivo de script ou
+função; algoritmo físico de escrita; mecanismo concreto de atomicidade.
+
+### 26.14 Remissões
+
+- `docs/adr/ADR-0048-persistencia-escolha-filho-por-pai.md` — decisões
+  D-0026-01 a D-0026-11;
+- `contrato_console.md` — seção 22.16 (ADR-0042): política
+  `dois_niveis_por_foco`; seção 25 (ADR-0047): formatação dos filhos;
+- `contrato_json_console.md` — seção 16 (ADR-0048): escolha ativa persistida
+  no documento externo;
+- `contrato_estilo.md` — seção 3.8: filosofia de baseline/candidato/aplicação
+  (ADR-0046), referência de filosofia;
+- `contrato_popup.md` — sistema genérico de pop-up, `CONFIRMADO`/`ABORTADO`;
+- `docs/nomenclatura/32_CONSOLE.md` — terminologia de baseline e candidato da
+  escolha de filho por pai;
+- `docs/nomenclatura/42_DADOS_EXTERNOS_MULTINIVEL.md` — escolha ativa
+  persistida como dado semântico;
+- `docs/nomenclatura/43_CARREGAMENTO_E_ASSOCIACAO_DE_CONTEUDO.md` —
+  fronteira entre carregamento/restauração e persistência.

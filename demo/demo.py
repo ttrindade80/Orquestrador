@@ -125,6 +125,7 @@ from tela.loader import (
     EstiloErro,
     RuntimeEstilo,
 )
+from tela.carregamento.conteudo_externo import resolver_caminho_conteudo_externo
 from tela.estilo import (
     ControladorTelaEstilo,
     ID_POPUP_CONFIRMACAO_APLICACAO_ESTILO,
@@ -831,6 +832,7 @@ def processar_comando(estado, comando, modelo=None):
         "estilo_runtime",
         "tela_estilo",
         "solicitacao_aplicacao_estilo",
+        "solicitacao_aplicacao_filho_default",
         # H-0069: demonstracao local (materializacao + modelo + origem).
         "estilo_demonstracao_local",
         "_sessao_demonstracao_estilo",
@@ -838,6 +840,10 @@ def processar_comando(estado, comando, modelo=None):
     ):
         if chave in estado:
             novo[chave] = estado[chave]
+    if "caminhos_conteudo_externo" in estado:
+        novo["caminhos_conteudo_externo"] = dict(
+            estado.get("caminhos_conteudo_externo") or {}
+        )
     if "popup" in estado:
         novo["popup"] = estado.get("popup")
     if "popup_resultado" in estado:
@@ -940,6 +946,20 @@ def processar_comando(estado, comando, modelo=None):
                 # CONFIRMADO ainda precisa da origem para reconciliar a tela
                 # de Estilo. ABORTADO e CONFIRMADO encerram a mesma tentativa.
                 novo = _encerrar_demonstracao_estilo(novo)
+            elif popup_id == selecao.ID_POPUP_CONFIRMACAO_FILHO_DEFAULT:
+                if resultado_popup.get("status") == "CONFIRMADO":
+                    solicitacao = novo.get(
+                        "solicitacao_aplicacao_filho_default"
+                    )
+                    if isinstance(
+                        solicitacao, selecao.SolicitacaoAplicacaoFilhoDefault
+                    ):
+                        novo, _sucesso = (
+                            selecao.aplicar_solicitacao_filho_default(
+                                solicitacao, novo, modelo
+                            )
+                        )
+                novo["solicitacao_aplicacao_filho_default"] = None
         return novo
 
     # H-0063: F4 abre a tela normal de Estilo pelo dispatcher vigente.
@@ -1239,7 +1259,8 @@ def processar_comando(estado, comando, modelo=None):
                         item = navegacao.item_selecionado(console, nav_estado)
                         if isinstance(item, dict):
                             nav_estado = selecao.alternar(
-                                nav_estado, console, item.get("id")
+                                nav_estado, console, item.get("id"),
+                                modelo=modelo,
                             )
                 elif (
                     comando in ("\r", "\n")
@@ -1308,6 +1329,34 @@ def processar_comando(estado, comando, modelo=None):
                         )
                 elif (
                     comando in ("\r", "\n")
+                    and nav_estado.get("tela_atual") != _ID_TELA_H0063
+                    and nav_estado.get("tela_estilo") is None
+                    and selecao.capacidade_filho_default_aplicavel(modelo)
+                ):
+                    # H-0075: Enter e Aplicar (nao Todos). Inativo ou
+                    # inconsistencia interna -> no-op; ativo -> snapshot + popup.
+                    solicitacao = selecao.solicitar_aplicacao_filho_default(
+                        nav_estado, modelo
+                    )
+                    if solicitacao is not None:
+                        conteudo = (
+                            selecao.conteudo_popup_confirmacao_filho_default(
+                                solicitacao
+                            )
+                        )
+                        instancia = abrir_popup(
+                            modelo,
+                            selecao.ID_POPUP_CONFIRMACAO_FILHO_DEFAULT,
+                            conteudo,
+                        )
+                        nav_estado = dict(
+                            nav_estado,
+                            solicitacao_aplicacao_filho_default=solicitacao,
+                            popup=instancia,
+                            popup_resultado=None,
+                        )
+                elif (
+                    comando in ("\r", "\n")
                     and navegacao.tipo_navegacao_efetivo(console)
                     != "selecao_multinivel"
                 ):
@@ -1354,6 +1403,10 @@ def processar_comando(estado, comando, modelo=None):
         if "solicitacao_aplicacao_estilo" in nav_estado:
             novo["solicitacao_aplicacao_estilo"] = nav_estado[
                 "solicitacao_aplicacao_estilo"
+            ]
+        if "solicitacao_aplicacao_filho_default" in nav_estado:
+            novo["solicitacao_aplicacao_filho_default"] = nav_estado[
+                "solicitacao_aplicacao_filho_default"
             ]
         if "estilo_demonstracao_local" in nav_estado:
             novo["estilo_demonstracao_local"] = nav_estado[
@@ -1466,6 +1519,14 @@ def renderizar_estado(estado, modelo, largura=None, altura=None):
         and isinstance(controlador_estilo, ControladorTelaEstilo)
     ):
         aplicar_disponivel = controlador_estilo.aplicar_disponivel
+    elif (
+        estado_render.get("tela_atual") != _ID_TELA_H0063
+        and modelo is not None
+        and selecao.capacidade_filho_default_aplicavel(modelo)
+    ):
+        aplicar_disponivel = selecao.aplicar_disponivel_filho_default(
+            estado_render, modelo
+        )
     # H-0069: sob a demonstracao local, a materializacao usada para
     # renderizar (tela e popup) e a do candidato (``estilo_demonstracao_
     # local``), nunca ``estado["estilo"]`` (global vigente, preservado
@@ -2093,7 +2154,13 @@ def _aplicar_caso_validacao_adaptativo(estado, modelo, caso_id):
     return novo, caso
 
 
-def _carregar_modelo_por_id(id_tela):
+def _caminho_conteudo_da_sessao(estado, id_tela):
+    """Override de sessao para copia/teste/demonstracao; None usa o canonico."""
+    caminhos = estado.get("caminhos_conteudo_externo") or {}
+    return caminhos.get(id_tela)
+
+
+def _carregar_modelo_por_id(id_tela, caminho_conteudo=None):
     """Helper: carrega e constroi o ModeloTela para ``id_tela`` da raiz demo.
 
     H-0036: identifica o cenario, localiza o JSON estrutural e, quando o
@@ -2131,10 +2198,19 @@ def _carregar_modelo_por_id(id_tela):
     id_conteudo = id_conteudo_externo_de(id_estrutural)
     conteudo_externo = None
     if id_conteudo is not None:
+        if caminho_conteudo is None:
+            caminho_conteudo = resolver_caminho_conteudo_externo(
+                None, id_conteudo, _RAIZ_TELAS_DEMO
+            )
         conteudo_externo = carregar_conteudo_externo(
-            None, id_conteudo, _RAIZ_TELAS_DEMO
+            None, id_conteudo, _RAIZ_TELAS_DEMO,
+            caminho_arquivo=caminho_conteudo,
         )
-    return construir_modelo(tela_raw, conteudo_externo=conteudo_externo)
+    return construir_modelo(
+        tela_raw,
+        conteudo_externo=conteudo_externo,
+        caminho_conteudo=caminho_conteudo,
+    )
 
 
 def _ler_tecla_sessao(fd=None):
@@ -2592,7 +2668,12 @@ def main(argv=None, estado_inicial=None):
     # H-0045-P16: valida desativacao de casos adaptativos legados; telas
     # vigentes carregam modelo fixo uma unica vez (sem regeneracao).
     casos_val.id_caso_de_entrada(tela_inicial)
-    modelo = _carregar_modelo_por_id(estado["tela_atual"])
+    modelo = _carregar_modelo_por_id(
+        estado["tela_atual"],
+        caminho_conteudo=_caminho_conteudo_da_sessao(
+            estado, estado["tela_atual"]
+        ),
+    )
     estado = _anexar_tela_estilo(estado)
     modelo = _preparar_modelo_estilo(modelo, estado)
     estado = _preparar_estado_h0053(estado, modelo)
@@ -2718,7 +2799,12 @@ def main(argv=None, estado_inicial=None):
                     if estado["saindo"]:
                         break
                     if estado["tela_atual"] != tela_antes:
-                        modelo = _carregar_modelo_por_id(estado["tela_atual"])
+                        modelo = _carregar_modelo_por_id(
+                            estado["tela_atual"],
+                            caminho_conteudo=_caminho_conteudo_da_sessao(
+                                estado, estado["tela_atual"]
+                            ),
+                        )
                         if estado["tela_atual"] == _ID_TELA_H0063:
                             estado = _anexar_tela_estilo(estado)
                             modelo = _preparar_modelo_estilo(modelo, estado)
@@ -2853,7 +2939,12 @@ def main(argv=None, estado_inicial=None):
             if estado["saindo"]:
                 break
             if estado["tela_atual"] != tela_antes:
-                modelo = _carregar_modelo_por_id(estado["tela_atual"])
+                modelo = _carregar_modelo_por_id(
+                            estado["tela_atual"],
+                            caminho_conteudo=_caminho_conteudo_da_sessao(
+                                estado, estado["tela_atual"]
+                            ),
+                        )
                 if estado["tela_atual"] == _ID_TELA_H0063:
                     estado = _anexar_tela_estilo(estado)
                     modelo = _preparar_modelo_estilo(modelo, estado)
@@ -2923,4 +3014,3 @@ def main(argv=None, estado_inicial=None):
 
 if __name__ == "__main__":
     sys.exit(main())
-\n

@@ -33,6 +33,9 @@ ESCOPO (H-0041 / ADR-0034 Handoff 1):
 Apenas biblioteca padrao do Python.
 """
 
+import copy
+from dataclasses import dataclass
+
 
 def _selecao_do_console(estado, console):
     """Retorna a lista de IDs selecionados do ``console`` (copia, nunca None).
@@ -138,7 +141,7 @@ def limpar(estado, console):
     return _escrever_selecao(estado, console, [])
 
 
-def alternar(estado, console, id_item):
+def alternar(estado, console, id_item, modelo=None):
     """Retorna novo ``estado`` com a inclusao de ``id_item`` alternada (D-SEL-05).
 
     ``Espaco`` alterna a inclusao do item quando ele e selecionavel; nao move o
@@ -148,12 +151,16 @@ def alternar(estado, console, id_item):
 
     Apos a transicao, a selecao e reordenada pela ordem logica do console
     (D-SEL-02), de modo que a marcacao nunca introduz ordem propria observavel.
+
+    ``modelo`` e opcional (H-0075): quando informado em ``dois_niveis_por_foco``,
+    sincroniza somente a escolha daquele pai nos destinos elegiveis. Chamadas
+    sem ``modelo`` preservam o comportamento de H-0074.
     """
     if _eh_selecao_multinivel(console):
         return _alternar_multinivel(estado, console, id_item)
     if _eh_dois_niveis_por_foco(console):
         return _transferir_escolha_dois_niveis(
-            estado, console, id_item
+            estado, console, id_item, modelo=modelo
         )
     if not item_selecionavel(console, id_item):
         # D-SEL-05: item não selecionável ignora Espaço (sem efeito).
@@ -193,14 +200,25 @@ def _reconciliar_ids_dois_niveis(console, ids):
     for pai in console.conteudo_externo.nos:
         escolhido = next(
             (filho for filho in pai.filhos if filho.id in marcados),
-            pai.filhos[0],
+            None,
         )
-        escolhas.append(escolhido.id)
+        if escolhido is None:
+            campos = getattr(pai, "campos", None) or {}
+            default_id = campos.get("filho_default") if isinstance(campos, dict) else None
+            coincidencias = [
+                filho for filho in pai.filhos if filho.id == default_id
+            ]
+            if len(coincidencias) == 1:
+                escolhido = coincidencias[0]
+        if escolhido is not None:
+            escolhas.append(escolhido.id)
     return escolhas
 
 
-def _transferir_escolha_dois_niveis(estado, console, id_item):
+def _transferir_escolha_dois_niveis(estado, console, id_item, modelo=None):
     """Transfere a escolha somente entre filhos diretos do mesmo pai."""
+    if modelo is not None and not _origem_pertence_ao_modelo(console, modelo):
+        return estado
     atuais = _reconciliar_ids_dois_niveis(
         console, _selecao_do_console(estado, console)
     )
@@ -216,13 +234,16 @@ def _transferir_escolha_dois_niveis(estado, console, id_item):
     ids_do_pai = {filho.id for filho in pai_alvo.filhos}
     novo = [id_atual for id_atual in atuais if id_atual not in ids_do_pai]
     novo.append(id_item)
-    return _escrever_selecao(
+    estado = _escrever_selecao(
         estado, console, _reconciliar_ids_dois_niveis(console, novo)
     )
+    if modelo is None:
+        return estado
+    return _sincronizar_escolha_pai(estado, console, pai_alvo, id_item, modelo)
 
 
 def inicializar_escolhas_dois_niveis(estado, console):
-    """Materializa no runtime a escolha inicial derivada da ordem dos filhos."""
+    """Materializa no runtime a escolha inicial derivada de ``filho_default``."""
     if not _eh_dois_niveis_por_foco(console):
         return dict(estado)
     return _escrever_selecao(
@@ -231,6 +252,319 @@ def inicializar_escolhas_dois_niveis(estado, console):
             console, _selecao_do_console(estado, console)
         ),
     )
+
+
+ID_POPUP_CONFIRMACAO_FILHO_DEFAULT = "popup_confirmacao_aplicacao_filho_default"
+
+_TEXTO_POPUP_CONFIRMACAO_FILHO_DEFAULT = (
+    "Deseja aplicar a escolha selecionada?"
+)
+
+
+@dataclass(frozen=True)
+class SolicitacaoAplicacaoFilhoDefault:
+    """Snapshot imutavel da tentativa de Aplicar ``filho_default`` (H-0075)."""
+
+    caminho_destino: str
+    baseline: dict
+    candidato: dict
+
+    def __post_init__(self):
+        object.__setattr__(self, "caminho_destino", str(self.caminho_destino))
+        object.__setattr__(self, "baseline", copy.deepcopy(self.baseline))
+        object.__setattr__(self, "candidato", copy.deepcopy(self.candidato))
+
+
+def _enumerar_consoles_modelo(modelo):
+    """Percorre ``modelo.corpo.elementos`` descendo em grupos (mesmo descenso H-0074)."""
+    resultado = []
+
+    def _descer(elementos):
+        for elemento in elementos or ():
+            if getattr(elemento, "tipo", None) == "grupo":
+                _descer(getattr(elemento, "elementos", None) or ())
+                continue
+            if getattr(elemento, "tipo", None) == "console":
+                resultado.append(elemento)
+
+    corpo = getattr(modelo, "corpo", None)
+    _descer(getattr(corpo, "elementos", None) or ())
+    return resultado
+
+
+def _console_apresenta_pai(console, pai_id):
+    conteudo = getattr(console, "conteudo_externo", None)
+    nos = getattr(conteudo, "nos", None) or ()
+    return any(getattr(pai, "id", None) == pai_id for pai in nos)
+
+
+def _console_elegivel_filho_default(console, origem, pai_id):
+    """Predicado fechado de destino (H-0075 §4.8)."""
+    from tela import navegacao
+
+    if console is origem:
+        return False
+    if getattr(console, "conteudo_externo", None) is not getattr(
+        origem, "conteudo_externo", None
+    ):
+        return False
+    if navegacao.tipo_navegacao_efetivo(console) != "dois_niveis_por_foco":
+        return False
+    if getattr(console, "conteudo_externo", None) is None:
+        return False
+    return _console_apresenta_pai(console, pai_id)
+
+
+def _origem_pertence_ao_modelo(console, modelo):
+    """True somente se ``console`` e um objeto enumerado no proprio ``modelo``."""
+    return any(
+        membro is console for membro in _enumerar_consoles_modelo(modelo)
+    )
+
+
+def _origem_satisfaz_predicado(console, pai_id, modelo):
+    from tela import navegacao
+
+    if not _origem_pertence_ao_modelo(console, modelo):
+        return False
+    if getattr(console, "conteudo_externo", None) is None:
+        return False
+    if navegacao.tipo_navegacao_efetivo(console) != "dois_niveis_por_foco":
+        return False
+    return _console_apresenta_pai(console, pai_id)
+
+
+def _escolha_do_pai(console, estado, pai):
+    ids = _reconciliar_ids_dois_niveis(
+        console, _selecao_do_console(estado, console)
+    )
+    ids_do_pai = {filho.id for filho in getattr(pai, "filhos", ()) or ()}
+    return next((item for item in ids if item in ids_do_pai), None)
+
+
+def _sincronizar_escolha_pai(estado, origem, pai_alvo, id_item, modelo):
+    """Propaga somente a escolha de ``pai_alvo`` aos destinos elegiveis."""
+    if not _origem_satisfaz_predicado(origem, pai_alvo.id, modelo):
+        return estado
+    ids_do_pai = {filho.id for filho in pai_alvo.filhos}
+    for destino in _enumerar_consoles_modelo(modelo):
+        if not _console_elegivel_filho_default(destino, origem, pai_alvo.id):
+            continue
+        atuais = _selecao_do_console(estado, destino)
+        novo = [item for item in atuais if item not in ids_do_pai]
+        novo.append(id_item)
+        estado = _escrever_selecao(
+            estado, destino, _reconciliar_ids_dois_niveis(destino, novo)
+        )
+    return estado
+
+
+def capacidade_filho_default_aplicavel(modelo):
+    """True quando a tela comporta Aplicar/persistir ``filho_default``."""
+    from tela import navegacao
+
+    if modelo is None:
+        return False
+    conteudo = getattr(modelo, "conteudo_externo", None)
+    if conteudo is None:
+        return False
+    if getattr(conteudo, "caminho_origem", None) is None:
+        return False
+    return any(
+        navegacao.tipo_navegacao_efetivo(console) == "dois_niveis_por_foco"
+        and getattr(console, "conteudo_externo", None) is conteudo
+        for console in _enumerar_consoles_modelo(modelo)
+    )
+
+
+def mapa_baseline_filho_default(modelo):
+    """``{pai_id: filho_id}`` derivado de ``pai.campos["filho_default"]``."""
+    conteudo = getattr(modelo, "conteudo_externo", None)
+    if conteudo is None:
+        return {}
+    mapa = {}
+    for pai in getattr(conteudo, "nos", ()) or ():
+        campos = getattr(pai, "campos", None) or {}
+        if isinstance(campos, dict) and "filho_default" in campos:
+            mapa[pai.id] = campos["filho_default"]
+    return mapa
+
+
+def mapa_candidato_filho_default(estado, modelo):
+    """``{pai_id: filho_id}`` unico por pai; falha fechado se representacoes divergirem."""
+    from tela import navegacao
+    from tela.carregamento.erros import TelaEstruturaInvalida
+
+    conteudo = getattr(modelo, "conteudo_externo", None)
+    if conteudo is None:
+        return {}
+    consoles = [
+        console for console in _enumerar_consoles_modelo(modelo)
+        if navegacao.tipo_navegacao_efetivo(console) == "dois_niveis_por_foco"
+        and getattr(console, "conteudo_externo", None) is conteudo
+    ]
+    candidato = {}
+    for pai in getattr(conteudo, "nos", ()) or ():
+        valores = []
+        for console in consoles:
+            if not _console_apresenta_pai(console, pai.id):
+                continue
+            escolhido = _escolha_do_pai(console, estado, pai)
+            if escolhido is not None:
+                valores.append(escolhido)
+        distintos = set(valores)
+        if len(distintos) > 1:
+            raise TelaEstruturaInvalida(
+                "candidato inconsistente para o mesmo documento e pai {0!r}".format(
+                    pai.id
+                )
+            )
+        if len(distintos) == 1:
+            candidato[pai.id] = next(iter(distintos))
+    return candidato
+
+
+def aplicar_disponivel_filho_default(estado, modelo):
+    """True somente com mapa candidato coerente distinto da baseline."""
+    from tela.carregamento.erros import TelaEstruturaInvalida
+
+    if modelo is None:
+        return False
+    conteudo = getattr(modelo, "conteudo_externo", None)
+    if conteudo is None:
+        return False
+    from tela import navegacao
+    if not any(
+        navegacao.tipo_navegacao_efetivo(console) == "dois_niveis_por_foco"
+        and getattr(console, "conteudo_externo", None) is conteudo
+        for console in _enumerar_consoles_modelo(modelo)
+    ):
+        return False
+    try:
+        candidato = mapa_candidato_filho_default(estado, modelo)
+    except TelaEstruturaInvalida:
+        return False
+    return candidato != mapa_baseline_filho_default(modelo)
+
+
+def solicitar_aplicacao_filho_default(estado, modelo):
+    """Produz snapshot frozen; ``None`` se inativo ou mapa incoerente."""
+    from tela.carregamento.erros import TelaEstruturaInvalida
+
+    if not capacidade_filho_default_aplicavel(modelo):
+        return None
+    if not aplicar_disponivel_filho_default(estado, modelo):
+        return None
+    try:
+        candidato = mapa_candidato_filho_default(estado, modelo)
+    except TelaEstruturaInvalida:
+        return None
+    caminho = getattr(modelo.conteudo_externo, "caminho_origem", None)
+    if caminho is None:
+        return None
+    return SolicitacaoAplicacaoFilhoDefault(
+        caminho_destino=caminho,
+        baseline=mapa_baseline_filho_default(modelo),
+        candidato=candidato,
+    )
+
+
+def conteudo_popup_confirmacao_filho_default(solicitacao):
+    """Envelope ``tipo: texto`` derivado da solicitacao ja recebida."""
+    if not isinstance(solicitacao, SolicitacaoAplicacaoFilhoDefault):
+        raise TypeError(
+            "conteudo_popup_confirmacao_filho_default exige "
+            "SolicitacaoAplicacaoFilhoDefault"
+        )
+    return {
+        "tipo": "texto",
+        "texto": _TEXTO_POPUP_CONFIRMACAO_FILHO_DEFAULT,
+    }
+
+
+def _validar_filho_default_ids_documento(documento):
+    from tela.carregamento.erros import TelaEstruturaInvalida
+
+    def _andar(nos):
+        for no in nos or ():
+            if not isinstance(no, dict):
+                continue
+            filhos = no.get("filhos")
+            if isinstance(filhos, list) and "filho_default" in no:
+                valor = no.get("filho_default")
+                coincidencias = [
+                    filho for filho in filhos
+                    if isinstance(filho, dict) and filho.get("id") == valor
+                ]
+                if len(coincidencias) != 1:
+                    raise TelaEstruturaInvalida(
+                        "filho_default nao identifica exatamente um filho direto do pai"
+                    )
+            if isinstance(filhos, list):
+                _andar(filhos)
+
+    _andar(documento.get("dados") or [])
+
+
+def _equalizar_selecoes_ao_snapshot(estado, modelo, solicitacao):
+    from tela import navegacao
+
+    conteudo = modelo.conteudo_externo
+    ids_snapshot = [
+        solicitacao.candidato[pai.id]
+        for pai in getattr(conteudo, "nos", ()) or ()
+        if pai.id in solicitacao.candidato
+    ]
+    for console in _enumerar_consoles_modelo(modelo):
+        if navegacao.tipo_navegacao_efetivo(console) != "dois_niveis_por_foco":
+            continue
+        if getattr(console, "conteudo_externo", None) is not conteudo:
+            continue
+        estado = _escrever_selecao(estado, console, ids_snapshot)
+    return estado
+
+
+def aplicar_solicitacao_filho_default(solicitacao, estado, modelo):
+    """Consome o snapshot confirmado; devolve ``(estado, sucesso)`` sem propagar."""
+    from tela.carregamento.conteudo_externo import (
+        aplicar_filho_default_no_documento,
+        persistir_conteudo_externo,
+        validar_conteudo_externo,
+    )
+    from tela.carregamento.erros import (
+        TelaCampoObrigatorioAusente,
+        TelaEstruturaInvalida,
+    )
+
+    if not isinstance(solicitacao, SolicitacaoAplicacaoFilhoDefault):
+        return dict(estado), False
+    if modelo is None or getattr(modelo, "conteudo_externo", None) is None:
+        return dict(estado), False
+    try:
+        documento = copy.deepcopy(modelo.conteudo_externo._raw)
+        patch = aplicar_filho_default_no_documento(
+            documento, solicitacao.candidato
+        )
+        validar_conteudo_externo(patch)
+        _validar_filho_default_ids_documento(patch)
+        persistir_conteudo_externo(patch, solicitacao.caminho_destino)
+    except (
+        TelaEstruturaInvalida,
+        TelaCampoObrigatorioAusente,
+        OSError,
+        TypeError,
+        ValueError,
+    ):
+        return dict(estado), False
+
+    modelo.conteudo_externo._raw = patch
+    for pai in getattr(modelo.conteudo_externo, "nos", ()) or ():
+        if pai.id in solicitacao.candidato:
+            campos = getattr(pai, "campos", None)
+            if isinstance(campos, dict):
+                campos["filho_default"] = solicitacao.candidato[pai.id]
+    novo = _equalizar_selecoes_ao_snapshot(dict(estado), modelo, solicitacao)
+    return novo, True
 
 
 def _alvos_multinivel(console, id_item):

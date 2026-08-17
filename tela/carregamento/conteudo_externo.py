@@ -1,7 +1,9 @@
 """Validação e carregamento de conteúdo externo multinível."""
 
+import copy
 import json
 import os
+import tempfile
 
 from tela.carregamento.caminho_base import _para_base
 from tela.carregamento.erros import (
@@ -642,13 +644,96 @@ def validar_conteudo_externo(documento, origem="documento externo"):
     return documento
 
 
-def carregar_conteudo_externo(caminho_base, id_conteudo, raiz_telas=None):
+def resolver_caminho_conteudo_externo(caminho_base, id_conteudo, raiz_telas=None):
+    """Compoe o caminho canonico do documento externo (mesma formula da carga)."""
+    base = _para_base(caminho_base)
+    if raiz_telas is None:
+        raiz_telas = os.path.join("config", "telas")
+    return base / os.path.join(raiz_telas, id_conteudo + ".json")
+
+
+def aplicar_filho_default_no_documento(documento, mapa_candidato):
+    """Devolve copia profunda com ``filho_default`` atualizado so onde diverge."""
+    copia = copy.deepcopy(documento)
+    candidatos = mapa_candidato or {}
+
+    def _aplicar(nos):
+        for no in nos or ():
+            if not isinstance(no, dict):
+                continue
+            filhos = no.get("filhos")
+            if isinstance(filhos, list):
+                no_id = no.get("id")
+                if (
+                    no_id in candidatos
+                    and no.get("filho_default") != candidatos[no_id]
+                ):
+                    no["filho_default"] = candidatos[no_id]
+                _aplicar(filhos)
+
+    _aplicar(copia.get("dados") or [])
+    return copia
+
+
+def persistir_conteudo_externo(documento, caminho_destino):
+    """Persiste o documento com substituicao atomica no destino dado."""
+    if caminho_destino is None:
+        raise TelaEstruturaInvalida("Destino de persistencia deve ser fornecido")
+    destino = os.fspath(caminho_destino)
+    if not destino:
+        raise TelaEstruturaInvalida("Destino de persistencia nao pode ser vazio")
+    if not isinstance(documento, dict):
+        raise TelaEstruturaInvalida(
+            "Documento externo a persistir nao e objeto"
+        )
+
+    temporario = None
+    try:
+        diretorio = os.path.dirname(os.path.abspath(destino))
+        os.makedirs(diretorio, exist_ok=True)
+        nome = os.path.basename(destino)
+        fd, temporario = tempfile.mkstemp(
+            prefix=".{0}.".format(nome), suffix=".tmp", dir=diretorio
+        )
+        with os.fdopen(fd, "w", encoding="utf-8") as arquivo:
+            json.dump(
+                documento,
+                arquivo,
+                ensure_ascii=False,
+                indent=2,
+                allow_nan=False,
+            )
+            arquivo.write("\n")
+            arquivo.flush()
+            os.fsync(arquivo.fileno())
+        os.replace(temporario, destino)
+        temporario = None
+    except (OSError, TypeError, ValueError) as exc:
+        raise TelaEstruturaInvalida(
+            "Falha ao persistir conteudo externo em {0}: {1}".format(
+                destino, exc
+            )
+        ) from exc
+    finally:
+        if temporario is not None:
+            try:
+                os.unlink(temporario)
+            except OSError:
+                pass
+    return destino
+
+
+def carregar_conteudo_externo(
+    caminho_base, id_conteudo, raiz_telas=None, caminho_arquivo=None
+):
     """Carrega, decodifica e valida um documento externo de conteudo.
 
     Parametros analogos a ``carregar_tela``: ``caminho_base`` (None usa a raiz
     do repositorio), ``id_conteudo`` (nome base do arquivo, sem extensao) e
     ``raiz_telas`` (diretorio relativo; None usa ``config/telas``; a
-    demonstracao passa ``config/telas/demo``).
+    demonstracao passa ``config/telas/demo``). ``caminho_arquivo``, quando
+    fornecido, substitui a composicao canonica; ``id_conteudo`` permanece
+    para mensagens.
 
     Devolve o documento validado (dict) como representacao semantica. O
     consumidor (modelo) constroi a representacao tipada; o renderizador calcula
@@ -659,15 +744,20 @@ def carregar_conteudo_externo(caminho_base, id_conteudo, raiz_telas=None):
     Lanca: TelaArquivoNaoEncontrado, TelaJsonInvalido,
     TelaCampoObrigatorioAusente, TelaEstruturaInvalida.
     """
-    base = _para_base(caminho_base)
     if not isinstance(id_conteudo, str) or not id_conteudo:
         raise TelaCampoObrigatorioAusente(campo="id_conteudo (documento externo)")
 
+    if caminho_arquivo is None:
+        caminho_arquivo = resolver_caminho_conteudo_externo(
+            caminho_base, id_conteudo, raiz_telas
+        )
+    else:
+        from pathlib import Path
+        caminho_arquivo = Path(caminho_arquivo)
+
     if raiz_telas is None:
         raiz_telas = os.path.join("config", "telas")
-
     caminho_relativo = os.path.join(raiz_telas, id_conteudo + ".json")
-    caminho_arquivo = base / caminho_relativo
 
     if not caminho_arquivo.is_file():
         raise TelaArquivoNaoEncontrado(

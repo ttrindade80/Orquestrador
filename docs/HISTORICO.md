@@ -429,4 +429,11 @@ Nenhum item registrado.
 **Data:** 2026-08-16
 **Referências:** docs/adr/ADR-0047-formatacao-filhos-dois-niveis-por-foco.md; docs/handoff/H-0072-formatacao-generica-filhos-dois-niveis-por-foco.md; docs/handoff/H-0073-aplicacao-formatacao-telas-dois-niveis-por-foco.md; docs/relatorios/RELATORIO_REVALIDACAO_MANUAL_H-0073_POS_H0072_P05_P06.md
 **Resumo:** Capacidade genérica concluída para formatar filhos de `dois_niveis_por_foco`, com tabulação estrutural dinâmica 5..10, designador configurável por prefixo/sufixo, apresentações texto/tabela, alinhamento global, wrap e correção ANSI no resize. Aplicação real concluída em H-0055 (preservando `A)`) e H-0063 (tabela `preset`/`amostra`, espaçamento 3..8 e fundo de “Destaque Fundo” restrito ao chip). A revalidação manual final foi aprovada, com VM-H0073-001 e VM-H0073-002 resolvidos. H-0070 permanece resíduo histórico não causal, fora deste ciclo.
-\n
+
+### ITEM-0026 / ADR-0048 / H-0074 / H-0075 — Persistência da escolha de filho por pai
+
+**Resultado:** CONCLUIDO
+**Origem:** backlog
+**Data:** 2026-08-17
+**Referências:** docs/adr/ADR-0048-persistencia-escolha-filho-por-pai.md; docs/handoff/H-0074-filho-default-carregamento-baseline-runtime.md; docs/handoff/H-0075-aplicar-confirmar-persistir-filho-default.md; docs/relatorios/RELATORIO_FECHAMENTO_ITEM-0026_ADR-0048_H-0074_H-0075.md
+**Resumo:** Persistência da escolha ativa exclusiva de filho por pai concluída. H-0074 materializou `filho_default` obrigatório, validação fail-closed, baseline documental e candidato runtime sem fallback para o primeiro filho. H-0075 materializou o candidato compartilhado por documento e pai, Aplicar por divergência, snapshot, confirmação genérica, ABORTADO sem escrita, CONFIRMADO com escrita atômica fail-closed, promoção da baseline e restauração em nova execução. A QA técnica e as validações manuais dos dois handoffs foram aprovadas; ITEM-0023 e ITEM-0024 permaneceram fora do ciclo.

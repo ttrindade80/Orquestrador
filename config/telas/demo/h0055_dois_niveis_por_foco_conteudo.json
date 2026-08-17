@@ -24,6 +24,7 @@
     {
       "id": "pai_01", "nivel": "pai", "navegavel": true,
       "selecionavel": false, "titulo": "Pai 01",
+      "filho_default": "filho_01_02",
       "filhos": [
         {"id": "filho_01_01", "nivel": "filho", "navegavel": true, "selecionavel": true, "titulo": "Filho 01.01"},
         {"id": "filho_01_02", "nivel": "filho", "navegavel": true, "selecionavel": true, "titulo": "Filho 01.02"},
@@ -34,6 +35,7 @@
     {
       "id": "pai_02", "nivel": "pai", "navegavel": true,
       "selecionavel": false, "titulo": "Pai 02",
+      "filho_default": "filho_02_03",
       "filhos": [
         {"id": "filho_02_01", "nivel": "filho", "navegavel": true, "selecionavel": true, "titulo": "Filho 02.01"},
         {"id": "filho_02_02", "nivel": "filho", "navegavel": true, "selecionavel": true, "titulo": "Filho 02.02"},
@@ -44,6 +46,7 @@
     {
       "id": "pai_03", "nivel": "pai", "navegavel": true,
       "selecionavel": false, "titulo": "Pai 03",
+      "filho_default": "filho_03_01",
       "filhos": [
         {"id": "filho_03_01", "nivel": "filho", "navegavel": true, "selecionavel": true, "titulo": "Filho 03.01"},
         {"id": "filho_03_02", "nivel": "filho", "navegavel": true, "selecionavel": true, "titulo": "Filho 03.02"},
@@ -54,6 +57,7 @@
     {
       "id": "pai_04", "nivel": "pai", "navegavel": true,
       "selecionavel": false, "titulo": "Pai 04",
+      "filho_default": "filho_04_04",
       "filhos": [
         {"id": "filho_04_01", "nivel": "filho", "navegavel": true, "selecionavel": true, "titulo": "Filho 04.01"},
         {"id": "filho_04_02", "nivel": "filho", "navegavel": true, "selecionavel": true, "titulo": "Filho 04.02"},
@@ -64,6 +68,7 @@
     {
       "id": "pai_05", "nivel": "pai", "navegavel": true,
       "selecionavel": false, "titulo": "Pai 05",
+      "filho_default": "filho_05_02",
       "filhos": [
         {"id": "filho_05_01", "nivel": "filho", "navegavel": true, "selecionavel": true, "titulo": "Filho 05.01"},
         {"id": "filho_05_02", "nivel": "filho", "navegavel": true, "selecionavel": true, "titulo": "Filho 05.02"},

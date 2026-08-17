@@ -1899,4 +1899,113 @@ permanece exclusivamente no JSON estrutural da tela
 - `contrato_tela_json.md` — seção 36: schema literal declarativo e
   especialização H-0063 (§36.8);
 - `contrato_console.md` — seção 25: comportamento de formatação.
-\n
+
+---
+
+## 16. Escolha ativa persistida do filho por pai no documento externo de conteúdo (ADR-0048)
+
+A ADR-0048 (2026-08-16) fecha a autoridade persistida da escolha exclusiva
+obrigatória de filho por pai (`contrato_console.md` §22.16; ADR-0042) como
+dado semântico do documento externo de conteúdo. Esta seção materializa
+exclusivamente as regras relativas a esse documento; o ciclo comportamental
+completo de baseline, candidato e aplicação está em `contrato_console.md`
+§26.
+
+### 16.1 Autoridade persistida pertence ao documento externo
+
+Para cada pai sujeito à política `dois_niveis_por_foco`
+(`contrato_console.md` §22.16), o documento externo de conteúdo deve
+fornecer explicitamente qual filho está ativo. Essa informação é dado
+semântico do produtor — não é calculada, inferida ou reconstruída pelo
+consumidor a partir da posição ou de qualquer outro campo.
+
+A escolha ativa persistida:
+
+- pertence exclusivamente ao documento externo de conteúdo (§11 deste
+  contrato);
+- não pertence ao JSON estrutural da tela;
+- não pertence à configuração global de estilo;
+- não pertence ao estado de cursor;
+- não é calculada nem armazenada pelo renderer.
+
+### 16.2 Exclusividade e explicitação obrigatória
+
+Para cada pai aplicável, o documento externo declara exatamente um filho
+ativo. A ausência de exatamente uma declaração explícita — zero ou mais de
+uma — é inconsistência do documento externo em relação a esta regra.
+
+### 16.3 Posição do primeiro filho não é autoridade
+
+A posição do primeiro filho na lista de filhos de um pai não substitui, não
+supre e não é tratada como a declaração explícita exigida por §16.2. O
+comportamento histórico de inicializar pelo primeiro filho é predecessor da
+capacidade (ADR-0042) e não define esta persistência.
+
+### 16.4 Distinção entre estrutura pai-filho e escolha ativa persistida
+
+A estrutura pai-filho (relação hierárquica de nós, já fechada pelo schema
+semântico multinível — §12) é distinta da escolha ativa persistida (qual
+filho, dentre os já estruturalmente declarados, está ativo para aquele pai).
+A escolha ativa persistida não cria nó, não duplica nó e não altera a
+hierarquia declarada em `dados`.
+
+### 16.5 Documento carregado como origem da baseline persistida
+
+O documento externo de conteúdo, tal como carregado, é a origem da baseline
+persistida do fluxo descrito em `contrato_console.md` §26. O comportamento
+de carregamento e restauração pertence a
+`docs/nomenclatura/43_CARREGAMENTO_E_ASSOCIACAO_DE_CONTEUDO.md` e a
+`contrato_console.md` §26; esta seção fecha somente a origem do dado.
+
+### 16.6 Persistência pertence ao conteúdo externo, não ao loader nem ao renderer
+
+A gravação da escolha ativa confirmada é responsabilidade da camada
+responsável pelos dados (`contrato_console.md` §26.7), não do loader e não do
+renderizador. Esta seção não define script, função, caminho, assinatura,
+algoritmo físico de escrita nem mecanismo de atomicidade — decisões
+deliberadamente não fechadas pela ADR-0048 (D-0026-06, D-0026-09).
+
+### 16.7 Literal público fechado: `filho_default` (D-0026-12, patch `P02`)
+
+A ADR-0048 fecha a semântica da escolha ativa persistida (§16.1 a §16.4) e,
+pelo patch `P02` (D-0026-12), fecha também o nome literal do campo público
+que a representa no documento externo: exatamente `filho_default`. Não é
+substituído por `filho_ativo`, `filho_ativo_id`, `selecionado`, `selected`,
+`active` ou qualquer outro alias.
+
+Para cada pai sujeito a `dois_niveis_por_foco` (`contrato_console.md`
+§22.16):
+
+- `filho_default` é campo público obrigatório;
+- seu valor é o ID estável de exatamente um filho direto presente na
+  coleção `filhos` (§12.4) daquele pai;
+- o filho referenciado pertence ao próprio pai — referência a um filho de
+  outro pai é documento inválido;
+- cada pai possui seu próprio `filho_default` — não existe `filho_default`
+  global nem mapa paralelo pai → filho como representação normativa;
+- a ordem física dos filhos não determina nem substitui o valor de
+  `filho_default`; não existe representação normativa por índice ordinal;
+  o primeiro filho não é fallback para `filho_default` ausente (§16.3);
+- ausência de `filho_default` em um pai aplicável é documento inválido;
+- referência a ID inexistente é documento inválido;
+- referência ambígua por ID duplicado é inválida, conforme as regras
+  vigentes de identidade;
+- o valor de `filho_default` constitui a baseline persistida carregada
+  pelo consumidor (§16.5; `contrato_console.md` §26.3), substituído somente
+  por aplicação confirmada e bem-sucedida (`contrato_console.md` §26.8).
+
+Este literal é a única forma pública fechada para representar a escolha
+ativa persistida. Nome de função, nome ou caminho do script, assinatura
+interna, algoritmo físico de escrita e mecanismo de atomicidade continuam
+fora do escopo desta seção (§16.6).
+
+### 16.8 Remissões
+
+- `docs/adr/ADR-0048-persistencia-escolha-filho-por-pai.md` — decisões
+  D-0026-01 a D-0026-12 (patch `P02`);
+- `contrato_console.md` — seção 22.16 (ADR-0042): política
+  `dois_niveis_por_foco`; seção 26 (ADR-0048): ciclo comportamental completo;
+- `docs/nomenclatura/42_DADOS_EXTERNOS_MULTINIVEL.md` — terminologia
+  canônica da escolha ativa persistida;
+- `docs/nomenclatura/43_CARREGAMENTO_E_ASSOCIACAO_DE_CONTEUDO.md` —
+  fronteira entre carregamento/restauração e persistência.

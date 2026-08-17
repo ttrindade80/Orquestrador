@@ -129,6 +129,13 @@
         "regra_ativo": "sempre"
       },
       {
+        "id": "chip_aplicar",
+        "tipo": "acao",
+        "tecla": "⏎",
+        "texto": "Aplicar",
+        "regra_ativo": "candidato_divergente"
+      },
+      {
         "id": "ajuda",
         "tipo": "ajuda",
         "tecla": "?",
@@ -136,6 +143,46 @@
         "regra_ativo": "sempre"
       }
     ]
+  },
+  "popups": {
+    "popup_confirmacao_aplicacao_filho_default": {
+      "tipo": "texto",
+      "titulo": "Aplicar escolha",
+      "alinhamento": "centralizado",
+      "espacamento_superior": 1,
+      "espacamento_conteudo_chips": 1,
+      "espacamento_inferior": 1,
+      "espacamento_horizontal": 2,
+      "chips": [
+        {
+          "id": "popup_confirmacao_aplicacao_filho_default_voltar",
+          "tipo": "especifico",
+          "tecla": "Esc",
+          "texto": "Voltar",
+          "referencia_regra": {
+            "resultado": {
+              "status": "ABORTADO"
+            }
+          },
+          "regra_existencia": "sempre",
+          "regra_ativo": "sempre",
+          "forma_exibicao": "ativo"
+        },
+        {
+          "id": "popup_confirmacao_aplicacao_filho_default_confirmar",
+          "tipo": "especifico",
+          "tecla": "Enter",
+          "texto": "Confirmar",
+          "referencia_regra": {
+            "resultado": {
+              "status": "CONFIRMADO"
+            }
+          },
+          "regra_existencia": "sempre",
+          "regra_ativo": "sempre",
+          "forma_exibicao": "ativo"
+        }
+      ]
+    }
   }
 }
-\n

@@ -44,6 +44,7 @@ nem com a apresentação (como o dado é exibido — módulo `44`).
 - conteúdo associado
 - origem de dados declarada
 - vinculação declarativa
+- restauração da escolha ativa por pai (ADR-0048)
 
 ## 4. Definições
 
@@ -97,6 +98,17 @@ resultado do `ITEM-0006`. O carregamento desse documento segue as regras
 comportamentais fixadas em `contrato_json_console.md` §14.4, sem que essa
 sequência operacional constitua vocabulário canônico próprio deste módulo.
 
+### 4.6 Restauração da escolha ativa por pai e fronteira com persistência (ADR-0048)
+
+Em nova carga da tela, o carregamento inclui a restauração do estado ativo
+da escolha de filho por pai a partir do documento externo de conteúdo
+persistido (`docs/nomenclatura/42_DADOS_EXTERNOS_MULTINIVEL.md` §4.7) — a
+tela não depende do estado de runtime de uma sessão anterior. Essa
+restauração pertence ao carregamento; a gravação da escolha confirmada
+pertence à camada responsável pelos dados, não ao loader. Carregamento e
+persistência permanecem responsabilidades distintas — o loader não persiste.
+Autoridade comportamental completa: `contrato_console.md` §26.
+
 ## 5. Distinções obrigatórias
 
 | Par | Distinção normativa |
@@ -108,11 +120,13 @@ sequência operacional constitua vocabulário canônico próprio deste módulo.
 | `vínculo` × `composição do corpo` | Vínculo: relação entre envelope e instância de console; composição do corpo: estrutura de grupos e elementos na tela (módulo `20`, `40`) |
 | `carregamento` (genérico, envelope de conteúdo) × `carregamento do documento de resultado de execução` (ADR-0034) | Carregamento genérico: vincula envelope de conteúdo a console em operação; carregamento do documento de resultado: segue as regras comportamentais fixadas em `contrato_json_console.md` §14.4 para a tela de resultado do `ITEM-0006` |
 | conteúdo pronto do pop-up × carregamento do console | O pop-up recebe conteúdo pronto do chamador e não declara origem, produtor ou loader; carregamento e associação deste módulo permanecem restritos ao console |
+| `carregamento` (inclui restauração, este módulo) × `persistência` (ADR-0048) | Carregamento restaura o estado ativo da escolha de filho por pai a partir do documento externo já persistido; persistência é a gravação de uma alteração confirmada, responsabilidade da camada de dados, nunca do loader |
 
 ## 6. Relação com contratos
 
 - `contrato_console.md`: autoridade do comportamento normativo do console
-  que recebe o carregamento.
+  que recebe o carregamento; seção 26 fecha o ciclo de persistência da
+  escolha de filho por pai (ADR-0048).
 - `contrato_json_console.md`: schema dos campos de carregamento no JSON do
   console; seção 14 fecha o carregamento do documento de resultado de execução.
 
@@ -122,6 +136,8 @@ sequência operacional constitua vocabulário canônico próprio deste módulo.
 - ADR-0026: dado externo que é carregado (parcial — o dado em si está no módulo 42).
 - ADR-0034: carregamento do documento de resultado de execução, com regras
   comportamentais fixadas em `contrato_json_console.md` §14.4.
+- ADR-0048: restauração da escolha ativa de filho por pai em nova carga;
+  fronteira entre carregamento e persistência.
 
 ## 8. Aliases ou termos descontinuados relacionados
 

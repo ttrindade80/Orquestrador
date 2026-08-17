@@ -101,15 +101,19 @@ def _dois_niveis(idc="dois_niveis", nos=None):
     return console
 
 
-def _no_selecao(idc, nivel="item", selecionavel=False, filhos=None):
+def _no_selecao(idc, nivel="item", selecionavel=False, filhos=None,
+               filho_default=None):
+    campos = {
+        "texto": idc,
+        "navegavel": True,
+        "selecionavel": selecionavel,
+    }
+    if filho_default is not None:
+        campos["filho_default"] = filho_default
     return NoConteudo(
         id=idc,
         nivel=nivel,
-        campos={
-            "texto": idc,
-            "navegavel": True,
-            "selecionavel": selecionavel,
-        },
+        campos=campos,
         filhos=list(filhos or []),
     )
 
@@ -2033,14 +2037,14 @@ def test_h0045_setas_restritas_aos_itens_navegaveis_da_pagina_atual():
 def _arvore_h0055():
     return _dois_niveis(nos=[
         _no_selecao(
-            "pai_a", nivel="grupo", filhos=[
+            "pai_a", nivel="grupo", filho_default="a2", filhos=[
                 _no_selecao("a1", selecionavel=True),
                 _no_selecao("a2", selecionavel=True),
                 _no_selecao("a3", selecionavel=True),
             ],
         ),
         _no_selecao(
-            "pai_b", nivel="grupo", filhos=[
+            "pai_b", nivel="grupo", filho_default="b1", filhos=[
                 _no_selecao("b1", selecionavel=True),
                 _no_selecao("b2", selecionavel=True),
             ],
@@ -2107,20 +2111,20 @@ def teste_h0055_escolha_inicial_transferencia_idempotencia_e_isolamento():
     console = _arvore_h0055()
     estado = _estado([console], foco=0, cursores={console.id: 0})
     estado = selecao.inicializar_escolhas_dois_niveis(estado, console)
-    assert estado["selecoes"][console.id] == ["a1", "b1"]
+    assert estado["selecoes"][console.id] == ["a2", "b1"]
 
     estado = navegacao.entrar_nivel_filhos(estado, console)
     movido = navegacao.mover_baixo(estado, console)
-    assert movido["cursores"][console.id] == 2
-    assert movido["selecoes"][console.id] == ["a1", "b1"]
+    assert movido["cursores"][console.id] == 3
+    assert movido["selecoes"][console.id] == ["a2", "b1"]
 
-    transferido = selecao.alternar(movido, console, "a2")
+    transferido = selecao.alternar(movido, console, "a3")
     assert transferido["cursores"] == movido["cursores"]
-    assert transferido["selecoes"][console.id] == ["a2", "b1"]
-    repetido = selecao.alternar(transferido, console, "a2")
-    assert repetido["selecoes"][console.id] == ["a2", "b1"]
+    assert transferido["selecoes"][console.id] == ["a3", "b1"]
+    repetido = selecao.alternar(transferido, console, "a3")
+    assert repetido["selecoes"][console.id] == ["a3", "b1"]
     assert selecao.limpar(repetido, console)["selecoes"][console.id] == [
-        "a2", "b1"
+        "a3", "b1"
     ]
 
 
@@ -2159,7 +2163,8 @@ def _arvore_h0055_renderizavel():
         NoConteudo(
             id="pai_a",
             nivel="pai",
-            campos={"navegavel": True, "selecionavel": False, "titulo": "Pai A"},
+            campos={"navegavel": True, "selecionavel": False, "titulo": "Pai A",
+                    "filho_default": "a2"},
             filhos=[
                 NoConteudo(
                     id="a1", nivel="filho",
@@ -2187,7 +2192,8 @@ def _arvore_h0055_renderizavel():
         NoConteudo(
             id="pai_b",
             nivel="pai",
-            campos={"navegavel": True, "selecionavel": False, "titulo": "Pai B"},
+            campos={"navegavel": True, "selecionavel": False, "titulo": "Pai B",
+                    "filho_default": "b1"},
             filhos=[
                 NoConteudo(
                     id="b1", nivel="filho",
@@ -2230,7 +2236,7 @@ def teste_h0055_formato_filho_nao_altera_navegacao_nem_selecao():
 
     estado = _estado([console], foco=0, cursores={console.id: 0})
     estado = selecao.inicializar_escolhas_dois_niveis(estado, console)
-    assert estado["selecoes"][console.id] == ["a1", "b1"]
+    assert estado["selecoes"][console.id] == ["a2", "b1"]
 
     estado = navegacao.mover_cima(estado, console)
     assert estado["cursores"][console.id] == 4
@@ -2238,9 +2244,9 @@ def teste_h0055_formato_filho_nao_altera_navegacao_nem_selecao():
     assert estado["cursores"][console.id] == 0
 
     filhos = navegacao.entrar_nivel_filhos(estado, console)
-    assert filhos["cursores"][console.id] == 1
+    assert filhos["cursores"][console.id] == 2
     movido = navegacao.mover_baixo(filhos, console)
-    assert movido["cursores"][console.id] == 2
+    assert movido["cursores"][console.id] == 3
     transferido = selecao.alternar(movido, console, "a2")
     assert transferido["selecoes"][console.id] == ["a2", "b1"]
     pais = navegacao.retornar_nivel_pais(transferido, console)
@@ -2286,4 +2292,66 @@ def teste_h0055_formato_filho_produz_designador_com_sufixo():
     assert 0 <= pos_ec < pos_tg < pos_desig < pos_texto
     assert linha[:recuo] == " " * recuo
     assert linha[recuo:].startswith("●")
-\n
+
+
+def teste_h0074_alternar_nao_altera_filho_default_de_origem():
+    from tela import selecao
+
+    console = _arvore_h0055()
+    defaults_antes = [
+        pai.campos["filho_default"] for pai in console.conteudo_externo.nos
+    ]
+    estado = _estado([console], foco=0, cursores={console.id: 0})
+    estado = selecao.inicializar_escolhas_dois_niveis(estado, console)
+    alterado = selecao.alternar(estado, console, "a3")
+    assert alterado["selecoes"][console.id] == ["a3", "b1"]
+    defaults_depois = [
+        pai.campos["filho_default"] for pai in console.conteudo_externo.nos
+    ]
+    assert defaults_depois == defaults_antes == ["a2", "b1"]
+
+
+def teste_h0074_sem_escolha_valida_nao_posiciona_primeiro_filho():
+    from tela import selecao
+
+    console = _arvore_h0055()
+    estado = _estado([console], foco=0, cursores={console.id: 0})
+    estado["selecoes"] = {console.id: []}
+    cursor_antes = estado["cursores"][console.id]
+    depois = navegacao.entrar_nivel_filhos(estado, console)
+    assert depois["cursores"][console.id] == cursor_antes
+    assert depois["cursores"][console.id] != 1
+
+    estado_cruzado = _estado([console], foco=0, cursores={console.id: 0})
+    estado_cruzado["selecoes"] = {console.id: ["b1"]}
+    cruzado = navegacao.entrar_nivel_filhos(estado_cruzado, console)
+    assert cruzado["cursores"][console.id] == 0
+
+    sem_default = _arvore_h0055()
+    for pai in sem_default.conteudo_externo.nos:
+        pai.campos.pop("filho_default", None)
+    vazio = _estado([sem_default], foco=0, cursores={sem_default.id: 0})
+    inicializado = selecao.inicializar_escolhas_dois_niveis(vazio, sem_default)
+    ids = inicializado["selecoes"].get(sem_default.id, [])
+    assert "a1" not in ids
+    assert "b1" not in ids
+    assert ids == []
+
+
+def teste_h0074_estrutura_pai_filhos_preservada():
+    from tela import selecao
+
+    console = _arvore_h0055()
+    antes = [
+        (pai.id, [filho.id for filho in pai.filhos])
+        for pai in console.conteudo_externo.nos
+    ]
+    estado = _estado([console], foco=0, cursores={console.id: 0})
+    estado = selecao.inicializar_escolhas_dois_niveis(estado, console)
+    depois = [
+        (pai.id, [filho.id for filho in pai.filhos])
+        for pai in console.conteudo_externo.nos
+    ]
+    assert antes == depois
+    assert antes == [("pai_a", ["a1", "a2", "a3"]), ("pai_b", ["b1", "b2"])]
+    assert estado["selecoes"][console.id] == ["a2", "b1"]

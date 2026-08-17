@@ -220,6 +220,8 @@ class ConteudoExterno:
     nos: list     # lista de NoConteudo (nos de topo, ordem de dados[])
     formato: dict = field(default_factory=dict, repr=False)
     _raw: dict = field(default_factory=dict, repr=False)
+    # H-0075: metadado runtime do arquivo efetivo. Nao pertence ao schema JSON.
+    caminho_origem: object = field(default=None, repr=False)
 
     def nivel_por_id(self, id_nivel):
         """Retorna o NivelConteudo com o id informado, ou None."""
@@ -248,13 +250,14 @@ def _construir_no_conteudo(no_raw):
     )
 
 
-def construir_conteudo_externo(conteudo_raw):
+def construir_conteudo_externo(conteudo_raw, caminho_origem=None):
     """Constroi ConteudoExterno a partir do documento validado pelo loader.
 
     ``conteudo_raw`` e o dict devolvido por ``carregar_conteudo_externo`` (ja
     validado). None produz None (cenario sem conteudo externo). O modelo apenas
     tipa e transporta; nao revalida geometria, nao abre arquivos, nao escolhe
     fonte e nao reconstroi hierarquia (usa ``filhos`` como declarado).
+    ``caminho_origem`` e metadado runtime (Path/str); default None.
     """
     if conteudo_raw is None:
         return None
@@ -287,6 +290,7 @@ def construir_conteudo_externo(conteudo_raw):
         nos=nos,
         formato=formato,
         _raw=conteudo_raw,
+        caminho_origem=caminho_origem,
     )
 
 
@@ -393,7 +397,7 @@ def _construir_elementos_recursivo(elementos_raw, id_pai, parametros_lancador=No
     return resultado
 
 
-def construir_modelo(tela_raw: dict, conteudo_externo=None) -> ModeloTela:
+def construir_modelo(tela_raw: dict, conteudo_externo=None, caminho_conteudo=None) -> ModeloTela:
     """Constroi ModeloTela a partir do dict retornado por carregar_tela.
 
     Nao valida novamente a estrutura macro -- essa responsabilidade
@@ -526,14 +530,19 @@ def construir_modelo(tela_raw: dict, conteudo_externo=None) -> ModeloTela:
 
     # H-0036: tipa o conteudo externo (quando fornecido) e propaga aos consoles.
     # Aceita tanto o dict validado do loader quanto um ConteudoExterno ja tipado.
+    # H-0075: ``caminho_conteudo`` e o Path efetivo; materializa ``caminho_origem``.
     if isinstance(conteudo_externo, ConteudoExterno) or conteudo_externo is None:
         conteudo = conteudo_externo
+        if conteudo is not None and caminho_conteudo is not None:
+            conteudo.caminho_origem = caminho_conteudo
     else:
-        conteudo = construir_conteudo_externo(conteudo_externo)
+        conteudo = construir_conteudo_externo(
+            conteudo_externo, caminho_origem=caminho_conteudo
+        )
     if conteudo is not None:
         _propagar_conteudo_externo(elementos, conteudo)
 
-    return ModeloTela(
+    modelo = ModeloTela(
         id=tela_raw["id"],
         schema=tela_raw["schema"],
         cabecalho=tela_raw["cabecalho"],
@@ -542,4 +551,6 @@ def construir_modelo(tela_raw: dict, conteudo_externo=None) -> ModeloTela:
         _raw=tela_raw["_raw"],
         conteudo_externo=conteudo,
     )
-\n
+    from tela.navegacao import validar_filho_default_dois_niveis
+    validar_filho_default_dois_niveis(modelo)
+    return modelo

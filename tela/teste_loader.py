@@ -23,6 +23,7 @@ import os
 import shutil
 import sys
 import tempfile
+from copy import deepcopy
 from pathlib import Path
 
 import pytest
@@ -5399,3 +5400,176 @@ def test_h0052_fixtures_de_demonstracao_carregam():
             )
             assert linha_barra.strip("│ ").endswith("[?] Ajuda")
             assert "✥" not in saida
+
+
+def _carregar_tela_demo_json_valido(id_tela):
+    """Carrega a tela demo via ``carregar_tela``, sem alterar o fixture original.
+
+    Alguns JSON estruturais preservados terminam com o literal ``\\n``, o que
+    ``json.loads`` rejeita. A copia temporaria remove so esse lixo de
+    parse; o documento estrutural em disco permanece intacto.
+    """
+    origem = _BASE_PADRAO / _RAIZ_TELAS_DEMO / (id_tela + ".json")
+    texto = origem.read_text(encoding="utf-8")
+    if texto.endswith("\\n"):
+        texto = texto[:-2]
+    if not texto.endswith("\n"):
+        texto += "\n"
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp_path = Path(tmp)
+        raiz = tmp_path / _RAIZ_TELAS_DEMO
+        raiz.mkdir(parents=True)
+        (raiz / (id_tela + ".json")).write_text(texto, encoding="utf-8")
+        return carregar_tela(tmp_path, id_tela, _RAIZ_TELAS_DEMO)
+
+
+def _h0074_tela_e_conteudo_h0055():
+    tela = _carregar_tela_demo_json_valido("h0055_dois_niveis_por_foco")
+    conteudo = deepcopy(carregar_conteudo_externo(
+        None, "h0055_dois_niveis_por_foco_conteudo", _RAIZ_TELAS_DEMO
+    ))
+    return tela, conteudo
+
+
+def teste_h0074_filho_default_ausente_rejeita_via_construir_modelo():
+    from tela.modelo import construir_modelo
+
+    tela, conteudo = _h0074_tela_e_conteudo_h0055()
+    del conteudo["dados"][0]["filho_default"]
+    with pytest.raises(TelaCampoObrigatorioAusente):
+        construir_modelo(tela, conteudo)
+
+
+def teste_h0074_filho_default_inexistente_rejeita_via_construir_modelo():
+    from tela.modelo import construir_modelo
+
+    tela, conteudo = _h0074_tela_e_conteudo_h0055()
+    conteudo["dados"][0]["filho_default"] = "id_inexistente"
+    with pytest.raises(TelaEstruturaInvalida):
+        construir_modelo(tela, conteudo)
+
+
+def teste_h0074_filho_default_de_outro_pai_rejeita_via_construir_modelo():
+    from tela.modelo import construir_modelo
+
+    tela, conteudo = _h0074_tela_e_conteudo_h0055()
+    conteudo["dados"][0]["filho_default"] = "filho_02_01"
+    with pytest.raises(TelaEstruturaInvalida):
+        construir_modelo(tela, conteudo)
+
+
+def teste_h0074_identidade_duplicada_rejeita_documento_sem_baseline():
+    from tela.modelo import construir_modelo
+
+    tela, conteudo = _h0074_tela_e_conteudo_h0055()
+    id_duplicado = conteudo["dados"][0]["filhos"][0]["id"]
+    conteudo["dados"][0]["filhos"][1]["id"] = id_duplicado
+    conteudo["dados"][0]["filho_default"] = id_duplicado
+    modelo = None
+    with pytest.raises(TelaEstruturaInvalida):
+        modelo = construir_modelo(tela, conteudo)
+    assert modelo is None
+
+
+def teste_h0074_construir_modelo_atravessa_validacao_e_preserva_estrutura():
+    from tela.modelo import construir_modelo
+
+    tela, conteudo = _h0074_tela_e_conteudo_h0055()
+    ids_antes = [
+        (pai["id"], [filho["id"] for filho in pai["filhos"]])
+        for pai in conteudo["dados"]
+    ]
+    modelo = construir_modelo(tela, conteudo)
+    ids_depois = [
+        (pai.id, [filho.id for filho in pai.filhos])
+        for pai in modelo.conteudo_externo.nos
+    ]
+    assert ids_antes == ids_depois
+    esperados = {
+        "pai_01": "filho_01_02",
+        "pai_02": "filho_02_03",
+        "pai_03": "filho_03_01",
+        "pai_04": "filho_04_04",
+        "pai_05": "filho_05_02",
+    }
+    for pai in modelo.conteudo_externo.nos:
+        assert pai.campos["filho_default"] == esperados[pai.id]
+
+
+def teste_h0074_h0072_fixture_reconciliada_via_construir_modelo():
+    from tela import navegacao, selecao
+    from tela.modelo import construir_modelo
+
+    tela = _carregar_tela_demo_json_valido(
+        "h0072_formatacao_generica_dois_niveis_por_foco"
+    )
+    conteudo = carregar_conteudo_externo(
+        None,
+        "h0072_formatacao_generica_dois_niveis_por_foco_conteudo",
+        _RAIZ_TELAS_DEMO,
+    )
+    modelo = construir_modelo(tela, conteudo)
+    esperados = {
+        "h0072_pai_01": "h0072_filho_01_02",
+        "h0072_pai_02": "h0072_filho_02_03",
+    }
+    consoles = navegacao.lista_foco(modelo)
+    assert len(consoles) == 3
+    estado = {"selecoes": {}, "cursores": {}}
+    for console in consoles:
+        for pai in console.conteudo_externo.nos:
+            assert pai.campos["filho_default"] == esperados[pai.id]
+        estado = selecao.inicializar_escolhas_dois_niveis(estado, console)
+        candidato = estado["selecoes"][console.id]
+        assert candidato == ["h0072_filho_01_02", "h0072_filho_02_03"]
+        assert "h0072_filho_01_01" not in candidato
+        assert "h0072_filho_02_01" not in candidato
+
+
+def teste_h0075_resolver_caminho_coincide_com_carga_canonica():
+    from tela.carregamento.conteudo_externo import (
+        resolver_caminho_conteudo_externo,
+    )
+
+    resolvido = resolver_caminho_conteudo_externo(
+        None, "h0055_dois_niveis_por_foco_conteudo", _RAIZ_TELAS_DEMO
+    )
+    documento = carregar_conteudo_externo(
+        None, "h0055_dois_niveis_por_foco_conteudo", _RAIZ_TELAS_DEMO
+    )
+    via_override = carregar_conteudo_externo(
+        None, "h0055_dois_niveis_por_foco_conteudo", _RAIZ_TELAS_DEMO,
+        caminho_arquivo=resolvido,
+    )
+    assert documento == via_override
+    assert resolvido.name == "h0055_dois_niveis_por_foco_conteudo.json"
+
+
+def teste_h0075_persistir_conteudo_externo_sucesso_e_falha_atomica(tmp_path):
+    from tela.carregamento.conteudo_externo import persistir_conteudo_externo
+    from tela.carregamento.erros import TelaEstruturaInvalida
+
+    origem = Path(_RAIZ_TELAS_DEMO) / "h0055_dois_niveis_por_foco_conteudo.json"
+    destino = tmp_path / "copia.json"
+    destino.write_bytes(origem.read_bytes())
+    antes = destino.read_bytes()
+    documento = json.loads(antes.decode("utf-8"))
+    documento["dados"][0]["filho_default"] = "filho_01_01"
+    persistir_conteudo_externo(documento, destino)
+    depois = json.loads(destino.read_text(encoding="utf-8"))
+    assert depois["dados"][0]["filho_default"] == "filho_01_01"
+
+    destino_falha = tmp_path / "inexistente" / "bloqueado.json"
+    original_mkdir = os.makedirs
+
+    def _bloquear(caminho, exist_ok=False):
+        raise OSError("bloqueio injetado")
+
+    try:
+        os.makedirs = _bloquear
+        with pytest.raises(TelaEstruturaInvalida):
+            persistir_conteudo_externo(documento, destino_falha)
+    finally:
+        os.makedirs = original_mkdir
+    assert not destino_falha.exists()
+    assert list(tmp_path.glob("*.tmp")) == []

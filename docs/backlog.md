@@ -84,14 +84,6 @@ esta lista.
 **Pre-requisitos:** ITEM-0007 concluído; ciclo próprio de especificação e validação. Exclui nova política universal de paginação, H-0054, H-0055, nova geometria geral multinível, seleção, Enter e execução.
 **Proxima acao:** Criar especificação própria e planejar o ciclo sem criar ADR ou handoff nesta etapa.
 
-### ITEM-0026 — Persistência da escolha de filho por pai
-**Tipo:** implementacao
-**Prioridade:** media
-**Status:** planejado
-**Descricao:** persistir no JSON de dados a escolha runtime de exatamente um filho por pai em `dois_niveis_por_foco`, sem alterar a semântica deste ciclo.
-**Pre-requisitos:** ITEM-0007 concluído e especificação/decisão própria para persistência.
-**Proxima acao:** Iniciar especificação própria, sem implementar nesta etapa.
-
 ### ITEM-0023 — Apresentacao de filho ativo em grupos multinivel
 **Tipo:** implementacao
 **Prioridade:** media

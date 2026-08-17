@@ -84,6 +84,68 @@ def formato_filho_dois_niveis(elemento):
     return getattr(elemento, "formato_filho_dois_niveis", None)
 
 
+def validar_filho_default_dois_niveis(modelo):
+    """Rejeita carga com ``filho_default`` ausente, invalido ou identidade ambigua.
+
+    Percorre ``modelo.corpo.elementos`` descendo em grupos. Aplica-se a cada
+    console ``dois_niveis_por_foco`` com conteudo associado. Consoles sem
+    conteudo (H-0063 no momento de ``construir_modelo``) sao ignorados.
+    """
+    corpo = getattr(modelo, "corpo", None)
+    elementos = getattr(corpo, "elementos", None) or ()
+    _validar_filho_default_em_elementos(elementos)
+
+
+def _validar_filho_default_em_elementos(elementos):
+    for elemento in elementos:
+        if getattr(elemento, "tipo", None) == "grupo":
+            _validar_filho_default_em_elementos(
+                getattr(elemento, "elementos", None) or ()
+            )
+            continue
+        if getattr(elemento, "tipo", None) != "console":
+            continue
+        if tipo_navegacao_efetivo(elemento) != "dois_niveis_por_foco":
+            continue
+        if getattr(elemento, "conteudo_externo", None) is None:
+            continue
+        _validar_filho_default_do_console(elemento)
+
+
+def _validar_filho_default_do_console(elemento):
+    from tela.carregamento.erros import (
+        TelaCampoObrigatorioAusente,
+        TelaEstruturaInvalida,
+    )
+
+    raizes = getattr(elemento.conteudo_externo, "nos", ()) or ()
+    ids = set()
+    for pai in raizes:
+        if not pai.id or pai.id in ids:
+            raise TelaEstruturaInvalida(
+                "identidade duplicada ou vazia em dois_niveis_por_foco"
+            )
+        ids.add(pai.id)
+        for filho in list(getattr(pai, "filhos", ()) or ()):
+            if not filho.id or filho.id in ids:
+                raise TelaEstruturaInvalida(
+                    "identidade duplicada ou vazia em dois_niveis_por_foco"
+                )
+            ids.add(filho.id)
+    if not estrutura_dois_niveis_valida(elemento):
+        return
+    for pai in raizes:
+        campos = getattr(pai, "campos", None)
+        if not isinstance(campos, dict) or "filho_default" not in campos:
+            raise TelaCampoObrigatorioAusente(campo="filho_default")
+        valor = campos["filho_default"]
+        coincidencias = [filho for filho in pai.filhos if filho.id == valor]
+        if len(coincidencias) != 1:
+            raise TelaEstruturaInvalida(
+                "filho_default nao identifica exatamente um filho direto do pai"
+            )
+
+
 def estrutura_dois_niveis_valida(elemento):
     """Valida a topologia fechada de pais e filhos diretos do H-0055."""
     conteudo = getattr(elemento, "conteudo_externo", None)
@@ -679,7 +741,9 @@ def entrar_nivel_filhos(estado, console):
         return dict(estado)
     _indice_pai, _pai, filhos = estrutura
     escolhidos = set((estado.get("selecoes", {}) or {}).get(console.id, ()))
-    indice = next((i for i, no in filhos if no.id in escolhidos), filhos[0][0])
+    indice = next((i for i, no in filhos if no.id in escolhidos), None)
+    if indice is None:
+        return dict(estado)
     novo = dict(estado)
     cursores = dict(estado.get("cursores", {}) or {})
     cursores[console.id] = indice
@@ -1204,4 +1268,3 @@ def console_focado(estado):
     if foco < 0 or foco >= len(lista):
         return None
     return lista[foco]
-\n

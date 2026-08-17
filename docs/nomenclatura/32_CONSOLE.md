@@ -78,6 +78,8 @@ Não redefinir `grupo` como nó estrutural; esse sentido pertence ao módulo `40
 - `dois_niveis_por_foco` (ADR-0042)
 - seleção exclusiva obrigatória de filho por pai (ADR-0042)
 - unidade inteira do filho deslocada (ADR-0047)
+- baseline persistida da escolha de filho por pai (ADR-0048)
+- candidato de runtime da escolha de filho por pai (ADR-0048)
 
 ## 4. Definições
 
@@ -331,6 +333,21 @@ o texto (`tx`) mantendo `ec` ou `tg` alinhados ao pai — os dois espaços
 continuam coexistindo em posições distintas e adjacentes, sem sobreposição
 (§4.4).
 
+### 4.12 Baseline e candidato da escolha de filho por pai (ADR-0048)
+
+A ADR-0048 fecha o ciclo de persistência da seleção exclusiva obrigatória de
+filho por pai (§4.10; ADR-0042), sem redefinir o mecanismo de runtime já
+fixado. Autoridade comportamental completa: `contrato_console.md` §26.
+
+| Termo | Definição |
+|---|---|
+| **baseline persistida da escolha de filho por pai** | A escolha ativa persistida (`docs/nomenclatura/42_DADOS_EXTERNOS_MULTINIVEL.md` §4.7), tal como carregada do documento externo de conteúdo, usada como referência de comparação do fluxo de aplicação |
+| **candidato de runtime da escolha de filho por pai** | Estado vivo de sessão que acumula as transferências de escolha feitas por Espaço, distinto da baseline até uma aplicação confirmada e bem-sucedida |
+
+Baseline e candidato desta capacidade não redefinem cursor, foco ou a
+seleção exclusiva obrigatória de filho por pai (§4.10) — apenas acrescentam
+o ciclo de persistência sobre o mesmo mecanismo.
+
 ## 5. Distinções obrigatórias
 
 | Par | Distinção normativa |
@@ -350,6 +367,7 @@ continuam coexistindo em posições distintas e adjacentes, sem sobreposição
 | navegação × paginação | Navegação move o cursor conforme a política ativa; paginação permanece independente e subordinada à ADR-0041, sem troca implícita de página pelo cursor |
 | unidade inteira do filho deslocada × `ec`/`tg` individualmente | A tabulação desloca `ec`, `tg`, designador e conteúdo do filho como um só bloco; nenhum desses elementos é deslocado isoladamente, e a coexistência adjacente de `ec` e `tg` (§4.4) permanece preservada dentro do bloco deslocado |
 | chip contextual × seleção | `[␣] Expandir`/`[␣] Recolher` refletem o item corrente de `arvore_colapsavel`; `[␣] Selecionar` pertence à seleção múltipla — a tecla física compartilhada não funde as semânticas |
+| baseline persistida × candidato de runtime (ADR-0048) | Baseline é a última escolha persistida conhecida, carregada do documento externo (`docs/nomenclatura/42_DADOS_EXTERNOS_MULTINIVEL.md` §4.7); candidato acumula transferências de escolha ainda não aplicadas — distinção específica desta capacidade, análoga em filosofia à de Estilo (ADR-0046), sem autoridade compartilhada |
 
 ## 6. Relação com contratos
 
@@ -374,6 +392,9 @@ continuam coexistindo em posições distintas e adjacentes, sem sobreposição
   `ec`, `tg`, designador e conteúdo do filho movidos juntos pela tabulação
   declarada; apresentação e tabulação em si são terminologia proprietária
   do módulo `44` e autoridade comportamental de `contrato_console.md` §25.
+- ADR-0048: baseline persistida e candidato de runtime da escolha de filho
+  por pai; ciclo de aplicação, confirmação e persistência delegada;
+  autoridade comportamental completa em `contrato_console.md` §26.
 
 ## 8. Aliases ou termos descontinuados relacionados
 
@@ -414,4 +435,3 @@ partes_NAO_CONFIRMADAS:
   - "Pendência tx: regras de ajuste do texto quando não cabe — classificada como PENDENCIA (NOM-LEV-017)"
   - "Relação [#] × [␣]: explicitamente adiada, não é pendência normativa atual"
 ```
-\n
