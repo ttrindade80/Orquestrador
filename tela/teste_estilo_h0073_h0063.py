@@ -19,8 +19,8 @@ from tela import navegacao
 from tela import selecao
 from tela.renderizacao.conteudo_externo import (
     _linhas_dois_niveis_formatado_com_mapa,
-    _quebrar_texto,
 )
+from tela.renderizacao.composicao_textual import compor_texto
 from tela.renderizacao.estilo import (
     amostra_de_preset,
     compor_titulo_com_amostra,
@@ -326,12 +326,14 @@ def test_fatiamento_por_bytes_parte_csi_corte_ansi_aware_nao():
 
 
 def test_quebrar_texto_ansi_nao_parte_csi_nem_vaza_fundo():
-    amostra = "\x1b[44m A \x1b[49m"
-    unica = _quebrar_texto(amostra, 10)
+    # Duas palavras estilizadas exercitam a quebra lexical; nenhuma palavra
+    # deve ser dividida apenas porque a largura util e estreita.
+    amostra = "\x1b[44m A B \x1b[49m"
+    unica = compor_texto(amostra, 10)
     assert unica == [amostra]
     assert unica[0].endswith(_ANSI_RESET_BG)
 
-    estreita = _quebrar_texto(amostra, 1)
+    estreita = compor_texto(amostra, 1)
     assert len(estreita) >= 2
     for frag in estreita:
         assert not _csi_incompleto(frag)
@@ -343,8 +345,6 @@ def test_quebrar_texto_ansi_nao_parte_csi_nem_vaza_fundo():
     assert "\x1b[" not in seguinte
     assert estreita[-1].endswith(_ANSI_RESET_BG)
 
-    compacta = _quebrar_texto(amostra, 2)
+    compacta = compor_texto(amostra, 2)
     assert all(not _csi_incompleto(frag) for frag in compacta)
     assert all(_ANSI_RESET_BG in frag for frag in compacta)
-
-\n

@@ -54,6 +54,10 @@ Grandezas exclusivas do lançador (`area_lancador_w`, `lancador_caixa_min_w`,
 - teclas universais de paginação `PageUp`/`PageDown` (ADR-0041)
 - identificador documental `[PgUp][PgDn]` (ADR-0041)
 - forma física renderizada `[PgUp/PgDn]` (ADR-0046)
+- composição textual
+- wrap
+- justificação de parágrafo
+- largura visual
 
 ## 4. Definições
 
@@ -167,6 +171,35 @@ Os caracteres `,`, `<`, `.` e `>` deixam de possuir qualquer função de
 paginação — não são alias, atalho nem fallback de `PageUp`/`PageDown`
 (D-PGU-04).
 
+### 4.9 Composição textual
+
+Operação canônica que transforma texto dependente de largura em uma sequência
+ordenada de linhas físicas, respeitando a largura útil efetiva, a largura
+visual e o tratamento seguro de ANSI já suportado. Pode incluir wrap e
+justificação de parágrafo quando solicitados pelo consumidor. Não decide
+prefixos, colunas, campos quebráveis, truncamento deliberado ou composição
+declarativa do corpo.
+
+### 4.10 Wrap
+
+Quebra de texto em linhas físicas limitada pela largura útil efetiva. Preserva
+a ordem e o conteúdo, sem hifenização automática; segmento maior que a largura
+é repartido em fronteiras seguras de células visuais. É distinto de truncamento
+deliberado de linha única.
+
+### 4.11 Justificação de parágrafo
+
+Modo solicitado de composição que distribui o excesso de células visuais entre
+vãos internos das linhas não finais de um parágrafo. A última linha não recebe
+expansão. É distinta de padding e alinhamento estrutural de coluna, célula,
+chip, grade ou moldura.
+
+### 4.12 Largura visual
+
+Quantidade de células ocupadas pela representação visível do texto. Sequências
+de controle ANSI já suportadas não contam como células visuais e não podem ser
+cortadas parcialmente.
+
 ## 5. Distinções obrigatórias
 
 | Termo | Significado | Não confundir com |
@@ -180,12 +213,18 @@ paginação — não são alias, atalho nem fallback de `PageUp`/`PageDown`
 | `quadro mínimo de terminal pequeno` | Aviso exibido quando tela não cabe mas sessão permanece ativa | Encerramento da sessão TUI |
 | `paginação limitada` (entre páginas) | Topologia sem wrap entre a primeira e a última página (ADR-0038 D-PAG-01) | Navegação toroidal por eixo (§4.6) — wrap aplicado ao cursor dentro de uma mesma página, não entre páginas |
 | `[PgUp][PgDn]` (identificador documental) | Nomeia as duas teclas/controles de paginação (ADR-0041) | `[PgUp/PgDn]`: forma física renderizada da ação única (ADR-0046); `[PgUp][PgDn] Páginas` não é representação visual canônica |
+| `composição textual` | Produz linhas físicas dependentes da largura útil efetiva | Composição declarativa do corpo, `corpo.arranjo` ou `tiling` |
+| `wrap` | Quebra texto em linhas sem perder conteúdo | Truncamento deliberado de linha única |
+| `justificação de parágrafo` | Expande vãos internos de linhas não finais quando solicitada | Padding ou alinhamento estrutural |
+| `largura visual` | Células ocupadas pelo conteúdo visível | Comprimento físico que inclui sequências ANSI de controle |
 
 ## 6. Relação com contratos
 
 - `contrato_tela_json.md`: política normativa completa do redimensionamento
   (seção 24). Os termos aqui definidos são a autoridade terminológica.
 - `contrato_composicao_corpo.md`: usa `ocupacao_vertical_terminal`.
+- `contrato_composicao_textual.md`: usa composição textual, wrap, justificação
+  de parágrafo e largura visual.
 
 ## 7. Relação com ADRs
 
@@ -209,6 +248,8 @@ paginação — não são alias, atalho nem fallback de `PageUp`/`PageDown`
   (`[PgUp/PgDn]`), distinta do identificador documental `[PgUp][PgDn]`.
 - ADR-0044: reutiliza a política geral de resize e o quadro mínimo para
   apresentação modal, sem paginação de pop-up.
+- ADR-0049: institui a autoridade canônica de composição textual, wrap,
+  justificação de parágrafo e largura visual.
 
 ## 8. Aliases ou termos descontinuados relacionados
 

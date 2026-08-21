@@ -212,4 +212,3 @@ def _validar_formato_dois_niveis_filho(elemento, id_elemento, tipo_navegacao):
     if tem_tabela:
         # V-DNF-06 / V-DNF-07 / V-DNF-08 / V-DNF-09
         _validar_tabela_filho(filho["tabela"], caminho + ".tabela")
-\n

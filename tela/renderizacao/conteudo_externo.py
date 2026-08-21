@@ -2,10 +2,10 @@
 
 from tela.renderizacao.designadores import _texto_designador, _texto_no_conteudo
 from tela.renderizacao.erros import RenderizadorErro
+from tela.renderizacao.composicao_textual import compor_texto
 from tela.renderizacao.texto_ansi import (
     _largura_sem_ansi,
     _ljust_sem_ansi,
-    _quebrar_sem_ansi,
 )
 
 
@@ -55,31 +55,6 @@ def _linhas_conteudo_externo(
     raise RenderizadorErro(
         "apresentacao de conteudo externo desconhecida: {0!r}".format(apresentacao)
     )
-
-
-def _quebrar_texto(texto, largura):
-    """Quebra texto em lista de linhas de ate largura caracteres (H-0037).
-
-    A quebra ocorre em limites de palavra (espaco). Quando uma palavra excede
-    a largura disponivel, e colocada em linha propria sem truncamento adicional.
-    Retorna lista com pelo menos um elemento (texto vazio produz lista com
-    string vazia). Texto com SGR usa largura visual e nao parte CSI.
-    """
-    if texto and "\x1b" in texto:
-        return _quebrar_sem_ansi(texto, largura)
-    if largura is None or largura <= 0:
-        return [texto] if texto else [""]
-    if not texto:
-        return [""]
-    linhas = []
-    while len(texto) > largura:
-        corte = texto.rfind(" ", 0, largura)
-        if corte <= 0:
-            corte = largura
-        linhas.append(texto[:corte])
-        texto = texto[corte:].lstrip(" ")
-    linhas.append(texto)
-    return [l for l in linhas if l] or [""]
 
 
 def _truncar_com_marcador(texto, largura):
@@ -226,7 +201,7 @@ def _linhas_apresentacao_hierarquia_com_mapa(
                         " " if marc_fmt else "",
                     )
                 largura_disp = max(10, content_w - len(prefixo))
-                fragmentos = _quebrar_texto(texto, largura_disp)
+                fragmentos = compor_texto(texto, largura_disp)
                 linhas_do_no = ["{0}{1}".format(prefixo, fragmentos[0])]
                 indent_cont = " " * len(prefixo)
                 for frag in fragmentos[1:]:
@@ -390,7 +365,7 @@ def _linhas_dois_niveis_formatado_com_mapa(
             largura_disp_pai = max(
                 _MIN_UTIL_DOIS_NIVEIS_FILHO, content_w - len(prefixo_pai)
             )
-            fragmentos_pai = _quebrar_texto(texto_pai, largura_disp_pai)
+            fragmentos_pai = compor_texto(texto_pai, largura_disp_pai)
             linhas_pai = ["{0}{1}".format(prefixo_pai, fragmentos_pai[0])]
             indent_pai = " " * len(prefixo_pai)
             for frag in fragmentos_pai[1:]:
@@ -484,7 +459,7 @@ def _linhas_dois_niveis_formatado_com_mapa(
                     if _largura_sem_ansi(ultima) <= largura_ultima:
                         fragmentos = [ultima]
                     else:
-                        fragmentos = _quebrar_texto(ultima, largura_ultima)
+                        fragmentos = compor_texto(ultima, largura_ultima)
                 else:
                     fragmentos = [ultima]
                 linhas_filho = [
@@ -503,7 +478,7 @@ def _linhas_dois_niveis_formatado_com_mapa(
                     largura_disp = max(
                         _MIN_UTIL_DOIS_NIVEIS_FILHO, largura_disponivel
                     )
-                    fragmentos = _quebrar_texto(texto_filho, largura_disp)
+                    fragmentos = compor_texto(texto_filho, largura_disp)
                     linhas_filho = [
                         "{0}{1}".format(prefixo_filho, fragmentos[0])
                     ]
@@ -644,7 +619,7 @@ def _linhas_apresentacao_tabela(conteudo, content_w, verboso=False):
                 regua += "-" * larguras[n_col - 1]
                 linhas.append(regua.rstrip())
             else:
-                fragmentos = _quebrar_texto(ultima_cel, w_ultima)
+                fragmentos = compor_texto(ultima_cel, w_ultima)
                 linhas.append((prefixo_str + fragmentos[0]).rstrip())
                 indent = " " * len(prefixo_str)
                 for frag in fragmentos[1:]:
@@ -740,7 +715,7 @@ def _linhas_apresentacao_conjuntos(conteudo, content_w=None, verboso=False):
                 prefixo_linha = "{0}{1}{2} ".format(recuo, nome_fmt, separador)
                 if verboso and content_w is not None:
                     largura_val = max(10, content_w - len(prefixo_linha))
-                    fragmentos = _quebrar_texto(valor, largura_val)
+                    fragmentos = compor_texto(valor, largura_val)
                     linhas.append("{0}{1}".format(prefixo_linha, fragmentos[0]))
                     indent_val = " " * len(prefixo_linha)
                     for frag in fragmentos[1:]:
@@ -805,4 +780,3 @@ def _participantes_de_conteudo_externo(conteudo):
 
     recorrer(conteudo.nos, [])
     return participantes
-\n

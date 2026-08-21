@@ -1,0 +1,102 @@
+{
+  "schema": "tela.v1",
+  "id": "h0077_texto_amplo_justificado",
+  "cabecalho": {
+    "titulo": "H-0077 Texto amplo",
+    "descricao": "Corpo longo para observar recomposição de linhas; W abre o popup justificado.",
+    "apresentacao": {
+      "titulo": {
+        "posicao": "esquerda",
+        "recuo_lateral": 0,
+        "capitalizacao": "maiusculas",
+        "formato_na_borda": "com_espacos_laterais"
+      },
+      "descricao": {
+        "max_caracteres": 200,
+        "alinhamento": "esquerda",
+        "recuo": 1,
+        "capitalizacao": "preservar"
+      }
+    }
+  },
+  "corpo": {
+    "arranjo": "vertical",
+    "distribuicao": {"modo": "igual"},
+    "elementos": [
+      {
+        "id": "console_texto_amplo",
+        "tipo": "console",
+        "titulo": "Parágrafo longo (corpo)",
+        "origem_dados": null,
+        "itens": [],
+        "politica_composicao": {},
+        "politica_navegacao": {"navegavel": false},
+        "politica_selecao": "nenhuma",
+        "politica_paginacao": "sem",
+        "politica_exibicao": {"verboso": true}
+      }
+    ]
+  },
+  "popups": {
+    "popup_texto_amplo_h0077": {
+      "tipo": "texto",
+      "titulo": "Parágrafo longo justificado",
+      "alinhamento": "justificado",
+      "espacamento_superior": 1,
+      "espacamento_conteudo_chips": 1,
+      "espacamento_inferior": 1,
+      "espacamento_horizontal": 2,
+      "chips": [
+        {
+          "id": "popup_texto_amplo_h0077_voltar",
+          "tipo": "especifico",
+          "tecla": "Esc",
+          "texto": "Voltar",
+          "referencia_regra": {
+            "resultado": {
+              "status": "ABORTADO"
+            }
+          },
+          "regra_existencia": "sempre",
+          "regra_ativo": "sempre",
+          "forma_exibicao": "ativo"
+        }
+      ]
+    }
+  },
+  "acionamentos": [
+    {
+      "tipo": "popup",
+      "tecla": "w",
+      "popup": "popup_texto_amplo_h0077"
+    }
+  ],
+  "barra_de_menus": {
+    "chips": [
+      {
+        "id": "chip_esc",
+        "tipo": "acao",
+        "tecla": "Esc",
+        "texto": "Sair",
+        "regra_existencia": "sempre",
+        "regra_ativo": "sempre"
+      },
+      {
+        "id": "chip_popup_texto_amplo",
+        "tipo": "acao",
+        "tecla": "w",
+        "texto": "Popup justificado",
+        "regra_existencia": "sempre",
+        "regra_ativo": "sempre"
+      },
+      {
+        "id": "chip_ajuda",
+        "tipo": "ajuda",
+        "tecla": "?",
+        "texto": "Ajuda",
+        "regra_existencia": "sempre",
+        "regra_ativo": "sempre"
+      }
+    ]
+  }
+}

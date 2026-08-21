@@ -210,4 +210,3 @@ def _quebrar_sem_ansi(texto, largura):
             estado_linha = unidades[indice][2]
             indice += 1
     return [linha for linha in linhas if _largura_sem_ansi(linha)] or [""]
-\n

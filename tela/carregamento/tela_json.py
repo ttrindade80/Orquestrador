@@ -525,4 +525,3 @@ def carregar_tela(caminho_base, id_tela, raiz_telas=None):
         "_raw": dados,
         "_config_lancador": config_lancador,
     }
-\n

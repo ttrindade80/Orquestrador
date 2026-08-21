@@ -15,6 +15,10 @@ from tela.renderizacao.geometria_caixa import (
     _borda_de_estilo,
     _caixa,
 )
+from tela.renderizacao.composicao_textual import (
+    _justificar_linha as _justificar_linha_canonica,
+    compor_texto,
+)
 from tela.renderizacao.texto_ansi import _largura_sem_ansi, _ljust_sem_ansi
 
 
@@ -678,78 +682,10 @@ def _dividir_visual(texto, corte):
     return "".join(partes), estado + texto[i:]
 
 
-def _quebrar_texto(texto, largura_util):
-    """Quebra uma string em linhas fisicas sem descartar caracteres."""
-    if isinstance(largura_util, bool) or not isinstance(largura_util, int):
-        raise _erro_geometria("largura util nao inteira")
-    if largura_util <= 0:
-        raise _erro_geometria("largura util nao positiva")
-    if not texto:
-        return [""]
-
-    linhas = []
-    corrente = ""
-
-    def emitir_separador(separador):
-        nonlocal corrente
-        while separador:
-            disponivel = largura_util - len(corrente)
-            if disponivel == 0:
-                linhas.append(corrente)
-                corrente = ""
-                continue
-            corrente += separador[:disponivel]
-            separador = separador[disponivel:]
-            if len(corrente) == largura_util:
-                linhas.append(corrente)
-                corrente = ""
-
-    def emitir_palavra(palavra):
-        nonlocal corrente
-        while palavra:
-            if corrente and len(corrente) + len(palavra) > largura_util:
-                linhas.append(corrente)
-                corrente = ""
-                continue
-            disponivel = largura_util - len(corrente)
-            trecho = palavra[:disponivel]
-            corrente += trecho
-            palavra = palavra[len(trecho):]
-            if len(corrente) == largura_util:
-                linhas.append(corrente)
-                corrente = ""
-
-    for token in re.findall(r"\S+|\s+", texto):
-        if token.isspace():
-            emitir_separador(token)
-        else:
-            emitir_palavra(token)
-
-    if corrente:
-        linhas.append(corrente)
-    return linhas or [""]
-
-
-def _justificar_linha(texto, largura):
-    comprimento_atual = _largura_sem_ansi(texto)
-    extra = largura - comprimento_atual
-    if extra <= 0:
-        return texto
-    partes = re.split(r"(\s+)", texto)
-    indices = [
-        indice
-        for indice in range(1, len(partes) - 1, 2)
-        if partes[indice] and partes[indice - 1] and partes[indice + 1]
-        and not partes[indice - 1].isspace()
-        and not partes[indice + 1].isspace()
-    ]
-    if not indices:
-        return texto + " " * extra
-    base, resto = divmod(extra, len(indices))
-    for ordem, indice in enumerate(indices):
-        adicionais = base + (1 if ordem < resto else 0)
-        partes[indice] += " " * adicionais
-    return "".join(partes)
+# Nomes internos preservados como referências diretas para compatibilidade
+# focal; a autoridade das duas capacidades está no módulo canônico.
+_quebrar_texto = compor_texto
+_justificar_linha = _justificar_linha_canonica
 
 
 def _formatar_linha(texto, largura, alinhamento, margem, ultima=True):
@@ -762,6 +698,7 @@ def _formatar_linha(texto, largura, alinhamento, margem, ultima=True):
         central = " " * esquerda + texto + " " * (sobra - esquerda)
     elif alinhamento == "justificado" and not ultima:
         central = _justificar_linha(texto, disponivel)
+        central += " " * (disponivel - _largura_sem_ansi(central))
     else:
         central = texto + " " * sobra
     return " " * margem + central + " " * margem
@@ -902,9 +839,9 @@ def _layout_popup_marcacao(instancia, estilo, largura_corpo=None, altura_corpo=N
         0, len(ids) - 1
     ) * _VAO_ENTRE_ITENS_POPUP
     largura_intrinseca = max(
-        len(declaracao["titulo"]) + 4,
+        _largura_sem_ansi(declaracao["titulo"]) + 4,
         3 + 2 * margem + max(
-            len(texto_instrucao), max(larguras), largura_linha,
+            _largura_sem_ansi(texto_instrucao), max(larguras), largura_linha,
             _largura_sem_ansi(chips_uma_linha),
         ),
     )
@@ -914,13 +851,23 @@ def _layout_popup_marcacao(instancia, estilo, largura_corpo=None, altura_corpo=N
         if isinstance(largura_corpo, bool) or not isinstance(largura_corpo, int):
             raise _erro_geometria("largura fisica do corpo nao inteira")
         largura = min(largura_intrinseca, largura_corpo)
-    if largura < len(declaracao["titulo"]) + 4:
+    if largura < _largura_sem_ansi(declaracao["titulo"]) + 4:
         raise _erro_geometria("titulo nao cabe na moldura")
     content_w = largura - 3
     largura_util = content_w - 2 * margem
     if largura_util <= 0:
         raise _erro_geometria("largura util nao positiva")
-    linhas_instrucao = _quebrar_texto(texto_instrucao, largura_util)
+    modo = (
+        "justificado"
+        if declaracao["alinhamento"] == "justificado"
+        else "normal"
+    )
+    linhas_instrucao = compor_texto(
+        texto_instrucao,
+        largura_util,
+        modo=modo,
+        justificar_ultima=False,
+    )
     linhas_chips = _distribuir_chips(declaracao["chips"], largura_util, estilo)
     overhead = (
         2
@@ -988,8 +935,10 @@ def _layout_popup(instancia, estilo, largura_corpo=None, altura_corpo=None):
     chips_uma_linha = " " * _VAO_ENTRE_CHIPS_POPUP
     chips_uma_linha = chips_uma_linha.join(textos_chips)
     largura_intrinseca = max(
-        len(declaracao["titulo"]) + 4,
-        3 + 2 * margem + max(len(texto), _largura_sem_ansi(chips_uma_linha)),
+        _largura_sem_ansi(declaracao["titulo"]) + 4,
+        3 + 2 * margem + max(
+            _largura_sem_ansi(texto), _largura_sem_ansi(chips_uma_linha)
+        ),
     )
     if largura_corpo is None:
         largura = largura_intrinseca
@@ -998,13 +947,23 @@ def _layout_popup(instancia, estilo, largura_corpo=None, altura_corpo=None):
             raise _erro_geometria("largura fisica do corpo nao inteira")
         largura = min(largura_intrinseca, largura_corpo)
 
-    if largura < len(declaracao["titulo"]) + 4:
+    if largura < _largura_sem_ansi(declaracao["titulo"]) + 4:
         raise _erro_geometria("titulo nao cabe na moldura")
     content_w = largura - 3
     largura_util = content_w - 2 * margem
     if largura_util <= 0:
         raise _erro_geometria("largura util nao positiva")
-    linhas_texto = _quebrar_texto(texto, largura_util)
+    modo = (
+        "justificado"
+        if declaracao["alinhamento"] == "justificado"
+        else "normal"
+    )
+    linhas_texto = compor_texto(
+        texto,
+        largura_util,
+        modo=modo,
+        justificar_ultima=False,
+    )
     linhas_chips = _distribuir_chips(
         declaracao["chips"], largura_util, estilo
     )

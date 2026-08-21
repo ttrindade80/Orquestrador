@@ -195,6 +195,23 @@ _mod_h0057_popup = _importlib_util_executor.module_from_spec(_spec_h0057_popup)
 _spec_h0057_popup.loader.exec_module(_mod_h0057_popup)
 conteudo_popup_h0057 = _mod_h0057_popup.conteudo_popup_h0057
 
+
+def conteudo_popup_h0077():
+    """Conteudo textual longo da demonstracao manual H-0077."""
+    return {
+        "tipo": "texto",
+        "texto": (
+            "Este popup oferece um segundo parágrafo longo para a inspeção "
+            "manual da composição justificada. A redação mistura palavras "
+            "breves e expressões extensas, inclui pontuação variada e mantém "
+            "uma sequência contínua para que a distribuição dos espaços "
+            "apareça nas linhas intermediárias. Quando a janela fica mais "
+            "estreita, o texto deve recompor-se dentro da moldura, sem "
+            "atravessar a borda nem abandonar trechos; ao ampliar novamente, "
+            "as mesmas palavras devem recuperar uma disposição mais aberta."
+        ),
+    }
+
 _spec_h0058_popup = _importlib_util_executor.spec_from_file_location(
     "demo_h0058_popup_lista_marcacao",
     os.path.join(
@@ -262,6 +279,10 @@ _CATALOGO_CONTEUDO_EXTERNO = {
     "h0053_arvore_colapsavel": "h0053_arvore_colapsavel_conteudo",
     "h0054_selecao_multinivel": "h0054_selecao_multinivel_conteudo",
     "h0055_dois_niveis_por_foco": "h0055_dois_niveis_por_foco_conteudo",
+    # H-0077: cenario dedicado para observacao manual de texto amplo e
+    # recomposicao do caminho real de conteudo externo.
+    "h0077_texto_amplo_justificado":
+        "h0077_texto_amplo_justificado_conteudo",
     # H-0072 / ADR-0047: capacidade generica de formatacao dos filhos de
     # dois_niveis_por_foco (tabulacao/designador/apresentacao/tabela). Cenario
     # dedicado, nunca h0055/h0063.
@@ -598,6 +619,7 @@ def _abrir_popup_demonstrativo(estado, modelo, comando):
         return None
     conteudos = {
         "popup_texto_dinamico": conteudo_popup_h0057,
+        "popup_texto_amplo_h0077": conteudo_popup_h0077,
         "popup_lista_exclusiva": conteudo_popup_h0058_exclusiva,
         "popup_lista_multipla": conteudo_popup_h0058_multipla,
         "popup_basico": conteudo_popup_h0056,

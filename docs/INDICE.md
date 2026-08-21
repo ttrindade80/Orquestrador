@@ -44,7 +44,8 @@ Antes de mover este padrao para outro projeto, verificar:
    `contrato_barra_de_menus.md`, `contrato_cabecalho.md`,
    `contrato_lancador.md`, `contrato_tela_json.md`, `contrato_chip.md`,
    `contrato_popup.md`,
-   `contrato_console.md`; contratos incrementais de JSON:
+   `contrato_console.md`,
+   `contrato_composicao_textual.md`; contratos incrementais de JSON:
    `contrato_json_tela_minima.md`,
    `contrato_json_barra_de_menus.md`, `contrato_json_lancador.md`,
    `contrato_json_dashboard.md`, `contrato_json_console.md`)
@@ -94,6 +95,7 @@ docs/
     contrato_chip.md
     contrato_popup.md
     contrato_console.md
+    contrato_composicao_textual.md
   adr/
     INDICE_ADR.md
     ADR-0001-menu-suporta-matriz.md

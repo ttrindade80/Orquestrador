@@ -148,14 +148,6 @@ esta lista.
 **Pre-requisitos:** Levantamento focal da nomenclatura, contrato e ADRs que tratam truncamento e apresentação textual.
 **Proxima acao:** Identificar a contradição exata e obter decisão documental própria.
 
-### ITEM-0027 — Composição e justificação global de texto da TUI
-**Tipo:** implementacao
-**Prioridade:** media
-**Status:** planejado
-**Descricao:** Adotar algoritmo canônico/global de composição de parágrafo e justificação para todas as ocorrências de texto justificado da TUI, evitando soluções locais independentes por componente.
-**Pre-requisitos:** Ciclo próprio de especificação.
-**Proxima acao:** Iniciar ciclo futuro próprio, sem implementar nesta etapa.
-
 ### ITEM-0029 — Ajuda global por F1 e ajuda declarativa dos chips
 **Tipo:** implementacao
 **Prioridade:** media

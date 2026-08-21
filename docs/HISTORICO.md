@@ -437,3 +437,11 @@ Nenhum item registrado.
 **Data:** 2026-08-17
 **Referências:** docs/adr/ADR-0048-persistencia-escolha-filho-por-pai.md; docs/handoff/H-0074-filho-default-carregamento-baseline-runtime.md; docs/handoff/H-0075-aplicar-confirmar-persistir-filho-default.md; docs/relatorios/RELATORIO_FECHAMENTO_ITEM-0026_ADR-0048_H-0074_H-0075.md
 **Resumo:** Persistência da escolha ativa exclusiva de filho por pai concluída. H-0074 materializou `filho_default` obrigatório, validação fail-closed, baseline documental e candidato runtime sem fallback para o primeiro filho. H-0075 materializou o candidato compartilhado por documento e pai, Aplicar por divergência, snapshot, confirmação genérica, ABORTADO sem escrita, CONFIRMADO com escrita atômica fail-closed, promoção da baseline e restauração em nova execução. A QA técnica e as validações manuais dos dois handoffs foram aprovadas; ITEM-0023 e ITEM-0024 permaneceram fora do ciclo.
+
+### ITEM-0027 / ADR-0049 / H-0076 / H-0077 — Composição e justificação global de texto da TUI
+
+**Resultado:** CONCLUIDO
+**Origem:** backlog
+**Data:** 2026-08-20
+**Referências:** docs/adr/ADR-0049-composicao-justificacao-global-texto-tui.md; docs/contratos/contrato_composicao_textual.md; docs/handoff/H-0076-composicao-textual-canonica-popup.md; docs/handoff/H-0077-composicao-textual-conteudo-externo-consumidores.md; docs/relatorios/RELATORIO_FECHAMENTO_ITEM-0027_ADR-0049_H-0076_H-0077.md
+**Resumo:** Autoridade canônica única de composição textual concluída: parágrafo lógico completo, linhas de palavras inteiras e justificação posterior nos vãos aplicáveis. H-0076 entregou o núcleo e o popup; H-0077 migrou conteúdo externo e consumidores correlatos. A validação manual R02 foi aprovada; a R01 permanece como evidência histórica da reprovação que originou D-0027-10. `QA-IMPL-H0077-03` permanece resíduo independente de H-0070, fora deste item.

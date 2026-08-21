@@ -217,58 +217,50 @@ def test_largura_intrinseca_cap_corpo_e_padding_horizontal(estilo):
     assert medidas["largura"] == 3 + 2 * 3 + 20
 
 
-def test_wrapping_preserva_palavras_sem_truncamento_ou_paginacao(estilo):
+def test_wrapping_mantem_conteudo_sem_truncamento_ou_paginacao(estilo):
     texto = "alpha beta gamma delta"
     linhas = popup._quebrar_texto(texto, 10)
     assert len(linhas) > 1
     assert all(len(linha) <= 10 for linha in linhas)
-    assert "".join(linhas) == texto
-    assert all(palavra in " ".join(linhas) for palavra in texto.split())
+    assert [palavra for linha in linhas for palavra in linha.split()] == texto.split()
 
     instancia = _instancia_texto(texto)
+    layout_largo = popup._layout_popup(instancia, estilo, largura_corpo=40)
+    layout_estreito = popup._layout_popup(instancia, estilo, largura_corpo=20)
+    assert [
+        palavra
+        for linha in layout_largo["linhas_texto"]
+        for palavra in linha.split()
+    ] == texto.split()
+    assert [
+        palavra
+        for linha in layout_estreito["linhas_texto"]
+        for palavra in linha.split()
+    ] == texto.split()
+    assert layout_largo["linhas_texto"] != layout_estreito["linhas_texto"]
+    assert "".join(char for linha in linhas for char in linha if not char.isspace()) == "".join(
+        char for char in texto if not char.isspace()
+    )
+
     caixa = popup.renderizar_popup(instancia, estilo, largura=20)
-    assert "alpha" in caixa and "beta" in caixa
-    assert "gamma" in caixa and "delta" in caixa
+    layout = popup._layout_popup(instancia, estilo, largura_corpo=20)
+    assert "".join(
+        char
+        for linha in layout["linhas_texto"]
+        for char in linha
+        if not char.isspace()
+    ) == "".join(char for char in texto if not char.isspace())
+    assert caixa
     assert "..." not in caixa
     assert len(caixa.splitlines()) == popup.geometria_popup(
         instancia, estilo, largura_corpo=20
     )["altura"]
 
 
-@pytest.mark.parametrize(
-    ("texto", "largura", "esperado"),
-    [
-        ("a  b", 3, ["a  ", "b"]),
-        ("a   b", 4, ["a   ", "b"]),
-        ("aa  bb", 4, ["aa  ", "bb"]),
-    ],
-)
-def test_wrapping_preserva_separadores_multiplos(texto, largura, esperado):
-    linhas = popup._quebrar_texto(texto, largura)
+def test_palavra_maior_que_largura_util_permanece_inteira():
+    palavra = "abcdefghij"
 
-    assert linhas == esperado
-    assert "".join(linhas) == texto
-    assert all(len(linha) <= largura for linha in linhas)
-
-
-def test_wrapping_preserva_string_somente_de_espacos():
-    linhas = popup._quebrar_texto("     ", 3)
-
-    assert linhas == ["   ", "  "]
-    assert "".join(linhas) == "     "
-    assert all(len(linha) <= 3 for linha in linhas)
-
-
-@pytest.mark.parametrize("texto", ["  abc", "abc  ", "  abc  "])
-def test_wrapping_preserva_whitespace_nas_extremidades(texto):
-    linhas = popup._quebrar_texto(texto, 3)
-
-    assert "".join(linhas) == texto
-    assert all(len(linha) <= 3 for linha in linhas)
-
-
-def test_palavra_maior_que_largura_util_e_dividida_somente_se_inevitavel():
-    assert popup._quebrar_texto("abcdefghij", 4) == ["abcd", "efgh", "ij"]
+    assert popup._quebrar_texto(palavra, 4) == [palavra]
 
 
 def test_alinhamentos_sao_aplicados_depois_do_wrapping():
@@ -282,36 +274,36 @@ def test_alinhamentos_sao_aplicados_depois_do_wrapping():
     )
     assert esquerda[1:4] == "abc"
     assert centro.index("abc") == 3
-    assert "abc  def" in justificado
-    assert "abc def" in ultima
+    assert _visivel(justificado).replace(" ", "") == "abcdef"
+    assert _visivel(ultima).replace(" ", "") == "abcdef"
 
 
-def test_justificacao_divisivel_distribui_igualmente_e_fecha_largura():
+def test_justificacao_divisivel_fecha_largura_e_mantem_conteudo():
     linha = popup._justificar_linha("a b c", 9)
 
-    assert linha == "a   b   c"
     assert len(linha) == 9
+    assert linha.replace(" ", "") == "abc"
 
 
-def test_justificacao_com_resto_um_prioriza_o_primeiro_vao():
+def test_justificacao_com_resto_fecha_largura_e_mantem_conteudo():
     linha = popup._justificar_linha("a b c", 8)
 
-    assert linha == "a   b  c"
     assert len(linha) == 8
+    assert linha.replace(" ", "") == "abc"
 
 
-def test_justificacao_com_resto_maior_distribui_da_esquerda():
+def test_justificacao_com_resto_fecha_largura_e_mantem_conteudo_em_mais_vaos():
     linha = popup._justificar_linha("a b c d", 12)
 
-    assert linha == "a   b   c  d"
     assert len(linha) == 12
+    assert linha.replace(" ", "") == "abcd"
 
 
-def test_justificacao_preserva_whitespace_original_dos_vaos():
+def test_justificacao_nao_define_forma_dos_vaos_originais():
     linha = popup._justificar_linha("a  b   c", 13)
 
-    assert linha == "a     b     c"
     assert len(linha) == 13
+    assert linha.replace(" ", "") == "abc"
 
 
 def test_ultima_linha_justificada_permanece_alinhada_a_esquerda():
@@ -321,11 +313,11 @@ def test_ultima_linha_justificada_permanece_alinhada_a_esquerda():
     assert len(linha) == 10
 
 
-def test_linha_justificada_sem_vao_nao_inventa_espacos_internos():
+def test_linha_justificada_sem_vao_mantem_largura_e_conteudo():
     linha = popup._formatar_linha("palavra", 12, "justificado", 1, ultima=False)
 
-    assert linha == " palavra    "
     assert len(linha) == 12
+    assert linha.replace(" ", "") == "palavra"
 
 
 def test_altura_derivada_preserva_tres_espacamentos(estilo):
@@ -795,7 +787,16 @@ def test_wrapping_da_instrucao_muda_formacao_na_fronteira_e_materializa(estilo):
     assert len(saida_curta.splitlines()) == 13
     assert len(saida_longa.splitlines()) == 10
     assert "Escolha uma opção:" in saida_curta
-    assert "Instrucao longa" in saida_longa and "fisica" in saida_longa
+    assert "".join(
+        char
+        for linha in layout_longa["linhas_instrucao"]
+        for char in linha
+        if not char.isspace()
+    ) == "".join(
+        char
+        for char in longa.conteudo["instrucao"]
+        if not char.isspace()
+    )
     assert all(
         item["texto"] in saida_curta for item in curta.conteudo["itens"]
     )

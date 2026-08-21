@@ -15,7 +15,7 @@ from tela.renderizacao.contexto_execucao import (
     _participante_eh_selecionavel,
     _selecao_do_console_de_contexto,
 )
-from tela.renderizacao.conteudo_externo import _quebrar_texto
+from tela.renderizacao.composicao_textual import compor_texto
 from tela.renderizacao.console import mapa_fisico_de_itens
 import tela.renderizacao.matriz_participantes as _matriz
 from tela.renderizacao.matriz_participantes import (
@@ -93,7 +93,7 @@ def _linhas_texto_item_para_pagina(
     if largura_texto is None:
         largura_texto = content_w - _largura_indicador_do_elemento(elemento)
     largura = max(1, largura_texto)
-    return _quebrar_texto(texto, largura)
+    return compor_texto(texto, largura)
 
 
 def _elemento_fragmentado_para_pagina(elemento, content_w, altura_alvo, verboso):

@@ -124,13 +124,30 @@ def _item(id_item, linhas, politica, navegavel=True):
     }
 
 
+def _item_p16_palavras_inteiras(id_item, palavras, politica, navegavel=True):
+    # A celula do fixture reserva dois indicadores, portanto a largura textual
+    # efetiva e 76. Palavras de 37 colunas permitem duas por linha (75 com o
+    # vao), mantendo a quebra exclusivamente entre palavras inteiras.
+    texto = " ".join(
+        ("P{0:02d}_".format(i + 1) + ("y" * 33))[:37]
+        for i in range(palavras)
+    )
+    return {
+        "id": id_item,
+        "texto": texto,
+        "navegavel": navegavel,
+        "politica_quebra": politica,
+    }
+
+
 def test_p16_fluxo_continuo_comeca_na_proxima_linha_disponivel():
     """permitir_quebra: aproveita residuo; pode iniciar na ultima linha util."""
     C = 5
     console = _console_sintetico(
         [
-            _item("a", 4, "permitir_quebra"),
-            _item("b", 3, "permitir_quebra"),
+            # 7 e 5 palavras produzem 4 e 3 linhas físicas canônicas.
+            _item_p16_palavras_inteiras("a", 7, "permitir_quebra"),
+            _item_p16_palavras_inteiras("b", 5, "permitir_quebra"),
         ]
     )
     plano = paginacao.plano_de_paginacao(
@@ -188,8 +205,12 @@ def test_p16_condicional_move_inteiro_quando_nao_cabe_no_residuo():
     politica = "permitir_quebra_somente_se_maior_que_pagina"
     console = _console_sintetico(
         [
-            _item("a", 4, politica),
-            _item("b", 3, politica),  # nao cabe no residuo 2; cabe em pagina vazia
+            # A composição canônica produz 4 linhas físicas para ``a`` e 3
+            # para ``b``; ``b`` não cabe no resíduo 2.
+            _item_p16_palavras_inteiras("a", 7, politica),
+            _item_p16_palavras_inteiras(
+                "b", 5, politica
+            ),  # nao cabe no residuo 2; cabe em pagina vazia
         ]
     )
     plano = paginacao.plano_de_paginacao(
@@ -202,6 +223,7 @@ def test_p16_condicional_move_inteiro_quando_nao_cabe_no_residuo():
 
 def test_p16_item_maior_que_pagina_nas_tres_politicas():
     C = 4
+    linhas_fisicas_esperadas = 9
     for politica, id_item in (
         ("permitir_quebra", "perm"),
         ("evitar_quebra", "evit"),
@@ -209,8 +231,9 @@ def test_p16_item_maior_que_pagina_nas_tres_politicas():
     ):
         console = _console_sintetico(
             [
-                _item("pre", 1, politica),
-                _item(id_item, 9, politica),
+                _item_p16_palavras_inteiras("pre", 1, politica),
+                # 17 palavras do fixture compõem 9 linhas físicas canônicas.
+                _item_p16_palavras_inteiras(id_item, 17, politica),
             ]
         )
         plano = paginacao.plano_de_paginacao(
@@ -219,7 +242,7 @@ def test_p16_item_maior_que_pagina_nas_tres_politicas():
         frags = [
             f for p in plano["paginas"] for f in p["fragmentos"] if f["id"] == id_item
         ]
-        assert sum(f["linhas_fisicas"] for f in frags) == 9
+        assert sum(f["linhas_fisicas"] for f in frags) == linhas_fisicas_esperadas
         assert len(frags) >= 2
         # Condicional e evitar comecam o item grande em pagina nova (pre ocupa 1).
         if politica != "permitir_quebra":

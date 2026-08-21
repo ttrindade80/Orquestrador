@@ -333,6 +333,9 @@ def teste_sobra_permanece_a_direita_sem_ampliar_tabulacao_ou_espacamento():
 
 def teste_quebra_multilinha_quando_nao_cabe_mesmo_apos_compactacao():
     nos = _nos_tabela()
+    # O caso multilinear deve nascer de duas palavras logicas, nao da antiga
+    # divisao fisica da palavra unica ``Valor1``.
+    nos[0].filhos[0].campos["b"] = "Valor um"
     config = _config_tabela(3, 8)
     # Largura extremamente apertada: nem o espacamento minimo cabe -> a
     # ultima coluna quebra em multiplas linhas fisicas.
@@ -343,6 +346,9 @@ def teste_quebra_multilinha_quando_nao_cabe_mesmo_apos_compactacao():
 
 def teste_continuacao_sem_novo_cursor_toggle_ou_identidade():
     nos = _nos_tabela()
+    # Mantem um unico item logico e cria a continuacao pela fronteira entre
+    # palavras inteiras, sem fragmentar ``Valor1``.
+    nos[0].filhos[0].campos["b"] = "Valor um"
     config = _config_tabela(3, 8)
     entradas = _renderizar(nos, config, content_w=15, no_corrente_id="f11")
     # Um unico item logico (uma entrada) para f11, mesmo com varias linhas.
@@ -922,4 +928,3 @@ def teste_p01_schema_aceita_adornos_string_opcionais(tmp_path):
     _escrever_tela_com_console(tmp_path, "h0072_adornos_ok", console)
     carregada = carregar_tela(tmp_path, "h0072_adornos_ok")
     assert carregada["id"] == "h0072_adornos_ok"
-\n

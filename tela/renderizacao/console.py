@@ -341,4 +341,3 @@ def mapa_fisico_de_itens(
             }
         )
     return entradas
-\n

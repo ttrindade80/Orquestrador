@@ -537,4 +537,3 @@ __all__ = [
     "PresetEstilo",
     "SolicitacaoAplicacaoEstilo",
 ]
-\n

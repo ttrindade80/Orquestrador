@@ -16,8 +16,8 @@ from tela.renderizacao.geometria_caixa import (
     _pesos_distribuicao,
 )
 from tela.renderizacao.designadores import _alfabetico, _romano, _texto_designador
+from tela.renderizacao.composicao_textual import _quebrar_texto
 from tela.renderizacao.conteudo_externo import (
-    _quebrar_texto,
     _texto_valor_campo,
     _truncar_com_marcador,
 )

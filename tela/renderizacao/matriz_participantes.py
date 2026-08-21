@@ -17,10 +17,8 @@ from tela.renderizacao.contexto_execucao import (
     _participante_eh_selecionavel,
     _selecao_do_console_de_contexto,
 )
-from tela.renderizacao.conteudo_externo import (
-    _participantes_de_conteudo_externo,
-    _quebrar_texto,
-)
+from tela.renderizacao.composicao_textual import compor_texto
+from tela.renderizacao.conteudo_externo import _participantes_de_conteudo_externo
 from tela.renderizacao.texto_ansi import _cortar_sem_ansi
 
 def _aplicar_indicador_linhas(linhas, elemento, content_w, largura_grade):
@@ -350,7 +348,7 @@ def _renderizar_participante_com_indicador(
     # útil de texto (modo verboso). No modo não verboso, o texto que excede é
     # simplesmente truncado pela fronteira da célula (comportamento histórico).
     if quebrar and texto_w > 0:
-        fragmentos = _quebrar_texto(texto_integral, texto_w)
+        fragmentos = compor_texto(texto_integral, texto_w)
     else:
         fragmentos = [texto_integral]
 
@@ -391,7 +389,7 @@ def _altura_quebra_item(texto, largura_texto):
     """Número de linhas físicas reais de ``texto`` na largura dada (modo verboso)."""
     if largura_texto <= 0:
         return 1
-    return max(1, len(_quebrar_texto(texto, largura_texto)))
+    return max(1, len(compor_texto(texto, largura_texto)))
 
 
 def _item_console_e_navegavel(item):
@@ -533,4 +531,3 @@ def _larguras_mapa_fisico_matricial(
                 for celula in resultado_recalculado["celulas"]
             }
     return larguras
-\n

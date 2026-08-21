@@ -1,0 +1,21 @@
+{
+  "tipo": "multinivel",
+  "formato": {
+    "apresentacao": "hierarquia",
+    "niveis": [
+      {
+        "id": "paragrafo",
+        "tipo": "conteudo",
+        "conteudo": "texto",
+        "designador": {"tipo": "nenhum"}
+      }
+    ]
+  },
+  "dados": [
+    {
+      "id": "h0077_paragrafo_corpo",
+      "nivel": "paragrafo",
+      "texto": "Esta demonstração reúne um parágrafo amplo para tornar visível a recomposição física do texto quando a janela muda de tamanho. A leitura começa com uma frase de ritmo variado: alternando palavras curtas, termos medianos e expressões mais extensas; assim, cada quebra revela uma combinação diferente de espaços e comprimentos. Ao ampliar o terminal, mais palavras permanecem na mesma linha e o bloco se torna baixo. Ao reduzir a largura, a sequência continua íntegra, mas passa a ocupar novas linhas, com fronteiras deslocadas de maneira fácil de comparar. O que muda?"
+    }
+  ]
+}

@@ -123,7 +123,20 @@ def test_h0057_wrapping_recompoe_e_preserva_a_mesma_instancia():
     assert restaurado == largo
     assert all(len(linha) == 80 for linha in largo.splitlines())
     assert all(len(linha) == 75 for linha in estreito.splitlines())
-    assert all(palavra in estreito for palavra in ("conteudo", "wrapping", "instancia"))
+    layout = popup._layout_popup(instancia, estilo, largura_corpo=75)
+    assert [
+        palavra
+        for linha in layout["linhas_texto"]
+        for palavra in linha.split()
+    ] == instancia.conteudo["texto"].split()
+    assert "".join(
+        char
+        for linha in layout["linhas_texto"]
+        for char in linha
+        if not char.isspace()
+    ) == "".join(
+        char for char in instancia.conteudo["texto"] if not char.isspace()
+    )
     assert popup.geometria_popup(instancia, estilo, largura_corpo=75)["largura"] == 75
 
 
